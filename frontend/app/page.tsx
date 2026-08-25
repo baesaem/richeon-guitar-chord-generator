@@ -187,10 +187,14 @@ export default function Home() {
         <div className={tab === "home" ? "flex h-full flex-col" : "hidden"}>
           {result ? (
             <>
-              <PlayerPane result={result} onReady={setPlayback} />
+              <PlayerPane
+                result={result}
+                onReady={setPlayback}
+                compact={settings.videoCompact}
+              />
 
-              {/* 파형 / 코드악보 전환 */}
-              <div className="flex gap-1 border-b border-gray-200 px-3 py-1.5 dark:border-gray-800">
+              {/* 파형 / 코드악보 전환 + 영상 접기 */}
+              <div className="flex shrink-0 gap-1 border-b border-gray-200 px-2 py-1 dark:border-gray-800">
                 {(
                   [
                     ["wave", "파형"],
@@ -201,7 +205,7 @@ export default function Home() {
                     key={value}
                     onClick={() => setSettings({ ...settings, view: value })}
                     className={[
-                      "flex-1 rounded py-1.5 text-sm",
+                      "flex-1 rounded py-1 text-sm",
                       settings.view === value
                         ? "bg-black text-white dark:bg-white dark:text-black"
                         : "bg-gray-100 dark:bg-gray-800",
@@ -210,6 +214,15 @@ export default function Home() {
                     {label}
                   </button>
                 ))}
+                <button
+                  onClick={() =>
+                    setSettings({ ...settings, videoCompact: !settings.videoCompact })
+                  }
+                  className="w-16 shrink-0 rounded bg-gray-100 py-1 text-xs dark:bg-gray-800"
+                  title="영상을 접어 코드에 자리를 넘깁니다"
+                >
+                  {settings.videoCompact ? "영상 펴기" : "영상 접기"}
+                </button>
               </div>
 
               {/* 파형과 코드악보는 같은 자리(영상 바로 아래)를 쓴다 */}
@@ -238,11 +251,11 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 border-y border-gray-200 px-3 py-2 dark:border-gray-800">
+              <div className="flex shrink-0 items-center gap-3 border-y border-gray-200 px-3 py-1 dark:border-gray-800">
                 <ChordDiagram
                   voicing={cur ? voicingFor(cur.root, cur.quality) : null}
                   label={cur?.label ?? ""}
-                  width={104}
+                  width={86}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-3xl font-bold leading-none">

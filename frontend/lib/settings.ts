@@ -16,6 +16,8 @@ export interface Settings {
   notation: Notation;
   /** 파형 / 코드악보 중 어느 쪽을 볼지 */
   view: View;
+  /** 영상을 접어 코드 표시에 자리를 넘길지 */
+  videoCompact: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -23,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pixelsPerSecond: 90,
   notation: "auto",
   view: "wave",
+  videoCompact: false,
 };
 
 const KEY = "chordgen.settings";

@@ -17,7 +17,7 @@ interface Props {
   pixelsPerSecond?: number;
   onSeek?: (t: number) => void;
   /**
-   * 전체 높이(px). 위쪽 30px은 눈금과 코드 칩이 쓰고 나머지가 파형이다.
+   * 전체 높이(px). 위쪽 33px은 눈금과 코드 칩이 쓰고 나머지가 파형이다.
    * 폰 세로 화면에서는 아래 코드 테이블에 자리를 더 주는 편이 낫다.
    */
   height?: number;
@@ -69,7 +69,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
     const originX = playheadX - time * pixelsPerSecond;
     // 위쪽 여백은 눈금과 코드 칩이 쓴다. 폰에서는 최소한으로 줄인다.
     const rulerH = 11;
-    const laneH = 19;               // 코드 칩이 놓이는 띠
+    const laneH = 22;               // 코드 칩이 놓이는 띠
     const waveTop = rulerH + laneH;
     const waveH = h - waveTop;
     const mid = waveTop + waveH / 2;
@@ -136,7 +136,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
     }
 
     // --- 코드 칩 ---
-    ctx.font = "600 11px system-ui, sans-serif";
+    ctx.font = "700 14px system-ui, sans-serif";
     ctx.textBaseline = "middle";
     for (const chord of result.chords) {
       const x = originX + chord.start * pixelsPerSecond;
@@ -144,7 +144,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
 
       const text = labelFor(transposeRoot(chord.root, transpose), chord.quality, flats);
       const tw = ctx.measureText(text).width;
-      const boxW = tw + 10;
+      const boxW = tw + 12;
       const boxY = rulerH + 2;
       const boxH = laneH - 4;
 
@@ -154,7 +154,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
       ctx.fill();
 
       ctx.fillStyle = chipFg;
-      ctx.fillText(text, x + 5, boxY + boxH / 2);
+      ctx.fillText(text, x + 6, boxY + boxH / 2);
 
       // 코드가 바뀌는 지점을 파형에도 표시
       ctx.strokeStyle = chipBg;
