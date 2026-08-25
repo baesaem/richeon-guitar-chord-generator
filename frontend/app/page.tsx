@@ -370,14 +370,6 @@ export default function Home() {
               </section>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3">
-                <button
-                  className="mt-2 w-full py-1.5 text-xs text-gray-500 underline"
-                  onClick={() => {
-                    resetPlayback();
-                  }}
-                >
-                  다른 곡 분석
-                </button>
                 <Copyright />
               </div>
 
