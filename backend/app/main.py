@@ -17,7 +17,7 @@ from .schemas import AnalysisResult, AnalyzeRequest, Chord
 from .sources import UploadSource, YouTubeSource
 from .sources.youtube import YouTubeUnavailable
 
-app = FastAPI(title="ChordGen API", version=PIPELINE_VERSION)
+app = FastAPI(title="리천 기타 코드 자동생성기 API", version=PIPELINE_VERSION)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

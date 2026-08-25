@@ -98,7 +98,7 @@ export default function Home() {
     return (
       <main className="mx-auto max-w-2xl space-y-5 p-4">
         <header>
-          <h1 className="text-2xl font-bold">기타 코드 자동 추출</h1>
+          <h1 className="text-2xl font-bold">리천 기타 코드 자동생성기</h1>
           <p className="text-sm text-gray-500">
             {health
               ? `${health.device} · ${health.pipeline_version}` +
