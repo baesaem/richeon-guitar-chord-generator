@@ -23,12 +23,20 @@ from ..sources.base import FetchedAudio, ProgressFn, save_sidecar
 from . import chords as chord_rec
 from .beats import BEAT_MODEL, estimate_downbeat_phase, track_beats
 from .decode import DecodedAudio, decode_to_wav
-from .features import beat_boundaries, chroma, load_audio, onset_envelope, sync_to_beats
+from .features import (
+    beat_boundaries,
+    chroma,
+    envelope,
+    load_audio,
+    onset_envelope,
+    sync_to_beats,
+)
 from .key import estimate_key
 
-PIPELINE_VERSION = "0.3.0-template"
+PIPELINE_VERSION = "0.4.0-waveform"
 
 BEATS_PER_BAR = 4
+PEAKS_PER_SECOND = 25
 
 
 def resolve_device() -> str:
@@ -89,6 +97,7 @@ async def analyze(
     beat_period = 60.0 / grid.bpm if grid.bpm > 0 else 0.5
     segments = chord_rec.merge_short_segments(segments, min_duration=beat_period * 0.9)
     key_name, _ = estimate_key(frame_chroma)
+    peaks = await asyncio.to_thread(envelope, buffer, PEAKS_PER_SECOND)
     await progress(JobStage.POSTPROCESS, 1.0, f"{key_name or '조성 미상'} · 코드 {len(segments)}개")
 
     # 종료(DONE/FAILED) 이벤트는 JobManager가 result_id와 함께 발행한다.
@@ -99,6 +108,7 @@ async def analyze(
         grid=grid,
         segments=segments,
         key_name=key_name,
+        peaks=peaks,
         separate=separate,
         device=device,
         elapsed=time.perf_counter() - started,
@@ -112,6 +122,7 @@ def _build_result(
     grid,
     segments: list[chord_rec.ChordSegment],
     key_name: str,
+    peaks: list[float],
     separate: bool,
     device: str,
     elapsed: float,
@@ -151,6 +162,8 @@ def _build_result(
         key=key_name,
         beats=beats,
         chords=chord_list,
+        peaks=peaks,
+        peaks_per_second=PEAKS_PER_SECOND,
         confidence=round(min(max(overall, 0.0), 1.0), 3),
         meta=AnalysisMeta(
             pipeline_version=PIPELINE_VERSION,

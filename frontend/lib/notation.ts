@@ -40,3 +40,19 @@ export function spell(label: string, flats: boolean): string {
 export function spellKey(key: string): string {
   return spell(key, prefersFlats(key));
 }
+
+const SHARP_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+/** 근음을 반음 단위로 옮긴다. 카포/이조 표시용. */
+export function transposeRoot(root: string | null, semitones: number): string | null {
+  if (!root) return null;
+  const pc = PITCH_CLASS[root];
+  if (pc === undefined) return null;
+  return SHARP_NAMES[(((pc + semitones) % 12) + 12) % 12];
+}
+
+/** 근음 + 종류로 표시용 라벨을 만든다. */
+export function labelFor(root: string | null, quality: string, flats: boolean): string {
+  if (!root || quality === "N") return "N.C.";
+  return spell(quality === "min" ? `${root}m` : root, flats);
+}

@@ -11,7 +11,7 @@ import traceback
 import uuid
 from typing import AsyncIterator
 
-from .analysis.pipeline import analyze
+from .analysis.pipeline import PIPELINE_VERSION, analyze
 from .config import settings
 from .schemas import AnalysisResult, JobStage, JobStatus
 from .sources.base import AudioSource
@@ -129,9 +129,15 @@ def load_result(result_id: str) -> AnalysisResult | None:
     if not path.exists():
         return None
     try:
-        return AnalysisResult.model_validate_json(path.read_text(encoding="utf-8"))
+        result = AnalysisResult.model_validate_json(path.read_text(encoding="utf-8"))
     except Exception:
         return None  # 스키마가 바뀐 옛 캐시는 무시하고 재분석
+
+    # 파이프라인이 올라갔으면 옛 결과는 버린다. 안 그러면 모델을 바꿔도
+    # 캐시 때문에 예전 결과가 계속 나와 개선을 확인할 수 없다.
+    if result.meta.pipeline_version != PIPELINE_VERSION:
+        return None
+    return result
 
 
 def save_result(result: AnalysisResult) -> None:

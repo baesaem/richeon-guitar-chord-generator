@@ -15,21 +15,28 @@ const PITCH_CLASS: Record<string, number> = {
 export interface Voicing {
   /** 6개. 낮은 E(6번줄)부터 순서대로. -1 = 뮤트, 0 = 개방현 */
   frets: number[];
+  /** 6개. 짚는 손가락 번호(1=검지 … 4=새끼). 0 = 안 짚음 */
+  fingers: number[];
   /** 바레: 해당 프렛을 fromString~toString(0=6번줄) 까지 누른다 */
   barre?: { fret: number; fromString: number; toString: number };
   /** 다이어그램 맨 위에 표시할 시작 프렛 */
   baseFret: number;
 }
 
-const OPEN_SHAPES: Record<string, number[]> = {
-  C: [-1, 3, 2, 0, 1, 0],
-  A: [-1, 0, 2, 2, 2, 0],
-  G: [3, 2, 0, 0, 0, 3],
-  E: [0, 2, 2, 1, 0, 0],
-  D: [-1, -1, 0, 2, 3, 2],
-  Am: [-1, 0, 2, 2, 1, 0],
-  Em: [0, 2, 2, 0, 0, 0],
-  Dm: [-1, -1, 0, 2, 3, 1],
+interface Shape {
+  frets: number[];
+  fingers: number[];
+}
+
+const OPEN_SHAPES: Record<string, Shape> = {
+  C:  { frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0] },
+  A:  { frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0] },
+  G:  { frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3] },
+  E:  { frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0] },
+  D:  { frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2] },
+  Am: { frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0] },
+  Em: { frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0] },
+  Dm: { frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1] },
 };
 
 // 개방현 음정: 6번줄 E(4) … 5번줄 A(9)
@@ -50,8 +57,19 @@ function barreVoicing(
         ? [-1, fret, fret + 2, fret + 2, fret + 1, fret]
         : [-1, fret, fret + 2, fret + 2, fret + 2, fret];
 
+  // 바레는 언제나 검지(1). 나머지는 폼별 표준 운지.
+  const fingers =
+    shape === "E"
+      ? minor
+        ? [1, 3, 4, 1, 1, 1]
+        : [1, 3, 4, 2, 1, 1]
+      : minor
+        ? [0, 1, 3, 4, 2, 1]
+        : [0, 1, 2, 3, 4, 1];
+
   return {
     frets,
+    fingers,
     barre: { fret, fromString: shape === "E" ? 0 : 1, toString: 5 },
     baseFret: fret <= 3 ? 1 : fret,
   };
@@ -65,7 +83,7 @@ export function voicingFor(root: string | null, quality: string): Voicing | null
   const key = minor ? `${root}m` : root;
   const open = OPEN_SHAPES[key];
   if (open) {
-    return { frets: open, baseFret: 1 };
+    return { frets: open.frets, fingers: open.fingers, baseFret: 1 };
   }
 
   const pc = PITCH_CLASS[root];

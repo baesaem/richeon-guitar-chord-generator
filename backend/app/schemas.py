@@ -93,6 +93,10 @@ class AnalysisResult(BaseModel):
     chords: list[Chord] = []
     sections: list[Section] = []
 
+    # 타임라인에 그릴 파형 포락선. 0~1로 정규화된 값이 초당 peaks_per_second개.
+    peaks: list[float] = []
+    peaks_per_second: int = 0
+
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     meta: AnalysisMeta
 

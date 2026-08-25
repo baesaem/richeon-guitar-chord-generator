@@ -1,52 +1,65 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import YouTube, { type YouTubePlayer } from "react-youtube";
 
 import { apiBase } from "@/lib/api";
 import type { AnalysisResult } from "@/lib/types";
 
-interface Props {
-  result: AnalysisResult;
-  onTime: (t: number) => void;
+/** 재생 제어. YouTube든 업로드 오디오든 화면 쪽은 이 인터페이스만 안다. */
+export interface Playback {
+  getTime(): number;
+  seek(t: number): void;
+  play(): void;
+  pause(): void;
+  isPlaying(): boolean;
+  setRate(rate: number): void;
 }
 
-/**
- * 재생 영역.
- *
- * YouTube 결과는 IFrame 플레이어로 재생한다(오디오를 우리가 스트리밍하지 않는다).
- * 업로드 결과는 백엔드가 원본을 그대로 내보내므로 <audio>로 재생한다.
- */
-export function PlayerPane({ result, onTime }: Props) {
-  const playerRef = useRef<YouTubePlayer | null>(null);
+interface Props {
+  result: AnalysisResult;
+  onReady: (playback: Playback) => void;
+}
+
+export function PlayerPane({ result, onReady }: Props) {
+  const ytRef = useRef<YouTubePlayer | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [ready, setReady] = useState(false);
+  const playingRef = useRef(false);
 
-  // 콜백이 매 렌더 바뀌어도 rAF 루프를 다시 시작하지 않도록 ref에 담아 둔다.
-  const onTimeRef = useRef(onTime);
+  const publish = () => {
+    onReady({
+      getTime: () => {
+        const yt = ytRef.current;
+        if (yt?.getCurrentTime) {
+          const t = yt.getCurrentTime();
+          return typeof t === "number" ? t : 0;
+        }
+        return audioRef.current?.currentTime ?? 0;
+      },
+      seek: (t) => {
+        if (ytRef.current?.seekTo) ytRef.current.seekTo(t, true);
+        else if (audioRef.current) audioRef.current.currentTime = t;
+      },
+      play: () => {
+        if (ytRef.current?.playVideo) ytRef.current.playVideo();
+        else audioRef.current?.play();
+      },
+      pause: () => {
+        if (ytRef.current?.pauseVideo) ytRef.current.pauseVideo();
+        else audioRef.current?.pause();
+      },
+      isPlaying: () => playingRef.current,
+      setRate: (rate) => {
+        if (ytRef.current?.setPlaybackRate) ytRef.current.setPlaybackRate(rate);
+        else if (audioRef.current) audioRef.current.playbackRate = rate;
+      },
+    });
+  };
+
   useEffect(() => {
-    onTimeRef.current = onTime;
-  }, [onTime]);
-
-  useEffect(() => {
-    if (!ready) return;
-
-    let raf = 0;
-    const loop = () => {
-      const yt = playerRef.current;
-      const audio = audioRef.current;
-      if (yt?.getCurrentTime) {
-        const t = yt.getCurrentTime();
-        if (typeof t === "number") onTimeRef.current(t);
-      } else if (audio) {
-        onTimeRef.current(audio.currentTime);
-      }
-      raf = requestAnimationFrame(loop);
-    };
-
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [ready]);
+    if (result.source !== "youtube") return;
+    // 업로드가 아닌 경우는 onReady에서 publish 한다
+  }, [result.source]);
 
   if (result.source === "youtube") {
     return (
@@ -57,8 +70,11 @@ export function PlayerPane({ result, onTime }: Props) {
           iframeClassName="h-full w-full"
           opts={{ playerVars: { playsinline: 1, rel: 0 } }}
           onReady={(e) => {
-            playerRef.current = e.target;
-            setReady(true);
+            ytRef.current = e.target;
+            publish();
+          }}
+          onStateChange={(e) => {
+            playingRef.current = e.data === 1;
           }}
         />
       </div>
@@ -68,10 +84,11 @@ export function PlayerPane({ result, onTime }: Props) {
   return (
     <audio
       ref={audioRef}
-      controls
       className="w-full"
       src={`${apiBase()}/api/audio/${result.id}`}
-      onLoadedMetadata={() => setReady(true)}
+      onLoadedMetadata={publish}
+      onPlay={() => (playingRef.current = true)}
+      onPause={() => (playingRef.current = false)}
     />
   );
 }

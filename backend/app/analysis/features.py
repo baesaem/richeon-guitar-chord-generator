@@ -74,3 +74,25 @@ def beat_boundaries(beat_times: np.ndarray) -> np.ndarray:
 def normalize_columns(mat: np.ndarray) -> np.ndarray:
     norms = np.linalg.norm(mat, axis=0, keepdims=True)
     return mat / np.maximum(norms, 1e-9)
+
+
+def envelope(audio: AudioBuffer, per_second: int = 25) -> list[float]:
+    """타임라인용 파형 포락선.
+
+    구간별 최대 진폭을 0~1로 정규화해 돌려준다. 화면에 그리는 용도라
+    정밀도가 필요 없어 소수 둘째 자리까지만 남겨 JSON 크기를 줄인다.
+    """
+    if len(audio.y) == 0:
+        return []
+
+    bucket = max(int(audio.sr / per_second), 1)
+    n = len(audio.y) // bucket
+    if n == 0:
+        return []
+
+    trimmed = np.abs(audio.y[: n * bucket]).reshape(n, bucket)
+    peaks = trimmed.max(axis=1)
+    peak_max = float(peaks.max())
+    if peak_max <= 1e-9:
+        return [0.0] * n
+    return [round(float(v), 2) for v in peaks / peak_max]

@@ -68,6 +68,9 @@ export interface AnalysisResult {
   beats: Beat[];
   chords: Chord[];
   sections: Section[];
+  /** 타임라인에 그릴 파형 포락선 (0~1) */
+  peaks: number[];
+  peaks_per_second: number;
   confidence: number;
   meta: AnalysisMeta;
 }

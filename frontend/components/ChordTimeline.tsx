@@ -3,12 +3,14 @@
 import { useEffect, useRef } from "react";
 
 import type { Bar } from "@/lib/bars";
-import { spell } from "@/lib/notation";
+import { labelFor, transposeRoot } from "@/lib/notation";
 
 interface Props {
   bars: Bar[];
   currentBar: number;
   flats: boolean;
+  /** 이조 반음 수. 하단 「음높이」 설정과 연동된다 */
+  transpose: number;
   follow: boolean;
 }
 
@@ -17,7 +19,7 @@ interface Props {
  *
  * 폰 세로 화면 기준으로 한 줄에 4마디. 재생 중인 마디를 화면 가운데로 따라간다.
  */
-export function ChordTimeline({ bars, currentBar, flats, follow }: Props) {
+export function ChordTimeline({ bars, currentBar, flats, transpose, follow }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export function ChordTimeline({ bars, currentBar, flats, follow }: Props) {
                       bar.chords.length > 1 ? "text-sm font-semibold" : "text-lg font-bold"
                     }
                   >
-                    {spell(c.label, flats)}
+                    {labelFor(transposeRoot(c.root, transpose), c.quality, flats)}
                   </span>
                 ))
               )}

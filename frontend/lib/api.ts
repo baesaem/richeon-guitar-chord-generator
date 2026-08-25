@@ -1,11 +1,13 @@
 import type { AnalysisResult, Health, JobStatus } from "./types";
 
-// 폰에서 접속할 때도 동작하도록, 기본값은 현재 접속한 호스트의 8000 포트를 쓴다.
+/**
+ * API 주소.
+ *
+ * 기본은 빈 문자열 = 같은 오리진. next.config.ts의 rewrites가 /api/* 를 백엔드로 넘긴다.
+ * 덕분에 폰은 :3000 하나만 알면 되고, 방화벽도 CORS도 신경 쓸 필요가 없다.
+ */
 export function apiBase(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_API_BASE;
-  if (fromEnv) return fromEnv;
-  if (typeof window === "undefined") return "http://127.0.0.1:8000";
-  return `http://${window.location.hostname}:8000`;
+  return process.env.NEXT_PUBLIC_API_BASE ?? "";
 }
 
 async function json<T>(res: Response): Promise<T> {
