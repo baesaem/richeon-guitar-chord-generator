@@ -44,7 +44,7 @@ export function ChordScore({
   timeSignature,
   musicKey,
   follow,
-  perLine = 2,
+  perLine = 8,
   onSeek,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
@@ -70,6 +70,9 @@ export function ChordScore({
       {lines.map((line, lineIndex) => {
         const hasActive = line.some((_, i) => lineIndex * perLine + i === currentBar);
         const measureW = (VB_W - PAD_X * 2) / perLine;
+        // 한 줄에 마디를 많이 넣을수록 칸이 좁아진다. 코드 심볼이 옆 칸을
+        // 침범하지 않도록 글자 크기를 칸 너비에 맞춘다.
+        const chordFont = Math.max(6, Math.min(11, measureW * 0.17));
         // 첫 줄 첫 마디에만 박자표 자리를 비운다
         const firstLine = lineIndex === 0;
 
@@ -157,7 +160,7 @@ export function ChordScore({
                           {changed && chord && (
                             <text
                               x={slot} y={CHORD_Y}
-                              textAnchor="middle" fontSize={10} fontWeight="700"
+                              textAnchor="middle" fontSize={chordFont} fontWeight="700"
                               fill="currentColor"
                             >
                               {labelFor(

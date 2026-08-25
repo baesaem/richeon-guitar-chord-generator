@@ -223,7 +223,7 @@ export default function Home() {
                   onSeek={(t) => playback?.seek(t)}
                 />
               ) : (
-                <div className="h-[136px] shrink-0 overflow-y-auto px-2 py-1">
+                <div className="h-[168px] shrink-0 overflow-y-auto px-2 py-1">
                   <ChordScore
                     bars={bars}
                     chords={result.chords}
