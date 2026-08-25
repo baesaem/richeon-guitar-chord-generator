@@ -1,0 +1,32 @@
+[project]
+name = "chordgen-backend"
+version = "0.1.0"
+description = "YouTube/업로드 오디오에서 기타 코드를 자동 추출하는 분석 서버"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sse-starlette>=2.1",
+    "python-multipart>=0.0.12",
+    "yt-dlp>=2025.1.15",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# M2 이후: uv sync --extra analysis
+analysis = [
+    "librosa>=0.10.2",
+    "soundfile>=0.12",
+    "scipy>=1.14",
+]
+# M4 이후: GPU(RTX 5070 Ti = Blackwell sm_120)는 cu128 이상 휠 필요
+#   uv pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+gpu = [
+    "demucs>=4.0.1",
+    "beat-this",
+]
+
+[tool.uv]
+package = false
