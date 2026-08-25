@@ -44,7 +44,7 @@ export function ChordScore({
   timeSignature,
   musicKey,
   follow,
-  perLine = 8,
+  perLine = 6,
   onSeek,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
