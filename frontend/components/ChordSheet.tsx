@@ -57,7 +57,7 @@ export function ChordSheet({
   }, [currentBar, follow]);
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-6 gap-1">
       {bars.map((bar, i) => {
         const active = i === currentBar;
         const spans = spansOf(bar, chords);
@@ -68,7 +68,8 @@ export function ChordSheet({
             key={bar.number}
             ref={active ? activeRef : undefined}
             className={[
-              "rounded-md border px-1.5 pb-1 pt-1.5",
+              // 한 줄에 6칸이라 칸이 좁다. 여백을 줄여 코드 이름이 들어갈 자리를 남긴다.
+              "rounded border px-0.5 pb-0.5 pt-1",
               active
                 ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
                 : "border-gray-200 dark:border-gray-700",
@@ -86,7 +87,7 @@ export function ChordSheet({
                     key={j}
                     style={{ gridColumn: `span ${span.beats}` }}
                     className={[
-                      "min-w-0 truncate text-center text-base font-bold leading-tight",
+                      "min-w-0 truncate text-center text-sm font-bold leading-tight",
                       // 같은 마디 안에서 지금 울리는 코드를 구분한다
                       sounding ? "" : active ? "opacity-50" : "",
                     ].join(" ")}

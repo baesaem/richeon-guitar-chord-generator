@@ -15,7 +15,12 @@ interface Props {
   timeSignature: string;
   musicKey: string;
   follow: boolean;
-  /** 한 줄에 넣을 마디 수 */
+  /**
+   * 한 줄에 넣을 마디 수.
+   *
+   * 4가 표준이다. 대중음악은 4마디·8마디 악구로 짜여 있어 4마디씩 끊으면
+   * 한 줄이 한 악구가 되고 줄바꿈이 곡의 구조와 일치한다.
+   */
   perLine?: number;
   onSeek?: (t: number) => void;
 }
@@ -44,7 +49,7 @@ export function ChordScore({
   timeSignature,
   musicKey,
   follow,
-  perLine = 6,
+  perLine = 4,
   onSeek,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);

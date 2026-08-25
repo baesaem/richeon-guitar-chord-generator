@@ -16,6 +16,10 @@ interface Props {
   /** 초당 픽셀. 클수록 확대된다 */
   pixelsPerSecond?: number;
   onSeek?: (t: number) => void;
+  /**
+   * 전체 높이(px). 위쪽 30px은 눈금과 코드 칩이 쓰고 나머지가 파형이다.
+   * 폰 세로 화면에서는 아래 코드 테이블에 자리를 더 주는 편이 낫다.
+   */
   height?: number;
 }
 
@@ -32,7 +36,7 @@ const BAR_STEP = 3;
  * "언제 바뀌는지"가 눈에 보인다. 리액트 재렌더 없이 캔버스에 직접 그린다.
  */
 export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStrip(
-  { result, flats, transpose, pixelsPerSecond = 90, onSeek, height = 128 },
+  { result, flats, transpose, pixelsPerSecond = 90, onSeek, height = 92 },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -63,8 +67,9 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
 
     const playheadX = w * PLAYHEAD_RATIO;
     const originX = playheadX - time * pixelsPerSecond;
-    const rulerH = 16;
-    const laneH = 26;               // 코드 칩이 놓이는 띠
+    // 위쪽 여백은 눈금과 코드 칩이 쓴다. 폰에서는 최소한으로 줄인다.
+    const rulerH = 11;
+    const laneH = 19;               // 코드 칩이 놓이는 띠
     const waveTop = rulerH + laneH;
     const waveH = h - waveTop;
     const mid = waveTop + waveH / 2;
@@ -73,7 +78,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
     ctx.strokeStyle = grid;
     ctx.fillStyle = grid;
     ctx.lineWidth = 1;
-    ctx.font = "10px system-ui, sans-serif";
+    ctx.font = "9px system-ui, sans-serif";
     const firstSec = Math.max(0, Math.floor((0 - originX) / pixelsPerSecond));
     const lastSec = Math.ceil((w - originX) / pixelsPerSecond);
     for (let s = firstSec; s <= lastSec; s++) {
@@ -87,7 +92,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
       ctx.globalAlpha = 1;
       const mm = Math.floor(s / 60);
       const ss = String(s % 60).padStart(2, "0");
-      ctx.fillText(`${mm}:${ss}`, x + 3, 11);
+      ctx.fillText(`${mm}:${ss}`, x + 3, 8);
     }
 
     // --- 마디 첫 박 ---
@@ -131,7 +136,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
     }
 
     // --- 코드 칩 ---
-    ctx.font = "600 13px system-ui, sans-serif";
+    ctx.font = "600 11px system-ui, sans-serif";
     ctx.textBaseline = "middle";
     for (const chord of result.chords) {
       const x = originX + chord.start * pixelsPerSecond;
@@ -139,9 +144,9 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
 
       const text = labelFor(transposeRoot(chord.root, transpose), chord.quality, flats);
       const tw = ctx.measureText(text).width;
-      const boxW = tw + 14;
-      const boxY = rulerH + 3;
-      const boxH = laneH - 6;
+      const boxW = tw + 10;
+      const boxY = rulerH + 2;
+      const boxH = laneH - 4;
 
       ctx.fillStyle = chipBg;
       ctx.beginPath();
@@ -149,7 +154,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
       ctx.fill();
 
       ctx.fillStyle = chipFg;
-      ctx.fillText(text, x + 7, boxY + boxH / 2);
+      ctx.fillText(text, x + 5, boxY + boxH / 2);
 
       // 코드가 바뀌는 지점을 파형에도 표시
       ctx.strokeStyle = chipBg;
