@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* 테마는 설정에서 고른다. html에 .dark가 붙으면 다크 —
+   미디어 쿼리 대신 클래스 기반이라 시스템/라이트/다크 3모드가 가능하다. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -12,11 +16,20 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+/* 색조 테마. 라이트 기반 팔레트에 배경·전경만 물들인다 */
+[data-theme="sepia"] {
+  --background: #f4ecd8;
+  --foreground: #5b4636;
+}
+
+[data-theme="aqua"] {
+  --background: #e6f4f6;
+  --foreground: #0f3a45;
 }
 
 body {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
-import type { Notation, Settings } from "@/lib/settings";
+import type { Notation, Settings, Theme } from "@/lib/settings";
 import type { Health } from "@/lib/types";
 
 interface Props {
@@ -16,6 +16,14 @@ const ZOOMS = [
   { value: 60, label: "넓게" },
   { value: 90, label: "보통" },
   { value: 140, label: "좁게" },
+];
+
+const THEMES: { value: Theme; label: string }[] = [
+  { value: "system", label: "기기 설정" },
+  { value: "light", label: "밝게" },
+  { value: "dark", label: "어둡게" },
+  { value: "sepia", label: "세피아" },
+  { value: "aqua", label: "아쿠아" },
 ];
 
 const NOTATIONS: { value: Notation; label: string }[] = [
@@ -105,6 +113,24 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             </span>
           </span>
         </label>
+      </section>
+
+      <section className="mb-5">
+        <div className="mb-1.5 text-sm font-medium">테마</div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {THEMES.map((t) => (
+            <button
+              key={t.value}
+              className={pill(settings.theme === t.value)}
+              onClick={() => set("theme", t.value)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-gray-500">
+          기기 설정은 휴대폰의 밝게/어둡게 모드를 그대로 따라갑니다.
+        </p>
       </section>
 
       <section className="mb-5">

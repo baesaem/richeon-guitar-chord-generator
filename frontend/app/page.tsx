@@ -59,6 +59,25 @@ export default function Home() {
       });
   }, [settings.apiBase]);
 
+  // 테마 적용: html에 .dark 클래스를 붙였다 뗀다. system이면 기기 설정을 따라간다.
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const dark =
+        settings.theme === "dark" || (settings.theme === "system" && media.matches);
+      document.documentElement.classList.toggle("dark", dark);
+      // 세피아·아쿠아는 라이트 기반 색조 팔레트
+      if (settings.theme === "sepia" || settings.theme === "aqua") {
+        document.documentElement.dataset.theme = settings.theme;
+      } else {
+        delete document.documentElement.dataset.theme;
+      }
+    };
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [settings.theme]);
+
   const bars = useMemo(() => (result ? buildBars(result) : []), [result]);
   const flats = useMemo(
     () => (result ? resolveFlats(result.key, settings.notation) : false),

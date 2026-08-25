@@ -7,6 +7,9 @@ export type Notation = "auto" | "sharp" | "flat";
 /** 재생 화면 본문에 무엇을 띄울지 */
 export type View = "wave" | "sheet";
 
+/** 화면 테마. system은 기기 설정을 따른다 */
+export type Theme = "system" | "light" | "dark" | "sepia" | "aqua";
+
 export interface Settings {
   /** 분석할 때 음원 분리를 쓸지 */
   separate: boolean;
@@ -25,6 +28,8 @@ export interface Settings {
   apiBase: string;
   /** 분석이 끝나면 결과를 기기(IndexedDB)에도 저장해 서버 없이 열 수 있게 한다 */
   autoSave: boolean;
+  /** 화면 테마 */
+  theme: Theme;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -35,6 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   videoCompact: false,
   apiBase: "",
   autoSave: true,
+  theme: "system",
 };
 
 const KEY = "chordgen.settings";
