@@ -12,6 +12,7 @@ import {
   listFolders,
 } from "@/lib/folders";
 import {
+  exportAllToFile,
   exportToFile,
   getLocal,
   importFromFile,
@@ -146,12 +147,26 @@ export function LibraryTab({ onOpen, active }: Props) {
 
   const importOne = async (file: File) => {
     try {
-      const result = await importFromFile(file);
-      await saveLocal(result);
-      flash(`가져왔습니다: ${result.title || result.id}`);
+      const results = await importFromFile(file);
+      for (const result of results) await saveLocal(result);
+      flash(
+        results.length === 1
+          ? `가져왔습니다: ${results[0].title || results[0].id}`
+          : `${results.length}곡을 가져왔습니다.`,
+      );
       reload();
     } catch (e) {
       setError(`가져오기 실패: ${(e as Error).message}`);
+    }
+  };
+
+  const exportAll = async () => {
+    try {
+      const count = await exportAllToFile();
+      if (count === 0) setError("기기에 저장된 곡이 없습니다");
+      else flash(`${count}곡을 파일로 내보냈습니다.`);
+    } catch (e) {
+      setError((e as Error).message);
     }
   };
 
@@ -213,9 +228,16 @@ export function LibraryTab({ onOpen, active }: Props) {
       )}
 
       {/* 기기 저장 */}
-      <h3 className="mt-1 text-xs font-semibold text-gray-500">
-        기기 저장 · 서버가 꺼져도 유지
-      </h3>
+      <div className="mt-1 flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-gray-500">
+          기기 저장 · 서버가 꺼져도 유지
+        </h3>
+        {device !== null && device.length > 0 && (
+          <button className="text-[11px] text-gray-500 underline" onClick={exportAll}>
+            전체 내보내기
+          </button>
+        )}
+      </div>
 
       {/* 폴더 칩 */}
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

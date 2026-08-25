@@ -101,26 +101,70 @@ export async function localIds(): Promise<Set<string>> {
 
 // ---- 파일 내보내기 / 가져오기 ----
 
-/** 결과를 JSON 파일로 내려받는다. 다른 기기나 백업용. */
-export function exportToFile(result: AnalysisResult): void {
-  const blob = new Blob([JSON.stringify(result, null, 1)], {
+function download(name: string, payload: unknown): void {
+  const blob = new Blob([JSON.stringify(payload, null, 1)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  const name = (result.title || result.id).replace(/[\\/:*?"<>|]/g, "_").slice(0, 60);
-  a.download = `${name}.chord.json`;
+  a.download = name;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-/** 내보낸 JSON 파일을 읽어 검증한다. 실패하면 예외. */
-export async function importFromFile(file: File): Promise<AnalysisResult> {
+function safeName(text: string): string {
+  return text.replace(/[\\/:*?"<>|]/g, "_").trim().slice(0, 60);
+}
+
+function sourceLabel(result: AnalysisResult): string {
+  return result.source === "youtube" ? "YouTube" : "업로드";
+}
+
+/** 결과 한 곡을 JSON 파일로 내려받는다. 파일명: 리천 노래명(출처).chord.json */
+export function exportToFile(result: AnalysisResult): void {
+  const name = safeName(result.title || result.id);
+  download(`리천 ${name}(${sourceLabel(result)}).chord.json`, result);
+}
+
+/** 오늘 날짜를 YYYY-MM-DD로 */
+function today(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/** 기기 저장 재생목록 전체를 한 파일로 내려받는다. 저장된 곡 수를 돌려준다. */
+export async function exportAllToFile(): Promise<number> {
+  const db = await openDb();
+  const tx = db.transaction(STORE, "readonly");
+  const records = (await requestAsPromise(
+    tx.objectStore(STORE).getAll(),
+  )) as StoredResult[];
+  db.close();
+
+  if (records.length === 0) return 0;
+  download(`리천기타코드목록 ${today()}.json`, {
+    app: "richeon-guitar-chord",
+    exported: today(),
+    results: records.map((r) => r.result),
+  });
+  return records.length;
+}
+
+/** 내보낸 JSON(한 곡 또는 묶음)을 읽어 결과 목록으로 돌려준다. 실패하면 예외. */
+export async function importFromFile(file: File): Promise<AnalysisResult[]> {
   const text = await file.text();
-  const data = JSON.parse(text) as AnalysisResult;
-  if (!data.id || !Array.isArray(data.chords) || !Array.isArray(data.beats)) {
-    throw new Error("코드 분석 파일이 아닙니다");
-  }
-  return data;
+  const data = JSON.parse(text) as AnalysisResult | { results?: AnalysisResult[] };
+
+  const list = Array.isArray((data as { results?: unknown }).results)
+    ? (data as { results: AnalysisResult[] }).results
+    : [data as AnalysisResult];
+
+  const valid = list.filter(
+    (r) => r && r.id && Array.isArray(r.chords) && Array.isArray(r.beats),
+  );
+  if (valid.length === 0) throw new Error("코드 분석 파일이 아닙니다");
+  return valid;
 }
