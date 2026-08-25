@@ -1,37 +1,46 @@
 """비트 · 다운비트 추적.
 
-librosa의 비트 추적은 박(beat)만 준다. 마디 첫 박(다운비트)은 따로 추정해야 하는데,
-코드가 보통 마디 경계에서 바뀐다는 점을 이용한다 — 크로마가 가장 크게 변하는 위상을 고른다.
-M4에서 beat_this 같은 전용 모델로 교체할 자리.
+기본은 beat_this(트랜스포머 비트 트래커). 비트와 다운비트를 함께 주므로
+마디 위상을 휴리스틱으로 추정할 필요가 없다. GPU에서 3분 곡 1초 미만.
+
+beat_this를 쓸 수 없으면(설치 안 됨, 체크포인트 다운로드 실패 등) librosa로
+폴백한다. librosa는 박만 주므로 다운비트 위상은 크로마 변화량으로 추정한다.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
 from .features import HOP_LENGTH, AudioBuffer, normalize_columns
 
-BEAT_MODEL = "librosa-onset+phase"
+NEURAL_MODEL = "beat_this-final0"
+FALLBACK_MODEL = "librosa-onset+phase"
 
-# 템포 배속 오류(느린 곡을 두 배로 잡는 것)를 자동 보정하려 했으나 실패했다.
+# 템포 배속 오류(느린 곡을 두 배로 잡는 것)를 휴리스틱으로 보정하려 했으나 실패했다.
 # "한 박 걸러 세기가 약하면 사이 박"이라는 기준은 4/4에서 1·3박이 2·4박보다
 # 센 것이 정상이라 거의 모든 곡에서 발동한다. 실제로 113 BPM으로 맞게 잡힌 곡을
-# 56 BPM으로 망가뜨렸다. 신뢰할 기준을 찾기 전까지는 사용자가 직접 ×½ / ×2로
-# 고치도록 두는 편이 낫다.
+# 56 BPM으로 망가뜨렸다. beat_this 교체가 정공법이고, 그래도 남는 오류는
+# 사용자가 직접 고치게 둔다.
 
 
 @dataclass
 class BeatGrid:
     bpm: float
     times: np.ndarray        # 각 비트의 시각(초)
-    frames: np.ndarray       # 각 비트의 프레임 인덱스
-    downbeat_phase: int      # times[i]가 다운비트면 i % beats_per_bar == downbeat_phase
+    frames: np.ndarray       # 각 비트의 프레임 인덱스 (크로마 집계용)
+    model: str
     beats_per_bar: int = 4
+    # 각 비트의 (마디 번호, 마디 내 박 번호). 둘 다 1부터.
+    _positions: list[tuple[int, int]] | None = field(default=None, repr=False)
+    # 폴백 경로에서만 쓰는 위상 값. positions가 없을 때 위상으로 계산한다.
+    downbeat_phase: int = 0
 
     def positions(self) -> list[tuple[int, int]]:
-        """각 비트의 (마디 번호, 마디 내 박 번호). 둘 다 1부터."""
+        if self._positions is not None:
+            return self._positions
         out: list[tuple[int, int]] = []
         for i in range(len(self.times)):
             offset = (i - self.downbeat_phase) % self.beats_per_bar
@@ -40,7 +49,62 @@ class BeatGrid:
         return out
 
 
+# 모델은 무겁고 재사용 가능하므로 프로세스당 한 번만 만든다
+_file2beats = None
+
+
+def _neural_tracker(device: str):
+    global _file2beats
+    if _file2beats is None:
+        from beat_this.inference import File2Beats
+
+        _file2beats = File2Beats(checkpoint_path="final0", device=device)
+    return _file2beats
+
+
+def track_beats_neural(wav_path: Path, sr: int, device: str) -> BeatGrid:
+    """beat_this로 비트·다운비트를 함께 얻는다."""
+    tracker = _neural_tracker(device)
+    beats, downbeats = tracker(str(wav_path))
+    beats = np.asarray(beats, dtype=float)
+    downbeats = np.asarray(downbeats, dtype=float)
+
+    if len(beats) < 4:
+        raise RuntimeError(f"비트가 {len(beats)}개뿐입니다")
+
+    bpm = 60.0 / float(np.median(np.diff(beats)))
+
+    # 각 비트에 마디 번호와 박 번호를 붙인다.
+    # 다운비트 시각은 비트 목록의 원소와 같은 값이므로 근접 매칭으로 정렬한다.
+    positions: list[tuple[int, int]] = []
+    bar = 0
+    beat_in_bar = 0
+    down_idx = 0
+    for t in beats:
+        if down_idx < len(downbeats) and abs(t - downbeats[down_idx]) < 0.05:
+            bar += 1
+            beat_in_bar = 1
+            down_idx += 1
+        elif bar == 0:
+            # 첫 다운비트 이전의 못갖춘마디(pickup)는 0번 마디로 둔다
+            bar = 0
+            beat_in_bar += 1
+        else:
+            beat_in_bar += 1
+        positions.append((max(bar, 1), beat_in_bar))
+
+    frames = np.round(beats * sr / HOP_LENGTH).astype(int)
+    return BeatGrid(
+        bpm=bpm,
+        times=beats,
+        frames=frames,
+        model=NEURAL_MODEL,
+        _positions=positions,
+    )
+
+
 def track_beats(audio: AudioBuffer, onset_env: np.ndarray) -> BeatGrid:
+    """librosa 폴백. 박만 주므로 다운비트 위상은 따로 추정해야 한다."""
     import librosa
 
     tempo, beat_frames = librosa.beat.beat_track(
@@ -49,7 +113,9 @@ def track_beats(audio: AudioBuffer, onset_env: np.ndarray) -> BeatGrid:
     beat_frames = np.asarray(beat_frames, dtype=int)
     times = librosa.frames_to_time(beat_frames, sr=audio.sr, hop_length=HOP_LENGTH)
     bpm = float(np.atleast_1d(tempo)[0])
-    return BeatGrid(bpm=bpm, times=times, frames=beat_frames, downbeat_phase=0)
+    return BeatGrid(
+        bpm=bpm, times=times, frames=beat_frames, model=FALLBACK_MODEL
+    )
 
 
 def _beat_accents(onset_env: np.ndarray, beat_frames: np.ndarray) -> np.ndarray:
@@ -67,7 +133,7 @@ def estimate_downbeat_phase(
     beat_chroma: np.ndarray, onset_env: np.ndarray, beat_frames: np.ndarray,
     beats_per_bar: int = 4,
 ) -> int:
-    """마디 첫 박의 위상(0~3)을 고른다.
+    """(폴백 전용) 마디 첫 박의 위상(0~3)을 고른다.
 
     두 가지 근거를 합친다.
       - 화성 변화량: 직전 비트 대비 크로마가 크게 바뀌는 지점이 마디 머리일 가능성이 높다

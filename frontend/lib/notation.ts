@@ -58,8 +58,17 @@ export function resolveFlats(key: string, notation: "auto" | "sharp" | "flat"): 
   return prefersFlats(key);
 }
 
-/** 근음 + 종류로 표시용 라벨을 만든다. */
+// quality → 근음 뒤 접미사. 백엔드 chords_btc._LABEL_SUFFIX와 짝을 맞춘다.
+const QUALITY_SUFFIX: Record<string, string> = {
+  maj: "", min: "m", dim: "dim", aug: "aug",
+  "6": "6", min6: "m6", min7: "m7", minmaj7: "mM7",
+  maj7: "maj7", "7": "7", dim7: "dim7", min7b5: "m7b5",
+  sus2: "sus2", sus4: "sus4", add9: "add9",
+};
+
+/** 근음 + 종류로 표시용 라벨을 만든다. 이조해도 7th 표기가 유지된다. */
 export function labelFor(root: string | null, quality: string, flats: boolean): string {
   if (!root || quality === "N") return "N.C.";
-  return spell(quality === "min" ? `${root}m` : root, flats);
+  const suffix = QUALITY_SUFFIX[quality] ?? quality;
+  return `${spell(root, flats)}${suffix}`;
 }

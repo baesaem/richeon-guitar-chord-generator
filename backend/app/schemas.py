@@ -37,7 +37,7 @@ Root = Literal["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 # M2 베이스라인은 maj/min만 채운다. 나머지는 M4의 large-vocabulary 모델용.
 Quality = Literal[
     "maj", "min", "dim", "aug", "sus2", "sus4",
-    "maj7", "min7", "7", "dim7", "min7b5", "6", "min6", "add9", "N",
+    "maj7", "min7", "minmaj7", "7", "dim7", "min7b5", "6", "min6", "add9", "N",
 ]
 
 

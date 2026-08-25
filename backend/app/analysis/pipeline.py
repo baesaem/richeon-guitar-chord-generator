@@ -21,7 +21,13 @@ from ..schemas import (
 )
 from ..sources.base import FetchedAudio, ProgressFn, save_sidecar
 from . import chords as chord_rec
-from .beats import BEAT_MODEL, estimate_downbeat_phase, track_beats
+from . import chords_btc as btc
+from .beats import (
+    FALLBACK_MODEL as FALLBACK_BEAT_MODEL,
+    estimate_downbeat_phase,
+    track_beats,
+    track_beats_neural,
+)
 from .decode import DecodedAudio, decode_to_wav
 from .separate import separate as separate_stems
 from .features import (
@@ -34,7 +40,7 @@ from .features import (
 )
 from .key import estimate_key
 
-PIPELINE_VERSION = "0.5.0-demucs"
+PIPELINE_VERSION = "0.7.0-btc"
 
 BEATS_PER_BAR = 4
 PEAKS_PER_SECOND = 25
@@ -86,9 +92,27 @@ async def analyze(
     # --- 비트 ---
     await progress(JobStage.BEATS, 0.0, "비트·마디 분석 중")
     buffer = await asyncio.to_thread(load_audio, decoded.path)
+
+    # 비트는 원본에서 잡는다. 드럼이 있어야 박이 정확하다.
+    grid = None
+    try:
+        grid = await asyncio.to_thread(
+            track_beats_neural, decoded.path, buffer.sr, device
+        )
+        await progress(
+            JobStage.BEATS, 0.7,
+            f"{grid.bpm:.1f} BPM · 비트 {len(grid.times)}개 · 다운비트 포함",
+        )
+    except Exception as exc:
+        # 신경망 트래커가 없거나 실패해도 분석은 계속 간다
+        await progress(JobStage.BEATS, 0.3, f"신경망 비트 추적 실패, librosa 사용 ({exc})")
+
     onset_env = await asyncio.to_thread(onset_envelope, buffer)
-    grid = await asyncio.to_thread(track_beats, buffer, onset_env)
-    await progress(JobStage.BEATS, 0.5, f"{grid.bpm:.1f} BPM · 비트 {len(grid.times)}개")
+    if grid is None:
+        grid = await asyncio.to_thread(track_beats, buffer, onset_env)
+        await progress(
+            JobStage.BEATS, 0.5, f"{grid.bpm:.1f} BPM · 비트 {len(grid.times)}개"
+        )
 
     # --- 크로마 ---
     # 이미 드럼을 걷어냈으면 HPSS를 한 번 더 걸 필요가 없다
@@ -98,22 +122,36 @@ async def analyze(
     )
     frame_chroma = await asyncio.to_thread(chroma, chroma_buffer, hpss=not separated)
     beat_chroma = sync_to_beats(frame_chroma, grid.frames)
-    # 0번 열은 첫 비트 이전 구간이라 마디 위상 추정에서 제외한다.
-    grid.downbeat_phase = estimate_downbeat_phase(
-        beat_chroma[:, 1:], onset_env, grid.frames, BEATS_PER_BAR
-    )
-    await progress(JobStage.BEATS, 1.0, f"다운비트 위상 {grid.downbeat_phase}")
+    if grid.model == FALLBACK_BEAT_MODEL:
+        # 폴백은 박만 주므로 다운비트 위상을 크로마 변화량으로 추정한다.
+        # 0번 열은 첫 비트 이전 구간이라 제외.
+        grid.downbeat_phase = estimate_downbeat_phase(
+            beat_chroma[:, 1:], onset_env, grid.frames, BEATS_PER_BAR
+        )
+    await progress(JobStage.BEATS, 1.0, f"비트 모델 {grid.model}")
 
     # --- 코드 ---
     await progress(JobStage.CHORDS, 0.0, "코드 인식 중")
-    segments = await asyncio.to_thread(
-        chord_rec.recognize, beat_chroma, beat_boundaries(grid.times), decoded.duration
-    )
-    await progress(JobStage.CHORDS, 1.0, f"코드 구간 {len(segments)}개")
+    chord_model = btc.BTC_MODEL_NAME
+    try:
+        # BTC는 분리된 하모닉 트랙에서 가장 잘 나온다. 없으면 원본 wav.
+        segments = await asyncio.to_thread(
+            btc.recognize, harmonic_path, decoded.duration, device
+        )
+    except Exception as exc:
+        # 체크포인트가 없거나 모델 로드가 실패하면 템플릿 방식으로 폴백
+        await progress(JobStage.CHORDS, 0.3, f"BTC 실패, 템플릿 사용 ({exc})")
+        chord_model = chord_rec.CHORD_MODEL
+        segments = await asyncio.to_thread(
+            chord_rec.recognize, beat_chroma, beat_boundaries(grid.times), decoded.duration
+        )
+    await progress(JobStage.CHORDS, 1.0, f"코드 구간 {len(segments)}개 · {chord_model}")
 
     # --- 후처리 ---
     await progress(JobStage.POSTPROCESS, 0.0, "보정 중")
     beat_period = 60.0 / grid.bpm if grid.bpm > 0 else 0.5
+    # 경계를 비트에 붙인다. 프레임 단위 예측의 어긋남과 파편이 여기서 정리된다.
+    segments = btc.snap_to_beats(segments, grid.times, decoded.duration)
     segments = chord_rec.merge_short_segments(segments, min_duration=beat_period * 0.9)
     key_name, _ = estimate_key(frame_chroma)
     peaks = await asyncio.to_thread(envelope, buffer, PEAKS_PER_SECOND)
@@ -127,6 +165,7 @@ async def analyze(
         grid=grid,
         segments=segments,
         key_name=key_name,
+        chord_model=chord_model,
         peaks=peaks,
         separated=separated,
         device=device,
@@ -141,6 +180,7 @@ def _build_result(
     grid,
     segments: list[chord_rec.ChordSegment],
     key_name: str,
+    chord_model: str,
     peaks: list[float],
     separated: bool,
     device: str,
@@ -187,8 +227,8 @@ def _build_result(
         meta=AnalysisMeta(
             pipeline_version=PIPELINE_VERSION,
             separated=separated,
-            beat_model=BEAT_MODEL,
-            chord_model=chord_rec.CHORD_MODEL,
+            beat_model=grid.model,
+            chord_model=chord_model,
             device=device,
             elapsed_sec=round(elapsed, 3),
         ),

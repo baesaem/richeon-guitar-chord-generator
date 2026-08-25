@@ -1,10 +1,9 @@
 /**
  * 기타 운지 생성 (CAGED 기반).
  *
- * 코드 사전을 통째로 들고 오는 대신, 오픈 코드 8개를 표로 두고
+ * 코드 사전을 통째로 들고 오는 대신, 오픈 코드 몇 개를 표로 두고
  * 나머지는 E폼·A폼 바레를 해당 프렛으로 옮겨서 만든다.
- * 지금 백엔드가 내는 어휘가 장·단3화음 24개뿐이라 이걸로 전부 덮인다.
- * (M4에서 7th·sus가 나오기 시작하면 폼을 추가해야 한다)
+ * M4부터 백엔드가 7th·sus·dim까지 내므로 폼도 그만큼 갖춘다.
  */
 
 const PITCH_CLASS: Record<string, number> = {
@@ -39,62 +38,91 @@ const OPEN_SHAPES: Record<string, Shape> = {
   Dm: { frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1] },
 };
 
-// 개방현 음정: 6번줄 E(4) … 5번줄 A(9)
+/**
+ * 바레 폼. 상대 프렛(0 = 바레 위치)과 손가락.
+ * E폼은 근음이 6번줄, A폼은 5번줄. -9는 뮤트.
+ *
+ * 각 폼은 표준 오픈 코드를 한 프렛씩 밀어 만든 것이다.
+ * 예: E폼 min7 = Em7(020000)을 바레로 옮긴 [0,2,0,0,0,0].
+ */
+const X = -9;
+
+const E_SHAPES: Record<string, Shape> = {
+  maj:     { frets: [0, 2, 2, 1, 0, 0], fingers: [1, 3, 4, 2, 1, 1] },
+  min:     { frets: [0, 2, 2, 0, 0, 0], fingers: [1, 3, 4, 1, 1, 1] },
+  "7":     { frets: [0, 2, 0, 1, 0, 0], fingers: [1, 3, 1, 2, 1, 1] },
+  min7:    { frets: [0, 2, 0, 0, 0, 0], fingers: [1, 3, 1, 1, 1, 1] },
+  maj7:    { frets: [0, 2, 1, 1, 0, 0], fingers: [1, 3, 2, 2, 1, 1] },
+  sus4:    { frets: [0, 2, 2, 2, 0, 0], fingers: [1, 2, 3, 4, 1, 1] },
+  minmaj7: { frets: [0, 2, 1, 0, 0, 0], fingers: [1, 3, 2, 1, 1, 1] },
+};
+
+const A_SHAPES: Record<string, Shape> = {
+  maj:    { frets: [X, 0, 2, 2, 2, 0], fingers: [0, 1, 2, 3, 4, 1] },
+  min:    { frets: [X, 0, 2, 2, 1, 0], fingers: [0, 1, 3, 4, 2, 1] },
+  "7":    { frets: [X, 0, 2, 0, 2, 0], fingers: [0, 1, 3, 1, 4, 1] },
+  min7:   { frets: [X, 0, 2, 0, 1, 0], fingers: [0, 1, 3, 1, 2, 1] },
+  maj7:   { frets: [X, 0, 2, 1, 2, 0], fingers: [0, 1, 3, 2, 4, 1] },
+  sus2:   { frets: [X, 0, 2, 2, 0, 0], fingers: [0, 1, 3, 4, 1, 1] },
+  sus4:   { frets: [X, 0, 2, 2, 3, 0], fingers: [0, 1, 2, 3, 4, 1] },
+  "6":    { frets: [X, 0, 2, 2, 2, 2], fingers: [0, 1, 3, 3, 3, 3] },
+  min6:   { frets: [X, 0, 2, 2, 1, 2], fingers: [0, 1, 3, 4, 2, 4] },
+  // 아래 셋은 바레 없이 짚는 블록 코드라 상대 프렛만 옮긴다
+  min7b5: { frets: [X, 0, 1, 0, 1, X], fingers: [0, 1, 2, 1, 3, 0] },
+  dim:    { frets: [X, 0, 1, 2, 1, X], fingers: [0, 1, 2, 4, 3, 0] },
+  dim7:   { frets: [X, 0, 1, 0, 1, X], fingers: [0, 1, 2, 1, 3, 0] },
+  aug:    { frets: [X, 0, 3, 2, 2, X], fingers: [0, 1, 4, 2, 3, 0] },
+};
+
+// 개방현 음정: 6번줄 E(4), 5번줄 A(9)
 const LOW_E_PC = 4;
 const A_PC = 9;
 
-function barreVoicing(
-  fret: number,
-  minor: boolean,
-  shape: "E" | "A",
-): Voicing {
-  const frets =
-    shape === "E"
-      ? minor
-        ? [fret, fret + 2, fret + 2, fret, fret, fret]
-        : [fret, fret + 2, fret + 2, fret + 1, fret, fret]
-      : minor
-        ? [-1, fret, fret + 2, fret + 2, fret + 1, fret]
-        : [-1, fret, fret + 2, fret + 2, fret + 2, fret];
+/** 바레가 실제로 필요한 폼인지(상대 0프렛을 여러 줄이 쓰는지) */
+function needsBarre(shape: Shape): boolean {
+  return shape.frets.filter((f) => f === 0).length >= 2;
+}
 
-  // 바레는 언제나 검지(1). 나머지는 폼별 표준 운지.
-  const fingers =
-    shape === "E"
-      ? minor
-        ? [1, 3, 4, 1, 1, 1]
-        : [1, 3, 4, 2, 1, 1]
-      : minor
-        ? [0, 1, 3, 4, 2, 1]
-        : [0, 1, 2, 3, 4, 1];
-
+function fromShape(shape: Shape, fret: number, shapeKind: "E" | "A"): Voicing {
+  const frets = shape.frets.map((f) => (f === X ? -1 : f + fret));
+  const barre = needsBarre(shape)
+    ? { fret, fromString: shapeKind === "E" ? 0 : 1, toString: 5 }
+    : undefined;
   return {
     frets,
-    fingers,
-    barre: { fret, fromString: shape === "E" ? 0 : 1, toString: 5 },
+    fingers: shape.fingers,
+    barre,
     baseFret: fret <= 3 ? 1 : fret,
   };
 }
 
-/** 코드 라벨("Ab", "Bbm", "F#m", "N.C.")에 대한 운지. 못 만들면 null. */
+/** 코드(근음 + 스키마 quality)의 운지. 폼이 없으면 null. */
 export function voicingFor(root: string | null, quality: string): Voicing | null {
   if (!root || quality === "N") return null;
 
-  const minor = quality === "min";
-  const key = minor ? `${root}m` : root;
-  const open = OPEN_SHAPES[key];
-  if (open) {
-    return { frets: open.frets, fingers: open.fingers, baseFret: 1 };
+  // 장·단3화음은 오픈 코드 우선
+  if (quality === "maj" || quality === "min") {
+    const open = OPEN_SHAPES[quality === "min" ? `${root}m` : root];
+    if (open) return { frets: open.frets, fingers: open.fingers, baseFret: 1 };
   }
 
   const pc = PITCH_CLASS[root];
   if (pc === undefined) return null;
 
-  // 6번줄 루트(E폼)와 5번줄 루트(A폼) 중 더 낮은 포지션을 쓴다.
-  // 0프렛이 나오면 오픈 코드라는 뜻인데 위 표에서 이미 처리됐으므로 12로 밀어둔다.
+  // 0프렛이 나오면 오픈 포지션이라는 뜻. 바레폼은 12프렛으로 밀어 잡는다.
   const eFret = (pc - LOW_E_PC + 12) % 12 || 12;
   const aFret = (pc - A_PC + 12) % 12 || 12;
 
-  return eFret <= aFret
-    ? barreVoicing(eFret, minor, "E")
-    : barreVoicing(aFret, minor, "A");
+  const eShape = E_SHAPES[quality];
+  const aShape = A_SHAPES[quality];
+
+  // 두 폼 다 있으면 더 낮은 포지션을 쓴다
+  if (eShape && aShape) {
+    return eFret <= aFret
+      ? fromShape(eShape, eFret, "E")
+      : fromShape(aShape, aFret, "A");
+  }
+  if (eShape) return fromShape(eShape, eFret, "E");
+  if (aShape) return fromShape(aShape, aFret, "A");
+  return null;
 }
