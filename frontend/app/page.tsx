@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { ChordDiagram } from "@/components/ChordDiagram";
+import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { ChordSheet } from "@/components/ChordSheet";
@@ -316,18 +317,20 @@ export default function Home() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-3xl font-bold leading-none">
-                    {cur?.label ?? "—"}
+                    {cur ? <ChordLabel label={cur.label} /> : "—"}
                   </div>
-                  <div className="mt-1 text-xs text-gray-500">다음 {nxt?.label ?? "—"}</div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    다음 {nxt ? <ChordLabel label={nxt.label} /> : "—"}
+                  </div>
                   <div className="mt-0.5 truncate text-[11px] text-gray-400">
-                    {spellKey(result.key)} · {Math.round(result.bpm)} BPM ·{" "}
+                    <ChordLabel label={spellKey(result.key)} /> · {Math.round(result.bpm)} BPM ·{" "}
                     {result.time_signature} · {barIdx + 1}/{bars.length}마디
                   </div>
                 </div>
                 {nxt && (
                   <div className="flex shrink-0 flex-col items-center">
                     <div className="text-xs font-semibold leading-none text-gray-500">
-                      {nxt.label}
+                      <ChordLabel label={nxt.label} />
                     </div>
                     <ChordDiagram
                       voicing={voicingFor(nxt.root, nxt.quality)}

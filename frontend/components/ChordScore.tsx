@@ -6,6 +6,20 @@ import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, spellKey, transposeRoot } from "@/lib/notation";
 import type { Chord } from "@/lib/types";
 
+/** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
+function svgLabel(label: string): React.ReactNode {
+  return label.split(/([♭♯])/).map((part, i) =>
+    part === "♭" || part === "♯" ? (
+      <tspan key={i} dy="-0.35em" fontSize="70%">
+        {part}
+        <tspan dy="0.5em" fontSize="1"> </tspan>
+      </tspan>
+    ) : (
+      <tspan key={i}>{part}</tspan>
+    ),
+  );
+}
+
 interface Props {
   bars: Bar[];
   chords: Chord[];
@@ -168,10 +182,12 @@ export function ChordScore({
                               textAnchor="middle" fontSize={chordFont} fontWeight="700"
                               fill="currentColor"
                             >
-                              {labelFor(
-                                transposeRoot(chord.root, transpose),
-                                chord.quality,
-                                flats,
+                              {svgLabel(
+                                labelFor(
+                                  transposeRoot(chord.root, transpose),
+                                  chord.quality,
+                                  flats,
+                                ),
                               )}
                             </text>
                           )}

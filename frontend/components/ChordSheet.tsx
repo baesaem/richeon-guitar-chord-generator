@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { ChordLabel } from "@/components/ChordLabel";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, transposeRoot } from "@/lib/notation";
 import type { Chord } from "@/lib/types";
@@ -92,9 +93,17 @@ export function ChordSheet({
                       sounding ? "" : active ? "opacity-50" : "",
                     ].join(" ")}
                   >
-                    {chord
-                      ? labelFor(transposeRoot(chord.root, transpose), chord.quality, flats)
-                      : "·"}
+                    {chord ? (
+                      <ChordLabel
+                        label={labelFor(
+                          transposeRoot(chord.root, transpose),
+                          chord.quality,
+                          flats,
+                        )}
+                      />
+                    ) : (
+                      "·"
+                    )}
                     {/* 몇 박 이어지는지 점으로 표시 */}
                     {span.beats > 1 && (
                       <span className="ml-0.5 align-middle text-[10px] opacity-40">

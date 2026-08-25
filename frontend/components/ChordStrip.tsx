@@ -136,14 +136,38 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
     }
 
     // --- 코드 칩 ---
-    ctx.font = "700 14px system-ui, sans-serif";
+    // ♭·♯ 임시표는 작은 폰트로 위에 올려 실제 악보 표기처럼 그린다
+    const CHIP_FONT = "700 14px system-ui, sans-serif";
+    const ACC_FONT = "700 10px system-ui, sans-serif";
     ctx.textBaseline = "middle";
+
+    const measureLabel = (text: string): number => {
+      let width = 0;
+      for (const part of text.split(/([♭♯])/)) {
+        if (!part) continue;
+        ctx.font = part === "♭" || part === "♯" ? ACC_FONT : CHIP_FONT;
+        width += ctx.measureText(part).width;
+      }
+      return width;
+    };
+
+    const drawLabel = (text: string, startX: number, midY: number): void => {
+      let cx2 = startX;
+      for (const part of text.split(/([♭♯])/)) {
+        if (!part) continue;
+        const accidental = part === "♭" || part === "♯";
+        ctx.font = accidental ? ACC_FONT : CHIP_FONT;
+        ctx.fillText(part, cx2, accidental ? midY - 4 : midY);
+        cx2 += ctx.measureText(part).width;
+      }
+    };
+
     for (const chord of result.chords) {
       const x = originX + chord.start * pixelsPerSecond;
       if (x < -80 || x > w + 80) continue;
 
       const text = labelFor(transposeRoot(chord.root, transpose), chord.quality, flats);
-      const tw = ctx.measureText(text).width;
+      const tw = measureLabel(text);
       const boxW = tw + 12;
       const boxY = rulerH + 2;
       const boxH = laneH - 4;
@@ -154,7 +178,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
       ctx.fill();
 
       ctx.fillStyle = chipFg;
-      ctx.fillText(text, x + 6, boxY + boxH / 2);
+      drawLabel(text, x + 6, boxY + boxH / 2);
 
       // 코드가 바뀌는 지점을 파형에도 표시
       ctx.strokeStyle = chipBg;

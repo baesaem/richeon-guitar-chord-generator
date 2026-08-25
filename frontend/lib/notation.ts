@@ -5,12 +5,15 @@
  * 조표가 플랫 계열이면 플랫으로 바꿔 적는다.
  */
 
+// 임시표는 라틴 글자가 아니라 악보 기호로 적는다: ♭(U+266D), ♯(U+266F).
+// 화면에서는 ChordLabel이 이 기호들을 위첨자로 올려 그린다.
+// 내부 데이터(근음 키)는 여전히 "C#" 형태를 쓰고, 표시 직전에만 바꾼다.
 const SHARP_TO_FLAT: Record<string, string> = {
-  "C#": "Db",
-  "D#": "Eb",
-  "F#": "Gb",
-  "G#": "Ab",
-  "A#": "Bb",
+  "C#": "D♭",
+  "D#": "E♭",
+  "F#": "G♭",
+  "G#": "A♭",
+  "A#": "B♭",
 };
 
 const PITCH_CLASS: Record<string, number> = {
@@ -30,10 +33,12 @@ export function prefersFlats(key: string): boolean {
   return mode === "minor" ? FLAT_MINOR.has(pc) : FLAT_MAJOR.has(pc);
 }
 
-/** 코드 라벨의 근음(과 슬래시 베이스)만 플랫으로 바꾼다. "A#m" → "Bbm" */
+/** 표시용 표기. 플랫 조표면 "A#m" → "B♭m", 아니면 "A♯m"처럼 기호로 바꾼다. */
 export function spell(label: string, flats: boolean): string {
-  if (!flats) return label;
-  return label.replace(/[A-G]#/g, (m) => SHARP_TO_FLAT[m] ?? m);
+  const base = flats
+    ? label.replace(/[A-G]#/g, (m) => SHARP_TO_FLAT[m] ?? m)
+    : label;
+  return base.replace(/#/g, "♯");
 }
 
 /** "G# major" → "Ab major" */

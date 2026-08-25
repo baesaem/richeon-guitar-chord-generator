@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ChordDiagram } from "@/components/ChordDiagram";
+import { ChordLabel } from "@/components/ChordLabel";
 import { Copyright } from "@/components/Copyright";
 import { labelFor } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
@@ -65,7 +66,7 @@ export function ChordsTab() {
           const label = labelFor(root, quality, flats);
           return (
             <div key={root} className="flex flex-col items-center">
-              <div className="text-sm font-bold">{label}</div>
+              <div className="text-sm font-bold"><ChordLabel label={label} /></div>
               <ChordDiagram
                 voicing={voicingFor(root, quality)}
                 label={label}

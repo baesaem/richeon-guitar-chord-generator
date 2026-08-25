@@ -49,7 +49,7 @@ export function SeekBar({
       </span>
       <input
         type="range"
-        className="min-w-0 flex-1"
+        className="seekbar min-w-0 flex-1"
         min={0}
         max={Math.max(duration, 1)}
         step={0.1}
