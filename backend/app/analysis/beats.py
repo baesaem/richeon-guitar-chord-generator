@@ -15,6 +15,12 @@ from .features import HOP_LENGTH, AudioBuffer, normalize_columns
 
 BEAT_MODEL = "librosa-onset+phase"
 
+# 템포 배속 오류(느린 곡을 두 배로 잡는 것)를 자동 보정하려 했으나 실패했다.
+# "한 박 걸러 세기가 약하면 사이 박"이라는 기준은 4/4에서 1·3박이 2·4박보다
+# 센 것이 정상이라 거의 모든 곡에서 발동한다. 실제로 113 BPM으로 맞게 잡힌 곡을
+# 56 BPM으로 망가뜨렸다. 신뢰할 기준을 찾기 전까지는 사용자가 직접 ×½ / ×2로
+# 고치도록 두는 편이 낫다.
+
 
 @dataclass
 class BeatGrid:
@@ -46,6 +52,17 @@ def track_beats(audio: AudioBuffer, onset_env: np.ndarray) -> BeatGrid:
     return BeatGrid(bpm=bpm, times=times, frames=beat_frames, downbeat_phase=0)
 
 
+def _beat_accents(onset_env: np.ndarray, beat_frames: np.ndarray) -> np.ndarray:
+    """각 박 위치의 온셋 세기. 프레임이 한 칸 어긋나도 잡히게 앞뒤를 함께 본다."""
+    accent = np.zeros(len(beat_frames))
+    for i, frame in enumerate(beat_frames):
+        lo = max(int(frame) - 1, 0)
+        hi = min(int(frame) + 2, len(onset_env))
+        if hi > lo:
+            accent[i] = float(np.max(onset_env[lo:hi]))
+    return accent
+
+
 def estimate_downbeat_phase(
     beat_chroma: np.ndarray, onset_env: np.ndarray, beat_frames: np.ndarray,
     beats_per_bar: int = 4,
@@ -64,12 +81,7 @@ def estimate_downbeat_phase(
     novelty = np.zeros(n)
     novelty[1:] = 1.0 - np.sum(normed[:, 1:] * normed[:, :-1], axis=0)
 
-    accent = np.zeros(n)
-    for i, frame in enumerate(beat_frames[:n]):
-        lo = max(int(frame) - 1, 0)
-        hi = min(int(frame) + 2, len(onset_env))
-        if hi > lo:
-            accent[i] = float(np.max(onset_env[lo:hi]))
+    accent = _beat_accents(onset_env, beat_frames[:n])
 
     novelty = _zscore(novelty)
     accent = _zscore(accent)

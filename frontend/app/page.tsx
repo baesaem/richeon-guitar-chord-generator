@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BottomNav, type Tab } from "@/components/BottomNav";
@@ -148,6 +149,24 @@ export default function Home() {
     // w-full이 없으면 mx-auto(가로 auto 마진)가 flex 아이템의 stretch를 무효화해
     // 너비가 내용물 기준으로 잡히고, 긴 곡 제목 때문에 화면이 가로로 넘친다.
     <div className="mx-auto flex h-dvh w-full max-w-2xl flex-col overflow-x-hidden">
+      {/* 어느 탭에 있든 앱 이름은 항상 보인다 */}
+      <header className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-1.5 dark:border-gray-800">
+        <Image
+          src="/guitar.png"
+          alt=""
+          width={20}
+          height={32}
+          className="h-8 w-auto shrink-0"
+          priority
+        />
+        <h1 className="min-w-0 flex-1 truncate text-lg font-bold">
+          리천 기타 코드 자동생성기
+        </h1>
+        {health && (
+          <span className="shrink-0 text-[10px] text-gray-400">{health.device}</span>
+        )}
+      </header>
+
       <div className="min-h-0 min-w-0 flex-1">
         {/* 홈 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}
         <div className={tab === "home" ? "flex h-full flex-col" : "hidden"}>
@@ -283,17 +302,24 @@ export default function Home() {
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
-              <h1 className="text-2xl font-bold">리천 기타 코드 자동생성기</h1>
               <p className="max-w-xs text-sm text-gray-500">
                 YouTube 주소나 오디오 파일에서 비트·조성·기타 코드를 뽑아 재생과 함께
                 보여줍니다.
               </p>
-              <button
-                className="rounded bg-black px-5 py-3 text-white dark:bg-white dark:text-black"
-                onClick={() => setTab("import")}
-              >
-                음원 가져오기
-              </button>
+              <div className="flex gap-2">
+                <button
+                  className="rounded bg-black px-5 py-3 text-white dark:bg-white dark:text-black"
+                  onClick={() => setTab("import")}
+                >
+                  음원 가져오기
+                </button>
+                <button
+                  className="rounded border border-gray-300 px-5 py-3 dark:border-gray-700"
+                  onClick={() => setTab("library")}
+                >
+                  재생목록
+                </button>
+              </div>
               {status && busy && (
                 <p className="text-xs text-gray-500">
                   {STAGE_LABEL[status.stage]} · {Math.round(status.progress * 100)}%

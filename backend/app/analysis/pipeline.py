@@ -23,6 +23,7 @@ from ..sources.base import FetchedAudio, ProgressFn, save_sidecar
 from . import chords as chord_rec
 from .beats import BEAT_MODEL, estimate_downbeat_phase, track_beats
 from .decode import DecodedAudio, decode_to_wav
+from .separate import separate as separate_stems
 from .features import (
     beat_boundaries,
     chroma,
@@ -33,7 +34,7 @@ from .features import (
 )
 from .key import estimate_key
 
-PIPELINE_VERSION = "0.4.0-waveform"
+PIPELINE_VERSION = "0.5.0-demucs"
 
 BEATS_PER_BAR = 4
 PEAKS_PER_SECOND = 25
@@ -65,9 +66,22 @@ async def analyze(
         JobStage.DECODING, 1.0, f"{decoded.duration:.1f}초 · {decoded.sample_rate}Hz 모노"
     )
 
+    # --- 음원 분리 ---
+    # 크로마는 보컬·드럼을 걷어낸 트랙에서 뽑고, 비트는 원본에서 잡는다.
+    # 드럼을 지운 트랙으로 비트를 잡으면 오히려 박이 흐려진다.
+    harmonic_path = decoded.path
+    separated = False
     if separate:
         await progress(JobStage.SEPARATING, 0.0, "음원 분리 중 (보컬·드럼 제거)")
-        await asyncio.sleep(0.1)  # TODO(M4): demucs htdemucs
+        try:
+            stems = await separate_stems(audio.path, audio.id, device)
+            harmonic = await decode_to_wav(stems.harmonic, f"{audio.id}.harmonic")
+            harmonic_path = harmonic.path
+            separated = True
+            await progress(JobStage.SEPARATING, 1.0, f"{stems.model} 분리 완료")
+        except Exception as exc:
+            # 분리는 있으면 좋은 단계다. 실패해도 원본으로 계속 간다.
+            await progress(JobStage.SEPARATING, 1.0, f"분리 건너뜀 ({exc})")
 
     # --- 비트 ---
     await progress(JobStage.BEATS, 0.0, "비트·마디 분석 중")
@@ -77,7 +91,12 @@ async def analyze(
     await progress(JobStage.BEATS, 0.5, f"{grid.bpm:.1f} BPM · 비트 {len(grid.times)}개")
 
     # --- 크로마 ---
-    frame_chroma = await asyncio.to_thread(chroma, buffer)
+    # 이미 드럼을 걷어냈으면 HPSS를 한 번 더 걸 필요가 없다
+    chroma_buffer = (
+        buffer if harmonic_path == decoded.path
+        else await asyncio.to_thread(load_audio, harmonic_path)
+    )
+    frame_chroma = await asyncio.to_thread(chroma, chroma_buffer, hpss=not separated)
     beat_chroma = sync_to_beats(frame_chroma, grid.frames)
     # 0번 열은 첫 비트 이전 구간이라 마디 위상 추정에서 제외한다.
     grid.downbeat_phase = estimate_downbeat_phase(
@@ -109,7 +128,7 @@ async def analyze(
         segments=segments,
         key_name=key_name,
         peaks=peaks,
-        separate=separate,
+        separated=separated,
         device=device,
         elapsed=time.perf_counter() - started,
     )
@@ -123,7 +142,7 @@ def _build_result(
     segments: list[chord_rec.ChordSegment],
     key_name: str,
     peaks: list[float],
-    separate: bool,
+    separated: bool,
     device: str,
     elapsed: float,
 ) -> AnalysisResult:
@@ -167,7 +186,7 @@ def _build_result(
         confidence=round(min(max(overall, 0.0), 1.0), 3),
         meta=AnalysisMeta(
             pipeline_version=PIPELINE_VERSION,
-            separated=separate,
+            separated=separated,
             beat_model=BEAT_MODEL,
             chord_model=chord_rec.CHORD_MODEL,
             device=device,
