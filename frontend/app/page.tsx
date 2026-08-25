@@ -18,6 +18,7 @@ import { RecordTab } from "@/components/tabs/RecordTab";
 import { SettingsTab } from "@/components/tabs/SettingsTab";
 import { analyzeUpload, analyzeUrl, getHealth, getResult, watchJob } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
+import { getLocal, saveLocal } from "@/lib/library";
 import { labelFor, resolveFlats, spellKey, transposeRoot } from "@/lib/notation";
 import { useSettings } from "@/lib/settings";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
@@ -117,6 +118,8 @@ export default function Home() {
             .then((r) => {
               setResult(r);
               setTab("home");
+              // 서버(PC)가 꺼져도 열 수 있도록 기기에도 저장해 둔다
+              if (settings.autoSave) saveLocal(r).catch(() => {});
             })
             .catch((e) => setError(e.message));
         }
@@ -133,8 +136,15 @@ export default function Home() {
     setTab("home");
     try {
       setResult(await getResult(id));
-    } catch (e) {
-      setError((e as Error).message);
+    } catch {
+      // 서버가 꺼져 있으면 기기 저장분에서 연다
+      try {
+        const local = await getLocal(id);
+        if (local) setResult(local);
+        else setError("서버에 연결할 수 없고 기기에도 저장돼 있지 않습니다");
+      } catch (e) {
+        setError((e as Error).message);
+      }
     }
   };
 
@@ -180,9 +190,9 @@ export default function Home() {
 
       {backendDown && (
         <p className="shrink-0 bg-amber-50 px-3 py-1.5 text-[11px] leading-snug text-amber-800">
-          분석 서버에 연결되지 않았습니다. 코드리스트만 볼 수 있고 분석은 되지 않습니다.
-          집 PC에서 백엔드를 켜거나, 배포 시 <code>NEXT_PUBLIC_API_BASE</code>로 서버
-          주소를 지정해 주세요.
+          분석 서버에 연결되지 않았습니다. 새 분석은 안 되지만, 재생목록의
+          기기 저장 곡과 코드리스트는 그대로 쓸 수 있습니다. 서버 주소는 설정
+          탭에서 지정합니다.
         </p>
       )}
 

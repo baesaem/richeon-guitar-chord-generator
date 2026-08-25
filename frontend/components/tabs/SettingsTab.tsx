@@ -90,6 +90,24 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       </section>
 
       <section className="mb-5">
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={settings.autoSave}
+            onChange={(e) => set("autoSave", e.target.checked)}
+          />
+          <span>
+            <span className="text-sm font-medium">분석 결과를 기기에 자동 저장</span>
+            <span className="block text-[11px] text-gray-500">
+              분석이 끝나면 이 기기(브라우저)에도 저장해, 서버(PC)가 꺼져 있어도
+              재생목록에서 열 수 있게 합니다.
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section className="mb-5">
         <div className="mb-1.5 text-sm font-medium">파형 확대</div>
         <div className="flex gap-1.5">
           {ZOOMS.map((z) => (

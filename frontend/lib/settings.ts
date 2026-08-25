@@ -23,6 +23,8 @@ export interface Settings {
    * 정적 배포본(GitHub Pages 등)에서 집 서버를 가리킬 때 쓴다.
    */
   apiBase: string;
+  /** 분석이 끝나면 결과를 기기(IndexedDB)에도 저장해 서버 없이 열 수 있게 한다 */
+  autoSave: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   view: "wave",
   videoCompact: false,
   apiBase: "",
+  autoSave: true,
 };
 
 const KEY = "chordgen.settings";
