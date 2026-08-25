@@ -102,8 +102,10 @@ export async function localIds(): Promise<Set<string>> {
 // ---- 파일 내보내기 / 가져오기 ----
 
 function download(name: string, payload: unknown): void {
+  // application/json으로 주면 Chrome이 .rml 뒤에 .json을 덧붙인다.
+  // 내용은 JSON이지만 타입은 자체 확장자를 지키도록 octet-stream으로.
   const blob = new Blob([JSON.stringify(payload, null, 1)], {
-    type: "application/json",
+    type: "application/octet-stream",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -121,10 +123,10 @@ function sourceLabel(result: AnalysisResult): string {
   return result.source === "youtube" ? "YouTube" : "업로드";
 }
 
-/** 결과 한 곡을 JSON 파일로 내려받는다. 파일명: 리천 노래명(출처).chord.json */
+/** 결과 한 곡을 파일로 내려받는다. 파일명: 리천 노래명(출처).rml */
 export function exportToFile(result: AnalysisResult): void {
   const name = safeName(result.title || result.id);
-  download(`리천 ${name}(${sourceLabel(result)}).chord.json`, result);
+  download(`리천 ${name}(${sourceLabel(result)}).rml`, result);
 }
 
 /** 오늘 날짜를 YYYY-MM-DD로 */
@@ -145,7 +147,7 @@ export async function exportAllToFile(): Promise<number> {
   db.close();
 
   if (records.length === 0) return 0;
-  download(`리천기타코드목록 ${today()}.json`, {
+  download(`리천기타코드목록 ${today()}.rml`, {
     app: "richeon-guitar-chord",
     exported: today(),
     results: records.map((r) => r.result),

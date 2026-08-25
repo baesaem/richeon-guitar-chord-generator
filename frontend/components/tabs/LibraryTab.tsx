@@ -211,7 +211,7 @@ export function LibraryTab({ onOpen, active }: Props) {
       <input
         ref={fileRef}
         type="file"
-        accept=".json,application/json"
+        accept=".rml,.json,application/json"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
