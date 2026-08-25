@@ -1,4 +1,4 @@
-import type { AnalysisResult, Health, JobStatus } from "./types";
+import type { AnalysisResult, Health, JobStatus, ResultSummary } from "./types";
 
 /**
  * API 주소.
@@ -39,6 +39,14 @@ export const analyzeUpload = (file: File, separate: boolean, force = false) => {
 
 export const getResult = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}`).then(json<AnalysisResult>);
+
+export const listResults = () =>
+  fetch(`${apiBase()}/api/results`).then(json<ResultSummary[]>);
+
+export const deleteResult = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}`, { method: "DELETE" }).then(
+    json<{ deleted: string }>,
+  );
 
 /** SSE로 진행률을 구독한다. 반환값을 호출하면 구독을 끊는다. */
 export function watchJob(

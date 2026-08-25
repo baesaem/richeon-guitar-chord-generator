@@ -51,6 +51,13 @@ export function transposeRoot(root: string | null, semitones: number): string | 
   return SHARP_NAMES[(((pc + semitones) % 12) + 12) % 12];
 }
 
+/** 설정(자동/♯ 고정/♭ 고정)까지 반영해 플랫 표기 여부를 정한다. */
+export function resolveFlats(key: string, notation: "auto" | "sharp" | "flat"): boolean {
+  if (notation === "sharp") return false;
+  if (notation === "flat") return true;
+  return prefersFlats(key);
+}
+
 /** 근음 + 종류로 표시용 라벨을 만든다. */
 export function labelFor(root: string | null, quality: string, flats: boolean): string {
   if (!root || quality === "N") return "N.C.";

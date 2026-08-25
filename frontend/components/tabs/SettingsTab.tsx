@@ -1,0 +1,121 @@
+"use client";
+
+import { Copyright } from "@/components/Copyright";
+import type { Notation, Settings } from "@/lib/settings";
+import type { Health } from "@/lib/types";
+
+interface Props {
+  settings: Settings;
+  onChange: (settings: Settings) => void;
+  health: Health | null;
+}
+
+const ZOOMS = [
+  { value: 60, label: "넓게" },
+  { value: 90, label: "보통" },
+  { value: 140, label: "좁게" },
+];
+
+const NOTATIONS: { value: Notation; label: string }[] = [
+  { value: "auto", label: "자동" },
+  { value: "sharp", label: "♯ 고정" },
+  { value: "flat", label: "♭ 고정" },
+];
+
+export function SettingsTab({ settings, onChange, health }: Props) {
+  const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
+    onChange({ ...settings, [key]: value });
+
+  const pill = (active: boolean) =>
+    [
+      "flex-1 rounded py-2 text-sm",
+      active
+        ? "bg-black text-white dark:bg-white dark:text-black"
+        : "bg-gray-100 dark:bg-gray-800",
+    ].join(" ");
+
+  return (
+    <div className="h-full overflow-y-auto px-3 py-3">
+      <h2 className="mb-3 text-lg font-bold">설정</h2>
+
+      <section className="mb-5">
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={settings.separate}
+            onChange={(e) => set("separate", e.target.checked)}
+          />
+          <span>
+            <span className="text-sm font-medium">음원 분리 사용</span>
+            <span className="block text-[11px] text-gray-500">
+              보컬·드럼을 걷어내면 코드 인식이 정확해지지만 분석이 느려집니다.
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section className="mb-5">
+        <div className="mb-1.5 text-sm font-medium">파형 확대</div>
+        <div className="flex gap-1.5">
+          {ZOOMS.map((z) => (
+            <button
+              key={z.value}
+              className={pill(settings.pixelsPerSecond === z.value)}
+              onClick={() => set("pixelsPerSecond", z.value)}
+            >
+              {z.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-gray-500">
+          한 화면에 보이는 시간 폭을 정합니다. 빠른 곡은 넓게 두면 읽기 편합니다.
+        </p>
+      </section>
+
+      <section className="mb-5">
+        <div className="mb-1.5 text-sm font-medium">코드 표기</div>
+        <div className="flex gap-1.5">
+          {NOTATIONS.map((n) => (
+            <button
+              key={n.value}
+              className={pill(settings.notation === n.value)}
+              onClick={() => set("notation", n.value)}
+            >
+              {n.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-gray-500">
+          자동은 조표를 보고 정합니다. Ab장조면 G#이 아니라 Ab으로 적습니다.
+        </p>
+      </section>
+
+      <section className="mb-5">
+        <div className="mb-1.5 text-sm font-medium">서버</div>
+        <dl className="rounded border border-gray-200 text-xs dark:border-gray-800">
+          {[
+            ["연결", health ? "정상" : "연결 안 됨"],
+            ["연산 장치", health?.device ?? "-"],
+            ["ffmpeg", health ? (health.ffmpeg ? "있음" : "없음") : "-"],
+            ["YouTube 입력", health ? (health.youtube_enabled ? "허용" : "차단") : "-"],
+            ["파이프라인", health?.pipeline_version ?? "-"],
+          ].map(([k, v]) => (
+            <div
+              key={k}
+              className="flex justify-between border-b border-gray-100 px-3 py-2 last:border-0 dark:border-gray-800"
+            >
+              <dt className="text-gray-500">{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-1 text-[11px] text-gray-500">
+          연산 장치가 cpu로 나오면 음원 분리와 코드 모델이 느립니다.
+        </p>
+      </section>
+
+      <Copyright />
+    </div>
+  );
+}

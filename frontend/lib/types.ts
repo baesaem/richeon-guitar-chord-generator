@@ -75,6 +75,19 @@ export interface AnalysisResult {
   meta: AnalysisMeta;
 }
 
+/** 재생목록용 요약. 전체 결과는 파형 때문에 무거워 목록에는 쓰지 않는다. */
+export interface ResultSummary {
+  id: string;
+  source: SourceKind;
+  title: string;
+  duration: number;
+  bpm: number;
+  key: string;
+  chord_count: number;
+  pipeline_version: string;
+  analyzed_at: number;
+}
+
 export interface JobStatus {
   job_id: string;
   stage: JobStage;

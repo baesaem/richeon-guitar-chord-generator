@@ -103,6 +103,20 @@ class AnalysisResult(BaseModel):
 
 # ---- API 요청/응답 ----
 
+class ResultSummary(BaseModel):
+    """재생목록에 뿌릴 요약. 전체 결과는 peaks 때문에 100KB가 넘어 목록에 부적합하다."""
+
+    id: str
+    source: SourceKind
+    title: str = ""
+    duration: float = 0.0
+    bpm: float = 0.0
+    key: str = ""
+    chord_count: int = 0
+    pipeline_version: str = ""
+    analyzed_at: float = Field(default=0.0, description="결과 파일 수정 시각(유닉스 초)")
+
+
 class AnalyzeRequest(BaseModel):
     url: str | None = Field(default=None, description="YouTube URL. ENABLE_YOUTUBE=false면 거부")
     separate: bool = Field(default=True, description="Demucs 음원 분리 사용 여부")

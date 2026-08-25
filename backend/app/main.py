@@ -12,8 +12,8 @@ from sse_starlette.sse import EventSourceResponse
 from .analysis.decode import ffmpeg_available
 from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .config import settings
-from .jobs import load_result, manager, save_result
-from .schemas import AnalysisResult, AnalyzeRequest, Chord
+from .jobs import load_result, manager, result_path, save_result
+from .schemas import AnalysisResult, AnalyzeRequest, Chord, ResultSummary
 from .sources import UploadSource, YouTubeSource
 from .sources.youtube import YouTubeUnavailable
 
@@ -24,6 +24,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _guard_id(result_id: str) -> None:
+    """경로 조작 차단. id는 videoId 또는 파일 해시라 구분자가 들어갈 일이 없다."""
+    if "/" in result_id or "\\" in result_id or ".." in result_id:
+        raise HTTPException(400, "잘못된 id입니다")
 
 
 @app.get("/api/health")
@@ -94,14 +100,51 @@ async def job_events(job_id: str) -> EventSourceResponse:
     return EventSourceResponse(gen())
 
 
+@app.get("/api/results")
+async def list_results() -> list[ResultSummary]:
+    """분석해 둔 곡 목록. 최근 분석 순."""
+    summaries: list[ResultSummary] = []
+    for path in settings.result_dir.glob("*.json"):
+        result = load_result(path.stem)
+        if result is None:
+            continue  # 스키마·버전이 안 맞는 옛 캐시는 목록에 올리지 않는다
+        summaries.append(
+            ResultSummary(
+                id=result.id,
+                source=result.source,
+                title=result.title,
+                duration=result.duration,
+                bpm=result.bpm,
+                key=result.key,
+                chord_count=len(result.chords),
+                pipeline_version=result.meta.pipeline_version,
+                analyzed_at=path.stat().st_mtime,
+            )
+        )
+
+    summaries.sort(key=lambda s: s.analyzed_at, reverse=True)
+    return summaries
+
+
+@app.delete("/api/results/{result_id}")
+async def delete_result(result_id: str) -> dict:
+    """분석 결과만 지운다. 원본·디코딩 오디오는 남아 재분석이 빠르다."""
+    _guard_id(result_id)
+
+    path = result_path(result_id)
+    if not path.exists():
+        raise HTTPException(404, "분석 결과가 없습니다")
+    path.unlink()
+    return {"deleted": result_id}
+
+
 @app.get("/api/audio/{result_id}")
 async def get_audio(result_id: str) -> FileResponse:
     """업로드한 곡을 브라우저에서 재생하기 위한 원본 스트리밍.
 
     YouTube 결과는 IFrame 플레이어로 재생하므로 이 경로를 쓰지 않는다.
     """
-    if "/" in result_id or "\\" in result_id or ".." in result_id:
-        raise HTTPException(400, "잘못된 id입니다")
+    _guard_id(result_id)
 
     for path in sorted(settings.audio_dir.glob(f"{result_id}.*")):
         rest = path.name[len(result_id) + 1 :]
