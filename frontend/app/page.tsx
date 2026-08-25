@@ -116,13 +116,29 @@ export default function Home() {
         {health?.youtube_enabled && (
           <section className="space-y-2">
             <label className="text-sm font-medium">YouTube 주소</label>
-            <input
-              className="w-full rounded border px-3 py-3 text-base"
-              placeholder="https://www.youtube.com/watch?v=..."
-              inputMode="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
+            <div className="flex items-center gap-2">
+              <input
+                className="min-w-0 flex-1 rounded border px-3 py-3 text-base"
+                placeholder="https://www.youtube.com/watch?v=..."
+                inputMode="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+              {/* 곡을 찾아 주소를 복사해 오도록 유튜브를 새 탭으로 연다 */}
+              <a
+                href="https://www.youtube.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded border"
+                aria-label="YouTube 열기"
+                title="YouTube 열기"
+              >
+                <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
+                  <rect x="1" y="5" width="22" height="14" rx="4" fill="#FF0000" />
+                  <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
+                </svg>
+              </a>
+            </div>
             <button
               className="w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
               disabled={!url || busy}
