@@ -24,6 +24,8 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: "dark", label: "어둡게" },
   { value: "sepia", label: "세피아" },
   { value: "aqua", label: "아쿠아" },
+  { value: "royal", label: "로얄" },
+  { value: "naver", label: "네이버" },
 ];
 
 const NOTATIONS: { value: Notation; label: string }[] = [

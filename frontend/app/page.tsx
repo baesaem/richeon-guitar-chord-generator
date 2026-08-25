@@ -67,7 +67,7 @@ export default function Home() {
         settings.theme === "dark" || (settings.theme === "system" && media.matches);
       document.documentElement.classList.toggle("dark", dark);
       // 세피아·아쿠아는 라이트 기반 색조 팔레트
-      if (settings.theme === "sepia" || settings.theme === "aqua") {
+      if (["sepia", "aqua", "royal", "naver"].includes(settings.theme)) {
         document.documentElement.dataset.theme = settings.theme;
       } else {
         delete document.documentElement.dataset.theme;

@@ -8,7 +8,7 @@ export type Notation = "auto" | "sharp" | "flat";
 export type View = "wave" | "sheet";
 
 /** 화면 테마. system은 기기 설정을 따른다 */
-export type Theme = "system" | "light" | "dark" | "sepia" | "aqua";
+export type Theme = "system" | "light" | "dark" | "sepia" | "aqua" | "royal" | "naver";
 
 export interface Settings {
   /** 분석할 때 음원 분리를 쓸지 */

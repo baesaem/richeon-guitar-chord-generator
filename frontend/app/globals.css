@@ -23,13 +23,23 @@
 
 /* 색조 테마. 라이트 기반 팔레트에 배경·전경만 물들인다 */
 [data-theme="sepia"] {
-  --background: #f4ecd8;
+  --background: #f2e2bd;
   --foreground: #5b4636;
 }
 
 [data-theme="aqua"] {
-  --background: #e6f4f6;
+  --background: #cfeef4;
   --foreground: #0f3a45;
+}
+
+[data-theme="royal"] {
+  --background: #e2d4f5;
+  --foreground: #2e1a47;
+}
+
+[data-theme="naver"] {
+  --background: #d3f2df;
+  --foreground: #0b3d24;
 }
 
 body {
