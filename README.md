@@ -5,10 +5,10 @@ YouTube 주소나 오디오 파일에서 **비트·키·코드**를 자동으로
 
 전체 설계와 일정은 [PLAN.md](PLAN.md) 참고.
 
-## 현재 상태: M0 완료 (스캐폴딩 + 결과 스키마 확정)
+## 현재 상태: M1 완료 (오디오 획득 + 디코딩)
 
-분석 파이프라인은 **스텁**이다. 실제 코드 인식은 M2부터.
-지금은 어떤 오디오를 넣어도 90 BPM, G-D-Em-C 고정 결과가 나온다.
+YouTube 다운로드와 ffmpeg 디코딩은 **실제로 동작한다.**
+비트·코드 인식은 아직 스텁이라, 어떤 곡을 넣어도 90 BPM · G-D-Em-C가 나온다. (M2부터 실제 구현)
 
 ## 요구 사항
 
@@ -51,8 +51,13 @@ npm run dev
 
 ## 캐시
 
-- `backend/cache/audio/` — 원본 오디오 (videoId 또는 파일 SHA1 앞 16자)
-- `backend/cache/results/` — 분석 결과 JSON (같은 키)
+- `backend/cache/audio/{id}.{ext}` — 원본 오디오 (videoId 또는 파일 SHA1 앞 16자)
+- `backend/cache/audio/{id}.{sr}.wav` — 분석용 모노 wav (디코딩 결과)
+- `backend/cache/audio/{id}.info.json` — 제목·길이 사이드카. 캐시 적중 시 yt-dlp를 다시 부르지 않고도 제목을 복원한다
+- `backend/cache/results/{id}.json` — 분석 결과
+
+캐시는 3단으로 걸린다: 결과 → 디코딩 wav → 원본 오디오.
+`force: true`는 결과만 무효화하므로, 재분석해도 다운로드와 디코딩은 건너뛴다.
 
 같은 곡을 다시 넣으면 분석을 건너뛴다. 재분석하려면 요청에 `force: true`.
 `meta.pipeline_version`이 결과가 어느 버전으로 뽑혔는지 알려준다.
@@ -86,7 +91,10 @@ npm run dev
   그래도 안 되면 해당 곡은 파일 업로드로 우회한다.
 - OneDrive 동기화 폴더라 `.pyc` 캐시가 소스를 못 따라가는 경우가 있어
   `run.py`에서 바이트코드 캐시를 끈다.
+- **Windows에서 `asyncio.create_subprocess_exec`은 못 쓴다.** uvicorn이 SelectorEventLoop을
+  쓰면 `NotImplementedError`가 난다. 외부 프로세스는 `asyncio.to_thread` + 동기 `subprocess`로 돌린다
+  ([decode.py](backend/app/analysis/decode.py) 참고).
 
-## 다음 단계 (M1)
+## 다음 단계 (M2)
 
-`analysis/pipeline.py`의 `TODO(M1)` — ffmpeg로 모노 wav 디코드부터.
+`analysis/pipeline.py`의 `TODO(M2)` — 비트/다운비트 추적과 크로마 기반 코드 인식.

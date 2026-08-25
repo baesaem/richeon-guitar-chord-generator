@@ -56,6 +56,12 @@ export default function Home() {
         </p>
       </header>
 
+      {health && !health.ffmpeg && (
+        <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
+          ffmpeg / ffprobe를 찾을 수 없습니다. 설치 후 PATH에 추가해야 분석이 가능합니다.
+        </p>
+      )}
+
       {health?.youtube_enabled && (
         <section className="space-y-2">
           <label className="text-sm font-medium">YouTube 주소</label>

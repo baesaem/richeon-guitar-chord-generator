@@ -1,6 +1,7 @@
 """개발 서버 실행: uv run python run.py"""
 
 import sys
+from pathlib import Path
 
 import uvicorn
 
@@ -16,5 +17,6 @@ if __name__ == "__main__":
         host=settings.host,
         port=settings.port,
         reload=True,
-        reload_dirs=["app"],
+        # 실행 위치가 어디든 backend/app을 감시하도록 절대 경로로 준다
+        reload_dirs=[str(Path(__file__).resolve().parent / "app")],
     )

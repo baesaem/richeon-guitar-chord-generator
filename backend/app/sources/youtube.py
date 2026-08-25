@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..config import settings
 from ..schemas import JobStage, SourceKind
-from .base import AudioSource, FetchedAudio, ProgressFn
+from .base import AudioSource, FetchedAudio, ProgressFn, load_sidecar, save_sidecar
 
 _ID_PATTERNS = [
     re.compile(r"(?:v=|/shorts/|/embed/|youtu\.be/)([A-Za-z0-9_-]{11})"),
@@ -38,7 +38,7 @@ class YouTubeSource(AudioSource):
         cached = self._find_cached()
         if cached:
             await progress(JobStage.FETCHING, 1.0, "캐시된 오디오 사용")
-            return await self._probe(cached)
+            return self._probe(cached)
 
         await progress(JobStage.FETCHING, 0.0, "YouTube 오디오 추출 중")
         # yt-dlp는 동기 API이므로 워커 스레드에서 돌린다.
@@ -47,9 +47,12 @@ class YouTubeSource(AudioSource):
         return await asyncio.to_thread(self._download_blocking, progress, loop)
 
     def _find_cached(self) -> Path | None:
-        for p in settings.audio_dir.glob(f"{self.video_id}.*"):
-            if p.suffix != ".json":
-                return p
+        """원본 오디오만 찾는다. 디코딩 산출물(`{id}.{sr}.wav`)과 사이드카는 제외."""
+        for p in sorted(settings.audio_dir.glob(f"{self.video_id}.*")):
+            stem_rest = p.name[len(self.video_id) + 1 :]
+            if "." in stem_rest:  # 22050.wav / info.json 처럼 점이 더 있으면 파생 파일
+                continue
+            return p
         return None
 
     def _download_blocking(
@@ -86,19 +89,23 @@ class YouTubeSource(AudioSource):
             ) from exc
 
         path = Path(info["requested_downloads"][0]["filepath"])
+        title = info.get("title", "")
+        duration = float(info.get("duration") or 0.0)
+        save_sidecar(self.video_id, title, duration)
         return FetchedAudio(
             id=self.video_id,
             kind=SourceKind.YOUTUBE,
             path=path,
-            title=info.get("title", ""),
-            duration=float(info.get("duration") or 0.0),
+            title=title,
+            duration=duration,
         )
 
-    async def _probe(self, path: Path) -> FetchedAudio:
+    def _probe(self, path: Path) -> FetchedAudio:
+        title, duration = load_sidecar(self.video_id)
         return FetchedAudio(
             id=self.video_id,
             kind=SourceKind.YOUTUBE,
             path=path,
-            title="",
-            duration=0.0,
+            title=title,
+            duration=duration,
         )

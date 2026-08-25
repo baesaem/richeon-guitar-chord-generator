@@ -17,9 +17,10 @@ from ..schemas import (
     Chord,
     JobStage,
 )
-from ..sources.base import FetchedAudio, ProgressFn
+from ..sources.base import FetchedAudio, ProgressFn, save_sidecar
+from .decode import DecodedAudio, decode_to_wav
 
-PIPELINE_VERSION = "0.1.0-stub"
+PIPELINE_VERSION = "0.2.0-decode"
 
 
 def resolve_device() -> str:
@@ -40,7 +41,13 @@ async def analyze(
     device = resolve_device()
 
     await progress(JobStage.DECODING, 0.0, "오디오 디코딩 중")
-    await asyncio.sleep(0.2)  # TODO(M1): ffmpeg → mono wav @ settings.sample_rate
+    decoded = await decode_to_wav(audio.path, audio.id)
+    # 디코딩된 wav가 길이의 최종 출처다. yt-dlp 메타데이터는 반올림되어 있다.
+    audio.duration = decoded.duration
+    save_sidecar(audio.id, audio.title, decoded.duration)
+    await progress(
+        JobStage.DECODING, 1.0, f"{decoded.duration:.1f}초 · {decoded.sample_rate}Hz 모노"
+    )
 
     if separate:
         await progress(JobStage.SEPARATING, 0.0, "음원 분리 중 (보컬·드럼 제거)")
@@ -57,16 +64,20 @@ async def analyze(
 
     # 종료(DONE/FAILED) 이벤트는 JobManager가 result_id와 함께 발행한다.
     # 여기서 DONE을 쏘면 클라이언트가 result_id 없는 완료 이벤트를 먼저 받는다.
-    return _stub_result(audio, separate, device, time.perf_counter() - started)
+    return _stub_result(audio, decoded, separate, device, time.perf_counter() - started)
 
 
 def _stub_result(
-    audio: FetchedAudio, separate: bool, device: str, elapsed: float
+    audio: FetchedAudio,
+    decoded: DecodedAudio,
+    separate: bool,
+    device: str,
+    elapsed: float,
 ) -> AnalysisResult:
     """프론트 개발용 가짜 결과: 90 BPM 4/4, G-D-Em-C 한 마디씩 반복."""
     bpm = 90.0
     spb = 60.0 / bpm
-    duration = audio.duration or 32.0
+    duration = decoded.duration or 32.0
 
     beats: list[Beat] = []
     chords: list[Chord] = []

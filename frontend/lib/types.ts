@@ -85,6 +85,8 @@ export interface Health {
   ok: boolean;
   /** false면 URL 입력창을 감추고 업로드 전용(B안)으로 동작 */
   youtube_enabled: boolean;
+  /** ffmpeg/ffprobe가 PATH에 없으면 어떤 분석도 불가능하다 */
+  ffmpeg: boolean;
   device: string;
   pipeline_version: string;
 }

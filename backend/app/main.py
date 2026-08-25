@@ -8,6 +8,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
+from .analysis.decode import ffmpeg_available
 from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .config import settings
 from .jobs import load_result, manager, save_result
@@ -27,9 +28,11 @@ app.add_middleware(
 @app.get("/api/health")
 async def health() -> dict:
     """프론트가 기동 시 호출. youtube_enabled로 URL 입력창 노출 여부를 결정한다."""
+    ffmpeg_ok = ffmpeg_available()
     return {
-        "ok": True,
+        "ok": ffmpeg_ok,
         "youtube_enabled": settings.enable_youtube,
+        "ffmpeg": ffmpeg_ok,
         "device": resolve_device(),
         "pipeline_version": PIPELINE_VERSION,
     }

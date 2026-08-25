@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..config import settings
 from ..schemas import JobStage, SourceKind
-from .base import AudioSource, FetchedAudio, ProgressFn
+from .base import AudioSource, FetchedAudio, ProgressFn, save_sidecar
 
 ALLOWED_SUFFIXES = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac", ".webm"}
 
@@ -33,11 +33,14 @@ class UploadSource(AudioSource):
         else:
             self.tmp_path.unlink(missing_ok=True)
 
+        title = Path(self.original_name).stem
+        save_sidecar(digest, title, 0.0)  # 정확한 길이는 디코딩 단계에서 채운다
+
         await progress(JobStage.FETCHING, 1.0, "업로드 완료")
         return FetchedAudio(
             id=digest,
             kind=SourceKind.UPLOAD,
             path=dest,
-            title=Path(self.original_name).stem,
+            title=title,
             duration=0.0,
         )
