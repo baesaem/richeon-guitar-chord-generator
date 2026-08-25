@@ -1,13 +1,15 @@
 """분석 파이프라인.
 
-M0에서는 각 단계가 스텁이다. 단계 구분과 진행률 보고 구조를 먼저 확정해 두고,
-M2/M4에서 내용물만 실제 구현으로 갈아끼운다.
+오디오 → 디코딩 → (음원분리) → 비트/다운비트 → 크로마 → 코드 → 후처리.
+무거운 numpy 연산은 전부 워커 스레드로 보내 이벤트 루프를 막지 않는다.
 """
 
 from __future__ import annotations
 
 import asyncio
 import time
+
+import numpy as np
 
 from ..config import settings
 from ..schemas import (
@@ -18,9 +20,15 @@ from ..schemas import (
     JobStage,
 )
 from ..sources.base import FetchedAudio, ProgressFn, save_sidecar
+from . import chords as chord_rec
+from .beats import BEAT_MODEL, estimate_downbeat_phase, track_beats
 from .decode import DecodedAudio, decode_to_wav
+from .features import beat_boundaries, chroma, load_audio, onset_envelope, sync_to_beats
+from .key import estimate_key
 
-PIPELINE_VERSION = "0.2.0-decode"
+PIPELINE_VERSION = "0.3.0-template"
+
+BEATS_PER_BAR = 4
 
 
 def resolve_device() -> str:
@@ -51,74 +59,104 @@ async def analyze(
 
     if separate:
         await progress(JobStage.SEPARATING, 0.0, "음원 분리 중 (보컬·드럼 제거)")
-        await asyncio.sleep(0.2)  # TODO(M4): demucs htdemucs
+        await asyncio.sleep(0.1)  # TODO(M4): demucs htdemucs
 
+    # --- 비트 ---
     await progress(JobStage.BEATS, 0.0, "비트·마디 분석 중")
-    await asyncio.sleep(0.2)  # TODO(M2): beat_this / madmom 다운비트 추적
+    buffer = await asyncio.to_thread(load_audio, decoded.path)
+    onset_env = await asyncio.to_thread(onset_envelope, buffer)
+    grid = await asyncio.to_thread(track_beats, buffer, onset_env)
+    await progress(JobStage.BEATS, 0.5, f"{grid.bpm:.1f} BPM · 비트 {len(grid.times)}개")
 
+    # --- 크로마 ---
+    frame_chroma = await asyncio.to_thread(chroma, buffer)
+    beat_chroma = sync_to_beats(frame_chroma, grid.frames)
+    # 0번 열은 첫 비트 이전 구간이라 마디 위상 추정에서 제외한다.
+    grid.downbeat_phase = estimate_downbeat_phase(
+        beat_chroma[:, 1:], onset_env, grid.frames, BEATS_PER_BAR
+    )
+    await progress(JobStage.BEATS, 1.0, f"다운비트 위상 {grid.downbeat_phase}")
+
+    # --- 코드 ---
     await progress(JobStage.CHORDS, 0.0, "코드 인식 중")
-    await asyncio.sleep(0.2)  # TODO(M2): 크로마+템플릿 → (M4) BTC/Chordino
+    segments = await asyncio.to_thread(
+        chord_rec.recognize, beat_chroma, beat_boundaries(grid.times), decoded.duration
+    )
+    await progress(JobStage.CHORDS, 1.0, f"코드 구간 {len(segments)}개")
 
+    # --- 후처리 ---
     await progress(JobStage.POSTPROCESS, 0.0, "보정 중")
-    await asyncio.sleep(0.1)  # TODO(M2): 비트 스냅 · median 스무딩 · 키 기반 보정
+    beat_period = 60.0 / grid.bpm if grid.bpm > 0 else 0.5
+    segments = chord_rec.merge_short_segments(segments, min_duration=beat_period * 0.9)
+    key_name, _ = estimate_key(frame_chroma)
+    await progress(JobStage.POSTPROCESS, 1.0, f"{key_name or '조성 미상'} · 코드 {len(segments)}개")
 
     # 종료(DONE/FAILED) 이벤트는 JobManager가 result_id와 함께 발행한다.
     # 여기서 DONE을 쏘면 클라이언트가 result_id 없는 완료 이벤트를 먼저 받는다.
-    return _stub_result(audio, decoded, separate, device, time.perf_counter() - started)
+    return _build_result(
+        audio=audio,
+        decoded=decoded,
+        grid=grid,
+        segments=segments,
+        key_name=key_name,
+        separate=separate,
+        device=device,
+        elapsed=time.perf_counter() - started,
+    )
 
 
-def _stub_result(
+def _build_result(
+    *,
     audio: FetchedAudio,
     decoded: DecodedAudio,
+    grid,
+    segments: list[chord_rec.ChordSegment],
+    key_name: str,
     separate: bool,
     device: str,
     elapsed: float,
 ) -> AnalysisResult:
-    """프론트 개발용 가짜 결과: 90 BPM 4/4, G-D-Em-C 한 마디씩 반복."""
-    bpm = 90.0
-    spb = 60.0 / bpm
-    duration = decoded.duration or 32.0
+    beats = [
+        Beat(t=round(float(t), 3), beat=position, bar=bar)
+        for t, (bar, position) in zip(grid.times, grid.positions())
+    ]
 
-    beats: list[Beat] = []
-    chords: list[Chord] = []
-    progression = [("G", "G"), ("D", "D"), ("E", "Em"), ("C", "C")]
+    chord_list = [
+        Chord(
+            start=round(s.start, 3),
+            end=round(s.end, 3),
+            label=s.label,
+            root=s.root,  # type: ignore[arg-type]
+            quality=s.quality,  # type: ignore[arg-type]
+            confidence=round(min(max(s.confidence, 0.0), 1.0), 3),
+        )
+        for s in segments
+    ]
 
-    i = 0
-    t = 0.0
-    while t < duration:
-        bar = i // 4 + 1
-        beats.append(Beat(t=round(t, 3), beat=i % 4 + 1, bar=bar))
-        if i % 4 == 0:
-            root, label = progression[(bar - 1) % 4]
-            chords.append(
-                Chord(
-                    start=round(t, 3),
-                    end=round(min(t + spb * 4, duration), 3),
-                    label=label,
-                    root=root,  # type: ignore[arg-type]
-                    quality="min" if label.endswith("m") else "maj",
-                    confidence=0.5,
-                )
-            )
-        i += 1
-        t = i * spb
+    # 전체 신뢰도는 길이로 가중한 평균. 짧은 파편이 점수를 좌우하지 않게 한다.
+    if chord_list:
+        weights = np.array([c.end - c.start for c in chord_list])
+        scores = np.array([c.confidence for c in chord_list])
+        overall = float(np.sum(weights * scores) / max(float(np.sum(weights)), 1e-9))
+    else:
+        overall = 0.0
 
     return AnalysisResult(
         id=audio.id,
         source=audio.kind,
         title=audio.title,
-        duration=duration,
-        bpm=bpm,
-        time_signature="4/4",
-        key="G major",
+        duration=decoded.duration,
+        bpm=round(float(grid.bpm), 2),
+        time_signature=f"{BEATS_PER_BAR}/4",
+        key=key_name,
         beats=beats,
-        chords=chords,
-        confidence=0.0,
+        chords=chord_list,
+        confidence=round(min(max(overall, 0.0), 1.0), 3),
         meta=AnalysisMeta(
             pipeline_version=PIPELINE_VERSION,
             separated=separate,
-            beat_model="stub",
-            chord_model="stub",
+            beat_model=BEAT_MODEL,
+            chord_model=chord_rec.CHORD_MODEL,
             device=device,
             elapsed_sec=round(elapsed, 3),
         ),

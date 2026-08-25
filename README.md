@@ -5,10 +5,25 @@ YouTube 주소나 오디오 파일에서 **비트·키·코드**를 자동으로
 
 전체 설계와 일정은 [PLAN.md](PLAN.md) 참고.
 
-## 현재 상태: M1 완료 (오디오 획득 + 디코딩)
+## 현재 상태: M2 완료 (비트 · 코드 인식 베이스라인)
 
-YouTube 다운로드와 ffmpeg 디코딩은 **실제로 동작한다.**
-비트·코드 인식은 아직 스텁이라, 어떤 곡을 넣어도 90 BPM · G-D-Em-C가 나온다. (M2부터 실제 구현)
+YouTube 다운로드 → 디코딩 → 비트/다운비트 → 크로마 → 코드 인식까지 **실제로 동작한다.**
+3분 30초 곡 기준 CPU에서 약 9초.
+
+코드 인식은 **Plan A 베이스라인**(24개 템플릿 + Viterbi)이라 장·단3화음만 낸다.
+7th·sus·slash 코드와 정확도 향상은 M4에서 사전학습 모델로 교체하며 다룬다.
+
+### 분석 단계
+| 모듈 | 하는 일 |
+|---|---|
+| [decode.py](backend/app/analysis/decode.py) | 무엇이 들어오든 모노 wav로 통일 |
+| [features.py](backend/app/analysis/features.py) | 하모닉 성분 분리 → CQT 크로마 → 비트 단위 집계 |
+| [beats.py](backend/app/analysis/beats.py) | 비트 추적 + 다운비트 위상 추정 (화성 변화량 + 온셋 세기) |
+| [chords.py](backend/app/analysis/chords.py) | 템플릿 상관 → Viterbi 스무딩 → 짧은 파편 병합 |
+| [key.py](backend/app/analysis/key.py) | Krumhansl-Schmuckler 조성 추정 |
+
+근음은 백엔드가 항상 샾으로 돌려주고, 조표에 맞춘 플랫 변환은
+프론트의 [notation.ts](frontend/lib/notation.ts)가 담당한다. (Ab장조를 G#으로 읽지 않도록)
 
 ## 요구 사항
 
@@ -95,6 +110,6 @@ npm run dev
   쓰면 `NotImplementedError`가 난다. 외부 프로세스는 `asyncio.to_thread` + 동기 `subprocess`로 돌린다
   ([decode.py](backend/app/analysis/decode.py) 참고).
 
-## 다음 단계 (M2)
+## 다음 단계 (M3)
 
-`analysis/pipeline.py`의 `TODO(M2)` — 비트/다운비트 추적과 크로마 기반 코드 인식.
+YouTube IFrame 플레이어와 동기화된 코드 타임라인 + 기타 프렛보드 다이어그램.

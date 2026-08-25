@@ -9,6 +9,7 @@ import {
   getResult,
   watchJob,
 } from "@/lib/api";
+import { spell, spellKey, useFlats } from "@/lib/notation";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
 
 export default function Home() {
@@ -129,17 +130,21 @@ export default function Home() {
 
       {result && (
         <section className="space-y-3">
-          <div className="flex gap-4 text-sm">
-            <span>키 {result.key || "-"}</span>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span>키 {result.key ? spellKey(result.key) : "-"}</span>
             <span>{Math.round(result.bpm)} BPM</span>
             <span>{result.time_signature}</span>
-            <span className="text-gray-500">{result.meta.chord_model}</span>
+            <span className="text-gray-500">
+              {result.meta.chord_model} · {result.meta.elapsed_sec}초
+            </span>
           </div>
           {/* TODO(M3): YouTube 플레이어 동기화 타임라인 + 프렛보드 다이어그램으로 교체 */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {result.chords.map((c, i) => (
               <div key={i} className="rounded border p-2 text-center">
-                <div className="font-semibold">{c.label}</div>
+                <div className="font-semibold">
+                  {spell(c.label, useFlats(result.key))}
+                </div>
                 <div className="text-xs text-gray-400">{c.start.toFixed(1)}s</div>
               </div>
             ))}
