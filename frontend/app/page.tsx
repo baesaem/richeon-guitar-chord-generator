@@ -10,7 +10,7 @@ import { ChordScore } from "@/components/ChordScore";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
-import { TransportBar } from "@/components/TransportBar";
+import { SeekBar, TransportBar } from "@/components/TransportBar";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
 import { ImportTab } from "@/components/tabs/ImportTab";
 import { LibraryTab } from "@/components/tabs/LibraryTab";
@@ -157,14 +157,18 @@ export default function Home() {
   const view = (c: typeof current) =>
     c
       ? {
-          root: transposeRoot(c.root, transpose),
-          label: labelFor(transposeRoot(c.root, transpose), c.quality, flats),
+          root: transposeRoot(c.root, -transpose),
+          label: labelFor(transposeRoot(c.root, -transpose), c.quality, flats),
           quality: c.quality,
         }
       : undefined;
 
   const cur = view(current);
   const nxt = view(next);
+
+  // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
+  // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
+  const noteShift = -transpose;
 
   return (
     // w-full이 없으면 mx-auto(가로 auto 마진)가 flex 아이템의 stretch를 무효화해
@@ -200,13 +204,17 @@ export default function Home() {
         {/* 홈 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}
         <div className={tab === "home" ? "flex h-full flex-col" : "hidden"}>
           {result ? (
+            // 영역을 카드로 묶어 서로 구별한다: 영상 / 타임라인+탐색 / 현재 코드 / 곡 전체
             <>
-              <PlayerPane
-                result={result}
-                onReady={setPlayback}
-                compact={settings.videoCompact}
-              />
+              <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                <PlayerPane
+                  result={result}
+                  onReady={setPlayback}
+                  compact={settings.videoCompact}
+                />
+              </section>
 
+              <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
               {/* 파형 / 코드악보 전환 + 영상 접기 */}
               <div className="flex shrink-0 gap-1 border-b border-gray-200 px-2 py-1 dark:border-gray-800">
                 {(
@@ -245,7 +253,7 @@ export default function Home() {
                   ref={stripRef}
                   result={result}
                   flats={flats}
-                  transpose={transpose}
+                  transpose={noteShift}
                   pixelsPerSecond={settings.pixelsPerSecond}
                   onSeek={(t) => playback?.seek(t)}
                 />
@@ -256,7 +264,7 @@ export default function Home() {
                     chords={result.chords}
                     currentBar={barIdx}
                     flats={flats}
-                    transpose={transpose}
+                    transpose={noteShift}
                     timeSignature={result.time_signature}
                     musicKey={result.key}
                     onSeek={(t) => playback?.seek(t)}
@@ -265,7 +273,23 @@ export default function Home() {
                 </div>
               )}
 
-              <div className="flex shrink-0 items-center gap-3 border-y border-gray-200 px-3 py-1 dark:border-gray-800">
+              <SeekBar
+                duration={result.duration}
+                time={time}
+                playing={playing}
+                onSeek={(t) => {
+                  playback?.seek(t);
+                  setTime(t);
+                }}
+                onToggle={() => {
+                  if (!playback) return;
+                  if (playback.isPlaying()) playback.pause();
+                  else playback.play();
+                }}
+              />
+              </section>
+
+              <section className="mx-2 mt-1.5 flex shrink-0 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
                 <ChordDiagram
                   voicing={cur ? voicingFor(cur.root, cur.quality) : null}
                   label={cur?.label ?? ""}
@@ -294,9 +318,9 @@ export default function Home() {
                     />
                   </div>
                 )}
-              </div>
+              </section>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+              <section className="mx-2 my-1.5 min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-700">
                 {/* 아래쪽은 곡 전체를 훑는 마디 그리드. 위 슬롯이 무엇이든 그대로 둔다 */}
                 <ChordSheet
                   bars={bars}
@@ -304,7 +328,7 @@ export default function Home() {
                   currentBar={barIdx}
                   currentChord={chordIdx}
                   flats={flats}
-                  transpose={transpose}
+                  transpose={noteShift}
                   follow={settings.view === "wave"}
                 />
                 <button
@@ -316,7 +340,7 @@ export default function Home() {
                   다른 곡 분석
                 </button>
                 <Copyright />
-              </div>
+              </section>
 
               <TransportBar
                 duration={result.duration}

@@ -27,6 +27,42 @@ function clock(t: number): string {
 
 type PanelKind = "pitch" | "speed" | "loop";
 
+/** 재생 버튼 + 탐색 슬라이더. 파형/악보 바로 아래에 놓는다. */
+export function SeekBar({
+  duration,
+  time,
+  playing,
+  onSeek,
+  onToggle,
+}: Pick<Props, "duration" | "time" | "playing" | "onSeek" | "onToggle">) {
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-1.5 dark:border-gray-800">
+      <button
+        className="h-9 w-9 shrink-0 rounded-full bg-black text-white dark:bg-white dark:text-black"
+        onClick={onToggle}
+        aria-label={playing ? "일시정지" : "재생"}
+      >
+        {playing ? "❚❚" : "▶"}
+      </button>
+      <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-500">
+        {clock(time)}
+      </span>
+      <input
+        type="range"
+        className="min-w-0 flex-1"
+        min={0}
+        max={Math.max(duration, 1)}
+        step={0.1}
+        value={Math.min(time, duration)}
+        onChange={(e) => onSeek(Number(e.target.value))}
+      />
+      <span className="w-10 shrink-0 text-xs tabular-nums text-gray-500">
+        {clock(duration)}
+      </span>
+    </div>
+  );
+}
+
 /** 화면 중앙 팝업. 배경을 누르면 닫힌다. */
 function Popup({
   title,
@@ -64,7 +100,7 @@ function Popup({
 
 /** 화면 아래 고정 컨트롤. 음높이(이조·카포)/빠르기/반복은 팝업으로 조정한다. */
 export function TransportBar(props: Props) {
-  const { duration, time, playing, transpose, rate, loop } = props;
+  const { duration, time, transpose, rate, loop } = props;
   const [panel, setPanel] = useState<PanelKind | null>(null);
 
   const close = () => setPanel(null);
@@ -80,37 +116,12 @@ export function TransportBar(props: Props) {
         : "bg-gray-100 dark:bg-gray-800",
     ].join(" ");
 
-  // 카포: c프렛에 끼우면 코드 모양이 -c 반음 이조된 것과 같다.
-  // 즉 transpose가 음수일 때 그 절댓값이 카포 위치다.
-  const capo = transpose < 0 ? -transpose : 0;
+  // 음높이 +n = 카포 n프렛. 카포가 소리를 올려주는 만큼 화면 코드는
+  // 내린 모양으로 표기된다(표기 변환은 page.tsx의 noteShift가 담당).
+  const capo = transpose > 0 ? transpose : 0;
 
   return (
     <div className="sticky bottom-0 border-t border-gray-200 bg-white px-3 pb-3 pt-2 dark:border-gray-800 dark:bg-black">
-      <div className="mb-1.5 flex items-center gap-2">
-        <button
-          className="h-10 w-10 shrink-0 rounded-full bg-black text-white dark:bg-white dark:text-black"
-          onClick={props.onToggle}
-          aria-label={playing ? "일시정지" : "재생"}
-        >
-          {playing ? "❚❚" : "▶"}
-        </button>
-        <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-500">
-          {clock(time)}
-        </span>
-        <input
-          type="range"
-          className="min-w-0 flex-1"
-          min={0}
-          max={Math.max(duration, 1)}
-          step={0.1}
-          value={Math.min(time, duration)}
-          onChange={(e) => props.onSeek(Number(e.target.value))}
-        />
-        <span className="w-10 shrink-0 text-xs tabular-nums text-gray-500">
-          {clock(duration)}
-        </span>
-      </div>
-
       <div className="flex gap-1.5">
         <button className={tabClass} onClick={() => setPanel("pitch")}>
           음높이
@@ -130,9 +141,9 @@ export function TransportBar(props: Props) {
       {panel === "pitch" && (
         <Popup title="음높이" onClose={close}>
           <p className="mb-2 rounded bg-gray-50 p-2 text-[11px] leading-snug text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            내리기(−)는 카포와 같습니다 — 소리는 원곡 그대로, 코드 모양만
-            쉬워집니다. 올리기(+)는 표기만 바뀌므로 영상과 함께 치면 음이
-            어긋납니다.
+            올리기(+)는 카포 위치입니다 — 카포를 그 프렛에 끼우면 소리는 원곡
+            그대로, 코드 모양만 쉬워집니다. 내리기(−)는 표기만 내려가므로
+            영상과 함께 치면 음이 어긋납니다.
           </p>
           <div className="mb-1 text-xs font-medium text-gray-500">이조 (반음)</div>
           <div className="mb-3 flex items-center gap-2">
@@ -149,9 +160,9 @@ export function TransportBar(props: Props) {
               <div className="text-[11px] text-gray-500">
                 {transpose === 0
                   ? "원래 조"
-                  : transpose < 0
-                    ? `카포 ${-transpose}프렛과 같음`
-                    : "표기만 올라감 — 재생 소리는 그대로"}
+                  : transpose > 0
+                    ? `카포 ${transpose}프렛`
+                    : "표기만 내려감 — 재생 소리는 그대로"}
               </div>
             </div>
             <button
@@ -170,7 +181,7 @@ export function TransportBar(props: Props) {
               <button
                 key={fret}
                 className={pill(capo === fret && (fret === 0 ? transpose === 0 : true))}
-                onClick={() => props.onTranspose(-fret)}
+                onClick={() => props.onTranspose(fret)}
               >
                 {fret === 0 ? "없음" : fret}
               </button>
