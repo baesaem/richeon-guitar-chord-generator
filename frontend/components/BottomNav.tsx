@@ -1,6 +1,6 @@
 "use client";
 
-export type Tab = "home" | "library" | "mic" | "chords" | "settings";
+export type Tab = "home" | "import" | "library" | "mic" | "chords" | "settings";
 
 interface Props {
   tab: Tab;
@@ -12,6 +12,16 @@ const ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     id: "home",
     label: "홈",
     icon: <path d="M3 10.5 12 3l9 7.5V21H3z" />,
+  },
+  {
+    id: "import",
+    label: "음원가져오기",
+    icon: (
+      <>
+        <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />
+        <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+      </>
+    ),
   },
   {
     id: "library",
@@ -68,7 +78,8 @@ export function BottomNav({ tab, onChange }: Props) {
             onClick={() => onChange(item.id)}
             aria-current={active ? "page" : undefined}
             className={[
-              "flex flex-1 flex-col items-center gap-0.5 py-2",
+              // 탭이 6개라 한 칸이 좁다. min-w-0으로 라벨이 칸을 밀어내지 않게 한다.
+              "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-2",
               active ? "text-black dark:text-white" : "text-gray-400",
             ].join(" ")}
           >
@@ -84,7 +95,9 @@ export function BottomNav({ tab, onChange }: Props) {
             >
               {item.icon}
             </svg>
-            <span className="text-[10px] leading-none">{item.label}</span>
+            <span className="w-full truncate text-center text-[9px] leading-none">
+              {item.label}
+            </span>
           </button>
         );
       })}

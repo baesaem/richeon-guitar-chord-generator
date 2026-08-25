@@ -5,11 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
+import { ChordScore } from "@/components/ChordScore";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { TransportBar } from "@/components/TransportBar";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
+import { ImportTab } from "@/components/tabs/ImportTab";
 import { LibraryTab } from "@/components/tabs/LibraryTab";
 import { RecordTab } from "@/components/tabs/RecordTab";
 import { SettingsTab } from "@/components/tabs/SettingsTab";
@@ -25,7 +27,6 @@ export default function Home() {
   const [settings, setSettings] = useSettings();
 
   const [health, setHealth] = useState<Health | null>(null);
-  const [url, setUrl] = useState("");
   const [status, setStatus] = useState<JobStatus | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,13 +95,18 @@ export default function Home() {
   const run = async (start: () => Promise<{ job_id: string }>) => {
     setError(null);
     resetPlayback();
-    setTab("home");
+    // 탭은 그대로 둔다. 진행률을 보던 자리에서 계속 보고, 끝나면 재생 화면으로 넘어간다.
     try {
       const { job_id } = await start();
       watchJob(job_id, (s) => {
         setStatus(s);
         if (s.stage === "done" && s.result_id) {
-          getResult(s.result_id).then(setResult).catch((e) => setError(e.message));
+          getResult(s.result_id)
+            .then((r) => {
+              setResult(r);
+              setTab("home");
+            })
+            .catch((e) => setError(e.message));
         }
         if (s.stage === "failed") setError(s.error ?? "분석에 실패했습니다");
       });
@@ -172,7 +178,8 @@ export default function Home() {
                 ))}
               </div>
 
-              {settings.view === "wave" && (
+              {/* 파형과 코드악보는 같은 자리(영상 바로 아래)를 쓴다 */}
+              {settings.view === "wave" ? (
                 <ChordStrip
                   ref={stripRef}
                   result={result}
@@ -181,6 +188,20 @@ export default function Home() {
                   pixelsPerSecond={settings.pixelsPerSecond}
                   onSeek={(t) => playback?.seek(t)}
                 />
+              ) : (
+                <div className="h-[136px] shrink-0 overflow-y-auto px-2 py-1">
+                  <ChordScore
+                    bars={bars}
+                    chords={result.chords}
+                    currentBar={barIdx}
+                    flats={flats}
+                    transpose={transpose}
+                    timeSignature={result.time_signature}
+                    musicKey={result.key}
+                    onSeek={(t) => playback?.seek(t)}
+                    follow
+                  />
+                </div>
               )}
 
               <div className="flex items-center gap-3 border-y border-gray-200 px-3 py-2 dark:border-gray-800">
@@ -215,6 +236,7 @@ export default function Home() {
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+                {/* 아래쪽은 곡 전체를 훑는 마디 그리드. 위 슬롯이 무엇이든 그대로 둔다 */}
                 <ChordSheet
                   bars={bars}
                   chords={result.chords}
@@ -222,14 +244,13 @@ export default function Home() {
                   currentChord={chordIdx}
                   flats={flats}
                   transpose={transpose}
-                  follow
+                  follow={settings.view === "wave"}
                 />
                 <button
                   className="mt-3 w-full py-2 text-xs text-gray-500 underline"
                   onClick={() => {
                     resetPlayback();
-                    setUrl("");
-                  }}
+                                }}
                 >
                   다른 곡 분석
                 </button>
@@ -261,102 +282,42 @@ export default function Home() {
               />
             </>
           ) : (
-            <div className="h-full space-y-5 overflow-y-auto p-4">
-              <header>
-                <h1 className="text-2xl font-bold">리천 기타 코드 자동생성기</h1>
-                <p className="text-sm text-gray-500">
-                  {health
-                    ? `${health.device} · ${health.pipeline_version}` +
-                      (health.youtube_enabled ? "" : " · 업로드 전용")
-                    : "백엔드 확인 중…"}
-                </p>
-              </header>
-
-              {health && !health.ffmpeg && (
-                <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
-                  ffmpeg / ffprobe를 찾을 수 없습니다. 설치 후 PATH에 추가해야 분석이
-                  가능합니다.
-                </p>
-              )}
-
-              {health?.youtube_enabled && (
-                <section className="space-y-2">
-                  <label className="text-sm font-medium">YouTube 주소</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      className="min-w-0 flex-1 rounded border px-3 py-3 text-base"
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      inputMode="url"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                    />
-                    {/* 곡을 찾아 주소를 복사해 오도록 유튜브를 새 탭으로 연다 */}
-                    <a
-                      href="https://www.youtube.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded border"
-                      aria-label="YouTube 열기"
-                      title="YouTube 열기"
-                    >
-                      <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
-                        <rect x="1" y="5" width="22" height="14" rx="4" fill="#FF0000" />
-                        <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
-                      </svg>
-                    </a>
-                  </div>
-                  <button
-                    className="w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
-                    disabled={!url || busy}
-                    onClick={() => run(() => analyzeUrl(url, settings.separate))}
-                  >
-                    분석
-                  </button>
-                </section>
-              )}
-
-              <section className="space-y-2">
-                <label className="text-sm font-medium">오디오 파일</label>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  className="block w-full text-sm"
-                  disabled={busy}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) run(() => analyzeUpload(f, settings.separate));
-                  }}
-                />
-              </section>
-
-              <p className="text-xs text-gray-500">
-                음원 분리 {settings.separate ? "사용" : "안 함"} · 설정 탭에서 바꿀 수 있습니다.
+            <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+              <h1 className="text-2xl font-bold">리천 기타 코드 자동생성기</h1>
+              <p className="max-w-xs text-sm text-gray-500">
+                YouTube 주소나 오디오 파일에서 비트·조성·기타 코드를 뽑아 재생과 함께
+                보여줍니다.
               </p>
-
-              {status && (
-                <section className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span>{STAGE_LABEL[status.stage]}</span>
-                    <span>{Math.round(status.progress * 100)}%</span>
-                  </div>
-                  <div className="h-2 w-full rounded bg-gray-200">
-                    <div
-                      className="h-2 rounded bg-black transition-all dark:bg-white"
-                      style={{ width: `${status.progress * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500">{status.message}</p>
-                </section>
+              <button
+                className="rounded bg-black px-5 py-3 text-white dark:bg-white dark:text-black"
+                onClick={() => setTab("import")}
+              >
+                음원 가져오기
+              </button>
+              {status && busy && (
+                <p className="text-xs text-gray-500">
+                  {STAGE_LABEL[status.stage]} · {Math.round(status.progress * 100)}%
+                </p>
               )}
-
               {error && (
                 <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
               )}
-
               <Copyright />
             </div>
           )}
         </div>
+
+        {tab === "import" && (
+          <ImportTab
+            health={health}
+            status={status}
+            error={error}
+            busy={busy}
+            separate={settings.separate}
+            onAnalyzeUrl={(u) => run(() => analyzeUrl(u, settings.separate))}
+            onAnalyzeFile={(f) => run(() => analyzeUpload(f, settings.separate))}
+          />
+        )}
 
         {tab === "library" && <LibraryTab active onOpen={openSaved} />}
 
