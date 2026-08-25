@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
-import { ChordTimeline } from "@/components/ChordTimeline";
+import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { TransportBar } from "@/components/TransportBar";
@@ -149,14 +149,39 @@ export default function Home() {
             <>
               <PlayerPane result={result} onReady={setPlayback} />
 
-              <ChordStrip
-                ref={stripRef}
-                result={result}
-                flats={flats}
-                transpose={transpose}
-                pixelsPerSecond={settings.pixelsPerSecond}
-                onSeek={(t) => playback?.seek(t)}
-              />
+              {/* 파형 / 코드악보 전환 */}
+              <div className="flex gap-1 border-b border-gray-200 px-3 py-1.5 dark:border-gray-800">
+                {(
+                  [
+                    ["wave", "파형"],
+                    ["sheet", "코드악보"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setSettings({ ...settings, view: value })}
+                    className={[
+                      "flex-1 rounded py-1.5 text-sm",
+                      settings.view === value
+                        ? "bg-black text-white dark:bg-white dark:text-black"
+                        : "bg-gray-100 dark:bg-gray-800",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {settings.view === "wave" && (
+                <ChordStrip
+                  ref={stripRef}
+                  result={result}
+                  flats={flats}
+                  transpose={transpose}
+                  pixelsPerSecond={settings.pixelsPerSecond}
+                  onSeek={(t) => playback?.seek(t)}
+                />
+              )}
 
               <div className="flex items-center gap-3 border-y border-gray-200 px-3 py-2 dark:border-gray-800">
                 <ChordDiagram
@@ -190,9 +215,11 @@ export default function Home() {
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-                <ChordTimeline
+                <ChordSheet
                   bars={bars}
+                  chords={result.chords}
                   currentBar={barIdx}
+                  currentChord={chordIdx}
                   flats={flats}
                   transpose={transpose}
                   follow

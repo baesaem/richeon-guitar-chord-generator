@@ -5,6 +5,8 @@ export interface Bar {
   start: number;
   end: number;
   chords: Chord[];
+  /** 이 마디에 속한 박의 시각. 코드악보에서 박 칸을 나누는 데 쓴다 */
+  beatTimes: number[];
 }
 
 /** 비트 정보를 마디로 묶고, 각 마디에 걸치는 코드를 붙인다. */
@@ -12,8 +14,12 @@ export function buildBars(result: AnalysisResult): Bar[] {
   if (result.beats.length === 0) return [];
 
   const starts = new Map<number, number>();
+  const beatTimes = new Map<number, number[]>();
   for (const beat of result.beats) {
     if (!starts.has(beat.bar)) starts.set(beat.bar, beat.t);
+    const list = beatTimes.get(beat.bar);
+    if (list) list.push(beat.t);
+    else beatTimes.set(beat.bar, [beat.t]);
   }
 
   const numbers = [...starts.keys()].sort((a, b) => a - b);
@@ -26,6 +32,7 @@ export function buildBars(result: AnalysisResult): Bar[] {
       end,
       // 마디에 조금이라도 걸치는 코드를 모두 담는다
       chords: result.chords.filter((c) => c.start < end && c.end > start),
+      beatTimes: beatTimes.get(number) ?? [start],
     };
   });
 }

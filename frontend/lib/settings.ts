@@ -4,6 +4,9 @@ import { useSyncExternalStore } from "react";
 
 export type Notation = "auto" | "sharp" | "flat";
 
+/** 재생 화면 본문에 무엇을 띄울지 */
+export type View = "wave" | "sheet";
+
 export interface Settings {
   /** 분석할 때 음원 분리를 쓸지 */
   separate: boolean;
@@ -11,12 +14,15 @@ export interface Settings {
   pixelsPerSecond: number;
   /** 코드 표기법. auto면 조표를 보고 정한다 */
   notation: Notation;
+  /** 파형 / 코드악보 중 어느 쪽을 볼지 */
+  view: View;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   separate: true,
   pixelsPerSecond: 90,
   notation: "auto",
+  view: "wave",
 };
 
 const KEY = "chordgen.settings";
