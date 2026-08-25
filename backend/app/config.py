@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    # OneDrive 동기화 폴더에서는 watchfiles가 변경을 놓쳐 옛 코드가 계속 돈다.
+    # 기본은 꺼두고, 필요할 때만 RELOAD=true로 켠다.
+    reload: bool = False
+
     audio_dir: Path = BASE_DIR / "cache" / "audio"
     result_dir: Path = BASE_DIR / "cache" / "results"
 

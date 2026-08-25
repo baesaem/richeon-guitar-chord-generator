@@ -5,7 +5,7 @@ YouTube 주소나 오디오 파일에서 **비트·키·코드**를 자동으로
 
 전체 설계와 일정은 [PLAN.md](PLAN.md) 참고.
 
-## 현재 상태: M2 완료 (비트 · 코드 인식 베이스라인)
+## 현재 상태: M3 완료 (폰용 재생 동기화 화면)
 
 YouTube 다운로드 → 디코딩 → 비트/다운비트 → 크로마 → 코드 인식까지 **실제로 동작한다.**
 3분 30초 곡 기준 CPU에서 약 9초.
@@ -24,6 +24,16 @@ YouTube 다운로드 → 디코딩 → 비트/다운비트 → 크로마 → 코
 
 근음은 백엔드가 항상 샾으로 돌려주고, 조표에 맞춘 플랫 변환은
 프론트의 [notation.ts](frontend/lib/notation.ts)가 담당한다. (Ab장조를 G#으로 읽지 않도록)
+
+### 화면 (폰 세로 기준)
+- 위쪽 고정: YouTube 플레이어 + 현재 코드(크게) + 운지 다이어그램 + 다음 코드
+- 아래: 마디 그리드 4열. 재생 위치를 따라 현재 마디가 화면 가운데로 자동 스크롤
+- 업로드한 곡은 백엔드가 원본을 스트리밍하므로 `<audio>`로 재생한다
+
+운지는 코드 사전 없이 [voicings.ts](frontend/lib/voicings.ts)가 CAGED로 만든다.
+오픈 코드 8개는 표로 두고 나머지는 E폼·A폼 바레를 옮긴다.
+**`/diagrams`** 페이지에서 24개 운지를 한 화면에서 눈으로 확인할 수 있다
+(M4에서 7th·sus가 추가되면 폼을 넣고 여기서 검증할 것).
 
 ## 요구 사항
 
@@ -60,6 +70,7 @@ npm run dev
 | `ENABLE_YOUTUBE` | `true` | `false`면 YouTube URL 입력이 403으로 차단되고 업로드 전용(B안)이 된다 |
 | `KEEP_AUDIO_CACHE` | `true` | 원본 오디오를 `backend/cache/audio/`에 남겨 재분석 시 다운로드를 건너뛴다 |
 | `DEVICE` | `auto` | `cuda` / `cpu` 강제 지정 |
+| `RELOAD` | `false` | 코드 자동 재시작. OneDrive 폴더에서는 변경을 놓치는 일이 잦아 기본은 꺼 둔다 |
 
 `backend/.env`에 넣거나 실행 시 환경변수로 지정한다.
 **외부에 배포할 때는 반드시 `ENABLE_YOUTUBE=false`.**
@@ -86,6 +97,7 @@ npm run dev
 | POST | `/api/analyze/upload` | multipart 파일 업로드 → `{job_id}` |
 | GET | `/api/jobs/{id}` | 현재 진행 상태 |
 | GET | `/api/jobs/{id}/events` | SSE 진행률 스트림 |
+| GET | `/api/audio/{id}` | 업로드한 원본 오디오 스트리밍 (YouTube는 불필요) |
 | GET | `/api/results/{id}` | 분석 결과 JSON |
 | PUT | `/api/results/{id}/chords` | 수동 코드 보정 저장 |
 
@@ -110,6 +122,6 @@ npm run dev
   쓰면 `NotImplementedError`가 난다. 외부 프로세스는 `asyncio.to_thread` + 동기 `subprocess`로 돌린다
   ([decode.py](backend/app/analysis/decode.py) 참고).
 
-## 다음 단계 (M3)
+## 다음 단계 (M4)
 
-YouTube IFrame 플레이어와 동기화된 코드 타임라인 + 기타 프렛보드 다이어그램.
+Demucs 음원 분리 + 사전학습 코드 인식 모델(GPU). 정확도를 실제로 올리는 단계.

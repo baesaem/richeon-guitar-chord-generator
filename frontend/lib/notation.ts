@@ -22,8 +22,8 @@ const PITCH_CLASS: Record<string, number> = {
 const FLAT_MAJOR = new Set([5, 10, 3, 8, 1]);   // F  Bb Eb Ab Db
 const FLAT_MINOR = new Set([2, 7, 0, 5, 10]);   // Dm Gm Cm Fm Bbm
 
-/** "G# major" 같은 조 이름을 보고 플랫 표기를 쓸지 결정한다. */
-export function useFlats(key: string): boolean {
+/** "G# major" 같은 조 이름을 보고 플랫 표기를 쓸지 결정한다. (리액트 훅 아님) */
+export function prefersFlats(key: string): boolean {
   const [tonic, mode] = key.split(" ");
   const pc = PITCH_CLASS[tonic];
   if (pc === undefined) return false;
@@ -38,5 +38,5 @@ export function spell(label: string, flats: boolean): string {
 
 /** "G# major" → "Ab major" */
 export function spellKey(key: string): string {
-  return spell(key, useFlats(key));
+  return spell(key, prefersFlats(key));
 }

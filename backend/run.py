@@ -16,7 +16,7 @@ if __name__ == "__main__":
         "app.main:app",
         host=settings.host,
         port=settings.port,
-        reload=True,
+        reload=settings.reload,
         # 실행 위치가 어디든 backend/app을 감시하도록 절대 경로로 준다
         reload_dirs=[str(Path(__file__).resolve().parent / "app")],
     )

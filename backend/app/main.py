@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 from .analysis.decode import ffmpeg_available
@@ -91,6 +92,24 @@ async def job_events(job_id: str) -> EventSourceResponse:
             yield {"event": "status", "data": json.dumps(status.model_dump())}
 
     return EventSourceResponse(gen())
+
+
+@app.get("/api/audio/{result_id}")
+async def get_audio(result_id: str) -> FileResponse:
+    """업로드한 곡을 브라우저에서 재생하기 위한 원본 스트리밍.
+
+    YouTube 결과는 IFrame 플레이어로 재생하므로 이 경로를 쓰지 않는다.
+    """
+    if "/" in result_id or "\\" in result_id or ".." in result_id:
+        raise HTTPException(400, "잘못된 id입니다")
+
+    for path in sorted(settings.audio_dir.glob(f"{result_id}.*")):
+        rest = path.name[len(result_id) + 1 :]
+        if "." in rest:  # 디코딩 산출물(.22050.wav)과 사이드카(.info.json) 제외
+            continue
+        return FileResponse(path)
+
+    raise HTTPException(404, "오디오를 찾을 수 없습니다")
 
 
 @app.get("/api/results/{result_id}")
