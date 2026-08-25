@@ -30,6 +30,8 @@ export interface Settings {
   autoSave: boolean;
   /** 화면 테마 */
   theme: Theme;
+  /** 곡 전체 코드 그리드를 펼쳐 둘지 */
+  showGrid: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -41,6 +43,7 @@ export const DEFAULT_SETTINGS: Settings = {
   apiBase: "",
   autoSave: true,
   theme: "system",
+  showGrid: true,
 };
 
 const KEY = "chordgen.settings";

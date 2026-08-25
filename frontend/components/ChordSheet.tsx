@@ -57,7 +57,7 @@ export function ChordSheet({
   }, [currentBar, follow]);
 
   return (
-    <div className="grid grid-cols-6 gap-1">
+    <div className="grid grid-cols-4 gap-1">
       {bars.map((bar, i) => {
         const active = i === currentBar;
         const spans = spansOf(bar, chords);
@@ -68,7 +68,7 @@ export function ChordSheet({
             key={bar.number}
             ref={active ? activeRef : undefined}
             className={[
-              // 한 줄에 6칸이라 칸이 좁다. 여백을 줄여 코드 이름이 들어갈 자리를 남긴다.
+              // 한 줄 4칸. 코드 이름이 넉넉히 들어간다.
               "rounded border px-0.5 pb-0.5 pt-1",
               active
                 ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"

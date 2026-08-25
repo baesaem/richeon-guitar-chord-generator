@@ -114,6 +114,27 @@ export function LibraryTab({ onOpen, active }: Props) {
     }
   };
 
+  /** 서버 목록 전체를 기기에 저장한다. 이미 저장된 곡은 건너뛴다. */
+  const saveAll = async () => {
+    if (!server) return;
+    const targets = server.filter((item) => !saved.has(item.id));
+    if (targets.length === 0) {
+      flash("서버의 모든 곡이 이미 기기에 저장돼 있습니다.");
+      return;
+    }
+    let ok = 0;
+    for (const item of targets) {
+      try {
+        await saveLocal(await getResult(item.id));
+        ok += 1;
+      } catch {
+        // 한 곡이 실패해도 나머지는 계속 저장한다
+      }
+    }
+    flash(`${ok}곡을 기기에 저장했습니다.`);
+    reload();
+  };
+
   const exportOne = async (id: string) => {
     try {
       const result = (await getLocal(id)) ?? (await getResult(id));
@@ -301,7 +322,14 @@ export function LibraryTab({ onOpen, active }: Props) {
         )}
 
       {/* 서버 */}
-      <h3 className="mt-4 text-xs font-semibold text-gray-500">서버 (PC 캐시)</h3>
+      <div className="mt-4 flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-gray-500">서버 (PC 캐시)</h3>
+        {server !== null && server.length > 0 && (
+          <button className="text-[11px] text-gray-500 underline" onClick={saveAll}>
+            전체 저장
+          </button>
+        )}
+      </div>
       {serverDown ? (
         <p className="py-2 text-xs text-amber-700">
           서버에 연결되지 않았습니다. 기기 저장분만 열 수 있습니다.

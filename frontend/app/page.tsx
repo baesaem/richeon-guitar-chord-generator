@@ -219,9 +219,9 @@ export default function Home() {
         </p>
       )}
 
-      <div className="min-h-0 min-w-0 flex-1">
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         {/* 홈 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}
-        <div className={tab === "home" ? "flex h-full flex-col" : "hidden"}>
+        <div className={tab === "home" ? "flex h-full flex-col overflow-y-auto" : "hidden"}>
           {result ? (
             // 영역을 카드로 묶어 서로 구별한다: 영상 / 타임라인+탐색 / 현재 코드 / 곡 전체
             <>
@@ -339,27 +339,47 @@ export default function Home() {
                 )}
               </section>
 
-              <section className="mx-2 my-1.5 min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-700">
-                {/* 아래쪽은 곡 전체를 훑는 마디 그리드. 위 슬롯이 무엇이든 그대로 둔다 */}
-                <ChordSheet
-                  bars={bars}
-                  chords={result.chords}
-                  currentBar={barIdx}
-                  currentChord={chordIdx}
-                  flats={flats}
-                  transpose={noteShift}
-                  follow={settings.view === "wave"}
-                />
+              {/* 곡 전체를 훑는 마디 그리드. 4칸 × 2줄 높이, 감추기 가능 */}
+              <section className="mx-2 mt-1.5 shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-gray-500">
+                    곡 전체 코드
+                  </span>
+                  <button
+                    className="px-1.5 py-0.5 text-[11px] text-gray-500 underline"
+                    onClick={() =>
+                      setSettings({ ...settings, showGrid: !settings.showGrid })
+                    }
+                  >
+                    {settings.showGrid ? "감추기" : "보이기"}
+                  </button>
+                </div>
+                {settings.showGrid && (
+                  <div className="mt-1 h-[104px] overflow-y-auto">
+                    <ChordSheet
+                      bars={bars}
+                      chords={result.chords}
+                      currentBar={barIdx}
+                      currentChord={chordIdx}
+                      flats={flats}
+                      transpose={noteShift}
+                      follow={settings.view === "wave"}
+                    />
+                  </div>
+                )}
+              </section>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-3">
                 <button
-                  className="mt-3 w-full py-2 text-xs text-gray-500 underline"
+                  className="mt-2 w-full py-1.5 text-xs text-gray-500 underline"
                   onClick={() => {
                     resetPlayback();
-                                }}
+                  }}
                 >
                   다른 곡 분석
                 </button>
                 <Copyright />
-              </section>
+              </div>
 
               <TransportBar
                 duration={result.duration}
