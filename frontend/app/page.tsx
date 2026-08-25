@@ -43,8 +43,15 @@ export default function Home() {
   const [rate, setRate] = useState(1);
   const [loop, setLoop] = useState<{ a: number; b: number } | null>(null);
 
+  const [backendDown, setBackendDown] = useState(false);
+
   useEffect(() => {
-    getHealth().then(setHealth).catch((e) => setError(`백엔드 연결 실패: ${e.message}`));
+    getHealth()
+      .then((h) => {
+        setHealth(h);
+        setBackendDown(false);
+      })
+      .catch(() => setBackendDown(true));
   }, []);
 
   const bars = useMemo(() => (result ? buildBars(result) : []), [result]);
@@ -166,6 +173,14 @@ export default function Home() {
           <span className="shrink-0 text-[10px] text-gray-400">{health.device}</span>
         )}
       </header>
+
+      {backendDown && (
+        <p className="shrink-0 bg-amber-50 px-3 py-1.5 text-[11px] leading-snug text-amber-800">
+          분석 서버에 연결되지 않았습니다. 코드리스트만 볼 수 있고 분석은 되지 않습니다.
+          집 PC에서 백엔드를 켜거나, 배포 시 <code>NEXT_PUBLIC_API_BASE</code>로 서버
+          주소를 지정해 주세요.
+        </p>
+      )}
 
       <div className="min-h-0 min-w-0 flex-1">
         {/* 홈 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}

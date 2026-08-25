@@ -1,0 +1,63 @@
+name: GitHub Pages 배포
+
+# 화면(프론트엔드)만 정적으로 빌드해 올린다.
+# 분석 백엔드(Python·ffmpeg·Demucs)는 정적 호스팅에 올릴 수 없으므로,
+# 분석까지 쓰려면 NEXT_PUBLIC_API_BASE에 접근 가능한 백엔드 주소를 넣어야 한다.
+# 비워 두면 코드리스트만 동작하는 UI 미리보기가 된다.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 배포는 한 번에 하나만. 진행 중인 배포를 취소하지는 않는다.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 의존성 설치
+        working-directory: frontend
+        run: npm ci
+
+      - name: 정적 빌드
+        working-directory: frontend
+        env:
+          STATIC_EXPORT: "1"
+          # 프로젝트 페이지는 /<저장소 이름> 아래에 놓인다
+          BASE_PATH: /${{ github.event.repository.name }}
+          NEXT_PUBLIC_API_BASE: ${{ vars.NEXT_PUBLIC_API_BASE }}
+        run: npm run build
+
+      - name: Jekyll 처리 방지
+        run: touch frontend/out/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
