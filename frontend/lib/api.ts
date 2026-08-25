@@ -1,12 +1,16 @@
+import { getSettings } from "./settings";
 import type { AnalysisResult, Health, JobStatus, ResultSummary } from "./types";
 
 /**
- * API 주소.
+ * API 주소. 우선순위는 설정 > 빌드 시 주입값 > 같은 오리진.
  *
- * 기본은 빈 문자열 = 같은 오리진. next.config.ts의 rewrites가 /api/* 를 백엔드로 넘긴다.
- * 덕분에 폰은 :3000 하나만 알면 되고, 방화벽도 CORS도 신경 쓸 필요가 없다.
+ * 같은 오리진일 때는 next.config.ts의 rewrites가 /api/* 를 백엔드로 넘긴다.
+ * 덕분에 집 안에서는 폰이 :3000 하나만 알면 되고 방화벽도 CORS도 필요 없다.
+ * 정적 배포본에는 프록시가 없으므로 설정에서 서버 주소를 직접 넣는다.
  */
 export function apiBase(): string {
+  const configured = getSettings().apiBase.trim();
+  if (configured) return configured.replace(/\/+$/, "");
   return process.env.NEXT_PUBLIC_API_BASE ?? "";
 }
 

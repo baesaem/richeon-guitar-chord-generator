@@ -18,6 +18,11 @@ export interface Settings {
   view: View;
   /** 영상을 접어 코드 표시에 자리를 넘길지 */
   videoCompact: boolean;
+  /**
+   * 분석 서버 주소. 비우면 같은 주소(집 안 사용) 또는 빌드 시 지정된 값을 쓴다.
+   * 정적 배포본(GitHub Pages 등)에서 집 서버를 가리킬 때 쓴다.
+   */
+  apiBase: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notation: "auto",
   view: "wave",
   videoCompact: false,
+  apiBase: "",
 };
 
 const KEY = "chordgen.settings";
@@ -66,6 +72,12 @@ function write(next: Settings): void {
     // 사생활 보호 모드 등에서 저장이 막혀도 이번 세션 동작에는 지장 없다
   }
   listeners.forEach((l) => l());
+}
+
+/** 훅 밖(예: API 클라이언트)에서 현재 설정을 읽는다. 서버 렌더에서는 기본값. */
+export function getSettings(): Settings {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
+  return read();
 }
 
 export function useSettings(): [Settings, (next: Settings) => void] {

@@ -45,14 +45,18 @@ export default function Home() {
 
   const [backendDown, setBackendDown] = useState(false);
 
+  // 설정에서 서버 주소를 바꾸면 다시 확인한다
   useEffect(() => {
     getHealth()
       .then((h) => {
         setHealth(h);
         setBackendDown(false);
       })
-      .catch(() => setBackendDown(true));
-  }, []);
+      .catch(() => {
+        setHealth(null);
+        setBackendDown(true);
+      });
+  }, [settings.apiBase]);
 
   const bars = useMemo(() => (result ? buildBars(result) : []), [result]);
   const flats = useMemo(

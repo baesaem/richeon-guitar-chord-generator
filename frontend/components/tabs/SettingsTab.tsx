@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { Copyright } from "@/components/Copyright";
 import type { Notation, Settings } from "@/lib/settings";
 import type { Health } from "@/lib/types";
@@ -23,8 +25,40 @@ const NOTATIONS: { value: Notation; label: string }[] = [
 ];
 
 export function SettingsTab({ settings, onChange, health }: Props) {
-  const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(
+    null,
+  );
+
+  const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
+    setTestResult(null);
     onChange({ ...settings, [key]: value });
+  };
+
+  // https 페이지에서 http 서버를 부르면 브라우저가 막는다. 미리 알려준다.
+  const mixedContent =
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    settings.apiBase.trim().startsWith("http://");
+
+  const test = async () => {
+    const base = settings.apiBase.trim().replace(/\/+$/, "");
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.json()) as Health;
+      setTestResult({
+        ok: true,
+        message: `연결됨 · ${body.device} · ${body.pipeline_version}`,
+      });
+    } catch (e) {
+      setTestResult({ ok: false, message: `연결 실패: ${(e as Error).message}` });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const pill = (active: boolean) =>
     [
@@ -92,7 +126,60 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       </section>
 
       <section className="mb-5">
-        <div className="mb-1.5 text-sm font-medium">서버</div>
+        <div className="mb-1.5 text-sm font-medium">분석 서버 주소</div>
+        <input
+          className="w-full rounded border px-3 py-2.5 text-sm"
+          placeholder="예: http://192.168.1.199:8000"
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          value={settings.apiBase}
+          onChange={(e) => set("apiBase", e.target.value)}
+        />
+        <div className="mt-1.5 flex items-center gap-2">
+          <button
+            className="rounded bg-black px-3 py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
+            disabled={testing}
+            onClick={test}
+          >
+            연결 테스트
+          </button>
+          {settings.apiBase && (
+            <button
+              className="px-2 py-2 text-xs text-gray-500"
+              onClick={() => set("apiBase", "")}
+            >
+              비우기
+            </button>
+          )}
+          {testResult && (
+            <span
+              className={[
+                "min-w-0 flex-1 truncate text-xs",
+                testResult.ok ? "text-green-700" : "text-red-700",
+              ].join(" ")}
+            >
+              {testResult.message}
+            </span>
+          )}
+        </div>
+
+        {mixedContent && (
+          <p className="mt-1.5 rounded bg-amber-50 p-2 text-[11px] leading-snug text-amber-800">
+            이 페이지는 https인데 서버 주소가 http입니다. 브라우저가 이런 요청을 막습니다.
+            서버도 https로 열거나, 집 안에서 http 주소로 접속해 주세요.
+          </p>
+        )}
+
+        <p className="mt-1 text-[11px] leading-snug text-gray-500">
+          비워 두면 이 페이지와 같은 주소의 서버를 씁니다(집 안에서 쓰는 방식).
+          외부에 올린 화면에서 집 서버를 쓰려면 여기에 서버 주소를 넣으세요.
+        </p>
+      </section>
+
+      <section className="mb-5">
+        <div className="mb-1.5 text-sm font-medium">서버 상태</div>
         <dl className="rounded border border-gray-200 text-xs dark:border-gray-800">
           {[
             ["연결", health ? "정상" : "연결 안 됨"],
