@@ -440,6 +440,7 @@ export default function Home() {
             error={error}
             busy={busy}
             separate={settings.separate}
+            adminMode={settings.adminMode}
             onAnalyzeUrl={(u) => run(() => analyzeUrl(u, settings.separate))}
             onAnalyzeFile={(f) => run(() => analyzeUpload(f, settings.separate))}
           />

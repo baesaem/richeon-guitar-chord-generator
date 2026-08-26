@@ -17,6 +17,8 @@ interface Props {
   error: string | null;
   busy: boolean;
   separate: boolean;
+  /** 관리자 모드일 때만 드라이브 폴더 관리 링크를 보여준다 */
+  adminMode: boolean;
   onAnalyzeUrl: (url: string) => void;
   onAnalyzeFile: (file: File) => void;
 }
@@ -28,6 +30,7 @@ export function ImportTab({
   error,
   busy,
   separate,
+  adminMode,
   onAnalyzeUrl,
   onAnalyzeFile,
 }: Props) {
@@ -156,14 +159,16 @@ export function ImportTab({
       <section className="space-y-2 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold">강상기타반</h3>
-          <a
-            href={DRIVE_FOLDER_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[11px] text-gray-500 underline"
-          >
-            드라이브에서 열기
-          </a>
+          {adminMode && (
+            <a
+              href={DRIVE_FOLDER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-gray-500 underline"
+            >
+              드라이브에서 열기
+            </a>
+          )}
         </div>
         <p className="text-[11px] leading-snug text-gray-500">
           공유 폴더의 코드 목록(.rml)입니다. 누르면 내려받아 재생목록(기기 저장)에
@@ -179,8 +184,10 @@ export function ImportTab({
 
         {!health ? (
           <p className="text-xs text-gray-400">
-            서버에 연결되면 목록을 불러옵니다. 지금은 위의 「드라이브에서 열기」로
-            내려받아 재생목록의 「파일 가져오기」를 이용해 주세요.
+            서버에 연결되면 목록을 불러옵니다.
+            {adminMode
+              ? " 지금은 「드라이브에서 열기」로 내려받아 재생목록의 「파일 가져오기」를 이용해 주세요."
+              : ""}
           </p>
         ) : shared === null && !sharedError ? (
           <p className="text-xs text-gray-400">목록 불러오는 중…</p>

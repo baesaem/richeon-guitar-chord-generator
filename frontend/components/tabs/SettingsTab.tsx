@@ -118,6 +118,24 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       </section>
 
       <section className="mb-5">
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={settings.adminMode}
+            onChange={(e) => set("adminMode", e.target.checked)}
+          />
+          <span>
+            <span className="text-sm font-medium">관리자 모드</span>
+            <span className="block text-[11px] text-gray-500">
+              강상기타반 공유 폴더 관리 기능(드라이브에서 열기 등)이 보입니다.
+              수강생 기기에서는 꺼 두세요.
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section className="mb-5">
         <div className="mb-1.5 text-sm font-medium">테마</div>
         <div className="grid grid-cols-3 gap-1.5">
           {THEMES.map((t) => (

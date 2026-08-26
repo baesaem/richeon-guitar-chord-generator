@@ -32,6 +32,8 @@ export interface Settings {
   theme: Theme;
   /** 곡 전체 코드 그리드를 펼쳐 둘지 */
   showGrid: boolean;
+  /** 관리자 모드. 공유 폴더 관리 기능(드라이브 열기 등)이 보인다 */
+  adminMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -44,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSave: true,
   theme: "system",
   showGrid: true,
+  adminMode: false,
 };
 
 const KEY = "chordgen.settings";
