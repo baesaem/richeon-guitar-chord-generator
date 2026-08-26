@@ -26,6 +26,11 @@ import type { ResultSummary } from "@/lib/types";
 interface Props {
   /** 목록에서 곡을 고르면 재생 화면으로 넘긴다 */
   onOpen: (id: string) => void;
+  /**
+   * 곡을 다시 분석한다. 분석을 고치면 새로 분석해야 반영되는데,
+   * 곡마다 주소를 다시 넣게 할 수는 없다. YouTube 곡만 가능하다.
+   */
+  onReanalyze?: (id: string) => void;
   /** 탭이 보일 때만 목록을 새로 읽는다 */
   active: boolean;
   /** 관리자 모드: 공유 폴더에 올릴 음원 내보내기 버튼이 보인다 */
@@ -55,7 +60,7 @@ function when(unixSeconds: number): string {
  *  - 기기 저장: 브라우저(IndexedDB)에 담긴 결과. 서버(PC)가 꺼져도 남는다
  *  - 서버: PC 캐시에 있는 결과. 서버가 꺼지면 이 섹션만 사라진다
  */
-export function LibraryTab({ onOpen, active, adminMode }: Props) {
+export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
   const [device, setDevice] = useState<ResultSummary[] | null>(null);
   const [server, setServer] = useState<ResultSummary[] | null>(null);
   const [serverDown, setServerDown] = useState(false);
@@ -355,6 +360,15 @@ export function LibraryTab({ onOpen, active, adminMode }: Props) {
                         </option>
                       ))}
                     </select>
+                  )}
+                  {onReanalyze && item.source === "youtube" && (
+                    <button
+                      className={actionBtn}
+                      onClick={() => onReanalyze(item.id)}
+                      title="분석이 개선되었을 때 최신 결과로 갱신합니다"
+                    >
+                      재분석
+                    </button>
                   )}
                   <button className={actionBtn} onClick={() => exportOne(item.id)}>
                     파일로

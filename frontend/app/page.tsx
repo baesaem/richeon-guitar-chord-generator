@@ -584,7 +584,24 @@ export default function Home() {
         )}
 
         {tab === "library" && (
-          <LibraryTab active onOpen={openSaved} adminMode={settings.adminMode} />
+          <LibraryTab
+            active
+            onOpen={openSaved}
+            adminMode={settings.adminMode}
+            // 서버가 있을 때만. 캐시된 오디오를 쓰므로 다시 받지 않는다.
+            onReanalyze={
+              health
+                ? (id) =>
+                    run(() =>
+                      analyzeUrl(
+                        `https://www.youtube.com/watch?v=${id}`,
+                        settings.separate,
+                        true,
+                      ),
+                    )
+                : undefined
+            }
+          />
         )}
 
         {tab === "mic" && (
