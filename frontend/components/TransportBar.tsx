@@ -88,11 +88,26 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
   return (
     <>
       <button
-        className="w-16 shrink-0 rounded bg-gray-100 py-1 text-xs dark:bg-gray-800"
+        className="flex shrink-0 items-center gap-1 rounded-lg bg-gray-200/70 px-2 py-1.5 text-[13px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
         onClick={() => setOpen(true)}
         title="음높이·빠르기·반복"
       >
-        연주설정{tweaked ? <span className="text-[var(--accent)]"> ●</span> : ""}
+        {/* 슬라이더(조절) 아이콘 */}
+        <svg
+          viewBox="0 0 24 24"
+          className="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M4 7h8M17.5 7H20M4 17h2.5M11 17h9" />
+          <circle cx="14.5" cy="7" r="2" />
+          <circle cx="8.5" cy="17" r="2" />
+        </svg>
+        연주설정
+        {tweaked && <span className="text-[var(--accent)]">●</span>}
       </button>
 
       {open && (
