@@ -39,7 +39,7 @@ from .features import (
     onset_envelope,
     sync_to_beats,
 )
-from .key import estimate_key
+from .key import estimate_key, estimate_key_from_chords
 
 # 0.8.0: 코드 인식 입력을 분리 트랙에서 원본 믹스로 바꿨다. 결과가 실질적으로
 # 달라지므로 옛 캐시는 버린다(원본 오디오가 남아 있어 재분석은 빠르다).
@@ -171,7 +171,13 @@ async def analyze(
     segments = chord_rec.absorb_gaps(segments, max_duration=beat_period * 2.2)
     # 연주가 이어지는데 N.C.가 뜬 자리를 파형 세기로 가려내 되돌린다.
     segments = chord_rec.fix_sounding_gaps(segments, peaks, PEAKS_PER_SECOND)
-    key_name, _ = estimate_key(frame_chroma)
+
+    # 조성은 코드 진행에서 정한다. 크로마 방식은 딸림음이 강한 곡에서
+    # 5도 위 조로 밀렸다(혜화동을 B♭장조 대신 F장조로 봤다). 코드가
+    # 이미 있으면 그것이 조성의 더 나은 증거다.
+    key_name, key_score = estimate_key_from_chords(segments)
+    if not key_name:
+        key_name, key_score = estimate_key(frame_chroma)
 
     # --- 멜로디 채보 ---
     # 보컬을 분리해 둔 곡만. 실패해도 코드는 그대로 쓸 수 있으므로 삼킨다.
