@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sse_starlette.sse import EventSourceResponse
 
 from .analysis.decode import ffmpeg_available
@@ -14,6 +14,7 @@ from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
 from .schemas import AnalysisResult, AnalyzeRequest, Chord, ResultSummary
+from .shared_drive import download_shared, list_shared
 from .sources import UploadSource, YouTubeSource
 from .sources.youtube import YouTubeUnavailable
 
@@ -136,6 +137,28 @@ async def delete_result(result_id: str) -> dict:
         raise HTTPException(404, "분석 결과가 없습니다")
     path.unlink()
     return {"deleted": result_id}
+
+
+@app.get("/api/shared")
+async def shared_list() -> list[dict]:
+    """강상기타반 공유 폴더의 파일 목록."""
+    try:
+        files = await list_shared()
+    except Exception as exc:
+        raise HTTPException(502, f"공유 폴더를 읽지 못했습니다: {exc}") from exc
+    return [{"id": f.id, "name": f.name} for f in files]
+
+
+@app.get("/api/shared/{file_id}")
+async def shared_file(file_id: str) -> Response:
+    """공유 폴더의 파일 내용. 프론트가 받아 기기 저장 재생목록에 넣는다."""
+    try:
+        data = await download_shared(file_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"내려받기 실패: {exc}") from exc
+    return Response(content=data, media_type="application/octet-stream")
 
 
 @app.get("/api/audio/{result_id}")

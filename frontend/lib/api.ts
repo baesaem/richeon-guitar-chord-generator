@@ -47,6 +47,27 @@ export const getResult = (id: string) =>
 export const listResults = () =>
   fetch(`${apiBase()}/api/results`).then(json<ResultSummary[]>);
 
+export interface SharedFile {
+  id: string;
+  name: string;
+}
+
+/** 강상기타반 공유 폴더(구글드라이브)의 파일 목록. 서버가 프록시한다. */
+export const listShared = () =>
+  fetch(`${apiBase()}/api/shared`).then(json<SharedFile[]>);
+
+/** 공유 파일 내용(rml 텍스트) */
+export const downloadShared = async (id: string): Promise<string> => {
+  const res = await fetch(`${apiBase()}/api/shared/${id}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { detail?: string }).detail ?? `${res.status} ${res.statusText}`,
+    );
+  }
+  return res.text();
+};
+
 export const deleteResult = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}`, { method: "DELETE" }).then(
     json<{ deleted: string }>,

@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # 프론트 개발 서버
     cors_origins: list[str] = ["*"]
 
+    # 강상기타반 공유 재생목록(구글드라이브 공개 폴더).
+    # 여기 올려 둔 .rml 파일을 앱에서 바로 내려받아 기기에 저장한다.
+    shared_folder_id: str = "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd"
+
     def ensure_dirs(self) -> None:
         self.audio_dir.mkdir(parents=True, exist_ok=True)
         self.result_dir.mkdir(parents=True, exist_ok=True)

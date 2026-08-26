@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
+import { downloadShared, listShared, type SharedFile } from "@/lib/api";
+import { parseResultsText, saveLocal } from "@/lib/library";
 import { STAGE_LABEL, type Health, type JobStatus } from "@/lib/types";
+
+const DRIVE_FOLDER_URL =
+  "https://drive.google.com/drive/folders/1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd";
 
 interface Props {
   health: Health | null;
@@ -26,6 +31,42 @@ export function ImportTab({
   onAnalyzeFile,
 }: Props) {
   const [url, setUrl] = useState("");
+
+  // 강상기타반 공유 재생목록 (구글드라이브, 서버가 프록시)
+  const [shared, setShared] = useState<SharedFile[] | null>(null);
+  const [sharedError, setSharedError] = useState<string | null>(null);
+  const [fetching, setFetching] = useState<string | null>(null);
+  const [sharedNotice, setSharedNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!health) return;
+    listShared()
+      .then((files) => {
+        setShared(files);
+        setSharedError(null);
+      })
+      .catch((e) => setSharedError((e as Error).message));
+  }, [health]);
+
+  /** 공유 파일을 내려받아 기기 저장 재생목록에 바로 넣는다. */
+  const fetchShared = async (file: SharedFile) => {
+    setFetching(file.id);
+    setSharedError(null);
+    setSharedNotice(null);
+    try {
+      const results = parseResultsText(await downloadShared(file.id));
+      for (const result of results) await saveLocal(result);
+      setSharedNotice(
+        results.length === 1
+          ? `저장했습니다: ${results[0].title || results[0].id}`
+          : `${results.length}곡을 기기에 저장했습니다. 재생목록에서 여세요.`,
+      );
+    } catch (e) {
+      setSharedError(`가져오기 실패: ${(e as Error).message}`);
+    } finally {
+      setFetching(null);
+    }
+  };
 
   return (
     <div className="h-full space-y-5 overflow-y-auto p-4">
@@ -99,6 +140,60 @@ export function ImportTab({
       <p className="text-xs text-gray-500">
         음원 분리 {separate ? "사용" : "안 함"} · 설정 탭에서 바꿀 수 있습니다.
       </p>
+
+      {/* 강상기타반 공유 재생목록 */}
+      <section className="space-y-2 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold">강상기타반</h3>
+          <a
+            href={DRIVE_FOLDER_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-gray-500 underline"
+          >
+            드라이브에서 열기
+          </a>
+        </div>
+        <p className="text-[11px] leading-snug text-gray-500">
+          공유 폴더의 코드 목록(.rml)입니다. 누르면 내려받아 재생목록(기기 저장)에
+          담깁니다.
+        </p>
+
+        {sharedNotice && (
+          <p className="rounded bg-green-50 p-2 text-xs text-green-800">{sharedNotice}</p>
+        )}
+        {sharedError && (
+          <p className="rounded bg-red-50 p-2 text-xs text-red-700">{sharedError}</p>
+        )}
+
+        {!health ? (
+          <p className="text-xs text-gray-400">
+            서버에 연결되면 목록을 불러옵니다. 지금은 위의 「드라이브에서 열기」로
+            내려받아 재생목록의 「파일 가져오기」를 이용해 주세요.
+          </p>
+        ) : shared === null && !sharedError ? (
+          <p className="text-xs text-gray-400">목록 불러오는 중…</p>
+        ) : shared !== null && shared.length === 0 ? (
+          <p className="text-xs text-gray-400">폴더에 아직 파일이 없습니다.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+            {shared?.map((file) => (
+              <li key={file.id}>
+                <button
+                  className="flex w-full items-center gap-2 py-2 text-left disabled:opacity-50"
+                  disabled={fetching !== null}
+                  onClick={() => fetchShared(file)}
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
+                  <span className="shrink-0 text-[11px] text-gray-500">
+                    {fetching === file.id ? "받는 중…" : "받기"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {status && (
         <section className="space-y-1">

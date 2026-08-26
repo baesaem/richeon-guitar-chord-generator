@@ -155,9 +155,8 @@ export async function exportAllToFile(): Promise<number> {
   return records.length;
 }
 
-/** 내보낸 JSON(한 곡 또는 묶음)을 읽어 결과 목록으로 돌려준다. 실패하면 예외. */
-export async function importFromFile(file: File): Promise<AnalysisResult[]> {
-  const text = await file.text();
+/** rml/JSON 텍스트(한 곡 또는 묶음)를 결과 목록으로 파싱한다. 실패하면 예외. */
+export function parseResultsText(text: string): AnalysisResult[] {
   const data = JSON.parse(text) as AnalysisResult | { results?: AnalysisResult[] };
 
   const list = Array.isArray((data as { results?: unknown }).results)
@@ -169,4 +168,9 @@ export async function importFromFile(file: File): Promise<AnalysisResult[]> {
   );
   if (valid.length === 0) throw new Error("코드 분석 파일이 아닙니다");
   return valid;
+}
+
+/** 내보낸 파일을 읽어 결과 목록으로 돌려준다. */
+export async function importFromFile(file: File): Promise<AnalysisResult[]> {
+  return parseResultsText(await file.text());
 }
