@@ -97,7 +97,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
 
   const pill = (active: boolean) =>
     [
-      "flex-1 rounded py-2 text-sm",
+      "flex-1 rounded py-1 text-xs",
       active
         ? "bg-black text-white dark:bg-white dark:text-black"
         : "bg-gray-100 dark:bg-gray-800",
