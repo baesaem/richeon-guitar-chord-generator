@@ -23,14 +23,15 @@ const ZOOMS = [
   { value: 140, label: "좁게" },
 ];
 
-const THEMES: { value: Theme; label: string }[] = [
-  { value: "system", label: "기기 설정" },
-  { value: "light", label: "밝게" },
-  { value: "dark", label: "어둡게" },
-  { value: "sepia", label: "세피아" },
-  { value: "aqua", label: "아쿠아" },
-  { value: "royal", label: "로얄" },
-  { value: "naver", label: "네이버" },
+// swatch: 레이블 앞에 보여줄 그 테마의 주색(배경색) 견본
+const THEMES: { value: Theme; label: string; swatch: string }[] = [
+  { value: "system", label: "기기 설정", swatch: "linear-gradient(90deg,#ffffff 50%,#0a0a0a 50%)" },
+  { value: "light", label: "밝게", swatch: "#ffffff" },
+  { value: "dark", label: "어둡게", swatch: "#0a0a0a" },
+  { value: "sepia", label: "세피아", swatch: "#f2e2bd" },
+  { value: "aqua", label: "아쿠아", swatch: "#cfeef4" },
+  { value: "royal", label: "로얄", swatch: "#e2d4f5" },
+  { value: "naver", label: "네이버", swatch: "#d3f2df" },
 ];
 
 const NOTATIONS: { value: Notation; label: string }[] = [
@@ -172,13 +173,24 @@ export function SettingsTab({ settings, onChange, health }: Props) {
 
       <section className="mb-5">
         <div className="mb-1.5 text-sm font-medium">테마</div>
-        <div className="grid grid-cols-3 gap-1.5">
+        {/* 내용 폭만 차지하는 칩으로 한 줄에 최대한 많이 넣는다 */}
+        <div className="flex flex-wrap gap-1.5">
           {THEMES.map((t) => (
             <button
               key={t.value}
-              className={pill(settings.theme === t.value)}
+              className={[
+                "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs",
+                settings.theme === t.value
+                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  : "bg-gray-100 dark:bg-gray-800",
+              ].join(" ")}
               onClick={() => set("theme", t.value)}
             >
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/25 dark:ring-white/30"
+                style={{ background: t.swatch }}
+                aria-hidden="true"
+              />
               {t.label}
             </button>
           ))}
