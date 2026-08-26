@@ -38,6 +38,16 @@ export function markFetched(driveId: string, resultIds: string[]): void {
   }
 }
 
+/**
+ * 받기를 시도한 적이 있는 드라이브 파일 id 집합 (로컬 존재 여부 무관).
+ *
+ * 자동 동기화는 이 기준을 쓴다 — 사용자가 재생목록에서 지운 곡을
+ * 자동으로 되살리면 안 되기 때문이다. 지운 곡은 수동 「받기」로만 복구한다.
+ */
+export function attemptedDriveIds(): Set<string> {
+  return new Set(Object.keys(read()));
+}
+
 /** 받았고 결과가 아직 기기에 남아 있는 드라이브 파일 id 집합 */
 export function fetchedDriveIds(localResultIds: Set<string>): Set<string> {
   const data = read();

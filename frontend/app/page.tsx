@@ -22,6 +22,7 @@ import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, saveLocal } from "@/lib/library";
 import { labelFor, resolveFlats, spellKey, transposeRoot } from "@/lib/notation";
 import { useSettings } from "@/lib/settings";
+import { syncShared } from "@/lib/sharedSync";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
 
@@ -46,13 +47,27 @@ export default function Home() {
   const [loop, setLoop] = useState<{ a: number; b: number } | null>(null);
 
   const [backendDown, setBackendDown] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
-  // 설정에서 서버 주소를 바꾸면 다시 확인한다
+  // 설정에서 서버 주소를 바꾸면 다시 확인한다.
+  // 서버가 잡히면 강상기타반 공유 폴더를 자동 동기화한다 - 새 곡이
+  // 올라와 있으면 아무 조작 없이 재생목록(기기 저장)에 담긴다.
   useEffect(() => {
     getHealth()
       .then((h) => {
         setHealth(h);
         setBackendDown(false);
+        return syncShared();
+      })
+      .then((sync) => {
+        if (sync && sync.added > 0) {
+          setSyncNotice(
+            sync.added === 1
+              ? `강상기타반 새 곡을 재생목록에 담았습니다: ${sync.titles[0]}`
+              : `강상기타반 새 곡 ${sync.added}개를 재생목록에 담았습니다.`,
+          );
+          setTimeout(() => setSyncNotice(null), 6000);
+        }
       })
       .catch(() => {
         setHealth(null);
@@ -211,6 +226,12 @@ export default function Home() {
           <span className="shrink-0 text-[10px] text-gray-400">{health.device}</span>
         )}
       </header>
+
+      {syncNotice && (
+        <p className="shrink-0 bg-green-50 px-3 py-1.5 text-[11px] leading-snug text-green-800">
+          {syncNotice}
+        </p>
+      )}
 
       {backendDown && (
         <p className="shrink-0 bg-amber-50 px-3 py-1.5 text-[11px] leading-snug text-amber-800">
