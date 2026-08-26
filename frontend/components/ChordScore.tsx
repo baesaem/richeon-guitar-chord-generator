@@ -36,6 +36,12 @@ interface Props {
    * 한 줄이 한 악구가 되고 줄바꿈이 곡의 구조와 일치한다.
    */
   perLine?: number;
+  /**
+   * 한 번에 보여줄 줄 수. 지정하면 현재 줄이 맨 위에 오도록 창을 옮긴다.
+   * 재생 화면은 2를 써서 「지금 줄 + 다음 줄」만 띄운다 — 스크롤을 쫓지
+   * 않아도 눈이 늘 같은 자리를 본다.
+   */
+  visibleLines?: number;
   onSeek?: (t: number) => void;
 }
 
@@ -64,29 +70,44 @@ export function ChordScore({
   musicKey,
   follow,
   perLine = 4,
+  visibleLines,
   onSeek,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!follow) return;
+    // 창 방식일 때는 화면이 알아서 따라오므로 스크롤할 것이 없다
+    if (!follow || visibleLines) return;
     activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [currentBar, follow]);
+  }, [currentBar, follow, visibleLines]);
 
   const lines: Bar[][] = [];
   for (let i = 0; i < bars.length; i += perLine) {
     lines.push(bars.slice(i, i + perLine));
   }
 
+  // 창 방식: 현재 줄부터 visibleLines개만. 현재 줄이 늘 맨 위에 온다.
+  const from = visibleLines ? Math.floor(currentBar / perLine) : 0;
+  const shown = visibleLines
+    ? lines.slice(from, from + visibleLines).map((line, i) => [from + i, line] as const)
+    : lines.map((line, i) => [i, line] as const);
+
   const [beatsPerBar] = timeSignature.split("/");
 
   return (
     <div className="space-y-1">
-      <div className="text-[11px] text-gray-500">
-        조성 {spellKey(musicKey) || "미상"} · 박자 {timeSignature}
+      <div className="flex items-center justify-between text-[11px] text-gray-500">
+        <span>
+          조성 {spellKey(musicKey) || "미상"} · 박자 {timeSignature}
+        </span>
+        {visibleLines && lines.length > visibleLines && (
+          <span className="tabular-nums">
+            {from + 1}–{Math.min(from + visibleLines, lines.length)} / {lines.length}줄
+          </span>
+        )}
       </div>
 
-      {lines.map((line, lineIndex) => {
+      {shown.map(([lineIndex, line]) => {
         const hasActive = line.some((_, i) => lineIndex * perLine + i === currentBar);
         const measureW = (VB_W - PAD_X * 2) / perLine;
         // 한 줄에 마디를 많이 넣을수록 칸이 좁아진다. 코드 심볼이 옆 칸을

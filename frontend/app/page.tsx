@@ -323,7 +323,8 @@ export default function Home() {
                   onSeek={(t) => playback?.seek(t)}
                 />
               ) : (
-                <div className="h-[168px] shrink-0 overflow-y-auto px-2 py-1">
+                <div className="shrink-0 px-2 py-1">
+                  {/* 지금 줄과 다음 줄만. 현재 줄이 늘 위에 온다 */}
                   <ChordScore
                     bars={bars}
                     chords={result.chords}
@@ -333,6 +334,7 @@ export default function Home() {
                     timeSignature={result.time_signature}
                     musicKey={result.key}
                     onSeek={(t) => playback?.seek(t)}
+                    visibleLines={2}
                     follow
                   />
                 </div>
