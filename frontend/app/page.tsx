@@ -12,7 +12,7 @@ import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { HomeDashboard } from "@/components/HomeDashboard";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
-import { SeekBar, TransportBar } from "@/components/TransportBar";
+import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
 import { ImportTab } from "@/components/tabs/ImportTab";
 import { LibraryTab } from "@/components/tabs/LibraryTab";
@@ -267,6 +267,20 @@ export default function Home() {
                     {label}
                   </button>
                 ))}
+                {/* 음높이·빠르기·반복을 한 팝업에 모은 버튼 */}
+                <PlaySettings
+                  duration={result.duration}
+                  time={time}
+                  transpose={transpose}
+                  rate={rate}
+                  loop={loop}
+                  onTranspose={setTranspose}
+                  onRate={(r) => {
+                    setRate(r);
+                    playback?.setRate(r);
+                  }}
+                  onLoop={setLoop}
+                />
                 <button
                   onClick={() =>
                     setSettings({ ...settings, videoCompact: !settings.videoCompact })
@@ -387,29 +401,6 @@ export default function Home() {
                 <Copyright />
               </div>
 
-              <TransportBar
-                duration={result.duration}
-                time={time}
-                playing={playing}
-                transpose={transpose}
-                rate={rate}
-                loop={loop}
-                onSeek={(t) => {
-                  playback?.seek(t);
-                  setTime(t);
-                }}
-                onToggle={() => {
-                  if (!playback) return;
-                  if (playback.isPlaying()) playback.pause();
-                  else playback.play();
-                }}
-                onTranspose={setTranspose}
-                onRate={(r) => {
-                  setRate(r);
-                  playback?.setRate(r);
-                }}
-                onLoop={setLoop}
-              />
             </>
           ) : (
             <div className="flex h-full flex-col">

@@ -27,8 +27,6 @@ function clock(t: number): string {
   return `${m}:${s}`;
 }
 
-type PanelKind = "pitch" | "speed" | "loop";
-
 /** 재생 버튼 + 탐색 슬라이더. 파형/악보 바로 아래에 놓는다. */
 export function SeekBar({
   duration,
@@ -65,15 +63,11 @@ export function SeekBar({
   );
 }
 
-/** 화면 아래 고정 컨트롤. 음높이(이조·카포)/빠르기/반복은 팝업으로 조정한다. */
-export function TransportBar(props: Props) {
+/** 음높이(이조·카포)·빠르기·반복을 한 팝업에 모은 「연주설정」 버튼.
+ *  파형/코드악보 전환 줄의 영상접기 왼쪽에 놓인다. */
+export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle">) {
   const { duration, time, transpose, rate, loop } = props;
-  const [panel, setPanel] = useState<PanelKind | null>(null);
-
-  const close = () => setPanel(null);
-
-  const tabClass =
-    "flex-1 rounded-lg bg-gray-100 py-2 text-sm dark:bg-gray-800";
+  const [open, setOpen] = useState(false);
 
   const pill = (active: boolean) =>
     [
@@ -83,30 +77,32 @@ export function TransportBar(props: Props) {
         : "bg-gray-100 dark:bg-gray-800",
     ].join(" ");
 
+  const sectionTitle = "mb-1 mt-0 text-xs font-semibold text-[var(--accent)]";
+
   // 음높이 +n = 카포 n프렛. 카포가 소리를 올려주는 만큼 화면 코드는
   // 내린 모양으로 표기된다(표기 변환은 page.tsx의 noteShift가 담당).
   const capo = transpose > 0 ? transpose : 0;
+  // 기본값에서 벗어난 설정이 있으면 버튼에 점을 찍어 알린다
+  const tweaked = transpose !== 0 || rate !== 1 || loop !== null;
 
   return (
-    <div className="sticky bottom-0 border-t border-gray-200 bg-white px-3 pb-3 pt-2 dark:border-gray-800 dark:bg-black">
-      <div className="flex gap-1.5">
-        <button className={tabClass} onClick={() => setPanel("pitch")}>
-          음높이
-          {transpose !== 0
-            ? ` ${transpose > 0 ? "+" : ""}${transpose}${capo ? ` (카포 ${capo})` : ""}`
-            : ""}
-        </button>
-        <button className={tabClass} onClick={() => setPanel("speed")}>
-          빠르기{rate !== 1 ? ` ${rate}×` : ""}
-        </button>
-        <button className={tabClass} onClick={() => setPanel("loop")}>
-          반복{loop ? " ●" : ""}
-        </button>
-      </div>
+    <>
+      <button
+        className="w-16 shrink-0 rounded bg-gray-100 py-1 text-xs dark:bg-gray-800"
+        onClick={() => setOpen(true)}
+        title="음높이·빠르기·반복"
+      >
+        연주설정{tweaked ? <span className="text-[var(--accent)]"> ●</span> : ""}
+      </button>
 
-      {/* ---- 음높이 (이조 + 카포) ---- */}
-      {panel === "pitch" && (
-        <Popup title="음높이" onClose={close}>
+      {open && (
+        <Popup title="연주설정" onClose={() => setOpen(false)}>
+          {/* ---- 음높이 (이조 + 카포) ---- */}
+          <div className={sectionTitle}>
+            음높이
+            {transpose !== 0 &&
+              ` · ${transpose > 0 ? "+" : ""}${transpose}${capo ? ` (카포 ${capo})` : ""}`}
+          </div>
           <p className="mb-2 rounded bg-gray-50 p-2 text-[11px] leading-snug text-gray-600 dark:bg-gray-800 dark:text-gray-300">
             올리기(+)는 카포 위치입니다 — 카포를 그 프렛에 끼우면 소리는 원곡
             그대로, 코드 모양만 쉬워집니다. 내리기(−)는 표기만 내려가므로
@@ -166,12 +162,10 @@ export function TransportBar(props: Props) {
           >
             초기화
           </button>
-        </Popup>
-      )}
 
-      {/* ---- 빠르기 ---- */}
-      {panel === "speed" && (
-        <Popup title="빠르기" onClose={close}>
+          {/* ---- 빠르기 ---- */}
+          <div className="my-3 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className={sectionTitle}>빠르기{rate !== 1 && ` · ${rate}×`}</div>
           <div className="grid grid-cols-5 gap-1.5">
             {RATES.map((r) => (
               <button
@@ -187,12 +181,10 @@ export function TransportBar(props: Props) {
             음높이는 그대로 두고 속도만 바뀝니다. 연습은 0.7×부터 올리는 것을
             권합니다.
           </p>
-        </Popup>
-      )}
 
-      {/* ---- 반복 (A-B 구간) ---- */}
-      {panel === "loop" && (
-        <Popup title="구간 반복" onClose={close}>
+          {/* ---- 반복 (A-B 구간) ---- */}
+          <div className="my-3 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className={sectionTitle}>구간 반복{loop && " · 사용 중"}</div>
           <div className="mb-3 grid grid-cols-2 gap-2 text-center">
             <div className="rounded border border-gray-200 p-2 dark:border-gray-700">
               <div className="text-[11px] text-gray-500">시작 (A)</div>
@@ -234,6 +226,6 @@ export function TransportBar(props: Props) {
           </p>
         </Popup>
       )}
-    </div>
+    </>
   );
 }
