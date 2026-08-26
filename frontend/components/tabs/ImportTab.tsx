@@ -8,8 +8,8 @@ import { localIds, parseResultsText, saveLocal } from "@/lib/library";
 import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
 import { STAGE_LABEL, type Health, type JobStatus } from "@/lib/types";
 
-const DRIVE_FOLDER_URL =
-  "https://drive.google.com/drive/folders/1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd";
+const DRIVE_FOLDER_ID = "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd";
+const DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`;
 
 interface Props {
   health: Health | null;
@@ -183,12 +183,21 @@ export function ImportTab({
         )}
 
         {!health ? (
-          <p className="text-xs text-gray-400">
-            서버에 연결되면 목록을 불러옵니다.
-            {adminMode
-              ? " 지금은 「드라이브에서 열기」로 내려받아 재생목록의 「파일 가져오기」를 이용해 주세요."
-              : ""}
-          </p>
+          // 서버가 없으면(외부 링크로 연 화면) 드라이브 폴더 뷰를 그대로 임베드한다.
+          // 파일을 누르면 드라이브가 다운로드를 처리하고, 받은 .rml은
+          // 재생목록의 「파일 가져오기」로 담는다.
+          <>
+            <iframe
+              src={`https://drive.google.com/embeddedfolderview?id=${DRIVE_FOLDER_ID}#list`}
+              className="h-56 w-full rounded border border-gray-200 bg-white dark:border-gray-700"
+              title="강상기타반 공유 폴더"
+            />
+            <p className="text-[11px] leading-snug text-gray-500">
+              파일을 누르면 드라이브에서 내려받아집니다. 받은 파일은 재생목록의
+              「파일 가져오기」로 담으세요. (분석 서버에 연결되면 여기서 바로
+              「받기」할 수 있습니다.)
+            </p>
+          </>
         ) : shared === null && !sharedError ? (
           <p className="text-xs text-gray-400">목록 불러오는 중…</p>
         ) : shared !== null && shared.length === 0 ? (
