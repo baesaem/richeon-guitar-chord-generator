@@ -3,8 +3,13 @@
 import { useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
+import { Popup } from "@/components/Popup";
 import type { Notation, Settings, Theme } from "@/lib/settings";
 import type { Health } from "@/lib/types";
+
+// 관리자 모드를 켤 때 묻는 번호. 수강생이 함부로 켜지 못하게 하는 잠금이며,
+// 바꾸려면 이 값을 고치면 된다. (화면 잠금 수준의 보호이지 보안 장치는 아니다.)
+const ADMIN_PIN = "2580";
 
 interface Props {
   settings: Settings;
@@ -39,6 +44,23 @@ export function SettingsTab({ settings, onChange, health }: Props) {
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(
     null,
   );
+
+  // 관리자 모드 잠금: 켜려면 PIN을 맞혀야 한다. 끄는 것은 자유.
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState(false);
+
+  const submitPin = () => {
+    if (pin === ADMIN_PIN) {
+      setPinOpen(false);
+      setPin("");
+      setPinError(false);
+      onChange({ ...settings, adminMode: true });
+    } else {
+      setPinError(true);
+      setPin("");
+    }
+  };
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setTestResult(null);
@@ -123,13 +145,22 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             type="checkbox"
             className="mt-1"
             checked={settings.adminMode}
-            onChange={(e) => set("adminMode", e.target.checked)}
+            onChange={(e) => {
+              // 켜기는 PIN을 통과해야 한다. 끄기는 바로 된다.
+              if (e.target.checked) {
+                setPin("");
+                setPinError(false);
+                setPinOpen(true);
+              } else {
+                set("adminMode", false);
+              }
+            }}
           />
           <span>
             <span className="text-sm font-medium">관리자 모드</span>
             <span className="block text-[11px] text-gray-500">
               공유 폴더 관리(드라이브에서 열기·음원 내보내기)와 분석 서버
-              설정·상태 메뉴가 보입니다. 수강생 기기에서는 꺼 두세요.
+              설정·상태 메뉴가 보입니다. 켜려면 관리자 번호가 필요합니다.
             </span>
           </span>
         </label>
@@ -272,6 +303,39 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       )}
 
       <Copyright />
+
+      {pinOpen && (
+        <Popup title="관리자 번호" onClose={() => setPinOpen(false)}>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            autoFocus
+            className="w-full rounded border px-3 py-3 text-center text-lg tracking-[0.5em]"
+            placeholder="••••"
+            value={pin}
+            onChange={(e) => {
+              setPin(e.target.value);
+              setPinError(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitPin();
+            }}
+          />
+          {pinError && (
+            <p className="mt-2 rounded bg-red-50 p-2 text-xs text-red-700">
+              번호가 맞지 않습니다.
+            </p>
+          )}
+          <button
+            className="mt-3 w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
+            disabled={!pin}
+            onClick={submitPin}
+          >
+            확인
+          </button>
+        </Popup>
+      )}
     </div>
   );
 }
