@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
 import { downloadShared, listShared, type SharedFile } from "@/lib/api";
-import { parseResultsText, saveLocal } from "@/lib/library";
+import { localIds, parseResultsText, saveLocal } from "@/lib/library";
+import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
 import { STAGE_LABEL, type Health, type JobStatus } from "@/lib/types";
 
 const DRIVE_FOLDER_URL =
@@ -37,6 +38,13 @@ export function ImportTab({
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [fetching, setFetching] = useState<string | null>(null);
   const [sharedNotice, setSharedNotice] = useState<string | null>(null);
+  // 이미 받아서 기기에 남아 있는 드라이브 파일들
+  const [fetched, setFetched] = useState<Set<string>>(new Set());
+
+  const refreshFetched = () =>
+    localIds()
+      .then((ids) => setFetched(fetchedDriveIds(ids)))
+      .catch(() => {});
 
   useEffect(() => {
     if (!health) return;
@@ -46,6 +54,7 @@ export function ImportTab({
         setSharedError(null);
       })
       .catch((e) => setSharedError((e as Error).message));
+    refreshFetched();
   }, [health]);
 
   /** 공유 파일을 내려받아 기기 저장 재생목록에 바로 넣는다. */
@@ -56,6 +65,8 @@ export function ImportTab({
     try {
       const results = parseResultsText(await downloadShared(file.id));
       for (const result of results) await saveLocal(result);
+      markFetched(file.id, results.map((r) => r.id));
+      await refreshFetched();
       setSharedNotice(
         results.length === 1
           ? `저장했습니다: ${results[0].title || results[0].id}`
@@ -177,20 +188,28 @@ export function ImportTab({
           <p className="text-xs text-gray-400">폴더에 아직 파일이 없습니다.</p>
         ) : (
           <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-            {shared?.map((file) => (
-              <li key={file.id}>
-                <button
-                  className="flex w-full items-center gap-2 py-2 text-left disabled:opacity-50"
-                  disabled={fetching !== null}
-                  onClick={() => fetchShared(file)}
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
-                  <span className="shrink-0 text-[11px] text-gray-500">
-                    {fetching === file.id ? "받는 중…" : "받기"}
-                  </span>
-                </button>
-              </li>
-            ))}
+            {shared?.map((file) => {
+              const done = fetched.has(file.id);
+              return (
+                <li key={file.id}>
+                  <button
+                    className="flex w-full items-center gap-2 py-2 text-left disabled:opacity-50"
+                    disabled={done || fetching !== null}
+                    onClick={() => fetchShared(file)}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
+                    <span
+                      className={[
+                        "shrink-0 text-[11px]",
+                        done ? "text-green-700" : "text-gray-500",
+                      ].join(" ")}
+                    >
+                      {done ? "받았음" : fetching === file.id ? "받는 중…" : "받기"}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
