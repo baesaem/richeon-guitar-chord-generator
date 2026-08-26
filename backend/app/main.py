@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 from pathlib import Path
@@ -13,7 +14,8 @@ from .analysis.decode import ffmpeg_available
 from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
-from .schemas import AnalysisResult, AnalyzeRequest, Chord, ResultSummary
+from .lyrics import fetch_lyrics_blocking
+from .schemas import AnalysisResult, AnalyzeRequest, Chord, LyricLine, ResultSummary
 from .shared_drive import download_shared, list_shared
 from .sources import UploadSource, YouTubeSource
 from .sources.youtube import YouTubeUnavailable
@@ -184,6 +186,47 @@ async def get_result(result_id: str) -> AnalysisResult:
     result = load_result(result_id)
     if result is None:
         raise HTTPException(404, "분석 결과가 없습니다")
+    return result
+
+
+@app.post("/api/results/{result_id}/lyrics")
+async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
+    """이미 분석된 곡에 가사를 붙인다(웹 가사 → YouTube 자막 순).
+
+    분석과 분리해 둔 이유: 가사는 나중에 올라오기도 하고, 옛 결과에도
+    가사만 새로 채울 수 있어야 한다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+
+    lyrics = await asyncio.to_thread(
+        fetch_lyrics_blocking,
+        result_id if result.source == "youtube" else None,
+        result.title,
+        result.duration,
+        q,
+    )
+    if not lyrics:
+        raise HTTPException(404, "이 곡의 가사를 찾지 못했습니다")
+
+    result.lyrics = lyrics
+    save_result(result)
+    return result
+
+
+@app.put("/api/results/{result_id}/lyrics")
+async def put_lyrics(result_id: str, lyrics: list[LyricLine]) -> AnalysisResult:
+    """가사를 직접 넣는다(사용자가 올린 .lrc/자막 파일)."""
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    result.lyrics = lyrics
+    save_result(result)
     return result
 
 

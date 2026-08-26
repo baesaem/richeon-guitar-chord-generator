@@ -1,5 +1,11 @@
 import { getSettings } from "./settings";
-import type { AnalysisResult, Health, JobStatus, ResultSummary } from "./types";
+import type {
+  AnalysisResult,
+  Health,
+  JobStatus,
+  LyricLine,
+  ResultSummary,
+} from "./types";
 
 /**
  * API 주소. 우선순위는 설정 > 빌드 시 주입값 > 같은 오리진.
@@ -74,6 +80,21 @@ export const downloadShared = async (id: string): Promise<string> =>
 /** 공유 파일 내용(음원 등 바이너리) */
 export const downloadSharedBlob = async (id: string): Promise<Blob> =>
   (await sharedResponse(id)).blob();
+
+/** 서버가 가사를 찾아 결과에 붙인다. q를 주면 그 검색어로 다시 찾는다. */
+export const fetchLyrics = (id: string, q = "") =>
+  fetch(
+    `${apiBase()}/api/results/${id}/lyrics${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    { method: "POST" },
+  ).then(json<AnalysisResult>);
+
+/** 사용자가 넣은 가사를 서버 결과에 저장한다. */
+export const putLyrics = (id: string, lyrics: LyricLine[]) =>
+  fetch(`${apiBase()}/api/results/${id}/lyrics`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(lyrics),
+  }).then(json<AnalysisResult>);
 
 export const deleteResult = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}`, { method: "DELETE" }).then(

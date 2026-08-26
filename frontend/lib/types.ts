@@ -48,6 +48,13 @@ export interface Section {
   label: string;
 }
 
+/** 시간이 붙은 가사 한 줄 */
+export interface LyricLine {
+  t: number;
+  end: number;
+  text: string;
+}
+
 export interface AnalysisMeta {
   pipeline_version: string;
   separated: boolean;
@@ -68,6 +75,8 @@ export interface AnalysisResult {
   beats: Beat[];
   chords: Chord[];
   sections: Section[];
+  /** 시간 동기화된 가사. 없을 수도 있다 */
+  lyrics?: LyricLine[];
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;

@@ -11,6 +11,7 @@ import { ChordScore } from "@/components/ChordScore";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { HomeDashboard } from "@/components/HomeDashboard";
+import { LyricsPane } from "@/components/LyricsPane";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
@@ -54,6 +55,8 @@ export default function Home() {
   const [transpose, setTranspose] = useState(0);
   const [rate, setRate] = useState(1);
   const [loop, setLoop] = useState<{ a: number; b: number } | null>(null);
+  // 가사 보기: 켜면 코드 박스와 곡 전체 코드 자리를 가사가 대신 쓴다
+  const [showLyrics, setShowLyrics] = useState(false);
 
   const [backendDown, setBackendDown] = useState(false);
 
@@ -305,6 +308,33 @@ export default function Home() {
                   }}
                   onLoop={setLoop}
                 />
+                {/* 가사 보기 — 코드 박스·곡 전체 코드 자리를 대신 쓴다 */}
+                <button
+                  onClick={() => setShowLyrics((v) => !v)}
+                  className={[
+                    "flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-medium",
+                    showLyrics
+                      ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-[var(--accent)]"
+                      : "bg-gray-200/70 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+                  ].join(" ")}
+                  title="가사를 음악에 맞춰 보여줍니다"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.9}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 6h11M4 11h7M4 16h9" />
+                    <circle cx="18.5" cy="16.5" r="2.5" />
+                    <path d="M21 16.5V6l-3 1" />
+                  </svg>
+                  가사
+                </button>
                 <button
                   onClick={() =>
                     setSettings({ ...settings, videoCompact: !settings.videoCompact })
@@ -376,6 +406,24 @@ export default function Home() {
               />
               </section>
 
+              {/* 가사 보기: 코드 박스와 곡 전체 코드를 감추고 그 자리에 가사를 띄운다 */}
+              {showLyrics ? (
+                <section className="mx-2 mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                  <LyricsPane
+                    result={result}
+                    time={time}
+                    online={!!health}
+                    onLyrics={(lines) =>
+                      setResult((prev) => (prev ? { ...prev, lyrics: lines } : prev))
+                    }
+                    onSeek={(t) => {
+                      playback?.seek(t);
+                      setTime(t);
+                    }}
+                  />
+                </section>
+              ) : (
+              <>
               <section className="mx-2 mt-1.5 flex shrink-0 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
                 <ChordDiagram
                   voicing={cur ? voicingFor(cur.root, cur.quality) : null}
@@ -442,7 +490,8 @@ export default function Home() {
               <div className="min-h-0 flex-1 overflow-y-auto px-3">
                 <Copyright />
               </div>
-
+              </>
+              )}
             </>
           ) : (
             <div className="flex h-full flex-col">

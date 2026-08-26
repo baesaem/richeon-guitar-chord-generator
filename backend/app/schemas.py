@@ -64,6 +64,14 @@ class Section(BaseModel):
     label: str = Field(description='"Intro" / "Verse" / "Chorus" 등')
 
 
+class LyricLine(BaseModel):
+    """시간이 붙은 가사 한 줄. YouTube 자막이나 사용자가 넣은 LRC에서 온다."""
+
+    t: float = Field(description="줄이 시작하는 시각(초)")
+    end: float = Field(default=0.0, description="줄이 끝나는 시각(초). 0이면 미상")
+    text: str
+
+
 class AnalysisMeta(BaseModel):
     """어떤 알고리즘 조합으로 뽑은 결과인지 기록.
 
@@ -92,6 +100,8 @@ class AnalysisResult(BaseModel):
     beats: list[Beat] = []
     chords: list[Chord] = []
     sections: list[Section] = []
+    # 시간 동기화된 가사. 없을 수도 있다(자막이 없는 영상·업로드 곡).
+    lyrics: list[LyricLine] = []
 
     # 타임라인에 그릴 파형 포락선. 0~1로 정규화된 값이 초당 peaks_per_second개.
     peaks: list[float] = []
