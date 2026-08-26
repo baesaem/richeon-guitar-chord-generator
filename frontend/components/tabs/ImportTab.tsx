@@ -5,6 +5,12 @@ import { useEffect, useState } from "react";
 import { Copyright } from "@/components/Copyright";
 import { Popup } from "@/components/Popup";
 import { downloadShared, downloadSharedBlob, listShared, type SharedFile } from "@/lib/api";
+import {
+  downloadDirectBlob,
+  downloadDirectText,
+  hasDriveKey,
+  listSharedDirect,
+} from "@/lib/driveDirect";
 import { localIds, parseResultsText, saveLocal, saveLocalAudio } from "@/lib/library";
 import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
 import {
@@ -100,9 +106,16 @@ export function ImportTab({
       .then((ids) => setFetched(fetchedDriveIds(ids)))
       .catch(() => {});
 
+  // 공유 폴더 접근 경로: 서버가 있으면 프록시, 없으면(외부 링크 정적 배포)
+  // 드라이브 API 직접 조회. 어느 쪽이든 화면(곡 목록)은 똑같다.
+  const canList = !!health || hasDriveKey();
+  const fileText = (id: string) => (health ? downloadShared(id) : downloadDirectText(id));
+  const fileBlob = (id: string) =>
+    health ? downloadSharedBlob(id) : downloadDirectBlob(id);
+
   useEffect(() => {
-    if (!health) return;
-    listShared()
+    if (!health && !hasDriveKey()) return;
+    (health ? listShared() : listSharedDirect())
       .then((files) => {
         setShared(files);
         setSharedError(null);
@@ -125,7 +138,7 @@ export function ImportTab({
     setSharedError(null);
     setSharedNotice(null);
     try {
-      const results = parseResultsText(await downloadShared(file.id));
+      const results = parseResultsText(await fileText(file.id));
       for (const result of results) await saveLocal(result);
       markFetched(file.id, results.map((r) => r.id));
 
@@ -135,7 +148,7 @@ export function ImportTab({
       for (const audioFile of shared ?? []) {
         const audioId = audioIdFromName(audioFile.name);
         if (!audioId || !results.some((r) => r.id === audioId)) continue;
-        await saveLocalAudio(audioId, await downloadSharedBlob(audioFile.id));
+        await saveLocalAudio(audioId, await fileBlob(audioFile.id));
         markFetched(audioFile.id, [audioId]);
         withAudio += 1;
       }
@@ -350,8 +363,8 @@ export function ImportTab({
             </p>
           )}
 
-          {!health ? (
-            // 서버가 없으면(외부 링크로 연 화면) 드라이브 폴더 뷰를 그대로 임베드한다.
+          {!canList ? (
+            // 서버도 드라이브 키도 없으면 드라이브 폴더 뷰를 그대로 임베드한다.
             <>
               <iframe
                 src={`https://drive.google.com/embeddedfolderview?id=${DRIVE_FOLDER_ID}#list`}
