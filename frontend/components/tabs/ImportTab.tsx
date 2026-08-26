@@ -25,6 +25,13 @@ interface Props {
 }
 
 type CardKind = "youtube" | "file" | "shared";
+type SharedFilter = "unfetched" | "fetched" | "all";
+
+const SHARED_FILTERS: { value: SharedFilter; label: string }[] = [
+  { value: "unfetched", label: "받지 않음" },
+  { value: "fetched", label: "받음" },
+  { value: "all", label: "전체" },
+];
 
 /** 카드 한 장. 아이콘 + 제목 + 설명, 누르면 모달이 열린다. */
 function Card({
@@ -78,6 +85,8 @@ export function ImportTab({
   const [sharedNotice, setSharedNotice] = useState<string | null>(null);
   // 이미 받아서 기기에 남아 있는 드라이브 파일들
   const [fetched, setFetched] = useState<Set<string>>(new Set());
+  // 목록 필터. 자동 동기화가 대부분 받아 두므로 기본은 '받지 않음'만 보여준다.
+  const [filter, setFilter] = useState<SharedFilter>("unfetched");
 
   const refreshFetched = () =>
     localIds()
@@ -328,8 +337,30 @@ export function ImportTab({
           ) : shared !== null && shared.length === 0 ? (
             <p className="text-xs text-gray-400">폴더에 아직 파일이 없습니다.</p>
           ) : (
+            <>
+            <div className="mb-2 flex gap-1.5">
+              {SHARED_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setFilter(f.value)}
+                  className={[
+                    "flex-1 rounded-full py-1.5 text-xs",
+                    filter === f.value
+                      ? "bg-black text-white dark:bg-white dark:text-black"
+                      : "bg-gray-100 dark:bg-gray-800",
+                  ].join(" ")}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
             <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-              {shared?.map((file) => {
+              {shared?.filter((file) => {
+                const done = fetched.has(file.id);
+                if (filter === "unfetched") return !done;
+                if (filter === "fetched") return done;
+                return true;
+              }).map((file) => {
                 const done = fetched.has(file.id);
                 return (
                   <li key={file.id}>
@@ -354,6 +385,14 @@ export function ImportTab({
                 );
               })}
             </ul>
+            {filter === "unfetched" &&
+              shared !== null &&
+              shared.every((f) => fetched.has(f.id)) && (
+                <p className="py-2 text-center text-xs text-gray-400">
+                  모두 받았습니다. 「받음」이나 「전체」에서 확인하세요.
+                </p>
+              )}
+            </>
           )}
         </Popup>
       )}
