@@ -188,20 +188,27 @@ export function ImportTab({
         </p>
       )}
 
-      {/* ---- 방식 카드 ---- */}
-      {health?.youtube_enabled && (
-        <Card
-          icon={
-            <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
-              <rect x="1" y="5" width="22" height="14" rx="4" fill="#FF0000" />
-              <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
-            </svg>
-          }
-          title="YouTube 주소"
-          description="영상 주소를 붙여넣어 코드를 분석합니다"
-          onClick={() => setOpen("youtube")}
-        />
-      )}
+      {/* ---- 방식 카드: 수강생이 주로 쓰는 순서(강상기타반 → 음원 → YouTube) ---- */}
+      <Card
+        icon={
+          <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6 text-gray-600 dark:text-gray-300"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <path d="M12 11v6M9 14l3 3 3-3" />
+          </svg>
+        }
+        title="강상기타반"
+        description="곡 목록에서 필요한 곡을 골라 재생목록에 담습니다"
+        onClick={() => setOpen("shared")}
+      />
 
       <Card
         icon={
@@ -225,26 +232,19 @@ export function ImportTab({
         onClick={() => setOpen("file")}
       />
 
-      <Card
-        icon={
-          <svg
-            viewBox="0 0 24 24"
-            className="h-6 w-6 text-gray-600 dark:text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <path d="M12 11v6M9 14l3 3 3-3" />
-          </svg>
-        }
-        title="강상기타반"
-        description="곡 목록에서 필요한 곡을 골라 재생목록에 담습니다"
-        onClick={() => setOpen("shared")}
-      />
+      {health?.youtube_enabled && (
+        <Card
+          icon={
+            <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
+              <rect x="1" y="5" width="22" height="14" rx="4" fill="#FF0000" />
+              <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
+            </svg>
+          }
+          title="YouTube 주소"
+          description="영상 주소를 붙여넣어 코드를 분석합니다"
+          onClick={() => setOpen("youtube")}
+        />
+      )}
 
       <p className="text-xs text-gray-500">
         음원 분리 {separate ? "사용" : "안 함"} · 설정 탭에서 바꿀 수 있습니다.
