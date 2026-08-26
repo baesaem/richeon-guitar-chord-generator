@@ -10,6 +10,7 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
+import { HomeDashboard } from "@/components/HomeDashboard";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { SeekBar, TransportBar } from "@/components/TransportBar";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
@@ -21,6 +22,7 @@ import { analyzeUpload, analyzeUrl, getHealth, getResult, watchJob } from "@/lib
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, saveLocal } from "@/lib/library";
 import { labelFor, resolveFlats, spellKey, transposeRoot } from "@/lib/notation";
+import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
@@ -140,6 +142,7 @@ export default function Home() {
             .then((r) => {
               setResult(r);
               setTab("home");
+              addRecent(r.id, r.title || r.id);
               // 서버(PC)가 꺼져도 열 수 있도록 기기에도 저장해 둔다
               if (settings.autoSave) saveLocal(r).catch(() => {});
             })
@@ -157,16 +160,13 @@ export default function Home() {
     resetPlayback();
     setTab("home");
     try {
-      setResult(await getResult(id));
+      // 기기 저장분 우선. 수강생 기기는 서버가 없고, 있어도 로컬이 빠르다.
+      const local = await getLocal(id).catch(() => null);
+      const result = local ?? (await getResult(id));
+      setResult(result);
+      addRecent(result.id, result.title || result.id);
     } catch {
-      // 서버가 꺼져 있으면 기기 저장분에서 연다
-      try {
-        const local = await getLocal(id);
-        if (local) setResult(local);
-        else setError("서버에 연결할 수 없고 기기에도 저장돼 있지 않습니다");
-      } catch (e) {
-        setError((e as Error).message);
-      }
+      setError("이 곡을 열 수 없습니다. 기기에 저장돼 있지 않고 서버에도 연결되지 않았습니다.");
     }
   };
 
@@ -196,22 +196,30 @@ export default function Home() {
     // w-full이 없으면 mx-auto(가로 auto 마진)가 flex 아이템의 stretch를 무효화해
     // 너비가 내용물 기준으로 잡히고, 긴 곡 제목 때문에 화면이 가로로 넘친다.
     <div className="mx-auto flex h-dvh w-full max-w-2xl flex-col overflow-x-hidden">
-      {/* 어느 탭에 있든 앱 이름은 항상 보인다 */}
-      <header className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-1.5 dark:border-gray-800">
-        <Image
-          src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/guitar.png`}
-          alt=""
-          width={20}
-          height={32}
-          className="h-8 w-auto shrink-0"
-          priority
-        />
-        <h1 className="min-w-0 flex-1 truncate text-lg font-bold">
-          리천 기타 코드 자동생성기
-        </h1>
-        {settings.adminMode && health && (
-          <span className="shrink-0 text-[10px] text-gray-400">{health.device}</span>
-        )}
+      {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바. */}
+      <header className="shrink-0 bg-[var(--bar-bg)]">
+        <div className="flex items-center gap-2.5 px-3 py-2">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+            <Image
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/guitar.png`}
+              alt=""
+              width={20}
+              height={32}
+              className="h-7 w-auto"
+              priority
+            />
+          </span>
+          <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight">
+            <span className="text-[var(--accent)]">리천</span> 기타 코드 자동생성기
+          </h1>
+          {settings.adminMode && health && (
+            <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2 py-0.5 text-[10px] text-[var(--accent)]">
+              {health.device}
+            </span>
+          )}
+        </div>
+        {/* 강조색 헤어라인 */}
+        <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_55%,transparent)] to-transparent" />
       </header>
 
       {/* 서버 관련 안내는 관리자에게만. 수강생 화면은 서버 개념을 모른다. */}
@@ -404,34 +412,23 @@ export default function Home() {
               />
             </>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
-              <p className="max-w-xs text-sm text-gray-500">
-                YouTube 주소나 오디오 파일에서 비트·조성·기타 코드를 뽑아 재생과 함께
-                보여줍니다.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  className="rounded bg-black px-5 py-3 text-white dark:bg-white dark:text-black"
-                  onClick={() => setTab("import")}
-                >
-                  음원 가져오기
-                </button>
-                <button
-                  className="rounded border border-gray-300 px-5 py-3 dark:border-gray-700"
-                  onClick={() => setTab("library")}
-                >
-                  재생목록
-                </button>
+            <div className="flex h-full flex-col">
+              <HomeDashboard
+                onOpen={openSaved}
+                onImport={() => setTab("import")}
+                onLibrary={() => setTab("library")}
+              />
+              <div className="space-y-2 px-4">
+                {status && busy && (
+                  <p className="text-xs text-gray-500">
+                    {STAGE_LABEL[status.stage]} · {Math.round(status.progress * 100)}%
+                  </p>
+                )}
+                {error && (
+                  <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
+                )}
+                <Copyright />
               </div>
-              {status && busy && (
-                <p className="text-xs text-gray-500">
-                  {STAGE_LABEL[status.stage]} · {Math.round(status.progress * 100)}%
-                </p>
-              )}
-              {error && (
-                <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
-              )}
-              <Copyright />
             </div>
           )}
         </div>

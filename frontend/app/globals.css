@@ -7,6 +7,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* 강조색: 기타 우드·브라스 계열. 테마마다 어울리는 색으로 덮어쓴다 */
+  --accent: #a97e2f;
+  /* 상단 타이틀바·하단 메뉴바 배경. 본문보다 살짝 도드라진다 */
+  --bar-bg: color-mix(in srgb, var(--foreground) 4%, var(--background));
 }
 
 @theme inline {
@@ -19,27 +23,32 @@
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
+  --accent: #d8b25e;
 }
 
 /* 색조 테마. 라이트 기반 팔레트에 배경·전경만 물들인다 */
 [data-theme="sepia"] {
   --background: #f2e2bd;
   --foreground: #5b4636;
+  --accent: #8a5a22;
 }
 
 [data-theme="aqua"] {
   --background: #cfeef4;
   --foreground: #0f3a45;
+  --accent: #0e7c94;
 }
 
 [data-theme="royal"] {
   --background: #e2d4f5;
   --foreground: #2e1a47;
+  --accent: #7443c0;
 }
 
 [data-theme="naver"] {
   --background: #d3f2df;
   --foreground: #0b3d24;
+  --accent: #069a52;
 }
 
 body {

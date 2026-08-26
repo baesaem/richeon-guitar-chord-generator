@@ -66,41 +66,61 @@ const ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-/** 화면 맨 아래 탭 막대. 폰에서 엄지로 누르는 자리라 세로 여백을 넉넉히 둔다. */
+/** 화면 맨 아래 탭 막대. 폰에서 엄지로 누르는 자리라 세로 여백을 넉넉히 둔다.
+ *  테마 강조색이 활성 탭에 물든다. */
 export function BottomNav({ tab, onChange }: Props) {
   return (
-    <nav className="flex shrink-0 border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-black">
-      {ITEMS.map((item) => {
-        const active = item.id === tab;
-        return (
-          <button
-            key={item.id}
-            onClick={() => onChange(item.id)}
-            aria-current={active ? "page" : undefined}
-            className={[
-              // 탭이 6개라 한 칸이 좁다. min-w-0으로 라벨이 칸을 밀어내지 않게 한다.
-              "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-2",
-              active ? "text-black dark:text-white" : "text-gray-400",
-            ].join(" ")}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={active ? 2.1 : 1.6}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+    <nav className="shrink-0 bg-[var(--bar-bg)] shadow-[0_-4px_16px_rgba(0,0,0,0.07)]">
+      {/* 강조색 헤어라인 */}
+      <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_45%,transparent)] to-transparent" />
+      <div className="flex">
+        {ITEMS.map((item) => {
+          const active = item.id === tab;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onChange(item.id)}
+              aria-current={active ? "page" : undefined}
+              className={[
+                // 탭이 6개라 한 칸이 좁다. min-w-0으로 라벨이 칸을 밀어내지 않게 한다.
+                "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 pb-2 pt-1.5 transition-colors",
+                active ? "text-[var(--accent)]" : "text-gray-400",
+              ].join(" ")}
             >
-              {item.icon}
-            </svg>
-            <span className="w-full truncate text-center text-[9px] leading-none">
-              {item.label}
-            </span>
-          </button>
-        );
-      })}
+              {/* 활성 탭은 은은한 알약 배경으로 감싼다 */}
+              <span
+                className={[
+                  "flex items-center justify-center rounded-full px-3 py-0.5 transition-colors",
+                  active
+                    ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"
+                    : "bg-transparent",
+                ].join(" ")}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={active ? 2.1 : 1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  {item.icon}
+                </svg>
+              </span>
+              <span
+                className={[
+                  "w-full truncate text-center text-[9px] leading-none",
+                  active ? "font-semibold" : "",
+                ].join(" ")}
+              >
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }
