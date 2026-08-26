@@ -205,6 +205,66 @@ def absorb_gaps(
     return merge_same_label(out)
 
 
+def fix_sounding_gaps(
+    segments: list[ChordSegment],
+    peaks: list[float],
+    peaks_per_second: int,
+    *,
+    ratio: float = 0.35,
+) -> list[ChordSegment]:
+    """소리가 나고 있는데 N.C.로 찍힌 구간을 이웃 코드로 되돌린다.
+
+    모델은 화성이 흐릿하면(간주에서 한 악기만 남거나, 코드 전환이 모호하면)
+    무음이 아닌데도 N.C.를 낸다. 연주가 이어지는 자리에 N.C.가 뜨면 연주자는
+    무엇을 짚어야 할지 알 수 없다.
+
+    판단 근거는 파형 세기다. 그 구간의 평균 세기가 곡 전체 평균의 ratio를
+    넘으면 "연주 중"으로 보고 앞(없으면 뒤) 코드로 채운다. 진짜 도입·간주의
+    정적은 세기가 낮아 그대로 남는다.
+    """
+    if not peaks or peaks_per_second <= 0 or len(segments) < 2:
+        return segments
+
+    voiced = [p for p in peaks if p > 0.02]
+    if not voiced:
+        return segments
+    threshold = (sum(voiced) / len(voiced)) * ratio
+
+    def loudness(start: float, end: float) -> float:
+        lo = max(0, int(start * peaks_per_second))
+        hi = min(len(peaks), max(lo + 1, int(end * peaks_per_second)))
+        window = peaks[lo:hi]
+        return sum(window) / len(window) if window else 0.0
+
+    out = list(segments)
+    for i, seg in enumerate(out):
+        if seg.quality != "N":
+            continue
+        if loudness(seg.start, seg.end) < threshold:
+            continue  # 실제로 조용한 구간이면 N.C.가 맞다
+
+        # 앞 코드를 잇는 것이 자연스럽다. 첫 구간이면 뒤 코드를 당겨 온다.
+        donor = None
+        for j in range(i - 1, -1, -1):
+            if out[j].quality != "N":
+                donor = out[j]
+                break
+        if donor is None:
+            for j in range(i + 1, len(out)):
+                if out[j].quality != "N":
+                    donor = out[j]
+                    break
+        if donor is None:
+            continue
+
+        seg.label = donor.label
+        seg.root = donor.root
+        seg.quality = donor.quality
+        seg.confidence = min(seg.confidence, 0.5)  # 추정으로 채운 자리
+
+    return merge_same_label(out)
+
+
 def merge_short_segments(
     segments: list[ChordSegment], min_duration: float
 ) -> list[ChordSegment]:

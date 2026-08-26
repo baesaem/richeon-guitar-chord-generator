@@ -105,8 +105,8 @@ def format_label(root: str | None, quality: str) -> str:
     return f"{root}{_LABEL_SUFFIX.get(quality, quality)}"
 
 
-def recognize(wav_path: Path, duration: float, device: str) -> list[ChordSegment]:
-    """오디오 파일 → 코드 구간 목록. 프레임 단위 예측을 구간으로 병합한다."""
+def _frame_predictions(wav_path: Path, device: str) -> tuple[list[int], float]:
+    """프레임별 코드 클래스와 프레임 간격(초)."""
     import librosa
     import torch
 
@@ -135,7 +135,13 @@ def recognize(wav_path: Path, duration: float, device: str) -> list[ChordSegment
             prediction, _ = model.output_layer(attn)
             frames.extend(int(v) for v in prediction.squeeze().tolist())
 
-    # 프레임 라벨 → 시간 구간
+    return frames, seconds_per_frame
+
+
+def recognize(wav_path: Path, duration: float, device: str) -> list[ChordSegment]:
+    """오디오 파일 → 코드 구간 목록. 프레임 단위 예측을 구간으로 병합한다."""
+    frames, seconds_per_frame = _frame_predictions(wav_path, device)
+
     segments: list[ChordSegment] = []
     start = 0.0
     current = frames[0] if frames else 169
@@ -148,6 +154,12 @@ def recognize(wav_path: Path, duration: float, device: str) -> list[ChordSegment
     _append(segments, current, start, duration)
 
     return [s for s in segments if s.end > s.start]
+
+
+# 비트 한 칸마다 프레임 예측을 다수결로 모으는 방식도 만들어 재 봤다.
+# 두 곡에서 후처리를 거친 결과가 프레임 방식과 사실상 같았다(구간 80 대 81,
+# N.C. 6.7초로 동일). 스냅·짧은구간 흡수가 이미 같은 일을 하고 있어서다.
+# 코드만 늘어나므로 넣지 않는다.
 
 
 def _append(segments: list[ChordSegment], index: int, start: float, end: float) -> None:

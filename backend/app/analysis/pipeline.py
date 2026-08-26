@@ -40,9 +40,9 @@ from .features import (
 )
 from .key import estimate_key
 
-# 후처리를 고쳐도 버전을 올리지 않는다. 화면 쪽(lib/tidy.ts)이 같은 규칙으로
-# 다듬으므로 옛 결과도 깨끗하게 보이고, 새 분석은 여기서 이미 정리되어 나온다.
-PIPELINE_VERSION = "0.7.0-btc"
+# 0.8.0: 코드 인식 입력을 분리 트랙에서 원본 믹스로 바꿨다. 결과가 실질적으로
+# 달라지므로 옛 캐시는 버린다(원본 오디오가 남아 있어 재분석은 빠르다).
+PIPELINE_VERSION = "0.8.0-btc"
 
 BEATS_PER_BAR = 4
 PEAKS_PER_SECOND = 25
@@ -136,9 +136,14 @@ async def analyze(
     await progress(JobStage.CHORDS, 0.0, "코드 인식 중")
     chord_model = btc.BTC_MODEL_NAME
     try:
-        # BTC는 분리된 하모닉 트랙에서 가장 잘 나온다. 없으면 원본 wav.
+        # BTC에는 원본 믹스를 넣는다.
+        #
+        # 분리 트랙(other+bass)을 넣어 봤더니 오히려 나빴다. 세 곡에서
+        # 구간이 15~20% 더 잘게 쪼개졌고 N.C.는 최대 두 배로 늘었다.
+        # BTC는 원곡 믹스로 학습된 모델이라 분리 트랙은 학습 분포에서
+        # 벗어난 입력이 된다. 분리는 크로마·조성 추정과 반주 재생에 쓴다.
         segments = await asyncio.to_thread(
-            btc.recognize, harmonic_path, decoded.duration, device
+            btc.recognize, decoded.path, decoded.duration, device
         )
     except Exception as exc:
         # 체크포인트가 없거나 모델 로드가 실패하면 템플릿 방식으로 폴백
@@ -152,6 +157,8 @@ async def analyze(
     # --- 후처리 ---
     await progress(JobStage.POSTPROCESS, 0.0, "보정 중")
     beat_period = 60.0 / grid.bpm if grid.bpm > 0 else 0.5
+    peaks = await asyncio.to_thread(envelope, buffer, PEAKS_PER_SECOND)
+
     # 경계를 비트에 붙인다. 프레임 단위 예측의 어긋남과 파편이 여기서 정리된다.
     segments = btc.snap_to_beats(segments, grid.times, decoded.duration)
     segments = chord_rec.merge_short_segments(segments, min_duration=beat_period * 0.9)
@@ -159,8 +166,9 @@ async def analyze(
     # 마디가 바뀌는 지점에서 특히 잘 생기는 오인식이다.
     segments = chord_rec.drop_sandwiched(segments, max_duration=beat_period * 2.2)
     segments = chord_rec.absorb_gaps(segments, max_duration=beat_period * 2.2)
+    # 연주가 이어지는데 N.C.가 뜬 자리를 파형 세기로 가려내 되돌린다.
+    segments = chord_rec.fix_sounding_gaps(segments, peaks, PEAKS_PER_SECOND)
     key_name, _ = estimate_key(frame_chroma)
-    peaks = await asyncio.to_thread(envelope, buffer, PEAKS_PER_SECOND)
     await progress(JobStage.POSTPROCESS, 1.0, f"{key_name or '조성 미상'} · 코드 {len(segments)}개")
 
     # 종료(DONE/FAILED) 이벤트는 JobManager가 result_id와 함께 발행한다.
