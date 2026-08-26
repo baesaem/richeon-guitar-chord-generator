@@ -63,6 +63,9 @@ export function ChordSheet({
         const active = i === currentBar;
         const spans = spansOf(bar, chords);
         const beatCount = bar.beatTimes.length || 1;
+        // 앞 마디에서 이어지는 코드는 이름을 다시 적지 않는다(악보의 % 표기).
+        // 코드가 언제 바뀌는지가 한눈에 들어온다.
+        const prevLast = i > 0 ? spansOf(bars[i - 1], chords).at(-1)?.chordIndex : undefined;
 
         return (
           <div
@@ -83,6 +86,7 @@ export function ChordSheet({
               {spans.map((span, j) => {
                 const chord = chords[span.chordIndex];
                 const sounding = active && span.chordIndex === currentChord;
+                const carried = j === 0 && span.chordIndex === prevLast;
                 return (
                   <div
                     key={j}
@@ -93,7 +97,10 @@ export function ChordSheet({
                       sounding ? "" : active ? "opacity-50" : "",
                     ].join(" ")}
                   >
-                    {chord ? (
+                    {carried ? (
+                      // 앞 마디에서 이어지는 중 — 악보의 반복 기호
+                      <span className="opacity-30">%</span>
+                    ) : chord ? (
                       <ChordLabel
                         label={labelFor(
                           transposeRoot(chord.root, transpose),
@@ -105,7 +112,7 @@ export function ChordSheet({
                       "·"
                     )}
                     {/* 몇 박 이어지는지 점으로 표시 */}
-                    {span.beats > 1 && (
+                    {!carried && span.beats > 1 && (
                       <span className="ml-0.5 align-middle text-[10px] opacity-40">
                         {"·".repeat(span.beats - 1)}
                       </span>

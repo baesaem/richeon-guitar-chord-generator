@@ -38,6 +38,7 @@ import {
 } from "@/lib/notation";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
+import { tidyChords } from "@/lib/tidy";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
 
@@ -105,17 +106,20 @@ export default function Home() {
     return () => media.removeEventListener("change", apply);
   }, [settings.theme]);
 
-  // 화면에 그릴 결과. 「기본」 어휘면 확장 화음을 3화음으로 낮춰 둔다
-  // (구간 경계와 개수는 그대로라 인덱스 계산은 원본과 같다).
+  // 화면에 그릴 결과.
+  // 1) 「기본」 어휘면 확장 화음을 3화음으로 낮춘다.
+  // 2) 스치는 오인식·짧은 무음을 걷어내고 같은 코드는 하나로 잇는다.
+  //    낮추고 나서 다듬어야 Cmaj7→C가 옆 C와 합쳐진다.
   const shown = useMemo(() => {
-    if (!result || settings.chordVocab === "all") return result;
-    return {
-      ...result,
-      chords: result.chords.map((c) => ({
-        ...c,
-        quality: simplifyQuality(c.quality, "basic"),
-      })),
-    };
+    if (!result) return result;
+    const simplified =
+      settings.chordVocab === "all"
+        ? result.chords
+        : result.chords.map((c) => ({
+            ...c,
+            quality: simplifyQuality(c.quality, "basic"),
+          }));
+    return { ...result, chords: tidyChords(simplified, result.bpm) };
   }, [result, settings.chordVocab]);
 
   const bars = useMemo(() => (result ? buildBars(result) : []), [result]);
@@ -126,14 +130,15 @@ export default function Home() {
 
   // 재생 위치를 매 프레임 읽어 타임라인을 그린다. 상태는 값이 바뀔 때만 갱신.
   useEffect(() => {
-    if (!playback || !result) return;
+    if (!playback || !shown) return;
 
     let raf = 0;
     let lastTick = -1;
     const frame = () => {
       const t = playback.getTime();
       stripRef.current?.draw(t);
-      setChordIdx(chordIndexAt(result.chords, t));
+      // 다듬은 목록 기준으로 세어야 화면에 그린 코드와 인덱스가 맞는다
+      setChordIdx(chordIndexAt(shown.chords, t));
       setBarIdx(barIndexAt(bars, t));
 
       if (loop && loop.b > loop.a && t >= loop.b) playback.seek(loop.a);
@@ -150,7 +155,7 @@ export default function Home() {
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [playback, result, bars, loop]);
+  }, [playback, shown, bars, loop]);
 
   const resetPlayback = () => {
     setResult(null);

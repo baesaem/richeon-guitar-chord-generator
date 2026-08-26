@@ -185,9 +185,16 @@ export function ChordScore({
                     {bar.beatTimes.map((t, b) => {
                       const slot = contentX + (contentW * (b + 0.5)) / beats;
                       const idx = chordIndexAt(chords, t);
-                      const prevIdx = b === 0 ? -2 : chordIndexAt(chords, bar.beatTimes[b - 1]);
+                      // 마디 첫 박은 앞 마디 끝과 비교한다. 같은 코드가 이어지면
+                      // 이름을 다시 적지 않는다 — 바뀌는 자리만 눈에 들어온다.
+                      const prevT =
+                        b === 0 ? bar.beatTimes[0] - 0.001 : bar.beatTimes[b - 1];
+                      const prevIdx = chordIndexAt(chords, prevT);
                       const chord = chords[idx];
-                      const changed = idx !== prevIdx;
+                      // 화면에 보이는 첫 마디는 앞을 볼 수 없으니 지금 코드를
+                      // 반드시 적어 준다. 그래야 무엇을 짚고 있는지 알 수 있다.
+                      const opensView = lineIndex === from && i === 0 && b === 0;
+                      const changed = idx !== prevIdx || opensView;
 
                       return (
                         <g key={b}>

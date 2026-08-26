@@ -139,6 +139,72 @@ def _format_label(root: str | None, quality: str) -> str:
     return f"{root}m" if quality == "min" else root
 
 
+def merge_same_label(segments: list[ChordSegment]) -> list[ChordSegment]:
+    """맞닿은 같은 코드를 하나로 잇는다.
+
+    스냅·흡수를 거치면 같은 코드가 여러 토막으로 남는다. 악보에서는
+    한 코드가 이어지는 것이므로 토막마다 코드명을 다시 적을 이유가 없다.
+    """
+    out: list[ChordSegment] = []
+    for seg in segments:
+        prev = out[-1] if out else None
+        if prev and prev.label == seg.label:
+            prev.end = seg.end
+            prev.confidence = max(prev.confidence, seg.confidence)
+            continue
+        out.append(seg)
+    return out
+
+
+def drop_sandwiched(
+    segments: list[ChordSegment], max_duration: float
+) -> list[ChordSegment]:
+    """앞뒤가 같은 코드인 짧은 구간을 지운다.
+
+    G - (반박짜리 Em7) - G 처럼 한 코드가 이어지는 중에 다른 코드가
+    잠깐 끼는 것은 대개 오인식이다. 특히 마디가 바뀌는 지점에서 베이스가
+    움직이거나 타악기가 들어오면 잘 생긴다. 양옆이 같은 코드라는 사실이
+    "여긴 원래 한 코드였다"는 강한 증거다.
+    """
+    if len(segments) < 3:
+        return segments
+
+    out = [segments[0]]
+    for i in range(1, len(segments) - 1):
+        seg = segments[i]
+        nxt = segments[i + 1]
+        short = seg.end - seg.start < max_duration
+        if short and out[-1].label == nxt.label:
+            out[-1].end = seg.end   # 앞 코드가 그 자리를 이어받는다
+            continue
+        out.append(seg)
+    out.append(segments[-1])
+    return merge_same_label(out)
+
+
+def absorb_gaps(
+    segments: list[ChordSegment], max_duration: float
+) -> list[ChordSegment]:
+    """곡 중간의 짧은 무음(N.C.)을 앞 코드로 흡수한다.
+
+    소리가 잠깐 잦아들면 N.C.가 뜨는데, 연주자 입장에서는 앞 코드를
+    그대로 짚고 있는 구간이다. 곡의 처음과 끝(도입·아웃트로)은 실제로
+    코드가 없으므로 건드리지 않는다.
+    """
+    if len(segments) < 3:
+        return segments
+
+    out = [segments[0]]
+    for i in range(1, len(segments) - 1):
+        seg = segments[i]
+        if seg.quality == "N" and seg.end - seg.start < max_duration:
+            out[-1].end = seg.end
+            continue
+        out.append(seg)
+    out.append(segments[-1])
+    return merge_same_label(out)
+
+
 def merge_short_segments(
     segments: list[ChordSegment], min_duration: float
 ) -> list[ChordSegment]:
@@ -175,4 +241,4 @@ def merge_short_segments(
             changed = True
             break
 
-    return merged
+    return merge_same_label(merged)

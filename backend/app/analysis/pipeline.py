@@ -40,6 +40,8 @@ from .features import (
 )
 from .key import estimate_key
 
+# 후처리를 고쳐도 버전을 올리지 않는다. 화면 쪽(lib/tidy.ts)이 같은 규칙으로
+# 다듬으므로 옛 결과도 깨끗하게 보이고, 새 분석은 여기서 이미 정리되어 나온다.
 PIPELINE_VERSION = "0.7.0-btc"
 
 BEATS_PER_BAR = 4
@@ -153,6 +155,10 @@ async def analyze(
     # 경계를 비트에 붙인다. 프레임 단위 예측의 어긋남과 파편이 여기서 정리된다.
     segments = btc.snap_to_beats(segments, grid.times, decoded.duration)
     segments = chord_rec.merge_short_segments(segments, min_duration=beat_period * 0.9)
+    # 한 코드가 이어지는 중에 잠깐 끼어든 다른 코드·무음을 걷어낸다.
+    # 마디가 바뀌는 지점에서 특히 잘 생기는 오인식이다.
+    segments = chord_rec.drop_sandwiched(segments, max_duration=beat_period * 2.2)
+    segments = chord_rec.absorb_gaps(segments, max_duration=beat_period * 2.2)
     key_name, _ = estimate_key(frame_chroma)
     peaks = await asyncio.to_thread(envelope, buffer, PEAKS_PER_SECOND)
     await progress(JobStage.POSTPROCESS, 1.0, f"{key_name or '조성 미상'} · 코드 {len(segments)}개")
