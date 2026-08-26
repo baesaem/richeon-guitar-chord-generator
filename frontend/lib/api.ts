@@ -56,8 +56,7 @@ export interface SharedFile {
 export const listShared = () =>
   fetch(`${apiBase()}/api/shared`).then(json<SharedFile[]>);
 
-/** 공유 파일 내용(rml 텍스트) */
-export const downloadShared = async (id: string): Promise<string> => {
+async function sharedResponse(id: string): Promise<Response> {
   const res = await fetch(`${apiBase()}/api/shared/${id}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -65,8 +64,16 @@ export const downloadShared = async (id: string): Promise<string> => {
       (body as { detail?: string }).detail ?? `${res.status} ${res.statusText}`,
     );
   }
-  return res.text();
-};
+  return res;
+}
+
+/** 공유 파일 내용(rml 텍스트) */
+export const downloadShared = async (id: string): Promise<string> =>
+  (await sharedResponse(id)).text();
+
+/** 공유 파일 내용(음원 등 바이너리) */
+export const downloadSharedBlob = async (id: string): Promise<Blob> =>
+  (await sharedResponse(id)).blob();
 
 export const deleteResult = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}`, { method: "DELETE" }).then(

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import YouTube, { type YouTubePlayer } from "react-youtube";
 
 import { apiBase } from "@/lib/api";
+import { getLocalAudio } from "@/lib/library";
 import type { AnalysisResult } from "@/lib/types";
 
 /** 재생 제어. YouTube든 업로드 오디오든 화면 쪽은 이 인터페이스만 안다. */
@@ -63,10 +64,28 @@ export function PlayerPane({ result, onReady, compact = false }: Props) {
     });
   };
 
+  // 업로드 곡: 공유받아 기기에 저장된 음원이 있으면 그것으로 재생한다.
+  // 서버가 꺼져 있어도 소리가 나고, 있어도 네트워크를 안 탄다.
+  const [audioSrc, setAudioSrc] = useState<string | null>(null);
   useEffect(() => {
-    if (result.source !== "youtube") return;
-    // 업로드가 아닌 경우는 onReady에서 publish 한다
-  }, [result.source]);
+    if (result.source === "youtube") return;
+
+    let objectUrl: string | null = null;
+    getLocalAudio(result.id)
+      .then((blob) => {
+        if (blob) {
+          objectUrl = URL.createObjectURL(blob);
+          setAudioSrc(objectUrl);
+        } else {
+          setAudioSrc(`${apiBase()}/api/audio/${result.id}`);
+        }
+      })
+      .catch(() => setAudioSrc(`${apiBase()}/api/audio/${result.id}`));
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [result.id, result.source]);
 
   if (result.source === "youtube") {
     return (
@@ -93,11 +112,12 @@ export function PlayerPane({ result, onReady, compact = false }: Props) {
     );
   }
 
+  if (!audioSrc) return null;
   return (
     <audio
       ref={audioRef}
       className="w-full"
-      src={`${apiBase()}/api/audio/${result.id}`}
+      src={audioSrc}
       onLoadedMetadata={publish}
       onPlay={() => (playingRef.current = true)}
       onPause={() => (playingRef.current = false)}

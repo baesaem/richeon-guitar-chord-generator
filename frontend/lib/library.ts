@@ -15,13 +15,18 @@ import type { AnalysisResult, ResultSummary } from "./types";
 
 const DB_NAME = "chordgen";
 const STORE = "results";
+// 공유받은 음원(오디오 blob). 업로드 곡도 서버 없이 재생할 수 있게 한다.
+const AUDIO_STORE = "audio";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(DB_NAME, 2);
     req.onupgradeneeded = () => {
       if (!req.result.objectStoreNames.contains(STORE)) {
         req.result.createObjectStore(STORE, { keyPath: "id" });
+      }
+      if (!req.result.objectStoreNames.contains(AUDIO_STORE)) {
+        req.result.createObjectStore(AUDIO_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -97,6 +102,34 @@ export async function localIds(): Promise<Set<string>> {
   const keys = (await requestAsPromise(tx.objectStore(STORE).getAllKeys())) as string[];
   db.close();
   return new Set(keys);
+}
+
+// ---- 음원(오디오) 저장 ----
+
+/** 공유받은 음원을 기기에 저장한다. id는 분석 결과의 id와 같다. */
+export async function saveLocalAudio(id: string, blob: Blob): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(AUDIO_STORE, "readwrite");
+  await requestAsPromise(tx.objectStore(AUDIO_STORE).put({ id, blob }));
+  db.close();
+}
+
+/** 기기에 저장된 음원. 없으면 null — 그때는 서버 스트리밍으로 폴백한다. */
+export async function getLocalAudio(id: string): Promise<Blob | null> {
+  const db = await openDb();
+  const tx = db.transaction(AUDIO_STORE, "readonly");
+  const record = (await requestAsPromise(tx.objectStore(AUDIO_STORE).get(id))) as
+    | { id: string; blob: Blob }
+    | undefined;
+  db.close();
+  return record?.blob ?? null;
+}
+
+export async function removeLocalAudio(id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(AUDIO_STORE, "readwrite");
+  await requestAsPromise(tx.objectStore(AUDIO_STORE).delete(id));
+  db.close();
 }
 
 // ---- 파일 내보내기 / 가져오기 ----

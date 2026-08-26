@@ -467,7 +467,9 @@ export default function Home() {
           />
         )}
 
-        {tab === "library" && <LibraryTab active onOpen={openSaved} />}
+        {tab === "library" && (
+          <LibraryTab active onOpen={openSaved} adminMode={settings.adminMode} />
+        )}
 
         {tab === "mic" && (
           <RecordTab

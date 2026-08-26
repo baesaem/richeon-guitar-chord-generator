@@ -173,7 +173,8 @@ async def get_audio(result_id: str) -> FileResponse:
         rest = path.name[len(result_id) + 1 :]
         if "." in rest:  # 디코딩 산출물(.22050.wav)과 사이드카(.info.json) 제외
             continue
-        return FileResponse(path)
+        # 파일명(확장자)을 헤더로 알려줘 프론트가 음원 내보내기 이름을 지을 수 있게 한다
+        return FileResponse(path, filename=path.name)
 
     raise HTTPException(404, "오디오를 찾을 수 없습니다")
 

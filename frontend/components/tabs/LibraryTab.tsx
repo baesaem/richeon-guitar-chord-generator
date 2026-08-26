@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
-import { deleteResult, getResult, listResults } from "@/lib/api";
+import { apiBase, deleteResult, getResult, listResults } from "@/lib/api";
 import {
   assignFolder,
   createFolder,
@@ -28,6 +28,8 @@ interface Props {
   onOpen: (id: string) => void;
   /** 탭이 보일 때만 목록을 새로 읽는다 */
   active: boolean;
+  /** 관리자 모드: 공유 폴더에 올릴 음원 내보내기 버튼이 보인다 */
+  adminMode: boolean;
 }
 
 function clock(t: number): string {
@@ -53,7 +55,7 @@ function when(unixSeconds: number): string {
  *  - 기기 저장: 브라우저(IndexedDB)에 담긴 결과. 서버(PC)가 꺼져도 남는다
  *  - 서버: PC 캐시에 있는 결과. 서버가 꺼지면 이 섹션만 사라진다
  */
-export function LibraryTab({ onOpen, active }: Props) {
+export function LibraryTab({ onOpen, active, adminMode }: Props) {
   const [device, setDevice] = useState<ResultSummary[] | null>(null);
   const [server, setServer] = useState<ResultSummary[] | null>(null);
   const [serverDown, setServerDown] = useState(false);
@@ -134,6 +136,39 @@ export function LibraryTab({ onOpen, active }: Props) {
     }
     flash(`${ok}곡을 기기에 저장했습니다.`);
     reload();
+  };
+
+  /**
+   * (관리자) 서버 원본 음원을 공유용 파일명으로 내려받는다.
+   * 파일명 "리천 노래명(출처).{결과id}.{확장자}" - 수강생 앱이 이 id로
+   * 코드 결과와 음원을 자동 매칭한다.
+   */
+  const exportAudio = async (item: ResultSummary) => {
+    try {
+      const res = await fetch(`${apiBase()}/api/audio/${item.id}`);
+      if (!res.ok) throw new Error(`음원을 찾을 수 없습니다 (${res.status})`);
+      const blob = await res.blob();
+
+      // Content-Disposition의 원본 파일명에서 확장자를 얻는다
+      const cd = res.headers.get("content-disposition") ?? "";
+      const ext = cd.match(/\.([A-Za-z0-9]+)"?$/)?.[1] ?? "mp3";
+
+      const safe = (item.title || item.id)
+        .replace(/[\/:*?"<>|]/g, "_")
+        .trim()
+        .slice(0, 60);
+      const source = item.source === "youtube" ? "YouTube" : "업로드";
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `리천 ${safe}(${source}).${item.id}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      flash("음원 파일을 내려받았습니다. 드라이브 공유 폴더에 올리세요.");
+    } catch (e) {
+      setError((e as Error).message);
+    }
   };
 
   const exportOne = async (id: string) => {
@@ -366,6 +401,11 @@ export function LibraryTab({ onOpen, active }: Props) {
             row(
               item,
               <>
+                {adminMode && (
+                  <button className={actionBtn} onClick={() => exportAudio(item)}>
+                    음원
+                  </button>
+                )}
                 {saved.has(item.id) ? (
                   <span className="shrink-0 px-2 py-1 text-[10px] text-green-700">
                     저장됨
