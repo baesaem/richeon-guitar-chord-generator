@@ -125,7 +125,43 @@ def transcribe(
             start_idx, current = i, step
     close(len(steps) - 1)
 
-    return _smooth(notes)
+    return _smooth(fix_octaves(notes))
+
+
+def fix_octaves(notes: list[Note]) -> list[Note]:
+    """옥타브가 튄 음을 제자리로 접는다.
+
+    음높이 추적기는 배음을 기음으로 착각해 한 옥타브 위아래로 잘 튄다.
+    한 사람이 부르는 선율은 대개 한 옥타브 반 안에서 움직이므로, 곡의
+    주 음역에서 옥타브 단위로 벗어난 음은 접어 넣는다. 음이름은 그대로
+    두고 옥타브만 옮기므로 선율의 모양이 바뀌지 않는다.
+    """
+    if len(notes) < 4:
+        return notes
+
+    # 길이로 가중한 중앙값. 스치듯 지나간 오검출이 기준을 흔들지 않게 한다.
+    weighted: list[int] = []
+    for note in notes:
+        weight = max(1, int((note.end - note.t) / 0.1))
+        weighted.extend([note.midi] * weight)
+    weighted.sort()
+    center = weighted[len(weighted) // 2]
+
+    for note in notes:
+        while note.midi - center > 7:   # 완전5도 넘게 위면 한 옥타브 내린다
+            note.midi -= 12
+        while center - note.midi > 7:
+            note.midi += 12
+    return notes
+
+
+def drop_outliers(notes: list[Note], min_duration: float) -> list[Note]:
+    """너무 짧아 선율로 읽히지 않는 음을 버린다.
+
+    반박도 못 채우는 음은 대개 숨소리·자음·반주 누출이다. 악보에 찍히면
+    읽는 사람만 헷갈린다.
+    """
+    return [n for n in notes if n.end - n.t >= min_duration]
 
 
 def _smooth(notes: list[Note]) -> list[Note]:
@@ -181,6 +217,10 @@ def snap_to_beats(notes: list[Note], beat_times: np.ndarray) -> list[Note]:
     def snap(t: float) -> float:
         return float(halves[int(np.argmin(np.abs(halves - t)))])
 
+    # 격자에 붙이기 전에 옥타브를 한 번 더 접는다. 잇고 지우는 사이
+    # 기준 음역이 달라졌을 수 있다.
+    notes = fix_octaves(notes)
+
     out: list[Note] = []
     for note in notes:
         start = snap(note.t)
@@ -196,4 +236,8 @@ def snap_to_beats(notes: list[Note], beat_times: np.ndarray) -> list[Note]:
             if end - start < 1e-3:
                 continue
         out.append(Note(t=round(start, 3), end=round(end, 3), midi=note.midi))
-    return out
+
+    # 반박도 못 채우는 음은 악보에서 읽히지 않는다. 격자에 붙인 뒤에
+    # 판단해야 "반박짜리"인지 알 수 있다.
+    half_beat = float(np.median(np.diff(grid))) / 2 if len(grid) > 2 else 0.25
+    return drop_outliers(out, half_beat * 0.9)
