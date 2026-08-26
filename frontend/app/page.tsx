@@ -199,7 +199,7 @@ export default function Home() {
       {/* 어느 탭에 있든 앱 이름은 항상 보인다 */}
       <header className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-1.5 dark:border-gray-800">
         <Image
-          src="/guitar.png"
+          src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/guitar.png`}
           alt=""
           width={20}
           height={32}

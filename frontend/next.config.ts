@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   // 개발 모드 표시기(왼쪽 아래 N 배지)를 끈다. 폰 화면에서 마디 그리드를 가린다.
   devIndicators: false,
 
+  // 정적 배포에서 unoptimized 이미지는 basePath가 자동으로 안 붙는다.
+  // public 자산 경로를 코드에서 직접 조립할 수 있게 노출한다.
+  env: { NEXT_PUBLIC_BASE_PATH: staticExport ? basePath : "" },
+
   ...(staticExport
     ? {
         output: "export" as const,

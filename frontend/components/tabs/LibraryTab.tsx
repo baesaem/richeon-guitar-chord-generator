@@ -80,22 +80,25 @@ export function LibraryTab({ onOpen, active, adminMode }: Props) {
       })
       .catch((e) => setError((e as Error).message));
 
-    listResults()
-      .then((rows) => {
-        setServer(rows);
-        setServerDown(false);
-      })
-      .catch(() => {
-        setServer(null);
-        setServerDown(true);
-      });
+    // 서버 목록은 관리자 화면에만 있다. 수강생 기기에서는 부르지도 않는다.
+    if (adminMode) {
+      listResults()
+        .then((rows) => {
+          setServer(rows);
+          setServerDown(false);
+        })
+        .catch(() => {
+          setServer(null);
+          setServerDown(true);
+        });
+    }
 
     // 폴더는 동기 localStorage라 그냥 읽는다 (마이크로태스크로 미뤄 lint 규칙을 지킨다)
     Promise.resolve().then(() => {
       setFolders(listFolders());
       setAssignment(folderAssignments());
     });
-  }, []);
+  }, [adminMode]);
 
   useEffect(() => {
     if (active) reload();
@@ -265,7 +268,7 @@ export function LibraryTab({ onOpen, active, adminMode }: Props) {
       {/* 기기 저장 */}
       <div className="mt-1 flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-500">
-          기기 저장 · 서버가 꺼져도 유지
+          {adminMode ? "기기 저장 · 서버가 꺼져도 유지" : "내 곡"}
         </h3>
         {device !== null && device.length > 0 && (
           <button className="text-[11px] text-gray-500 underline" onClick={exportAll}>
@@ -321,7 +324,9 @@ export function LibraryTab({ onOpen, active, adminMode }: Props) {
         <p className="py-2 text-xs text-gray-400">읽는 중…</p>
       ) : device.length === 0 ? (
         <p className="py-2 text-xs text-gray-400">
-          아직 없습니다. 아래 서버 목록에서 「저장」을 누르면 여기 담깁니다.
+          {adminMode
+            ? "아직 없습니다. 아래 서버 목록에서 「저장」을 누르면 여기 담깁니다."
+            : "아직 없습니다. 음원 가져오기의 강상기타반에서 곡을 받으면 여기 담깁니다."}
         </p>
       ) : (
         <ul className="divide-y divide-gray-200 dark:divide-gray-800">
@@ -378,7 +383,9 @@ export function LibraryTab({ onOpen, active, adminMode }: Props) {
           </p>
         )}
 
-      {/* 서버 */}
+      {/* 서버 목록은 관리자 전용. 수강생 화면에는 서버 개념이 나오지 않는다. */}
+      {adminMode && (
+      <>
       <div className="mt-4 flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-500">서버 (PC 캐시)</h3>
         {server !== null && server.length > 0 && (
@@ -436,8 +443,10 @@ export function LibraryTab({ onOpen, active, adminMode }: Props) {
 
       <p className="mt-3 text-[10px] leading-relaxed text-gray-400">
         기기 저장 곡 중 YouTube 곡은 서버 없이도 재생과 코드 화면이 모두 동작합니다.
-        업로드한 곡은 오디오가 서버에 있어 코드만 보입니다.
+        업로드한 곡은 함께 받은 음원이 기기에 있으면 서버 없이 재생됩니다.
       </p>
+      </>
+      )}
 
       <Copyright />
     </div>
