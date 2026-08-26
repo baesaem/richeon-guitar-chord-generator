@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { Popup } from "@/components/Popup";
+
 interface Props {
   duration: number;
   time: number;
@@ -59,41 +61,6 @@ export function SeekBar({
       <span className="w-10 shrink-0 text-xs tabular-nums text-gray-500">
         {clock(duration)}
       </span>
-    </div>
-  );
-}
-
-/** 화면 중앙 팝업. 배경을 누르면 닫힌다. */
-function Popup({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm rounded-xl bg-white p-4 shadow-xl dark:bg-gray-900"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-bold">{title}</h3>
-          <button
-            className="rounded px-2 py-1 text-sm text-gray-500"
-            onClick={onClose}
-            aria-label="닫기"
-          >
-            ✕
-          </button>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }
