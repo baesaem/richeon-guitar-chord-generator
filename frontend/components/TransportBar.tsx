@@ -111,7 +111,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
       </button>
 
       {open && (
-        <Popup title="연주설정" onClose={() => setOpen(false)}>
+        <Popup title="연주설정" width="max-w-xs" onClose={() => setOpen(false)}>
           {/* ---- 음높이 (이조 + 카포) ---- */}
           <div className={sectionTitle}>
             음높이

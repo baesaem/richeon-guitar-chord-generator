@@ -5,10 +5,13 @@ export function Popup({
   title,
   onClose,
   children,
+  width = "max-w-sm",
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** 창 최대 너비 클래스. 콤팩트한 창은 max-w-xs를 넘긴다 */
+  width?: string;
 }) {
   return (
     <div
@@ -16,7 +19,7 @@ export function Popup({
       onClick={onClose}
     >
       <div
-        className="max-h-[85dvh] w-full max-w-sm overflow-y-auto rounded-xl bg-white p-4 shadow-xl dark:bg-gray-900"
+        className={`max-h-[85dvh] w-full ${width} overflow-y-auto rounded-xl bg-white p-4 shadow-xl dark:bg-gray-900`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
