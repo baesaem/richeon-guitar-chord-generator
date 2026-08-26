@@ -34,6 +34,8 @@ export interface Settings {
   showGrid: boolean;
   /** 관리자 모드. 공유 폴더 관리 기능(드라이브 열기 등)이 보인다 */
   adminMode: boolean;
+  /** 관리자 로그인 유지. 끄면 브라우저를 닫을 때 관리자 모드가 풀린다 */
+  adminKeep: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,9 +49,21 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   showGrid: true,
   adminMode: false,
+  adminKeep: true,
 };
 
 const KEY = "chordgen.settings";
+// 로그인 유지를 끈 관리자 세션의 표식. sessionStorage라 브라우저를 닫으면 사라진다.
+const ADMIN_SESSION_KEY = "chordgen.adminSession";
+
+/** PIN 통과 시 호출. 이 브라우저 세션 동안 관리자임을 표시한다. */
+export function markAdminSession(): void {
+  try {
+    sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+  } catch {
+    // 저장이 막혀도 로그인 유지 켬과 같은 동작이 될 뿐이다
+  }
+}
 
 /**
  * localStorage를 감싼 작은 스토어.
@@ -67,6 +81,10 @@ function read(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) value = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    // 로그인 유지를 끈 관리자는 브라우저를 닫으면(세션 표식이 사라지면) 풀린다
+    if (value.adminMode && !value.adminKeep && !sessionStorage.getItem(ADMIN_SESSION_KEY)) {
+      value = { ...value, adminMode: false };
+    }
   } catch {
     // 저장값이 깨졌거나 접근이 막혔으면 기본값으로 간다
   }

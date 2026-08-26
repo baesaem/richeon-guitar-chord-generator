@@ -4,12 +4,12 @@ import { useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
 import { Popup } from "@/components/Popup";
-import type { Notation, Settings, Theme } from "@/lib/settings";
+import { markAdminSession, type Notation, type Settings, type Theme } from "@/lib/settings";
 import type { Health } from "@/lib/types";
 
-// 관리자 모드를 켤 때 묻는 번호. 수강생이 함부로 켜지 못하게 하는 잠금이며,
+// 관리자 모드를 켤 때 묻는 비밀번호. 수강생이 함부로 켜지 못하게 하는 잠금이며,
 // 바꾸려면 이 값을 고치면 된다. (화면 잠금 수준의 보호이지 보안 장치는 아니다.)
-const ADMIN_PIN = "2580";
+const ADMIN_PIN = "noouk6118";
 
 interface Props {
   settings: Settings;
@@ -45,17 +45,20 @@ export function SettingsTab({ settings, onChange, health }: Props) {
     null,
   );
 
-  // 관리자 모드 잠금: 켜려면 PIN을 맞혀야 한다. 끄는 것은 자유.
+  // 관리자 모드 잠금: 켜려면 비밀번호를 맞혀야 한다. 끄는 것은 자유.
   const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
+  // 로그인 유지: 끄면 브라우저를 닫을 때 관리자 모드가 자동으로 풀린다
+  const [keepLogin, setKeepLogin] = useState(true);
 
   const submitPin = () => {
     if (pin === ADMIN_PIN) {
       setPinOpen(false);
       setPin("");
       setPinError(false);
-      onChange({ ...settings, adminMode: true });
+      markAdminSession();
+      onChange({ ...settings, adminMode: true, adminKeep: keepLogin });
     } else {
       setPinError(true);
       setPin("");
@@ -146,10 +149,11 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             className="mt-1"
             checked={settings.adminMode}
             onChange={(e) => {
-              // 켜기는 PIN을 통과해야 한다. 끄기는 바로 된다.
+              // 켜기는 비밀번호를 통과해야 한다. 끄기는 바로 된다.
               if (e.target.checked) {
                 setPin("");
                 setPinError(false);
+                setKeepLogin(settings.adminKeep);
                 setPinOpen(true);
               } else {
                 set("adminMode", false);
@@ -305,14 +309,14 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       <Copyright />
 
       {pinOpen && (
-        <Popup title="관리자 번호" onClose={() => setPinOpen(false)}>
+        <Popup title="관리자 비밀번호" onClose={() => setPinOpen(false)}>
           <input
             type="password"
-            inputMode="numeric"
             autoComplete="off"
+            autoCapitalize="off"
             autoFocus
-            className="w-full rounded border px-3 py-3 text-center text-lg tracking-[0.5em]"
-            placeholder="••••"
+            className="w-full rounded border px-3 py-3 text-center text-lg tracking-widest"
+            placeholder="비밀번호"
             value={pin}
             onChange={(e) => {
               setPin(e.target.value);
@@ -324,9 +328,23 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           />
           {pinError && (
             <p className="mt-2 rounded bg-red-50 p-2 text-xs text-red-700">
-              번호가 맞지 않습니다.
+              비밀번호가 맞지 않습니다.
             </p>
           )}
+          <label className="mt-3 flex items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={keepLogin}
+              onChange={(e) => setKeepLogin(e.target.checked)}
+            />
+            <span>
+              <span className="text-sm">로그인 유지</span>
+              <span className="block text-[11px] text-gray-500">
+                끄면 브라우저를 닫을 때 관리자 모드가 자동으로 꺼집니다.
+              </span>
+            </span>
+          </label>
           <button
             className="mt-3 w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
             disabled={!pin}
