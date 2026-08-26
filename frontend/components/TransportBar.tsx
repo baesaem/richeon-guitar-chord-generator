@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Popup } from "@/components/Popup";
+import { useSettings } from "@/lib/settings";
 
 interface Props {
   duration: number;
@@ -68,6 +69,7 @@ export function SeekBar({
 export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle">) {
   const { duration, time, transpose, rate, loop } = props;
   const [open, setOpen] = useState(false);
+  const [settings, setSettings] = useSettings();
 
   const pill = (active: boolean) =>
     [
@@ -112,6 +114,30 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
 
       {open && (
         <Popup title="연주설정" width="max-w-xs" onClose={() => setOpen(false)}>
+          {/* ---- 코드 어휘 ---- */}
+          <div className={sectionTitle}>코드</div>
+          <div className="mb-2 grid grid-cols-2 gap-1">
+            {(
+              [
+                ["basic", "기본"],
+                ["all", "전부"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                className={pill(settings.chordVocab === value)}
+                onClick={() => setSettings({ ...settings, chordVocab: value })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mb-2 text-[11px] text-gray-500">
+            기본은 7th·sus 같은 확장 화음을 쉬운 3화음으로 낮춰 보여줍니다.
+          </p>
+
+          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+
           {/* ---- 음높이 (이조 + 카포) ---- */}
           <div className={sectionTitle}>
             음높이

@@ -71,6 +71,24 @@ const QUALITY_SUFFIX: Record<string, string> = {
   sus2: "sus2", sus4: "sus4", add9: "add9",
 };
 
+/**
+ * 「기본」 표기로 낮출 때 쓰는 대응표.
+ *
+ * 초보자는 Cmaj7·Csus4를 다 잡지 못해도 C만 잡으면 곡이 굴러간다.
+ * 3화음(장/단)과 세븐스만 남기고 확장·변화음은 뿌리 화음으로 되돌린다.
+ * 감·반감 계열은 단3도를 품으므로 단화음 쪽으로 보낸다.
+ */
+const BASIC_QUALITY: Record<string, string> = {
+  maj7: "maj", 6: "maj", add9: "maj", sus2: "maj", sus4: "maj", aug: "maj",
+  min7: "min", min6: "min", minmaj7: "min", dim: "min", dim7: "min", min7b5: "min",
+};
+
+/** 코드 어휘를 「기본」으로 낮춘다. all이면 그대로 둔다. */
+export function simplifyQuality(quality: string, vocab: "basic" | "all"): string {
+  if (vocab === "all") return quality;
+  return BASIC_QUALITY[quality] ?? quality;
+}
+
 /** 근음 + 종류로 표시용 라벨을 만든다. 이조해도 7th 표기가 유지된다. */
 export function labelFor(root: string | null, quality: string, flats: boolean): string {
   if (!root || quality === "N") return "N.C.";

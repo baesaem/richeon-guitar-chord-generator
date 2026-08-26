@@ -36,6 +36,11 @@ export interface Settings {
   adminMode: boolean;
   /** 관리자 로그인 유지. 끄면 브라우저를 닫을 때 관리자 모드가 풀린다 */
   adminKeep: boolean;
+  /**
+   * 코드 어휘. basic이면 확장 화음을 3화음·세븐스로 낮춰 보여준다.
+   * (인식 결과는 그대로 두고 화면 표기만 바꾼다.)
+   */
+  chordVocab: "basic" | "all";
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showGrid: true,
   adminMode: false,
   adminKeep: true,
+  chordVocab: "all",
 };
 
 const KEY = "chordgen.settings";

@@ -21,7 +21,13 @@ import { SettingsTab } from "@/components/tabs/SettingsTab";
 import { analyzeUpload, analyzeUrl, getHealth, getResult, watchJob } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, saveLocal } from "@/lib/library";
-import { labelFor, resolveFlats, spellKey, transposeRoot } from "@/lib/notation";
+import {
+  labelFor,
+  resolveFlats,
+  simplifyQuality,
+  spellKey,
+  transposeRoot,
+} from "@/lib/notation";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
@@ -84,6 +90,19 @@ export default function Home() {
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [settings.theme]);
+
+  // 화면에 그릴 결과. 「기본」 어휘면 확장 화음을 3화음으로 낮춰 둔다
+  // (구간 경계와 개수는 그대로라 인덱스 계산은 원본과 같다).
+  const shown = useMemo(() => {
+    if (!result || settings.chordVocab === "all") return result;
+    return {
+      ...result,
+      chords: result.chords.map((c) => ({
+        ...c,
+        quality: simplifyQuality(c.quality, "basic"),
+      })),
+    };
+  }, [result, settings.chordVocab]);
 
   const bars = useMemo(() => (result ? buildBars(result) : []), [result]);
   const flats = useMemo(
@@ -174,9 +193,10 @@ export default function Home() {
 
   const busy = status !== null && status.stage !== "done" && status.stage !== "failed";
 
-  const current = result && chordIdx >= 0 ? result.chords[chordIdx] : undefined;
+  const shownChords = shown?.chords ?? [];
+  const current = chordIdx >= 0 ? shownChords[chordIdx] : undefined;
   const next =
-    result && chordIdx + 1 < result.chords.length ? result.chords[chordIdx + 1] : undefined;
+    chordIdx + 1 < shownChords.length ? shownChords[chordIdx + 1] : undefined;
 
   const view = (c: typeof current) =>
     c
@@ -316,7 +336,7 @@ export default function Home() {
               {settings.view === "wave" ? (
                 <ChordStrip
                   ref={stripRef}
-                  result={result}
+                  result={shown ?? result}
                   flats={flats}
                   transpose={noteShift}
                   pixelsPerSecond={settings.pixelsPerSecond}
@@ -327,7 +347,7 @@ export default function Home() {
                   {/* 지금 줄과 다음 줄만. 현재 줄이 늘 위에 온다 */}
                   <ChordScore
                     bars={bars}
-                    chords={result.chords}
+                    chords={shownChords}
                     currentBar={barIdx}
                     flats={flats}
                     transpose={noteShift}
@@ -408,7 +428,7 @@ export default function Home() {
                   <div className="mt-1 h-[104px] overflow-y-auto">
                     <ChordSheet
                       bars={bars}
-                      chords={result.chords}
+                      chords={shownChords}
                       currentBar={barIdx}
                       currentChord={chordIdx}
                       flats={flats}
