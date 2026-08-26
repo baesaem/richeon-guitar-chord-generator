@@ -64,6 +64,14 @@ class Section(BaseModel):
     label: str = Field(description='"Intro" / "Verse" / "Chorus" 등')
 
 
+class Note(BaseModel):
+    """멜로디 음표 하나. 보컬에서 따 온 단선율이다."""
+
+    t: float = Field(description="시작 시각(초)")
+    end: float = Field(description="끝 시각(초)")
+    midi: int = Field(description="MIDI 번호. 60이 가온다(C4)")
+
+
 class LyricLine(BaseModel):
     """시간이 붙은 가사 한 줄. YouTube 자막이나 사용자가 넣은 LRC에서 온다."""
 
@@ -102,6 +110,8 @@ class AnalysisResult(BaseModel):
     sections: list[Section] = []
     # 시간 동기화된 가사. 없을 수도 있다(자막이 없는 영상·업로드 곡).
     lyrics: list[LyricLine] = []
+    # 보컬에서 딴 멜로디. 음원 분리를 쓴 경우에만 채워진다.
+    melody: list[Note] = []
 
     # 타임라인에 그릴 파형 포락선. 0~1로 정규화된 값이 초당 peaks_per_second개.
     peaks: list[float] = []

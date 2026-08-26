@@ -30,14 +30,16 @@ class SeparatedStems:
     harmonic: Path       # other + bass 를 합친 것. 크로마 입력
     bass: Path           # 베이스만. 근음 판단용
     instrumental: Path   # 보컬만 뺀 것. 재생용
+    vocals: Path         # 보컬만. 멜로디 채보용
     model: str
 
 
-def _paths(audio_id: str) -> tuple[Path, Path, Path]:
+def _paths(audio_id: str) -> tuple[Path, Path, Path, Path]:
     return (
         settings.audio_dir / f"{audio_id}.harmonic.wav",
         settings.audio_dir / f"{audio_id}.bass.wav",
         settings.audio_dir / f"{audio_id}.instrumental.wav",
+        settings.audio_dir / f"{audio_id}.vocals.wav",
     )
 
 
@@ -46,19 +48,26 @@ def instrumental_path(audio_id: str) -> Path:
     return _paths(audio_id)[2]
 
 
+def vocals_path(audio_id: str) -> Path:
+    """보컬 트랙 경로. 멜로디 채보가 쓴다."""
+    return _paths(audio_id)[3]
+
+
 def cached(audio_id: str, source: Path) -> SeparatedStems | None:
     """이미 분리해 둔 결과가 있으면 그대로 쓴다."""
-    harmonic, bass, instrumental = _paths(audio_id)
-    if not (harmonic.exists() and bass.exists() and instrumental.exists()):
+    paths = _paths(audio_id)
+    if not all(p.exists() for p in paths):
         return None
     # 원본이 더 새로우면 다시 분리한다
-    made = min(
-        harmonic.stat().st_mtime, bass.stat().st_mtime, instrumental.stat().st_mtime
-    )
-    if made < source.stat().st_mtime:
+    if min(p.stat().st_mtime for p in paths) < source.stat().st_mtime:
         return None
+    harmonic, bass, instrumental, vocals = paths
     return SeparatedStems(
-        harmonic=harmonic, bass=bass, instrumental=instrumental, model=MODEL_NAME
+        harmonic=harmonic,
+        bass=bass,
+        instrumental=instrumental,
+        vocals=vocals,
+        model=MODEL_NAME,
     )
 
 
@@ -84,7 +93,7 @@ def _separate_blocking(source: Path, audio_id: str, device: str) -> SeparatedSte
     separator = Separator(model=MODEL_NAME, device=device, progress=False)
     _, stems = separator.separate_audio_file(source)
 
-    harmonic_path, bass_path, instrumental_path = _paths(audio_id)
+    harmonic_path, bass_path, instrumental_path, vocals_path = _paths(audio_id)
     harmonic = _mix(stems, HARMONIC_STEMS)
 
     save_audio(harmonic, str(harmonic_path), samplerate=separator.samplerate)
@@ -93,10 +102,15 @@ def _separate_blocking(source: Path, audio_id: str, device: str) -> SeparatedSte
         str(bass_path),
         samplerate=separator.samplerate,
     )
-    # 재생용 반주. 분리는 이미 끝났으니 합쳐 저장하는 비용만 든다.
+    # 재생용 반주와 채보용 보컬. 분리는 이미 끝났으니 저장 비용만 든다.
     save_audio(
         _mix(stems, INSTRUMENTAL_STEMS),
         str(instrumental_path),
+        samplerate=separator.samplerate,
+    )
+    save_audio(
+        stems.get("vocals", torch.zeros_like(harmonic)),
+        str(vocals_path),
         samplerate=separator.samplerate,
     )
 
@@ -104,6 +118,7 @@ def _separate_blocking(source: Path, audio_id: str, device: str) -> SeparatedSte
         harmonic=harmonic_path,
         bass=bass_path,
         instrumental=instrumental_path,
+        vocals=vocals_path,
         model=MODEL_NAME,
     )
 

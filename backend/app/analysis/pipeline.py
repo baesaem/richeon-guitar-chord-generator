@@ -22,6 +22,7 @@ from ..schemas import (
 from ..sources.base import FetchedAudio, ProgressFn, save_sidecar
 from . import chords as chord_rec
 from . import chords_btc as btc
+from . import melody
 from .beats import (
     FALLBACK_MODEL as FALLBACK_BEAT_MODEL,
     estimate_downbeat_phase,
@@ -78,6 +79,7 @@ async def analyze(
     # 크로마는 보컬·드럼을 걷어낸 트랙에서 뽑고, 비트는 원본에서 잡는다.
     # 드럼을 지운 트랙으로 비트를 잡으면 오히려 박이 흐려진다.
     harmonic_path = decoded.path
+    vocals_path = None
     separated = False
     if separate:
         await progress(JobStage.SEPARATING, 0.0, "음원 분리 중 (보컬·드럼 제거)")
@@ -85,6 +87,7 @@ async def analyze(
             stems = await separate_stems(audio.path, audio.id, device)
             harmonic = await decode_to_wav(stems.harmonic, f"{audio.id}.harmonic")
             harmonic_path = harmonic.path
+            vocals_path = stems.vocals
             separated = True
             await progress(JobStage.SEPARATING, 1.0, f"{stems.model} 분리 완료")
         except Exception as exc:
@@ -169,6 +172,20 @@ async def analyze(
     # 연주가 이어지는데 N.C.가 뜬 자리를 파형 세기로 가려내 되돌린다.
     segments = chord_rec.fix_sounding_gaps(segments, peaks, PEAKS_PER_SECOND)
     key_name, _ = estimate_key(frame_chroma)
+
+    # --- 멜로디 채보 ---
+    # 보컬을 분리해 둔 곡만. 실패해도 코드는 그대로 쓸 수 있으므로 삼킨다.
+    notes: list = []
+    if vocals_path is not None:
+        await progress(JobStage.POSTPROCESS, 0.5, "멜로디 따는 중")
+        try:
+            notes = await asyncio.to_thread(
+                melody.transcribe, vocals_path, decoded.duration
+            )
+            notes = melody.snap_to_beats(notes, grid.times)
+            await progress(JobStage.POSTPROCESS, 0.8, f"음표 {len(notes)}개")
+        except Exception as exc:
+            await progress(JobStage.POSTPROCESS, 0.8, f"멜로디 건너뜀 ({exc})")
     await progress(JobStage.POSTPROCESS, 1.0, f"{key_name or '조성 미상'} · 코드 {len(segments)}개")
 
     # 종료(DONE/FAILED) 이벤트는 JobManager가 result_id와 함께 발행한다.
@@ -178,6 +195,7 @@ async def analyze(
         decoded=decoded,
         grid=grid,
         segments=segments,
+        notes=notes,
         key_name=key_name,
         chord_model=chord_model,
         peaks=peaks,
@@ -193,6 +211,7 @@ def _build_result(
     decoded: DecodedAudio,
     grid,
     segments: list[chord_rec.ChordSegment],
+    notes: list,
     key_name: str,
     chord_model: str,
     peaks: list[float],
@@ -235,6 +254,7 @@ def _build_result(
         key=key_name,
         beats=beats,
         chords=chord_list,
+        melody=notes,
         peaks=peaks,
         peaks_per_second=PEAKS_PER_SECOND,
         confidence=round(min(max(overall, 0.0), 1.0), 3),

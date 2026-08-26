@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, spellKey, transposeRoot } from "@/lib/notation";
-import type { Chord } from "@/lib/types";
+import type { Chord, Note } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
 function svgLabel(label: string): React.ReactNode {
@@ -20,9 +20,23 @@ function svgLabel(label: string): React.ReactNode {
   );
 }
 
+// 음이름 → 오선에서 몇 칸 위인지(온음계 자리). 검은건반은 바로 아래 흰건반
+// 자리에 ♯을 붙여 적는다.
+const DIATONIC_STEP = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
+const IS_SHARP = [false, true, false, true, false, false, true, false, true, false, true, false];
+
+/** 높은음자리표 맨 아래 줄은 E4다. 그 자리를 0으로 두고 칸 수를 센다. */
+function staffStep(midi: number): number {
+  const octave = Math.floor(midi / 12) - 1;
+  const pc = ((midi % 12) + 12) % 12;
+  return octave * 7 + DIATONIC_STEP[pc] - (4 * 7 + 2); // E4 기준
+}
+
 interface Props {
   bars: Bar[];
   chords: Chord[];
+  /** 보컬에서 딴 멜로디. 있으면 슬래시 대신 음표를 그린다 */
+  melody?: Note[];
   currentBar: number;
   flats: boolean;
   transpose: number;
@@ -63,6 +77,7 @@ const ROW_H = STAFF_TOP + STAFF_H + 14;
 export function ChordScore({
   bars,
   chords,
+  melody,
   currentBar,
   flats,
   transpose,
@@ -80,6 +95,20 @@ export function ChordScore({
     if (!follow || visibleLines) return;
     activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [currentBar, follow, visibleLines]);
+
+  /**
+   * 멜로디를 오선 한가운데로 끌어오는 옥타브 이동.
+   *
+   * 남성 보컬은 실제 음이 높은음자리표 아래로 한참 내려가 덧줄투성이가 된다.
+   * 성악 악보가 테너를 한 옥타브 올려 적는 것과 같은 처리다. 옥타브만
+   * 옮기므로 음이름과 선율의 모양은 그대로다.
+   */
+  const octaveShift = useMemo(() => {
+    if (!melody?.length) return 0;
+    const sorted = [...melody.map((n) => n.midi)].sort((a, b) => a - b);
+    const middle = sorted[Math.floor(sorted.length / 2)];
+    return Math.round((71 - middle) / 12) * 12; // 71 = B4, 오선 한가운데
+  }, [melody]);
 
   const lines: Bar[][] = [];
   for (let i = 0; i < bars.length; i += perLine) {
@@ -99,6 +128,12 @@ export function ChordScore({
       <div className="flex items-center justify-between text-[11px] text-gray-500">
         <span>
           조성 {spellKey(musicKey) || "미상"} · 박자 {timeSignature}
+          {octaveShift !== 0 && (
+            <span className="ml-1 text-[var(--accent)]">
+              멜로디 {octaveShift > 0 ? "+" : "−"}
+              {Math.abs(octaveShift) / 12}옥타브 표기
+            </span>
+          )}
         </span>
         {visibleLines && lines.length > visibleLines && (
           <span className="tabular-nums">
@@ -181,6 +216,78 @@ export function ChordScore({
                       </>
                     )}
 
+                    {/* 멜로디 음표. 있으면 이 마디에 걸친 음을 오선에 얹는다 */}
+                    {melody?.map((note, k) => {
+                      const barEnd = bar.beatTimes.length
+                        ? bar.beatTimes[bar.beatTimes.length - 1] +
+                          (bar.beatTimes[1] ?? bar.beatTimes[0] + 0.5) -
+                          bar.beatTimes[0]
+                        : bar.start;
+                      if (note.end <= bar.start || note.t >= barEnd) return null;
+
+                      const span = Math.max(barEnd - bar.start, 1e-6);
+                      const from = Math.max(note.t, bar.start);
+                      const to = Math.min(note.end, barEnd);
+                      const x = contentX + (contentW * (from - bar.start)) / span;
+                      const w = Math.max(
+                        2.2,
+                        (contentW * (to - from)) / span - 0.6,
+                      );
+
+                      const step = staffStep(note.midi + octaveShift);
+                      // 한 칸은 줄 간격의 절반. 위로 갈수록 y가 작아진다.
+                      const y = STAFF_TOP + STAFF_H - (step * LINE_GAP) / 2;
+                      // 오선을 벗어나면 덧줄을 그어 어느 음인지 알 수 있게 한다
+                      const ledgers: number[] = [];
+                      for (let s = 10; s <= step; s += 2) ledgers.push(s);
+                      for (let s = -2; s >= step; s -= 2) ledgers.push(s);
+
+                      return (
+                        <g key={`n${k}`} opacity={0.9}>
+                          {ledgers.map((s) => (
+                            <line
+                              key={s}
+                              x1={x - 1.6}
+                              x2={x + 3.4}
+                              y1={STAFF_TOP + STAFF_H - (s * LINE_GAP) / 2}
+                              y2={STAFF_TOP + STAFF_H - (s * LINE_GAP) / 2}
+                              stroke="currentColor"
+                              strokeWidth={0.5}
+                              opacity={0.6}
+                            />
+                          ))}
+                          {/* 길이는 가로 막대로 — 몇 박 끄는 음인지 바로 보인다 */}
+                          <rect
+                            x={x}
+                            y={y - 0.9}
+                            width={w}
+                            height={1.8}
+                            rx={0.9}
+                            fill="var(--accent)"
+                            opacity={0.35}
+                          />
+                          <ellipse
+                            cx={x + 1.4}
+                            cy={y}
+                            rx={1.9}
+                            ry={1.4}
+                            fill="var(--accent)"
+                          />
+                          {IS_SHARP[((note.midi % 12) + 12) % 12] && (
+                            <text
+                              x={x - 2.2}
+                              y={y + 1.4}
+                              fontSize={4}
+                              textAnchor="middle"
+                              fill="var(--accent)"
+                            >
+                              ♯
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+
                     {/* 박마다 리듬 슬래시 + 코드가 바뀌는 박 위에 코드 심볼 */}
                     {bar.beatTimes.map((t, b) => {
                       const slot = contentX + (contentW * (b + 0.5)) / beats;
@@ -202,7 +309,8 @@ export function ChordScore({
                             x1={slot - 2.6} y1={STAFF_TOP + STAFF_H - 1.5}
                             x2={slot + 2.6} y2={STAFF_TOP + 1.5}
                             stroke="currentColor" strokeWidth={1.5}
-                            opacity={changed ? 0.85 : 0.35}
+                            // 멜로디를 얹으면 슬래시는 배경으로 물러난다
+                            opacity={(changed ? 0.85 : 0.35) * (melody?.length ? 0.35 : 1)}
                           />
                           {changed && chord && (
                             <text

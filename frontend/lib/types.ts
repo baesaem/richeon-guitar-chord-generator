@@ -48,6 +48,13 @@ export interface Section {
   label: string;
 }
 
+/** 멜로디 음표 하나. midi 60이 가온다(C4). */
+export interface Note {
+  t: number;
+  end: number;
+  midi: number;
+}
+
 /** 시간이 붙은 가사 한 줄 */
 export interface LyricLine {
   t: number;
@@ -77,6 +84,8 @@ export interface AnalysisResult {
   sections: Section[];
   /** 시간 동기화된 가사. 없을 수도 있다 */
   lyrics?: LyricLine[];
+  /** 보컬에서 딴 멜로디. 음원 분리를 쓴 곡만 채워진다 */
+  melody?: Note[];
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;

@@ -220,9 +220,13 @@ export default function Home() {
     resetPlayback();
     setTab("home");
     try {
-      // 기기 저장분 우선. 수강생 기기는 서버가 없고, 있어도 로컬이 빠르다.
-      const local = await getLocal(id).catch(() => null);
-      const result = local ?? (await getResult(id));
+      // 서버가 붙어 있으면 서버 것을 쓴다. 분석을 고치면 서버 결과가 먼저
+      // 새로워지는데, 기기 저장분을 우선하면 옛 결과가 계속 열린다.
+      // 서버가 없는 수강생 기기에서는 곧바로 기기 저장분으로 간다.
+      const result = health
+        ? await getResult(id).catch(() => getLocal(id))
+        : await getLocal(id);
+      if (!result) throw new Error("결과 없음");
       setResult(result);
       addRecent(result.id, result.title || result.id);
     } catch {
@@ -419,6 +423,7 @@ export default function Home() {
                   <ChordScore
                     bars={bars}
                     chords={shownChords}
+                    melody={result.melody}
                     currentBar={barIdx}
                     flats={flats}
                     transpose={noteShift}
