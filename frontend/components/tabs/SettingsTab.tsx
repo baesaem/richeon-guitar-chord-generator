@@ -128,8 +128,8 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           <span>
             <span className="text-sm font-medium">관리자 모드</span>
             <span className="block text-[11px] text-gray-500">
-              강상기타반 공유 폴더 관리 기능(드라이브에서 열기 등)이 보입니다.
-              수강생 기기에서는 꺼 두세요.
+              공유 폴더 관리(드라이브에서 열기·음원 내보내기)와 분석 서버
+              설정·상태 메뉴가 보입니다. 수강생 기기에서는 꺼 두세요.
             </span>
           </span>
         </label>
@@ -189,6 +189,9 @@ export function SettingsTab({ settings, onChange, health }: Props) {
         </p>
       </section>
 
+      {/* 서버 관련 메뉴는 관리자만. 수강생은 서버 없이 공유 폴더로 곡을 받는다. */}
+      {settings.adminMode && (
+      <>
       <section className="mb-5">
         <div className="mb-1.5 text-sm font-medium">분석 서버 주소</div>
         <input
@@ -265,6 +268,8 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           연산 장치가 cpu로 나오면 음원 분리와 코드 모델이 느립니다.
         </p>
       </section>
+      </>
+      )}
 
       <Copyright />
     </div>

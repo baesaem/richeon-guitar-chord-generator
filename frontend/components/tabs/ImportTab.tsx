@@ -4,9 +4,16 @@ import { useEffect, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
 import { Popup } from "@/components/Popup";
-import { downloadShared, listShared, type SharedFile } from "@/lib/api";
-import { localIds, parseResultsText, saveLocal } from "@/lib/library";
+import { downloadShared, downloadSharedBlob, listShared, type SharedFile } from "@/lib/api";
+import { localIds, parseResultsText, saveLocal, saveLocalAudio } from "@/lib/library";
 import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
+import {
+  audioBaseOf,
+  audioIdFromName,
+  isRmlName,
+  rmlBaseOf,
+  songTitleOf,
+} from "@/lib/sharedFiles";
 import { STAGE_LABEL, type Health, type JobStatus } from "@/lib/types";
 
 const DRIVE_FOLDER_ID = "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd";
@@ -104,7 +111,15 @@ export function ImportTab({
     refreshFetched();
   }, [health]);
 
-  /** 공유 파일을 내려받아 기기 저장 재생목록에 바로 넣는다. */
+  // 목록에는 곡(.rml)만 보여준다. 음원 파일은 파일명 속 결과 id로
+  // 곡과 짝을 맞춰, 곡을 받을 때 함께 내려받는다.
+  const sharedSongs = shared?.filter((f) => isRmlName(f.name)) ?? null;
+  // 같은 이름의 음원이 올라와 있는 곡 (목록에 "음원 포함" 표시용)
+  const audioBases = new Set(
+    (shared ?? []).map((f) => audioBaseOf(f.name)).filter(Boolean),
+  );
+
+  /** 고른 곡을 내려받아 기기 저장 재생목록에 넣는다. 짝 음원도 함께. */
   const fetchShared = async (file: SharedFile) => {
     setFetching(file.id);
     setSharedError(null);
@@ -113,11 +128,24 @@ export function ImportTab({
       const results = parseResultsText(await downloadShared(file.id));
       for (const result of results) await saveLocal(result);
       markFetched(file.id, results.map((r) => r.id));
+
+      // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
+      // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다.
+      let withAudio = 0;
+      for (const audioFile of shared ?? []) {
+        const audioId = audioIdFromName(audioFile.name);
+        if (!audioId || !results.some((r) => r.id === audioId)) continue;
+        await saveLocalAudio(audioId, await downloadSharedBlob(audioFile.id));
+        markFetched(audioFile.id, [audioId]);
+        withAudio += 1;
+      }
+
       await refreshFetched();
+      const suffix = withAudio > 0 ? " (음원 포함)" : "";
       setSharedNotice(
         results.length === 1
-          ? `저장했습니다: ${results[0].title || results[0].id}`
-          : `${results.length}곡을 기기에 저장했습니다. 재생목록에서 여세요.`,
+          ? `재생목록에 담았습니다: ${results[0].title || results[0].id}${suffix}`
+          : `${results.length}곡을 재생목록에 담았습니다.${suffix}`,
       );
     } catch (e) {
       setSharedError(`가져오기 실패: ${(e as Error).message}`);
@@ -130,15 +158,18 @@ export function ImportTab({
     <div className="h-full space-y-3 overflow-y-auto p-4">
       <header>
         <h2 className="text-lg font-bold">음원 가져오기</h2>
-        <p className="text-sm text-gray-500">
-          {health
-            ? `${health.device} · ${health.pipeline_version}` +
-              (health.youtube_enabled ? "" : " · 업로드 전용")
-            : "분석 서버 미연결 — 강상기타반 받기는 가능"}
-        </p>
+        {/* 서버 상태는 관리자에게만. 수강생 화면에는 서버 이야기를 하지 않는다. */}
+        {adminMode && (
+          <p className="text-sm text-gray-500">
+            {health
+              ? `${health.device} · ${health.pipeline_version}` +
+                (health.youtube_enabled ? "" : " · 업로드 전용")
+              : "분석 서버 미연결 — 강상기타반 받기는 가능"}
+          </p>
+        )}
       </header>
 
-      {health && !health.ffmpeg && (
+      {adminMode && health && !health.ffmpeg && (
         <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
           ffmpeg / ffprobe를 찾을 수 없습니다. 설치 후 PATH에 추가해야 분석이 가능합니다.
         </p>
@@ -198,7 +229,7 @@ export function ImportTab({
           </svg>
         }
         title="강상기타반"
-        description="공유 폴더의 코드 목록을 받아 재생목록에 담습니다"
+        description="곡 목록에서 필요한 곡을 골라 재생목록에 담습니다"
         onClick={() => setOpen("shared")}
       />
 
@@ -294,7 +325,7 @@ export function ImportTab({
         <Popup title="강상기타반" onClose={() => setOpen(null)}>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[11px] leading-snug text-gray-500">
-              공유 폴더의 코드 목록(.rml)입니다.
+              필요한 곡을 골라 「받기」를 누르세요. 재생목록(기기 저장)에 담깁니다.
             </p>
             {adminMode && (
               <a
@@ -332,10 +363,10 @@ export function ImportTab({
                 「파일 가져오기」로 담으세요.
               </p>
             </>
-          ) : shared === null && !sharedError ? (
+          ) : sharedSongs === null && !sharedError ? (
             <p className="text-xs text-gray-400">목록 불러오는 중…</p>
-          ) : shared !== null && shared.length === 0 ? (
-            <p className="text-xs text-gray-400">폴더에 아직 파일이 없습니다.</p>
+          ) : sharedSongs !== null && sharedSongs.length === 0 ? (
+            <p className="text-xs text-gray-400">폴더에 아직 곡이 없습니다.</p>
           ) : (
             <>
             <div className="mb-2 flex gap-1.5">
@@ -355,13 +386,14 @@ export function ImportTab({
               ))}
             </div>
             <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-              {shared?.filter((file) => {
+              {sharedSongs?.filter((file) => {
                 const done = fetched.has(file.id);
                 if (filter === "unfetched") return !done;
                 if (filter === "fetched") return done;
                 return true;
               }).map((file) => {
                 const done = fetched.has(file.id);
+                const hasAudio = audioBases.has(rmlBaseOf(file.name));
                 return (
                   <li key={file.id}>
                     <button
@@ -370,7 +402,10 @@ export function ImportTab({
                       onClick={() => fetchShared(file)}
                     >
                       <span className="min-w-0 flex-1 truncate text-sm">
-                        {file.name}
+                        {songTitleOf(file.name)}
+                        {hasAudio && (
+                          <span className="ml-1.5 text-[10px] text-gray-400">♪ 음원</span>
+                        )}
                       </span>
                       <span
                         className={[
@@ -386,8 +421,8 @@ export function ImportTab({
               })}
             </ul>
             {filter === "unfetched" &&
-              shared !== null &&
-              shared.every((f) => fetched.has(f.id)) && (
+              sharedSongs !== null &&
+              sharedSongs.every((f) => fetched.has(f.id)) && (
                 <p className="py-2 text-center text-xs text-gray-400">
                   모두 받았습니다. 「받음」이나 「전체」에서 확인하세요.
                 </p>
