@@ -29,6 +29,8 @@ import { voicingFor } from "@/lib/voicings";
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("home");
+  // 홈에서 「강상기타반」으로 들어오면 그 카드를 바로 펼친다
+  const [importCard, setImportCard] = useState<"shared" | undefined>(undefined);
   const [settings, setSettings] = useSettings();
 
   const [health, setHealth] = useState<Health | null>(null);
@@ -424,8 +426,16 @@ export default function Home() {
             <div className="flex h-full flex-col">
               <HomeDashboard
                 onOpen={openSaved}
-                onImport={() => setTab("import")}
+                onImport={() => {
+                  setImportCard(undefined);
+                  setTab("import");
+                }}
+                onShared={() => {
+                  setImportCard("shared");
+                  setTab("import");
+                }}
                 onLibrary={() => setTab("library")}
+                onChords={() => setTab("chords")}
               />
               <div className="space-y-2 px-4">
                 {status && busy && (
@@ -450,6 +460,7 @@ export default function Home() {
             busy={busy}
             separate={settings.separate}
             adminMode={settings.adminMode}
+            autoOpen={importCard}
             onAnalyzeUrl={(u) => run(() => analyzeUrl(u, settings.separate))}
             onAnalyzeFile={(f) => run(() => analyzeUpload(f, settings.separate))}
           />

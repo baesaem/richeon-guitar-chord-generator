@@ -33,6 +33,11 @@ interface Props {
   separate: boolean;
   /** 관리자 모드일 때만 드라이브 폴더 관리 링크를 보여준다 */
   adminMode: boolean;
+  /**
+   * 탭을 열자마자 펼칠 카드. 홈의 「강상기타반」 바로가기가 쓴다.
+   * 탭이 바뀔 때 이 컴포넌트가 다시 마운트되므로 초기값으로 충분하다.
+   */
+  autoOpen?: CardKind;
   onAnalyzeUrl: (url: string) => void;
   onAnalyzeFile: (file: File) => void;
 }
@@ -85,11 +90,12 @@ export function ImportTab({
   busy,
   separate,
   adminMode,
+  autoOpen,
   onAnalyzeUrl,
   onAnalyzeFile,
 }: Props) {
   const [url, setUrl] = useState("");
-  const [open, setOpen] = useState<CardKind | null>(null);
+  const [open, setOpen] = useState<CardKind | null>(autoOpen ?? null);
 
   // 강상기타반 공유 재생목록 (구글드라이브, 서버가 프록시)
   const [shared, setShared] = useState<SharedFile[] | null>(null);
