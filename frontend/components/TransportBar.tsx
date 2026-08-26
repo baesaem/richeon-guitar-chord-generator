@@ -17,6 +17,12 @@ interface Props {
   onTranspose: (semitones: number) => void;
   onRate: (rate: number) => void;
   onLoop: (loop: { a: number; b: number } | null) => void;
+  /** 보컬 끄기 (반주만 재생). 서버가 있어야 쓸 수 있다 */
+  vocalOff?: boolean;
+  onVocalOff?: (off: boolean) => void;
+  /** 반주를 준비하는 중이면 스위치를 잠근다 */
+  vocalBusy?: boolean;
+  vocalError?: string | null;
 }
 
 const RATES = [0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
@@ -135,6 +141,41 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           <p className="mb-2 text-[11px] text-gray-500">
             기본은 7th·sus 같은 확장 화음을 쉬운 3화음으로 낮춰 보여줍니다.
           </p>
+
+          {/* ---- 보컬 끄기 (반주만) ---- */}
+          {props.onVocalOff && (
+            <>
+              <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={!!props.vocalOff}
+                  disabled={props.vocalBusy}
+                  onChange={(e) => props.onVocalOff?.(e.target.checked)}
+                />
+                <span>
+                  <span className="text-sm font-medium">
+                    보컬 끄기
+                    {props.vocalBusy && (
+                      <span className="ml-1 text-[11px] font-normal text-[var(--accent)]">
+                        반주 만드는 중…
+                      </span>
+                    )}
+                  </span>
+                  <span className="block text-[11px] text-gray-500">
+                    노래를 지우고 반주만 들립니다. 처음 한 번은 만드는 데
+                    시간이 걸립니다.
+                  </span>
+                </span>
+              </label>
+              {props.vocalError && (
+                <p className="mt-1 rounded bg-red-50 p-2 text-[11px] text-red-700">
+                  {props.vocalError}
+                </p>
+              )}
+            </>
+          )}
 
           <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
 

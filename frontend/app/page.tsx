@@ -19,7 +19,14 @@ import { ImportTab } from "@/components/tabs/ImportTab";
 import { LibraryTab } from "@/components/tabs/LibraryTab";
 import { RecordTab } from "@/components/tabs/RecordTab";
 import { SettingsTab } from "@/components/tabs/SettingsTab";
-import { analyzeUpload, analyzeUrl, getHealth, getResult, watchJob } from "@/lib/api";
+import {
+  analyzeUpload,
+  analyzeUrl,
+  getHealth,
+  getResult,
+  makeInstrumental,
+  watchJob,
+} from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, saveLocal } from "@/lib/library";
 import {
@@ -57,6 +64,10 @@ export default function Home() {
   const [loop, setLoop] = useState<{ a: number; b: number } | null>(null);
   // 가사 보기: 켜면 코드 박스와 곡 전체 코드 자리를 가사가 대신 쓴다
   const [showLyrics, setShowLyrics] = useState(false);
+  // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
+  const [vocalOff, setVocalOff] = useState(false);
+  const [vocalBusy, setVocalBusy] = useState(false);
+  const [vocalError, setVocalError] = useState<string | null>(null);
 
   const [backendDown, setBackendDown] = useState(false);
 
@@ -151,6 +162,26 @@ export default function Home() {
     setTranspose(0);
     setRate(1);
     setLoop(null);
+    setVocalOff(false);
+    setVocalError(null);
+  };
+
+  /** 보컬 끄기: 반주 트랙을 준비시킨 뒤에 켠다. */
+  const toggleVocalOff = async (off: boolean) => {
+    setVocalError(null);
+    if (!off || !result) {
+      setVocalOff(false);
+      return;
+    }
+    setVocalBusy(true);
+    try {
+      await makeInstrumental(result.id);
+      setVocalOff(true);
+    } catch (e) {
+      setVocalError(`반주를 준비하지 못했습니다: ${(e as Error).message}`);
+    } finally {
+      setVocalBusy(false);
+    }
   };
 
   const run = async (start: () => Promise<{ job_id: string }>) => {
@@ -267,6 +298,7 @@ export default function Home() {
                   result={result}
                   onReady={setPlayback}
                   compact={settings.videoCompact}
+                  vocalOff={vocalOff}
                 />
               </section>
 
@@ -307,6 +339,10 @@ export default function Home() {
                     playback?.setRate(r);
                   }}
                   onLoop={setLoop}
+                  vocalOff={vocalOff}
+                  vocalBusy={vocalBusy}
+                  vocalError={vocalError}
+                  onVocalOff={health ? toggleVocalOff : undefined}
                 />
                 {/* 가사 보기 — 코드 박스·곡 전체 코드 자리를 대신 쓴다 */}
                 <button

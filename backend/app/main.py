@@ -10,8 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from sse_starlette.sse import EventSourceResponse
 
-from .analysis.decode import ffmpeg_available
+from .analysis.decode import encode_mp3, ffmpeg_available
 from .analysis.pipeline import PIPELINE_VERSION, resolve_device
+from .analysis.separate import instrumental_path, separate
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
 from .lyrics import fetch_lyrics_blocking
@@ -171,14 +172,69 @@ async def get_audio(result_id: str) -> FileResponse:
     """
     _guard_id(result_id)
 
+    path = _source_audio(result_id)
+    if path is None:
+        raise HTTPException(404, "오디오를 찾을 수 없습니다")
+    # 파일명(확장자)을 헤더로 알려줘 프론트가 음원 내보내기 이름을 지을 수 있게 한다
+    return FileResponse(path, filename=path.name)
+
+
+def _source_audio(result_id: str) -> Path | None:
+    """원본 오디오 파일. 디코딩 산출물·사이드카·분리 스템은 건너뛴다."""
     for path in sorted(settings.audio_dir.glob(f"{result_id}.*")):
         rest = path.name[len(result_id) + 1 :]
-        if "." in rest:  # 디코딩 산출물(.22050.wav)과 사이드카(.info.json) 제외
+        if "." in rest:
             continue
-        # 파일명(확장자)을 헤더로 알려줘 프론트가 음원 내보내기 이름을 지을 수 있게 한다
-        return FileResponse(path, filename=path.name)
+        return path
+    return None
 
-    raise HTTPException(404, "오디오를 찾을 수 없습니다")
+
+def _instrumental_mp3(result_id: str) -> Path:
+    """재생·공유용 반주. wav는 4분 곡이 50MB라 폰으로 스트리밍하기 무겁다."""
+    return settings.audio_dir / f"{result_id}.instrumental.mp3"
+
+
+@app.get("/api/audio/{result_id}/instrumental")
+async def get_instrumental(result_id: str) -> FileResponse:
+    """보컬을 뺀 반주 트랙. 없으면 404 — 프론트가 만들기를 요청한다."""
+    _guard_id(result_id)
+
+    for path in (_instrumental_mp3(result_id), instrumental_path(result_id)):
+        if path.exists():
+            return FileResponse(path, filename=path.name)
+    raise HTTPException(404, "반주 트랙이 아직 없습니다")
+
+
+@app.post("/api/audio/{result_id}/instrumental")
+async def make_instrumental(result_id: str) -> dict:
+    """원본을 분리해 반주 트랙을 만든다. 이미 있으면 그대로 쓴다.
+
+    GPU에서 4분 곡이 10초 안쪽이라 요청을 붙잡고 기다리게 둔다.
+    """
+    _guard_id(result_id)
+
+    mp3 = _instrumental_mp3(result_id)
+    if mp3.exists():
+        return {"ready": True, "cached": True}
+
+    wav = instrumental_path(result_id)
+    if not wav.exists():
+        source = _source_audio(result_id)
+        if source is None:
+            raise HTTPException(404, "원본 오디오가 없습니다. 곡을 다시 분석해 주세요")
+        try:
+            await separate(source, result_id, resolve_device())
+        except Exception as exc:
+            raise HTTPException(500, f"반주를 만들지 못했습니다: {exc}") from exc
+        if not wav.exists():
+            raise HTTPException(500, "반주 트랙 생성에 실패했습니다")
+
+    # mp3로 줄여 두고 wav는 남긴다(재분리 없이 다시 인코딩할 수 있게).
+    try:
+        await encode_mp3(wav, mp3)
+    except Exception:
+        return {"ready": True, "cached": False}  # 인코딩이 안 되면 wav로 서빙된다
+    return {"ready": True, "cached": False}
 
 
 @app.get("/api/results/{result_id}")

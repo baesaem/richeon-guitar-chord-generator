@@ -27,12 +27,25 @@ interface Props {
    * YouTube가 재생을 멈출 수 있어 크기만 줄인다.
    */
   compact?: boolean;
+  /** 보컬을 뺀 반주로 듣는다 */
+  vocalOff?: boolean;
 }
 
-export function PlayerPane({ result, onReady, compact = false }: Props) {
+/** 영상 소리와 반주가 이만큼 벌어지면 맞춘다(초). */
+const SYNC_TOLERANCE = 0.3;
+
+export function PlayerPane({ result, onReady, compact = false, vocalOff = false }: Props) {
   const ytRef = useRef<YouTubePlayer | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // YouTube 곡에서 영상 대신 소리를 내는 반주 트랙
+  const instRef = useRef<HTMLAudioElement | null>(null);
   const playingRef = useRef(false);
+  const rateRef = useRef(1);
+
+  const isYouTube = result.source === "youtube";
+  const instUrl = `${apiBase()}/api/audio/${result.id}/instrumental`;
+  // 영상과 반주를 함께 몰아야 하는 상태
+  const dual = isYouTube && vocalOff;
 
   const publish = () => {
     onReady({
@@ -47,68 +60,118 @@ export function PlayerPane({ result, onReady, compact = false }: Props) {
       seek: (t) => {
         if (ytRef.current?.seekTo) ytRef.current.seekTo(t, true);
         else if (audioRef.current) audioRef.current.currentTime = t;
+        if (instRef.current) instRef.current.currentTime = t;
       },
       play: () => {
         if (ytRef.current?.playVideo) ytRef.current.playVideo();
         else audioRef.current?.play();
+        instRef.current?.play().catch(() => {});
       },
       pause: () => {
         if (ytRef.current?.pauseVideo) ytRef.current.pauseVideo();
         else audioRef.current?.pause();
+        instRef.current?.pause();
       },
       isPlaying: () => playingRef.current,
       setRate: (rate) => {
+        rateRef.current = rate;
         if (ytRef.current?.setPlaybackRate) ytRef.current.setPlaybackRate(rate);
         else if (audioRef.current) audioRef.current.playbackRate = rate;
+        if (instRef.current) instRef.current.playbackRate = rate;
       },
     });
   };
 
   // 업로드 곡: 공유받아 기기에 저장된 음원이 있으면 그것으로 재생한다.
   // 서버가 꺼져 있어도 소리가 나고, 있어도 네트워크를 안 탄다.
-  const [audioSrc, setAudioSrc] = useState<string | null>(null);
+  const [localSrc, setLocalSrc] = useState<string | null>(null);
   useEffect(() => {
-    if (result.source === "youtube") return;
+    if (isYouTube) return;
 
     let objectUrl: string | null = null;
     getLocalAudio(result.id)
       .then((blob) => {
         if (blob) {
           objectUrl = URL.createObjectURL(blob);
-          setAudioSrc(objectUrl);
+          setLocalSrc(objectUrl);
         } else {
-          setAudioSrc(`${apiBase()}/api/audio/${result.id}`);
+          setLocalSrc(`${apiBase()}/api/audio/${result.id}`);
         }
       })
-      .catch(() => setAudioSrc(`${apiBase()}/api/audio/${result.id}`));
+      .catch(() => setLocalSrc(`${apiBase()}/api/audio/${result.id}`));
 
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [result.id, result.source]);
+  }, [result.id, isYouTube]);
 
-  if (result.source === "youtube") {
+  // 보컬을 껐으면 서버가 만든 반주를 쓴다(기기 저장분에는 반주가 없다)
+  const audioSrc = vocalOff ? instUrl : localSrc;
+
+  // 영상 소리와 반주를 맞춘다. 영상은 화면만 쓰고 소리는 반주가 낸다.
+  useEffect(() => {
+    const yt = ytRef.current;
+    if (!isYouTube || !yt) return;
+
+    if (!dual) {
+      yt.unMute?.();
+      return;
+    }
+
+    yt.mute?.();
+    const inst = instRef.current;
+    if (!inst) return;
+
+    inst.playbackRate = rateRef.current;
+    const now = yt.getCurrentTime?.();
+    if (typeof now === "number") inst.currentTime = now;
+    if (playingRef.current) inst.play().catch(() => {});
+
+    // 두 재생기는 서로 조금씩 밀린다. 주기적으로 영상 시각에 반주를 맞춘다.
+    const timer = setInterval(() => {
+      const t = yt.getCurrentTime?.();
+      if (typeof t !== "number") return;
+      if (Math.abs(inst.currentTime - t) > SYNC_TOLERANCE) inst.currentTime = t;
+      if (playingRef.current && inst.paused) inst.play().catch(() => {});
+      if (!playingRef.current && !inst.paused) inst.pause();
+    }, 500);
+
+    return () => {
+      clearInterval(timer);
+      inst.pause();
+      yt.unMute?.();
+    };
+  }, [dual, isYouTube]);
+
+  if (isYouTube) {
     return (
-      <div
-        className={[
-          "w-full shrink-0 overflow-hidden bg-black",
-          compact ? "h-14" : "aspect-video",
-        ].join(" ")}
-      >
-        <YouTube
-          videoId={result.id}
-          className="h-full w-full"
-          iframeClassName="h-full w-full"
-          opts={{ playerVars: { playsinline: 1, rel: 0 } }}
-          onReady={(e) => {
-            ytRef.current = e.target;
-            publish();
-          }}
-          onStateChange={(e) => {
-            playingRef.current = e.data === 1;
-          }}
-        />
-      </div>
+      <>
+        <div
+          className={[
+            "w-full shrink-0 overflow-hidden bg-black",
+            compact ? "h-14" : "aspect-video",
+          ].join(" ")}
+        >
+          <YouTube
+            videoId={result.id}
+            className="h-full w-full"
+            iframeClassName="h-full w-full"
+            opts={{ playerVars: { playsinline: 1, rel: 0 } }}
+            onReady={(e) => {
+              ytRef.current = e.target;
+              publish();
+            }}
+            onStateChange={(e) => {
+              playingRef.current = e.data === 1;
+              const inst = instRef.current;
+              if (!inst) return;
+              if (e.data === 1) inst.play().catch(() => {});
+              else inst.pause();
+            }}
+          />
+        </div>
+        {dual && <audio ref={instRef} src={instUrl} preload="auto" />}
+      </>
     );
   }
 

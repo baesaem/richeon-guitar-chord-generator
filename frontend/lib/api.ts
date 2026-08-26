@@ -81,6 +81,18 @@ export const downloadShared = async (id: string): Promise<string> =>
 export const downloadSharedBlob = async (id: string): Promise<Blob> =>
   (await sharedResponse(id)).blob();
 
+/**
+ * 보컬을 뺀 반주 트랙을 준비시킨다.
+ *
+ * 이미 만들어 뒀으면 즉시 돌아오고, 없으면 그 자리에서 분리한다
+ * (GPU에서 4분 곡이 20초 안쪽). 그동안 요청을 붙잡고 있으므로
+ * 호출하는 쪽에서 진행 표시를 해 준다.
+ */
+export const makeInstrumental = (id: string) =>
+  fetch(`${apiBase()}/api/audio/${id}/instrumental`, { method: "POST" }).then(
+    json<{ ready: boolean; cached: boolean }>,
+  );
+
 /** 서버가 가사를 찾아 결과에 붙인다. q를 주면 그 검색어로 다시 찾는다. */
 export const fetchLyrics = (id: string, q = "") =>
   fetch(

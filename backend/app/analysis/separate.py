@@ -19,32 +19,62 @@ MODEL_NAME = "htdemucs"
 # 화성 판단에 쓸 스템. 보컬·드럼은 뺀다.
 HARMONIC_STEMS = ("other", "bass")
 
+# 반주(보컬 빼고 전부). 노래를 지우고 연주만 듣고 싶을 때 쓴다.
+INSTRUMENTAL_STEMS = ("drums", "bass", "other")
+
 
 @dataclass
 class SeparatedStems:
-    """분리 결과 경로. 둘 다 원본과 같은 샘플레이트의 wav."""
+    """분리 결과 경로. 모두 원본과 같은 샘플레이트의 wav."""
 
-    harmonic: Path   # other + bass 를 합친 것. 크로마 입력
-    bass: Path       # 베이스만. 근음 판단용
+    harmonic: Path       # other + bass 를 합친 것. 크로마 입력
+    bass: Path           # 베이스만. 근음 판단용
+    instrumental: Path   # 보컬만 뺀 것. 재생용
     model: str
 
 
-def _paths(audio_id: str) -> tuple[Path, Path]:
+def _paths(audio_id: str) -> tuple[Path, Path, Path]:
     return (
         settings.audio_dir / f"{audio_id}.harmonic.wav",
         settings.audio_dir / f"{audio_id}.bass.wav",
+        settings.audio_dir / f"{audio_id}.instrumental.wav",
     )
+
+
+def instrumental_path(audio_id: str) -> Path:
+    """반주 트랙 경로. 재생 API가 존재 여부를 확인할 때 쓴다."""
+    return _paths(audio_id)[2]
 
 
 def cached(audio_id: str, source: Path) -> SeparatedStems | None:
     """이미 분리해 둔 결과가 있으면 그대로 쓴다."""
-    harmonic, bass = _paths(audio_id)
-    if not (harmonic.exists() and bass.exists()):
+    harmonic, bass, instrumental = _paths(audio_id)
+    if not (harmonic.exists() and bass.exists() and instrumental.exists()):
         return None
     # 원본이 더 새로우면 다시 분리한다
-    if min(harmonic.stat().st_mtime, bass.stat().st_mtime) < source.stat().st_mtime:
+    made = min(
+        harmonic.stat().st_mtime, bass.stat().st_mtime, instrumental.stat().st_mtime
+    )
+    if made < source.stat().st_mtime:
         return None
-    return SeparatedStems(harmonic=harmonic, bass=bass, model=MODEL_NAME)
+    return SeparatedStems(
+        harmonic=harmonic, bass=bass, instrumental=instrumental, model=MODEL_NAME
+    )
+
+
+def _mix(stems: dict, names: tuple[str, ...]):
+    """스템 몇 개를 합치고 클리핑을 막는다. 합치면 진폭이 1을 넘을 수 있다."""
+    out = None
+    for name in names:
+        stem = stems.get(name)
+        if stem is None:
+            continue
+        out = stem.clone() if out is None else out + stem
+    if out is None:
+        raise RuntimeError(f"{MODEL_NAME}가 예상한 스템을 내놓지 않았습니다: {list(stems)}")
+
+    peak = float(out.abs().max())
+    return out / peak if peak > 1.0 else out
 
 
 def _separate_blocking(source: Path, audio_id: str, device: str) -> SeparatedStems:
@@ -54,31 +84,28 @@ def _separate_blocking(source: Path, audio_id: str, device: str) -> SeparatedSte
     separator = Separator(model=MODEL_NAME, device=device, progress=False)
     _, stems = separator.separate_audio_file(source)
 
-    harmonic_path, bass_path = _paths(audio_id)
+    harmonic_path, bass_path, instrumental_path = _paths(audio_id)
+    harmonic = _mix(stems, HARMONIC_STEMS)
 
-    mix = None
-    for name in HARMONIC_STEMS:
-        stem = stems.get(name)
-        if stem is None:
-            continue
-        mix = stem.clone() if mix is None else mix + stem
-
-    if mix is None:
-        raise RuntimeError(f"{MODEL_NAME}가 예상한 스템을 내놓지 않았습니다: {list(stems)}")
-
-    # 합치면 진폭이 1을 넘을 수 있어 클리핑 방지로 정규화한다
-    peak = float(mix.abs().max())
-    if peak > 1.0:
-        mix = mix / peak
-
-    save_audio(mix, str(harmonic_path), samplerate=separator.samplerate)
+    save_audio(harmonic, str(harmonic_path), samplerate=separator.samplerate)
     save_audio(
-        stems.get("bass", torch.zeros_like(mix)),
+        stems.get("bass", torch.zeros_like(harmonic)),
         str(bass_path),
         samplerate=separator.samplerate,
     )
+    # 재생용 반주. 분리는 이미 끝났으니 합쳐 저장하는 비용만 든다.
+    save_audio(
+        _mix(stems, INSTRUMENTAL_STEMS),
+        str(instrumental_path),
+        samplerate=separator.samplerate,
+    )
 
-    return SeparatedStems(harmonic=harmonic_path, bass=bass_path, model=MODEL_NAME)
+    return SeparatedStems(
+        harmonic=harmonic_path,
+        bass=bass_path,
+        instrumental=instrumental_path,
+        model=MODEL_NAME,
+    )
 
 
 async def separate(source: Path, audio_id: str, device: str) -> SeparatedStems:

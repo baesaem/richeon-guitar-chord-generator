@@ -66,6 +66,32 @@ def decoded_path(audio_id: str, sample_rate: int) -> Path:
     return settings.audio_dir / f"{audio_id}.{sample_rate}.wav"
 
 
+async def encode_mp3(src: Path, dest: Path, *, bitrate: str = "192k") -> None:
+    """재생·배포용 mp3로 인코딩한다.
+
+    분리 결과 wav는 4분 곡이 50MB쯤 된다. 폰으로 스트리밍하거나 공유
+    폴더에 올리기엔 커서, 소리 차이가 없는 선에서 줄인다.
+    """
+    if not ffmpeg_available():
+        raise FFmpegMissing("ffmpeg / ffprobe를 PATH에서 찾을 수 없습니다")
+
+    tmp = dest.with_suffix(".partial.mp3")
+    code, _, err = await _run(
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-i", str(src),
+        "-vn",
+        "-b:a", bitrate,
+        str(tmp),
+    )
+    if code != 0:
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError(f"ffmpeg 인코딩 실패: {err.decode('utf-8', 'replace')[:300]}")
+    tmp.replace(dest)
+
+
 async def decode_to_wav(
     src: Path, audio_id: str, *, sample_rate: int | None = None
 ) -> DecodedAudio:
