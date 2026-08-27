@@ -123,6 +123,48 @@ export const testLlmSettings = () =>
     json<{ ok: boolean; model_available: boolean; message: string; models: string[] }>,
   );
 
+export interface SheetHit {
+  title: string;
+  url: string;
+  site: string;
+}
+
+/**
+ * 이 곡의 코드 악보가 올라와 있는 페이지들을 찾는다.
+ *
+ * 악보 자체를 받아 오지 않는다 — 남이 만든 악보를 복제해 보여주면
+ * 저작권에 걸린다. 어디에 있는지만 알려 주고 사용자가 그 사이트에서 본다.
+ */
+export const findSheets = (id: string) =>
+  fetch(`${apiBase()}/api/sheets/${id}`).then(
+    json<{ query: string; items: SheetHit[] }>,
+  );
+
+/** 내가 가진 악보 주소. 브라우저가 바로 열 수 있는 URL이다. */
+export const mySheetUrl = (id: string) => `${apiBase()}/api/sheets/${id}/mine`;
+
+/** 등록된 악보가 있는지 확인한다. */
+export const hasMySheet = async (id: string): Promise<boolean> => {
+  try {
+    const res = await fetch(mySheetUrl(id), { method: "HEAD" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+/** 악보 파일(이미지·PDF)을 곡에 붙인다. */
+export const uploadMySheet = (id: string, file: File) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  return fetch(mySheetUrl(id), { method: "POST", body: fd }).then(
+    json<{ ok: boolean; kind: "image" | "pdf" }>,
+  );
+};
+
+export const deleteMySheet = (id: string) =>
+  fetch(mySheetUrl(id), { method: "DELETE" }).then(json<{ deleted: string }>);
+
 /** 서버가 가사를 찾아 결과에 붙인다. q를 주면 그 검색어로 다시 찾는다. */
 export const fetchLyrics = (id: string, q = "") =>
   fetch(

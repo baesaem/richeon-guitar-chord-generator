@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, spellKey, transposeRoot } from "@/lib/notation";
 import { render, suggestStrum } from "@/lib/strumLibrary";
-import type { Chord, Strum } from "@/lib/types";
+import type { Chord, LyricLine, Strum } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
 function svgLabel(label: string): React.ReactNode {
@@ -30,6 +30,8 @@ interface Props {
   playNotes?: string[];
   /** 안내줄 오른쪽 끝에 놓을 것(악보보기 버튼 등) */
   headerRight?: React.ReactNode;
+  /** 가사. 있으면 오선 아래에 그 마디에서 부르는 말을 적는다 */
+  lyrics?: LyricLine[];
   currentBar: number;
   flats: boolean;
   transpose: number;
@@ -64,6 +66,13 @@ const LINE_GAP = 7;        // 오선 간격
 const STAFF_H = LINE_GAP * 4;
 const CHORD_Y = 22;        // 코드 심볼 기준선
 const ROW_H = STAFF_TOP + STAFF_H + 14;
+// 가사를 적을 때만 줄을 늘린다. 없는데 비워 두면 악보가 성겨 보인다.
+const LYRIC_SIZE = 6.4;
+// 한글은 글자 하나가 글자 크기만큼의 폭을 먹는다. 이걸 절반으로 잡으면
+// 글자가 마디 밖으로 흘러나가 옆 마디를 덮는다.
+const LYRIC_CHAR_W = LYRIC_SIZE * 0.98;
+const LYRIC_Y = STAFF_TOP + STAFF_H + 12;
+const ROW_H_WITH_LYRICS = STAFF_TOP + STAFF_H + 21;
 
 /**
  * 코드 악보 (리듬 슬래시 표기).
@@ -77,6 +86,7 @@ export function ChordScore({
   strums,
   playNotes,
   headerRight,
+  lyrics,
   currentBar,
   flats,
   transpose,
@@ -162,7 +172,7 @@ export function ChordScore({
         return (
           <div key={lineIndex} ref={hasActive ? activeRef : undefined}>
             <svg
-              viewBox={`0 0 ${VB_W} ${ROW_H}`}
+              viewBox={`0 0 ${VB_W} ${lyrics?.length ? ROW_H_WITH_LYRICS : ROW_H}`}
               className="w-full text-gray-900 dark:text-gray-100"
               role="img"
               aria-label={`${lineIndex * perLine + 1}마디부터`}
@@ -285,6 +295,40 @@ export function ChordScore({
                   </g>
                 );
               })}
+
+              {/* 그 줄에서 부르는 가사. 마디마다 흩어 놓으면 줄 끝에만
+                  몰려 읽기 어렵다. 줄 왼쪽부터 이어서 적는다. */}
+              {lyrics?.length ? (() => {
+                const first = line[0];
+                const last = line[line.length - 1];
+                const beatSpan =
+                  last.beatTimes.length > 1
+                    ? last.beatTimes[1] - last.beatTimes[0]
+                    : 0.5;
+                const lineEnd =
+                  (last.beatTimes[last.beatTimes.length - 1] ?? last.start) + beatSpan;
+                const here = lyrics
+                  .filter((l) => l.t >= first.start - 1e-3 && l.t < lineEnd - 1e-3)
+                  .map((l) => l.text)
+                  .join("  ");
+                if (!here) return null;
+
+                const width = VB_W - PAD_X * 2 - 2;
+                const fit = Math.max(6, Math.floor(width / LYRIC_CHAR_W));
+                const text = here.length > fit ? `${here.slice(0, fit - 1)}…` : here;
+                return (
+                  <text
+                    x={PAD_X + 1}
+                    y={LYRIC_Y}
+                    textAnchor="start"
+                    fontSize={LYRIC_SIZE}
+                    fill="currentColor"
+                    opacity={0.85}
+                  >
+                    {text}
+                  </text>
+                );
+              })() : null}
 
               {/* 줄 끝 마디선 */}
               <line

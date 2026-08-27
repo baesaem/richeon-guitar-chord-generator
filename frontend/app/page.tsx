@@ -13,6 +13,8 @@ import { Copyright } from "@/components/Copyright";
 import { HomeDashboard } from "@/components/HomeDashboard";
 import { LyricsPane } from "@/components/LyricsPane";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
+import { MySheet } from "@/components/MySheet";
+import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
@@ -37,6 +39,7 @@ import {
   spellKey,
   transposeRoot,
 } from "@/lib/notation";
+import { loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
 import { SHEET_SOURCES, sheetQuery } from "@/lib/sheetSearch";
@@ -73,7 +76,9 @@ export default function Home() {
   // 스트로크 패턴 고르기 팝업
   const [showStrums, setShowStrums] = useState(false);
   // 악보보기 모달에서 무엇을 볼지
-  const [sheetTab, setSheetTab] = useState<"score" | "grid" | "lyrics" | "web">("score");
+  const [sheetTab, setSheetTab] = useState<
+    "score" | "grid" | "lyrics" | "web" | "mine" | "sites"
+  >("score");
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   const [vocalOff, setVocalOff] = useState(false);
   const [vocalBusy, setVocalBusy] = useState(false);
@@ -166,6 +171,27 @@ export default function Home() {
     return () => cancelAnimationFrame(raf);
   }, [playback, shown, bars, loop]);
 
+  /**
+   * 곡을 화면에 올린다.
+   *
+   * 그 곡에 저장해 둔 연주설정을 함께 되살린다 — 카포를 맞추고 속도를
+   * 낮춰 연습하던 자리에서 그대로 이어 칠 수 있다.
+   */
+  const showSong = (r: AnalysisResult) => {
+    const setup = loadSetup(r.id);
+    setResult(r);
+    setTranspose(setup.transpose);
+    setRate(setup.rate);
+    setLoop(setup.loop);
+    addRecent(r.id, r.title || r.id);
+  };
+
+  /** 재생기가 준비되면 저장해 둔 배속을 실제 재생에도 먹인다. */
+  const attachPlayback = (pb: Playback) => {
+    setPlayback(pb);
+    if (rate !== 1) pb.setRate(rate);
+  };
+
   const resetPlayback = () => {
     setResult(null);
     setStatus(null);
@@ -209,9 +235,8 @@ export default function Home() {
         if (s.stage === "done" && s.result_id) {
           getResult(s.result_id)
             .then((r) => {
-              setResult(r);
+              showSong(r);
               setTab("home");
-              addRecent(r.id, r.title || r.id);
               // 서버(PC)가 꺼져도 열 수 있도록 기기에도 저장해 둔다
               if (settings.autoSave) saveLocal(r).catch(() => {});
             })
@@ -236,8 +261,7 @@ export default function Home() {
         ? await getResult(id).catch(() => getLocal(id))
         : await getLocal(id);
       if (!result) throw new Error("결과 없음");
-      setResult(result);
-      addRecent(result.id, result.title || result.id);
+      showSong(result);
     } catch {
       setError("이 곡을 열 수 없습니다. 기기에 저장돼 있지 않고 서버에도 연결되지 않았습니다.");
     }
@@ -261,6 +285,12 @@ export default function Home() {
 
   const cur = view(current);
   const nxt = view(next);
+
+  // 바꾼 설정은 곧바로 그 곡에 적어 둔다
+  useEffect(() => {
+    if (!result) return;
+    saveSetup(result.id, { transpose, rate, loop });
+  }, [result?.id, transpose, rate, loop]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 연주설정에서 기본값과 달라진 것만 모은다. 악보 안내줄에 적어
   // "지금 무슨 설정으로 보고 있는지"를 늘 눈에 두게 한다.
@@ -327,7 +357,7 @@ export default function Home() {
               <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
                 <PlayerPane
                   result={result}
-                  onReady={setPlayback}
+                  onReady={attachPlayback}
                   compact={settings.videoCompact}
                   vocalOff={vocalOff}
                 />
@@ -447,6 +477,7 @@ export default function Home() {
                     chords={shownChords}
                     strums={result.strums}
                     playNotes={playNotes}
+                    lyrics={result.lyrics}
                     headerRight={
                       <button
                         className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-medium dark:bg-gray-800"
@@ -707,6 +738,8 @@ export default function Home() {
                   ["grid", "그리드"],
                   ["lyrics", "가사"],
                   ["web", "웹 악보"],
+                  ["mine", "내 악보"],
+                  ["sites", "추천 사이트"],
                 ] as const
               ).map(([value, label]) => {
                 const disabled =
@@ -739,6 +772,7 @@ export default function Home() {
                   chords={shownChords}
                   strums={result.strums}
                   playNotes={playNotes}
+                  lyrics={result.lyrics}
                   currentBar={barIdx}
                   flats={flats}
                   transpose={noteShift}
@@ -783,14 +817,20 @@ export default function Home() {
               )}
 
               {sheetTab === "web" && (
+                <SheetFinder resultId={result.id} online={!!health} />
+              )}
+
+              {sheetTab === "mine" && (
+                <MySheet resultId={result.id} online={!!health} />
+              )}
+
+              {sheetTab === "sites" && (
                 <>
-                  {/* 악보를 여기 옮겨 그리지 않고 있는 곳으로 연결한다 —
-                      남이 만든 악보를 복제하면 저작권에 걸린다. */}
                   <p className="mb-2 text-[11px] leading-snug text-gray-500">
                     검색어{" "}
                     <span className="font-medium">{sheetQuery(result.title)}</span>
                     <br />
-                    누르면 그 사이트에서 정식 악보를 볼 수 있습니다.
+                    악보를 많이 올리는 곳들입니다. 눌러 직접 찾아보세요.
                   </p>
                   <ul className="space-y-1 pb-2">
                     {SHEET_SOURCES.map((src) => (
@@ -814,6 +854,7 @@ export default function Home() {
                   </ul>
                 </>
               )}
+
             </div>
           </div>
         </div>

@@ -17,6 +17,7 @@ from .config import settings
 from .jobs import load_result, manager, result_path, save_result
 from .lyrics import fetch_lyrics_blocking
 from .runtime_config import llm_config, mask, save_llm_config
+from .sheets import clean_query, search as search_sheets
 from .schemas import (
     AnalysisResult,
     AnalyzeRequest,
@@ -218,6 +219,87 @@ async def test_llm_settings() -> dict:
         ),
         "models": chat[:40],
     }
+
+
+# 내가 가진 악보를 곡에 붙여 둔다. 이미지(png·jpg)와 PDF만 받는다.
+_SHEET_TYPES = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+    "application/pdf": ".pdf",
+}
+_SHEET_MAX_BYTES = 20 * 1024 * 1024
+
+
+def _sheet_dir():
+    path = settings.result_dir.parent / "sheets"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _my_sheet(result_id: str) -> Path | None:
+    for path in sorted(_sheet_dir().glob(f"{result_id}.*")):
+        return path
+    return None
+
+
+@app.get("/api/sheets/{result_id}/mine")
+async def get_my_sheet(result_id: str) -> Response:
+    """등록해 둔 악보. 없으면 404."""
+    _guard_id(result_id)
+
+    path = _my_sheet(result_id)
+    if path is None:
+        raise HTTPException(404, "등록된 악보가 없습니다")
+    # PDF는 브라우저가 바로 펼쳐 보도록 inline으로 준다
+    return FileResponse(path, content_disposition_type="inline")
+
+
+@app.post("/api/sheets/{result_id}/mine")
+async def put_my_sheet(result_id: str, file: UploadFile = File(...)) -> dict:
+    """악보 파일을 곡에 붙인다. 한 곡에 하나만 둔다."""
+    _guard_id(result_id)
+
+    suffix = _SHEET_TYPES.get(file.content_type or "")
+    if suffix is None:
+        raise HTTPException(400, "이미지(PNG·JPG·WEBP)나 PDF만 올릴 수 있습니다")
+
+    data = await file.read(_SHEET_MAX_BYTES + 1)
+    if len(data) > _SHEET_MAX_BYTES:
+        raise HTTPException(413, "파일이 너무 큽니다 (20MB까지)")
+
+    for old in _sheet_dir().glob(f"{result_id}.*"):
+        old.unlink(missing_ok=True)
+    (_sheet_dir() / f"{result_id}{suffix}").write_bytes(data)
+    return {"ok": True, "kind": "pdf" if suffix == ".pdf" else "image"}
+
+
+@app.delete("/api/sheets/{result_id}/mine")
+async def delete_my_sheet(result_id: str) -> dict:
+    _guard_id(result_id)
+
+    path = _my_sheet(result_id)
+    if path is None:
+        raise HTTPException(404, "등록된 악보가 없습니다")
+    path.unlink(missing_ok=True)
+    return {"deleted": result_id}
+
+
+@app.get("/api/sheets/{result_id}")
+async def find_sheets(result_id: str) -> dict:
+    """이 곡의 코드 악보가 올라와 있는 페이지들을 찾는다.
+
+    악보 자체를 가져오지 않는다 — 남이 만든 악보를 복제해 보여주면
+    저작권에 걸린다. 어디에 있는지만 알려 주고 사용자가 그 사이트에서 본다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+
+    items = await asyncio.to_thread(search_sheets, result.title)
+    return {"query": clean_query(result.title), "items": items}
 
 
 @app.get("/api/shared")
