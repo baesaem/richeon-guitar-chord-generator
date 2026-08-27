@@ -280,7 +280,7 @@ export function ChordScore({
                                     x={sx}
                                     y={STAFF_TOP + (str - 1) * LINE_GAP + 1.8}
                                     textAnchor="middle"
-                                    fontSize={5.2}
+                                    fontSize={6.2}
                                     fontWeight="700"
                                     fill={
                                       f === "p"
@@ -288,7 +288,7 @@ export function ChordScore({
                                         : "currentColor"
                                     }
                                     stroke="var(--background)"
-                                    strokeWidth={1.4}
+                                    strokeWidth={1.6}
                                     paintOrder="stroke"
                                   >
                                     {voicing.frets[6 - str]}
@@ -305,11 +305,11 @@ export function ChordScore({
                                   // frets[0]이 6번줄(맨 아래 줄)이다
                                   y={STAFF_TOP + (5 - s) * LINE_GAP + 1.6}
                                   textAnchor="middle"
-                                  fontSize={5.2}
+                                  fontSize={6.2}
                                   fontWeight="700"
                                   fill="currentColor"
                                   stroke="var(--background)"
-                                  strokeWidth={1.4}
+                                  strokeWidth={1.6}
                                   paintOrder="stroke"
                                 >
                                   {fret}
