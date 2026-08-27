@@ -391,6 +391,26 @@ export default function Home() {
     if (health) await putLyrics(next.id, rows).catch(() => {});
   };
 
+  /**
+   * 지금 듣고 있는 자리에 가사 줄을 새로 넣는다.
+   *
+   * 자막이 빠뜨린 줄, 라라라 같은 흥얼거림, 아예 가사가 없는 곡 — 손으로
+   * 채워야 하는 자리가 있다. 넣자마자 편집창을 열어 바로 적게 한다.
+   */
+  const addLyricLine = async () => {
+    if (!result) return;
+    const rows = [...(result.lyrics ?? []), { t: +time.toFixed(2), end: 0, text: "새 줄" }]
+      .sort((a, b) => a.t - b.t)
+      .map((l, i, all) => ({ ...l, end: i + 1 < all.length ? all[i + 1].t : l.end }));
+
+    const next = { ...result, lyrics: rows };
+    setResult(next);
+    await saveLocal(next).catch(() => {});
+    if (health) await putLyrics(next.id, rows).catch(() => {});
+    // 방금 넣은 줄을 바로 고치게 연다
+    setEditLyric(rows.findIndex((l) => l.t === +time.toFixed(2)));
+  };
+
   /** 마지막 고침을 되돌린다. */
   const undoChordEdit = async () => {
     if (!result || undo.length === 0) return;
@@ -976,8 +996,11 @@ export default function Home() {
                 .filter(([value]) => !editMode || value !== "web")
                 .filter(([value]) => !editMode || value !== "mine")
                 .map(([value, label]) => {
+                // 고칠 때는 가사가 없어도 연다 — 없는 가사를 채우는 자리다
                 const disabled =
-                  value === "lyrics" && !(result.lyrics && result.lyrics.length > 0);
+                  value === "lyrics" &&
+                  !editMode &&
+                  !(result.lyrics && result.lyrics.length > 0);
                 return (
                   <button
                     key={value}
@@ -1048,9 +1071,24 @@ export default function Home() {
                 />
               )}
 
-              {sheetTab === "lyrics" && result.lyrics && (
+              {sheetTab === "lyrics" && (
                 <div className="text-[13px] leading-relaxed">
-                  {result.lyrics.map((line, i) => (
+                  {editMode && (
+                    <button
+                      className="mb-2 w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
+                      onClick={addLyricLine}
+                    >
+                      + 지금 자리({Math.floor(time / 60)}:
+                      {String(Math.floor(time % 60)).padStart(2, "0")})에 줄 추가
+                    </button>
+                  )}
+                  {(result.lyrics ?? []).length === 0 && (
+                    <p className="py-4 text-center text-xs text-gray-400">
+                      가사가 없습니다.
+                      {editMode ? " 위 단추로 한 줄씩 넣을 수 있습니다." : ""}
+                    </p>
+                  )}
+                  {(result.lyrics ?? []).map((line, i) => (
                     <LyricRow
                       key={`${line.t}-${i}`}
                       text={line.text}
