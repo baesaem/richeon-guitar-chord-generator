@@ -16,7 +16,7 @@ from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .analysis.separate import instrumental_path, separate
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
-from .lyrics import align_to_vocals, fetch_lyrics_blocking
+from .lyrics import align_to_vocals, fetch_lyrics_blocking, fetch_youtube_captions
 from . import llm
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
@@ -556,14 +556,16 @@ async def align_pasted_lyrics(result_id: str, texts: list[str]) -> AnalysisResul
         raise HTTPException(400, "붙여넣은 가사가 없습니다")
     if not llm.enabled():
         raise HTTPException(400, "가사 도우미(AI) 키가 없습니다")
-    if len(result.lyrics) < 2:
-        raise HTTPException(400, "이 곡에는 시각을 참고할 가사가 없습니다")
+    # 자로 쓸 글. 이 곡에 붙어 있는 가사가 먼저고, 없으면 영상 자막을
+    # 그 자리에서 받아 온다 — 가사가 비어 있다고 못 맞출 이유가 없다.
+    ruler = [{"t": line.t, "text": line.text} for line in result.lyrics]
+    if len(ruler) < 2 and result.source == SourceKind.YOUTUBE and settings.enable_youtube:
+        caps = await asyncio.to_thread(fetch_youtube_captions, result_id)
+        ruler = [{"t": line.t, "text": line.text} for line in caps]
+    if len(ruler) < 2:
+        raise HTTPException(400, "시각을 참고할 자막이 없습니다")
 
-    placed = await asyncio.to_thread(
-        llm.align_lyrics,
-        [{"t": line.t, "text": line.text} for line in result.lyrics],
-        rows,
-    )
+    placed = await asyncio.to_thread(llm.align_lyrics, ruler, rows)
     if not placed:
         raise HTTPException(502, "시각을 맞추지 못했습니다")
 

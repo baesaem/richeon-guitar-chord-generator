@@ -109,8 +109,10 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
         // 1) 이 곡에 시각이 붙은 글(자막)이 남아 있으면 AI가 그것을 자로
         //    삼아 맞춘다. 글자는 틀려도 언제 부르는지는 맞기 때문에, 소절
         //    단위로 제자리를 찾는다.
+        // 붙어 있는 가사가 없어도 서버가 영상 자막을 받아 자로 쓴다.
+        // 그러니 여기서 줄 수를 따지지 않는다.
         let placed: LyricLine[] | null = null;
-        if (online && lines.length >= 2) {
+        if (online) {
           placed = await alignLyrics(result.id, texts)
             .then((r) => r.lyrics ?? null)
             .catch(() => null);
