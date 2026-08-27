@@ -20,9 +20,30 @@ export interface SongSetup {
   rate: number;
   /** 구간 반복. 없으면 null */
   loop: { a: number; b: number } | null;
+  /**
+   * 코드 싱크 보정(초). 양수면 코드가 더 일찍 넘어간다.
+   *
+   * 기기마다 소리가 나오는 시점이 다르다 — 블루투스 스피커는 소리가
+   * 0.1~0.2초 늦게 나오는데 화면은 제때 넘어가니 코드가 빨라 보인다.
+   * 반대로 늦게 느껴지는 기기도 있다. 곡마다 한 번 맞춰 두면 된다.
+   */
+  sync: number;
+  /**
+   * 가사 싱크 보정(초). 코드와 따로 둔다.
+   *
+   * 자동 자막의 시각은 말이 끝난 뒤에 찍히는 일이 잦아 코드보다 더 늦다.
+   * 하나로 묶으면 한쪽을 맞출 때 다른 쪽이 틀어진다.
+   */
+  lyricSync: number;
 }
 
-export const DEFAULT_SETUP: SongSetup = { transpose: 0, rate: 1, loop: null };
+export const DEFAULT_SETUP: SongSetup = {
+  transpose: 0,
+  rate: 1,
+  loop: null,
+  sync: 0,
+  lyricSync: 0,
+};
 
 function readAll(): Record<string, SongSetup> {
   try {
@@ -49,7 +70,11 @@ export function saveSetup(songId: string, setup: SongSetup): void {
   try {
     const all = readAll();
     const untouched =
-      setup.transpose === 0 && setup.rate === 1 && setup.loop === null;
+      setup.transpose === 0 &&
+      setup.rate === 1 &&
+      setup.loop === null &&
+      setup.sync === 0 &&
+      setup.lyricSync === 0;
     if (untouched) delete all[songId];
     else all[songId] = setup;
     localStorage.setItem(KEY, JSON.stringify(all));

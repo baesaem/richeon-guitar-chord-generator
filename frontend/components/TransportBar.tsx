@@ -12,11 +12,17 @@ interface Props {
   transpose: number;
   rate: number;
   loop: { a: number; b: number } | null;
+  /** 코드 싱크 보정(초) */
+  sync: number;
+  /** 가사 싱크 보정(초) */
+  lyricSync: number;
   onSeek: (t: number) => void;
   onToggle: () => void;
   onTranspose: (semitones: number) => void;
   onRate: (rate: number) => void;
   onLoop: (loop: { a: number; b: number } | null) => void;
+  onSync: (sec: number) => void;
+  onLyricSync: (sec: number) => void;
   /** 보컬 끄기 (반주만 재생). 서버가 있어야 쓸 수 있다 */
   vocalOff?: boolean;
   onVocalOff?: (off: boolean) => void;
@@ -73,7 +79,7 @@ export function SeekBar({
 /** 음높이(이조·카포)·빠르기·반복을 한 팝업에 모은 「연주설정」 버튼.
  *  파형/코드악보 전환 줄의 영상접기 왼쪽에 놓인다. */
 export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle">) {
-  const { duration, time, transpose, rate, loop } = props;
+  const { duration, time, transpose, rate, loop, sync, lyricSync } = props;
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useSettings();
 
@@ -91,7 +97,8 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
   // 내린 모양으로 표기된다(표기 변환은 page.tsx의 noteShift가 담당).
   const capo = transpose > 0 ? transpose : 0;
   // 기본값에서 벗어난 설정이 있으면 버튼에 점을 찍어 알린다
-  const tweaked = transpose !== 0 || rate !== 1 || loop !== null;
+  const tweaked =
+    transpose !== 0 || rate !== 1 || loop !== null || sync !== 0 || lyricSync !== 0;
 
   return (
     <>
@@ -141,6 +148,48 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           <p className="mb-2 text-[11px] text-gray-500">
             기본은 7th·sus 같은 확장 화음을 쉬운 3화음으로 낮춰 보여줍니다.
           </p>
+
+          {/* ---- 싱크 맞추기 ---- */}
+          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className="mb-1 text-sm font-medium">싱크 맞추기</div>
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            소리보다 화면이 빠르면 −, 느리면 +. 블루투스 스피커는 소리가
+            늦게 나와 보정이 필요합니다.
+          </p>
+          {(
+            [
+              ["코드", sync, props.onSync],
+              ["가사", lyricSync, props.onLyricSync],
+            ] as const
+          ).map(([label, value, set]) => (
+            <div key={label} className="mb-1.5 flex items-center gap-1.5">
+              <span className="w-7 shrink-0 text-xs text-gray-500">{label}</span>
+              <button
+                className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
+                onClick={() => set(Math.round((value - 0.1) * 10) / 10)}
+              >
+                −
+              </button>
+              <span className="w-14 text-center text-xs tabular-nums">
+                {value > 0 ? "+" : ""}
+                {value.toFixed(1)}초
+              </span>
+              <button
+                className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
+                onClick={() => set(Math.round((value + 0.1) * 10) / 10)}
+              >
+                +
+              </button>
+              {value !== 0 && (
+                <button
+                  className="ml-auto text-[11px] text-gray-500 underline"
+                  onClick={() => set(0)}
+                >
+                  되돌리기
+                </button>
+              )}
+            </div>
+          ))}
 
           {/* ---- 보컬 끄기 (반주만) ---- */}
           {props.onVocalOff && (

@@ -47,13 +47,35 @@ export function PlayerPane({ result, onReady, compact = false, vocalOff = false 
   // 영상과 반주를 함께 몰아야 하는 상태
   const dual = isYouTube && vocalOff;
 
+  // 마지막으로 YouTube가 알려 준 시각과 그때의 시계. 사이를 이어 붙인다
+  const tickRef = useRef({ at: -1, wall: 0 });
+
   const publish = () => {
     onReady({
+      /**
+       * 지금 재생 위치.
+       *
+       * YouTube의 getCurrentTime은 계단식으로 움직인다 — 초당 몇 번만
+       * 갱신되어 그 사이에는 같은 값을 준다. 그대로 쓰면 코드가 최대
+       * 4분의 1초쯤 늦게 넘어간다.
+       *
+       * 값이 그대로면 시계로 이어 붙인다. 새 값이 오면 거기에 맞춘다 —
+       * 어긋나 봐야 갱신 간격만큼이고, 다음 갱신에 바로잡힌다.
+       */
       getTime: () => {
         const yt = ytRef.current;
         if (yt?.getCurrentTime) {
-          const t = yt.getCurrentTime();
-          return typeof t === "number" ? t : 0;
+          const raw = yt.getCurrentTime();
+          if (typeof raw !== "number") return 0;
+
+          const now = performance.now();
+          if (raw !== tickRef.current.at) {
+            tickRef.current = { at: raw, wall: now };
+            return raw;
+          }
+          if (!playingRef.current) return raw;
+          const rate = yt.getPlaybackRate?.() ?? 1;
+          return raw + ((now - tickRef.current.wall) / 1000) * rate;
         }
         return audioRef.current?.currentTime ?? 0;
       },

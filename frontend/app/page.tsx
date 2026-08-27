@@ -86,6 +86,9 @@ export default function Home() {
   const [transpose, setTranspose] = useState(0);
   const [rate, setRate] = useState(1);
   const [loop, setLoop] = useState<{ a: number; b: number } | null>(null);
+  // 싱크 보정(초). 기기마다 소리 나오는 시점이 달라 곡마다 맞춰 둔다
+  const [sync, setSync] = useState(0);
+  const [lyricSync, setLyricSync] = useState(0);
   // 가사 보기: 켜면 코드 박스와 곡 전체 코드 자리를 가사가 대신 쓴다
   const [showLyrics, setShowLyrics] = useState(false);
   // 곡 전체 악보 모달
@@ -186,9 +189,11 @@ export default function Home() {
     const frame = () => {
       const t = playback.getTime();
       stripRef.current?.draw(t);
+      // 화면에 표시할 때만 보정을 얹는다. 재생·반복은 실제 시각 그대로.
+      const shownT = t + sync;
       // 다듬은 목록 기준으로 세어야 화면에 그린 코드와 인덱스가 맞는다
-      setChordIdx(chordIndexAt(shown.chords, t));
-      setBarIdx(barIndexAt(bars, t));
+      setChordIdx(chordIndexAt(shown.chords, shownT));
+      setBarIdx(barIndexAt(bars, shownT));
 
       if (loop && loop.b > loop.a && t >= loop.b) playback.seek(loop.a);
 
@@ -204,7 +209,7 @@ export default function Home() {
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [playback, shown, bars, loop]);
+  }, [playback, shown, bars, loop, sync]);
 
   /**
    * 곡을 화면에 올린다.
@@ -220,6 +225,8 @@ export default function Home() {
     setTranspose(setup.transpose);
     setRate(setup.rate);
     setLoop(setup.loop);
+    setSync(setup.sync);
+    setLyricSync(setup.lyricSync);
     addRecent(r.id, r.title || r.id);
   };
 
@@ -239,6 +246,8 @@ export default function Home() {
     setTranspose(0);
     setRate(1);
     setLoop(null);
+    setSync(0);
+    setLyricSync(0);
     setVocalOff(false);
     setVocalError(null);
   };
@@ -487,8 +496,8 @@ export default function Home() {
   // 바꾼 설정은 곧바로 그 곡에 적어 둔다
   useEffect(() => {
     if (!result) return;
-    saveSetup(result.id, { transpose, rate, loop });
-  }, [result?.id, transpose, rate, loop]); // eslint-disable-line react-hooks/exhaustive-deps
+    saveSetup(result.id, { transpose, rate, loop, sync, lyricSync });
+  }, [result?.id, transpose, rate, loop, sync, lyricSync]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 연주설정에서 기본값과 달라진 것만 모은다. 악보 안내줄에 적어
   // "지금 무슨 설정으로 보고 있는지"를 늘 눈에 두게 한다.
@@ -499,9 +508,11 @@ export default function Home() {
     if (rate !== 1) out.push(`빠르기 ${rate}×`);
     if (loop) out.push("구간 반복");
     if (settings.chordVocab === "basic") out.push("코드 기본");
+    if (sync !== 0) out.push(`코드 ${sync > 0 ? "+" : ""}${sync.toFixed(1)}초`);
+    if (lyricSync !== 0) out.push(`가사 ${lyricSync > 0 ? "+" : ""}${lyricSync.toFixed(1)}초`);
     if (vocalOff) out.push("보컬 끔");
     return out;
-  }, [transpose, rate, loop, settings.chordVocab, vocalOff]);
+  }, [transpose, rate, loop, settings.chordVocab, vocalOff, sync, lyricSync]);
 
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
@@ -596,6 +607,10 @@ export default function Home() {
                   transpose={transpose}
                   rate={rate}
                   loop={loop}
+                  sync={sync}
+                  lyricSync={lyricSync}
+                  onSync={setSync}
+                  onLyricSync={setLyricSync}
                   onTranspose={setTranspose}
                   onRate={(r) => {
                     setRate(r);
@@ -782,7 +797,7 @@ export default function Home() {
                 <section className="mx-2 mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
                   <LyricsPane
                     result={result}
-                    time={time}
+                    time={time + lyricSync}
                     online={!!health}
                     onLyrics={(lines) =>
                       setResult((prev) => (prev ? { ...prev, lyrics: lines } : prev))
@@ -1128,7 +1143,7 @@ export default function Home() {
                       text={line.text}
                       // 지금 부르는 줄을 짚어 준다. 이게 없으면 어디를 보고
                       // 있어야 할지 알 수 없어 가사가 어긋난 것처럼 느껴진다.
-                      now={lyricIndexAt(result.lyrics ?? [], time) === i}
+                      now={lyricIndexAt(result.lyrics ?? [], time + lyricSync) === i}
                       onSeek={() => {
                         playback?.seek(line.t);
                         setTime(line.t);
