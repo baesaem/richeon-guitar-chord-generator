@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Popup } from "@/components/Popup";
+import { ARP_PATTERNS } from "@/lib/arpeggio";
 import { useSettings } from "@/lib/settings";
 import type { StemChoice } from "@/lib/sharedFiles";
 
@@ -24,6 +25,9 @@ interface Props {
   onLoop: (loop: { a: number; b: number } | null) => void;
   onSync: (sec: number) => void;
   onLyricSync: (sec: number) => void;
+  /** 주법. 0 = 스트로크, 1~ = 아르페지오 패턴 번호 */
+  arp?: number;
+  onArp?: (no: number) => void;
   /** 음원 분리. 서버가 있거나 기기에 트랙이 있으면 된다 */
   stem?: StemChoice;
   onStem?: (next: StemChoice) => void;
@@ -98,8 +102,14 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
   // 내린 모양으로 표기된다(표기 변환은 page.tsx의 noteShift가 담당).
   const capo = transpose > 0 ? transpose : 0;
   // 기본값에서 벗어난 설정이 있으면 버튼에 점을 찍어 알린다
+  const arp = props.arp ?? 0;
   const tweaked =
-    transpose !== 0 || rate !== 1 || loop !== null || sync !== 0 || lyricSync !== 0;
+    transpose !== 0 ||
+    rate !== 1 ||
+    loop !== null ||
+    sync !== 0 ||
+    lyricSync !== 0 ||
+    arp !== 0;
 
   return (
     <>
@@ -149,6 +159,41 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           <p className="mb-2 text-[11px] text-gray-500">
             기본은 7th·sus 같은 확장 화음을 쉬운 3화음으로 낮춰 보여줍니다.
           </p>
+
+          {/* ---- 주법 (스트로크 / 아르페지오) ---- */}
+          {props.onArp && (
+            <>
+              <div className={sectionTitle}>
+                주법{arp > 0 && ` · 아르페지오 ${arp}`}
+              </div>
+              <div className="mb-1.5 grid grid-cols-2 gap-1">
+                <button className={pill(arp === 0)} onClick={() => props.onArp?.(0)}>
+                  스트로크
+                </button>
+                <button className={pill(arp > 0)} onClick={() => props.onArp?.(1)}>
+                  아르페지오
+                </button>
+              </div>
+              {arp > 0 && (
+                <div className="mb-1 grid grid-cols-7 gap-1">
+                  {ARP_PATTERNS.map((p) => (
+                    <button
+                      key={p.no}
+                      className={pill(arp === p.no)}
+                      onClick={() => props.onArp?.(p.no)}
+                    >
+                      {p.no}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="mb-2 text-[11px] leading-snug text-gray-500">
+                아르페지오를 고르면 악보가 그 패턴의 타브로 그려집니다. 패턴
+                설명은 기타 기초 탭에 있습니다.
+              </p>
+              <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+            </>
+          )}
 
           {/* ---- 음높이 (이조 + 카포) ---- */}
           <div className={sectionTitle}>

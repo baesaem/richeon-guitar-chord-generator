@@ -94,6 +94,8 @@ export default function Home() {
   // 싱크 보정(초). 기기마다 소리 나오는 시점이 달라 곡마다 맞춰 둔다
   const [sync, setSync] = useState(0);
   const [lyricSync, setLyricSync] = useState(0);
+  // 주법. 0 = 스트로크, 1~ = 아르페지오 패턴 번호
+  const [arp, setArp] = useState(0);
   // 가사 보기: 켜면 코드 박스와 곡 전체 코드 자리를 가사가 대신 쓴다
   const [showLyrics, setShowLyrics] = useState(false);
   // 곡 전체 악보 모달
@@ -254,6 +256,7 @@ export default function Home() {
     setLoop(setup.loop);
     setSync(setup.sync);
     setLyricSync(setup.lyricSync);
+    setArp(setup.arp);
     addRecent(r.id, r.title || r.id);
   };
 
@@ -533,8 +536,8 @@ export default function Home() {
   // 바꾼 설정은 곧바로 그 곡에 적어 둔다
   useEffect(() => {
     if (!result) return;
-    saveSetup(result.id, { transpose, rate, loop, sync, lyricSync });
-  }, [result?.id, transpose, rate, loop, sync, lyricSync]); // eslint-disable-line react-hooks/exhaustive-deps
+    saveSetup(result.id, { transpose, rate, loop, sync, lyricSync, arp });
+  }, [result?.id, transpose, rate, loop, sync, lyricSync, arp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 연주설정에서 기본값과 달라진 것만 모은다. 악보 안내줄에 적어
   // "지금 무슨 설정으로 보고 있는지"를 늘 눈에 두게 한다.
@@ -549,8 +552,9 @@ export default function Home() {
     if (lyricSync !== 0) out.push(`가사 ${lyricSync > 0 ? "+" : ""}${lyricSync.toFixed(1)}초`);
     if (stem === "inst") out.push("반주만");
     if (stem === "vocals") out.push("보컬만");
+    if (arp > 0) out.push(`아르페지오 ${arp}`);
     return out;
-  }, [transpose, rate, loop, settings.chordVocab, stem, sync, lyricSync]);
+  }, [transpose, rate, loop, settings.chordVocab, stem, sync, lyricSync, arp]);
 
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
@@ -686,6 +690,8 @@ export default function Home() {
                     playback?.setRate(r);
                   }}
                   onLoop={setLoop}
+                  arp={arp}
+                  onArp={setArp}
                   stem={stem}
                   vocalBusy={vocalBusy}
                   vocalError={vocalError}
@@ -806,6 +812,7 @@ export default function Home() {
                     bars={bars}
                     chords={shownChords}
                     strums={result.strums}
+                    arp={arp}
                     playNotes={playNotes}
                     headerRight={
                       <button
@@ -1146,6 +1153,7 @@ export default function Home() {
                   bars={bars}
                   chords={shownChords}
                   strums={result.strums}
+                  arp={arp}
                   playNotes={playNotes}
                   currentBar={barIdx}
                   flats={flats}

@@ -36,6 +36,36 @@ const OPEN_SHAPES: Record<string, Shape> = {
   Am: { frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0] },
   Em: { frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0] },
   Dm: { frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1] },
+  // 7th·maj7·m7·sus4의 1포지션 오픈 폼. 이게 없으면 E7이 12프렛
+  // 바레로 나온다 — 수업 유인물은 전부 오픈 폼으로 가르친다.
+  C7:    { frets: [-1, 3, 2, 3, 1, 0], fingers: [0, 3, 2, 4, 1, 0] },
+  A7:    { frets: [-1, 0, 2, 0, 2, 0], fingers: [0, 0, 2, 0, 3, 0] },
+  B7:    { frets: [-1, 2, 1, 2, 0, 2], fingers: [0, 2, 1, 3, 0, 4] },
+  D7:    { frets: [-1, -1, 0, 2, 1, 2], fingers: [0, 0, 0, 2, 1, 3] },
+  E7:    { frets: [0, 2, 0, 1, 0, 0], fingers: [0, 2, 0, 1, 0, 0] },
+  G7:    { frets: [3, 2, 0, 0, 0, 1], fingers: [3, 2, 0, 0, 0, 1] },
+  Am7:   { frets: [-1, 0, 2, 0, 1, 0], fingers: [0, 0, 2, 0, 1, 0] },
+  Dm7:   { frets: [-1, -1, 0, 2, 1, 1], fingers: [0, 0, 0, 2, 1, 1] },
+  Em7:   { frets: [0, 2, 0, 0, 0, 0], fingers: [0, 2, 0, 0, 0, 0] },
+  Cmaj7: { frets: [-1, 3, 2, 0, 0, 0], fingers: [0, 3, 2, 0, 0, 0] },
+  Amaj7: { frets: [-1, 0, 2, 1, 2, 0], fingers: [0, 0, 2, 1, 3, 0] },
+  Dmaj7: { frets: [-1, -1, 0, 2, 2, 2], fingers: [0, 0, 0, 1, 2, 3] },
+  Emaj7: { frets: [0, 2, 1, 1, 0, 0], fingers: [0, 3, 1, 2, 0, 0] },
+  Gmaj7: { frets: [3, 2, 0, 0, 0, 2], fingers: [3, 2, 0, 0, 0, 1] },
+  Fmaj7: { frets: [-1, -1, 3, 2, 1, 0], fingers: [0, 0, 3, 2, 1, 0] },
+  Asus4: { frets: [-1, 0, 2, 2, 3, 0], fingers: [0, 0, 1, 2, 3, 0] },
+  Dsus4: { frets: [-1, -1, 0, 2, 3, 3], fingers: [0, 0, 0, 1, 3, 4] },
+  Esus4: { frets: [0, 2, 2, 2, 0, 0], fingers: [0, 2, 3, 4, 0, 0] },
+};
+
+/** OPEN_SHAPES 키에 붙는 꼬리표. 이 표에 없는 성질은 오픈 폼이 없다. */
+const OPEN_SUFFIX: Record<string, string> = {
+  maj: "",
+  min: "m",
+  "7": "7",
+  maj7: "maj7",
+  min7: "m7",
+  sus4: "sus4",
 };
 
 /**
@@ -100,9 +130,10 @@ function fromShape(shape: Shape, fret: number, shapeKind: "E" | "A"): Voicing {
 export function voicingFor(root: string | null, quality: string): Voicing | null {
   if (!root || quality === "N") return null;
 
-  // 장·단3화음은 오픈 코드 우선
-  if (quality === "maj" || quality === "min") {
-    const open = OPEN_SHAPES[quality === "min" ? `${root}m` : root];
+  // 1포지션 오픈 폼이 있으면 그것부터 — 수업이 가르치는 모양이다
+  const suffix = OPEN_SUFFIX[quality];
+  if (suffix !== undefined) {
+    const open = OPEN_SHAPES[root + suffix];
     if (open) return { frets: open.frets, fingers: open.fingers, baseFret: 1 };
   }
 

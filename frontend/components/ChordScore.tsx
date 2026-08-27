@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { EDIT_HOLD_MS } from "@/lib/editChords";
 import { useLongPress } from "@/lib/useLongPress";
+import { arpPattern, arpString } from "@/lib/arpeggio";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, transposeRoot } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
@@ -60,15 +61,21 @@ interface Props {
   onSeek?: (t: number) => void;
   /** 마디를 길게 누르거나 오른쪽 클릭했을 때. 코드 고치기에 쓴다 */
   onEditBar?: (barIndex: number) => void;
+  /**
+   * 주법. 0이면 스트로크(리듬 슬래시), 1~이면 아르페지오 패턴 번호 —
+   * 슬래시 대신 8분음표 칸마다 뜯는 줄의 프렛 숫자를 찍고, 숫자가
+   * 촘촘해지므로 한 줄을 2마디로 넓힌다.
+   */
+  arp?: number;
 }
 
 // 좌표계. width는 100%로 늘어나고 viewBox 비율대로 확대된다.
 const VB_W = 400;
 const PAD_X = 10;
 const STAFF_TOP = 34;      // 타브 첫 줄(1번줄)
-// 타브 여섯 줄. 간격을 오선(5×4)과 같은 총높이(4×5)로 맞춰 행 높이가
-// 오선 시절과 달라지지 않게 한다.
-const LINE_GAP = 4;
+// 타브 여섯 줄. 프렛 숫자가 줄 위에 앉으므로 숫자가 서로 닿지 않을
+// 만큼 간격을 벌린다.
+const LINE_GAP = 5;
 const STAFF_H = LINE_GAP * 5;
 const CHORD_Y = 22;        // 코드 심볼 기준선
 // 오선 아래 여백. 가사를 적지 않으므로 마디 강조 사각형이 잘리지 않을
@@ -101,8 +108,13 @@ export function ChordScore({
   visibleLines,
   onSeek,
   onEditBar,
+  arp = 0,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
+  // 아르페지오 모드면 한 줄 2마디 — 마디마다 프렛 숫자 8칸이 들어가므로
+  // 4마디씩 넣으면 숫자가 겹쳐 못 읽는다.
+  const pattern = arp > 0 ? arpPattern(arp) : null;
+  const per = pattern ? Math.min(perLine, 2) : perLine;
 
   useEffect(() => {
     // 창 방식일 때는 화면이 알아서 따라오므로 스크롤할 것이 없다
@@ -118,12 +130,12 @@ export function ChordScore({
   );
 
   const lines: Bar[][] = [];
-  for (let i = 0; i < bars.length; i += perLine) {
-    lines.push(bars.slice(i, i + perLine));
+  for (let i = 0; i < bars.length; i += per) {
+    lines.push(bars.slice(i, i + per));
   }
 
   // 창 방식: 현재 줄부터 visibleLines개만. 현재 줄이 늘 맨 위에 온다.
-  const from = visibleLines ? Math.floor(currentBar / perLine) : 0;
+  const from = visibleLines ? Math.floor(currentBar / per) : 0;
   const shown = visibleLines
     ? lines.slice(from, from + visibleLines).map((line, i) => [from + i, line] as const)
     : lines.map((line, i) => [i, line] as const);
@@ -146,8 +158,8 @@ export function ChordScore({
       </SongInfoLine>
 
       {shown.map(([lineIndex, line]) => {
-        const hasActive = line.some((_, i) => lineIndex * perLine + i === currentBar);
-        const measureW = (VB_W - PAD_X * 2) / perLine;
+        const hasActive = line.some((_, i) => lineIndex * per + i === currentBar);
+        const measureW = (VB_W - PAD_X * 2) / per;
         // 한 줄에 마디를 많이 넣을수록 칸이 좁아진다. 코드 심볼이 옆 칸을
         // 침범하지 않도록 글자 크기를 칸 너비에 맞춘다.
         const chordFont = Math.max(6, Math.min(11, measureW * 0.17));
@@ -160,7 +172,7 @@ export function ChordScore({
               viewBox={`0 0 ${VB_W} ${ROW_H}`}
               className="w-full text-gray-900 dark:text-gray-100"
               role="img"
-              aria-label={`${lineIndex * perLine + 1}마디부터`}
+              aria-label={`${lineIndex * per + 1}마디부터`}
             >
               {/* 타브 여섯 줄. 맨 아래(6번줄)는 굵은 줄이라 살짝 두껍게 */}
               {Array.from({ length: 6 }, (_, i) => (
@@ -174,7 +186,7 @@ export function ChordScore({
               ))}
 
               {line.map((bar, i) => {
-                const index = lineIndex * perLine + i;
+                const index = lineIndex * per + i;
                 const active = index === currentBar;
                 const x0 = PAD_X + i * measureW;
                 // 첫 줄 첫 마디는 박자표만큼 안쪽에서 시작한다
@@ -204,14 +216,14 @@ export function ChordScore({
                     {firstLine && i === 0 && (
                       <>
                         <text
-                          x={x0 + 8} y={STAFF_TOP + 5.8}
+                          x={x0 + 8} y={STAFF_TOP + 7.4}
                           textAnchor="middle" fontSize={9} fontWeight="700"
                           fill="currentColor"
                         >
                           {beatsPerBar}
                         </text>
                         <text
-                          x={x0 + 8} y={STAFF_TOP + 16.6}
+                          x={x0 + 8} y={STAFF_TOP + 20.6}
                           textAnchor="middle" fontSize={9} fontWeight="700"
                           fill="currentColor"
                         >
@@ -234,10 +246,10 @@ export function ChordScore({
                       // 반드시 적어 준다. 그래야 무엇을 짚고 있는지 알 수 있다.
                       const opensView = lineIndex === from && i === 0 && b === 0;
                       const changed = idx !== prevIdx || opensView;
-                      // 코드가 바뀌는 박에는 슬래시 대신 그 코드의 운지를
-                      // 줄 위에 찍는다. 매 박마다 찍으면 숫자에 파묻힌다.
+                      // 스트로크: 코드가 바뀌는 박에만 운지를 찍는다(매 박은
+                      // 숫자에 파묻힌다). 아르페지오: 매 박이 곧 운지다.
                       const voicing =
-                        changed && chord
+                        chord && (pattern || changed)
                           ? voicingFor(
                               transposeRoot(chord.root, transpose),
                               chord.quality,
@@ -246,7 +258,43 @@ export function ChordScore({
 
                       return (
                         <g key={b}>
-                          {voicing ? (
+                          {pattern && voicing ? (
+                            // 아르페지오: 이 박의 8분음표 두 칸에, 패턴이
+                            // 뜯는 줄의 프렛 숫자를 찍는다. 엄지(근음)는
+                            // 강조색 — 마디의 기둥이 눈에 들어온다.
+                            [0, 1].map((half) => {
+                              const k = b * 2 + half;
+                              const fs =
+                                pattern.seq[k % pattern.seq.length] ?? [];
+                              const sx =
+                                contentX +
+                                (contentW * (k + 0.5)) / (beats * 2);
+                              return fs.map((f) => {
+                                const str = arpString(f, voicing);
+                                if (str === null) return null;
+                                return (
+                                  <text
+                                    key={`${half}${f}`}
+                                    x={sx}
+                                    y={STAFF_TOP + (str - 1) * LINE_GAP + 1.8}
+                                    textAnchor="middle"
+                                    fontSize={5.2}
+                                    fontWeight="700"
+                                    fill={
+                                      f === "p"
+                                        ? "var(--accent)"
+                                        : "currentColor"
+                                    }
+                                    stroke="var(--background)"
+                                    strokeWidth={1.4}
+                                    paintOrder="stroke"
+                                  >
+                                    {voicing.frets[6 - str]}
+                                  </text>
+                                );
+                              });
+                            })
+                          ) : voicing ? (
                             voicing.frets.map((fret, s) =>
                               fret < 0 ? null : (
                                 <text

@@ -3,8 +3,8 @@
 /**
  * 아르페지오 — 기타반 유인물 「아르페지오 모음 1·2」를 옮긴 것.
  *
- * 패턴 번호와 손가락 순서, 어느 곡에 쓰는지는 유인물(과 선생님 필기)을
- * 그대로 따른다. 수업에서 부르는 이름과 앱이 다르면 서로 못 알아본다.
+ * 패턴 데이터는 lib/arpeggio.ts 에 있다. 코드 악보의 아르페지오 타브와
+ * 같은 원본을 써야 배우는 것과 치는 것이 어긋나지 않는다.
  *
  * 패턴은 글자 나열이 아니라 유인물처럼 **타브 악보**로 그린다. 여섯 줄
  * 위에 프렛 숫자가 놓여야 어느 줄을 뜯는지 눈으로 바로 보인다.
@@ -12,6 +12,8 @@
  * 유인물은 엄지를 T, 약지를 r로 적지만 세계 공통 표기는 p·i·m·a다.
  * 여기서는 표준 표기로 적고 대응만 각주로 남긴다.
  */
+
+import { ARP_PATTERNS, arpString, exampleVoicing } from "@/lib/arpeggio";
 
 /** 뜯는 손가락 이름. 유인물 아래쪽 손 그림의 표기 그대로 */
 const FINGERS = [
@@ -26,72 +28,6 @@ const BASS_RULE = [
   { chords: "C · A", string: "5번줄" },
   { chords: "G · E · F", string: "6번줄" },
   { chords: "D", string: "4번줄" },
-];
-
-/** 보기 코드의 운지 — 줄 번호 → 프렛(0=개방현) */
-const CHORD_FRETS: Record<string, Record<number, number>> = {
-  Am: { 5: 0, 4: 2, 3: 2, 2: 1, 1: 0 },
-  C: { 5: 3, 4: 2, 3: 0, 2: 1, 1: 0 },
-  Dm: { 4: 0, 3: 2, 2: 3, 1: 1 },
-  E7: { 6: 0, 5: 2, 4: 0, 3: 1, 2: 0, 1: 0 },
-};
-
-/** 엄지(p)가 뜯는 근음 줄 */
-const BASS_STRING: Record<string, number> = { Am: 5, C: 5, Dm: 4, E7: 6 };
-
-/** 나머지 손가락이 맡는 줄 — 검지 3번줄, 중지 2번줄, 약지 1번줄 */
-const FINGER_STRING: Record<string, number> = { i: 3, m: 2, a: 1 };
-
-interface Pattern {
-  no: number;
-  /** 보기 코드. 두 개면 마디 앞·뒤 절반씩 */
-  chords: string[];
-  /** 한 마디(8분음표 8칸)의 손가락. 한 칸에 여러 손가락이면 함께 뜯는다 */
-  seq: string[][];
-  /** 선생님 필기 — 이 패턴을 쓰는 곡 */
-  songs: string;
-  note?: string;
-}
-
-const one = (fs: string) => fs.split(" ").map((f) => [f]);
-
-const PATTERNS: Pattern[] = [
-  {
-    no: 1, chords: ["Am"], seq: one("p i m i a i m i"),
-    songs: "정녕 그대를 · 모두가 사랑이에요",
-    note: "제일 많이 쓰는 패턴",
-  },
-  {
-    no: 2, chords: ["C"], seq: one("p i m i a m i m"),
-    songs: "바위섬",
-  },
-  {
-    no: 3, chords: ["C"], seq: one("p i m i p i m i"),
-    songs: "J에게 · 이젠 사랑할 수 있어요 · 그대 먼 곳에",
-  },
-  {
-    no: 4, chords: ["C"], seq: one("p m i a m i a m"),
-    songs: "친구 · 행복한 사람",
-  },
-  {
-    no: 5, chords: ["Am", "E7"], seq: one("p i m a p i m a"),
-    songs: "사랑으로 · 촛불",
-  },
-  {
-    no: 6, chords: ["Dm"], seq: one("p i m a i m a m"),
-    songs: "정녕 그대를",
-  },
-  {
-    no: 7, chords: ["Dm"],
-    seq: [["p"], ["i"], ["m", "a"], ["i"], ["p"], ["i"], ["m", "a"], ["i"]],
-    songs: "새벽기차",
-    note: "중지(m)·약지(a)가 2·1번줄을 함께 뜯는 변형입니다. 유인물의 타브와 다르면 유인물을 따르세요.",
-  },
-  {
-    no: 8, chords: ["Dm"], seq: one("p i m i p i m i"),
-    songs: "옛 시인의 노래",
-    note: "유인물에 표시된 박에서 약지(a)로 1번줄을 함께 뜯습니다.",
-  },
 ];
 
 /**
@@ -155,9 +91,10 @@ function TabBar({ chords, seq }: { chords: string[]; seq: string[][] }) {
       {seq.map((fs, k) => (
         <g key={k}>
           {fs.map((f) => {
-            const chord = chordAt(k);
-            const str = f === "p" ? BASS_STRING[chord] : FINGER_STRING[f];
-            const fret = CHORD_FRETS[chord][str];
+            const voicing = exampleVoicing(chordAt(k));
+            const str = voicing ? arpString(f, voicing) : null;
+            if (!voicing || str === null) return null;
+            const fret = voicing.frets[6 - str];
             return (
               <g key={f}>
                 <circle
@@ -203,7 +140,8 @@ export function ArpeggioGuide() {
       <p className="mb-3 text-[11px] leading-snug text-gray-500">
         아르페지오는 코드를 한 번에 긁지 않고 한 줄씩 나눠 뜯는 주법입니다.
         기타반 유인물 「아르페지오 모음 1·2」의 패턴과 곡 배정을 그대로
-        옮겼습니다.
+        옮기고, 유인물 밖의 표준 패턴을 뒤에 더했습니다. 연주설정의
+        「주법」에서 패턴을 고르면 코드 악보가 그 패턴의 타브로 그려집니다.
       </p>
 
       <h3 className="mb-1 text-sm font-semibold">뜯는 손가락</h3>
@@ -253,9 +191,9 @@ export function ArpeggioGuide() {
         ))}
       </div>
 
-      <h3 className="mb-1.5 text-sm font-semibold">패턴 1–8</h3>
+      <h3 className="mb-1.5 text-sm font-semibold">패턴</h3>
       <ul className="space-y-2">
-        {PATTERNS.map((p) => (
+        {ARP_PATTERNS.map((p) => (
           <li
             key={p.no}
             className="rounded-lg border border-gray-200 p-2.5 dark:border-gray-700"
@@ -265,6 +203,11 @@ export function ArpeggioGuide() {
               <span className="text-[11px] text-gray-500">
                 보기 코드 {p.chords.join(" → ")}
               </span>
+              {p.extra && (
+                <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800">
+                  표준 추가
+                </span>
+              )}
             </div>
             <TabBar chords={p.chords} seq={p.seq} />
             {p.note && (

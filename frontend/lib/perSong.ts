@@ -35,6 +35,13 @@ export interface SongSetup {
    * 하나로 묶으면 한쪽을 맞출 때 다른 쪽이 틀어진다.
    */
   lyricSync: number;
+  /**
+   * 주법. 0 = 스트로크(리듬 슬래시), 1~ = 아르페지오 패턴 번호.
+   *
+   * 선생님이 곡마다 패턴을 정해 주므로 곡별 설정이다. 공유 파일에도
+   * 실려 수강생 화면도 같은 패턴의 타브로 그려진다.
+   */
+  arp: number;
 }
 
 export const DEFAULT_SETUP: SongSetup = {
@@ -43,6 +50,7 @@ export const DEFAULT_SETUP: SongSetup = {
   loop: null,
   sync: 0,
   lyricSync: 0,
+  arp: 0,
 };
 
 function readAll(): Record<string, SongSetup> {
@@ -74,7 +82,8 @@ export function saveSetup(songId: string, setup: SongSetup): void {
       setup.rate === 1 &&
       setup.loop === null &&
       setup.sync === 0 &&
-      setup.lyricSync === 0;
+      setup.lyricSync === 0 &&
+      setup.arp === 0;
     if (untouched) delete all[songId];
     else all[songId] = setup;
     localStorage.setItem(KEY, JSON.stringify(all));
