@@ -307,8 +307,15 @@ export function ChordScore({
                     : 0.5;
                 const lineEnd =
                   (last.beatTimes[last.beatTimes.length - 1] ?? last.start) + beatSpan;
+                // 시작 시각만 보면 안 된다. 가사 한 줄은 여러 마디에 걸쳐
+                // 불리므로, 앞 줄에서 시작해 이 줄까지 이어지는 가사가
+                // 화면에서 사라진다 — 지금 부르는 말이 안 보이게 된다.
+                // 부르는 구간이 이 줄과 겹치면 함께 적는다.
                 const here = lyrics
-                  .filter((l) => l.t >= first.start - 1e-3 && l.t < lineEnd - 1e-3)
+                  .filter((l) => {
+                    const until = l.end > l.t ? l.end : l.t + 4;
+                    return until > first.start + 1e-3 && l.t < lineEnd - 1e-3;
+                  })
                   .map((l) => l.text)
                   .join("  ");
                 if (!here) return null;

@@ -32,6 +32,7 @@ import {
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, saveLocal } from "@/lib/library";
+import { lyricIndexAt } from "@/lib/lrc";
 import {
   labelFor,
   resolveFlats,
@@ -801,18 +802,26 @@ export default function Home() {
 
               {sheetTab === "lyrics" && result.lyrics && (
                 <div className="text-[13px] leading-relaxed">
-                  {result.lyrics.map((line, i) => (
-                    <div
-                      key={`${line.t}-${i}`}
-                      className="cursor-pointer py-0.5"
-                      onClick={() => {
-                        playback?.seek(line.t);
-                        setTime(line.t);
-                      }}
-                    >
-                      {line.text}
-                    </div>
-                  ))}
+                  {result.lyrics.map((line, i) => {
+                    // 지금 부르는 줄을 짚어 준다. 이게 없으면 어디를 보고
+                    // 있어야 할지 알 수 없어 가사가 어긋난 것처럼 느껴진다.
+                    const now = lyricIndexAt(result.lyrics ?? [], time) === i;
+                    return (
+                      <div
+                        key={`${line.t}-${i}`}
+                        className={[
+                          "cursor-pointer py-0.5 transition-colors",
+                          now ? "font-bold text-[var(--accent)]" : "",
+                        ].join(" ")}
+                        onClick={() => {
+                          playback?.seek(line.t);
+                          setTime(line.t);
+                        }}
+                      >
+                        {line.text}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
