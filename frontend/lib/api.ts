@@ -221,8 +221,10 @@ export const alignLyrics = (id: string, texts: string[]) =>
  * 시간 표시가 없는 가사를 붙여넣었을 때 어디에 놓을지 정하는 데 쓴다.
  * 음원 분리를 쓴 곡에만 있다.
  */
-export const songPhrases = (id: string) =>
-  fetch(`${apiBase()}/api/results/${id}/phrases`).then(json<{ starts: number[] }>);
+export const songPhrases = (id: string, lines = 0) =>
+  fetch(`${apiBase()}/api/results/${id}/phrases?lines=${lines}`).then(
+    json<{ starts: number[] }>,
+  );
 
 /**
  * 붙어 있는 가사를 AI로 다듬는다.

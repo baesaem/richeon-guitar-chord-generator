@@ -521,7 +521,7 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
 
 
 @app.get("/api/results/{result_id}/phrases")
-async def song_phrases(result_id: str) -> dict:
+async def song_phrases(result_id: str, lines: int = 0) -> dict:
     """이 곡에서 노래가 시작하는 자리들.
 
     시간 표시가 없는 가사를 붙여넣었을 때 어디에 놓을지 정하는 데 쓴다.
@@ -529,10 +529,12 @@ async def song_phrases(result_id: str) -> dict:
     """
     _guard_id(result_id)
 
-    from .analysis.lyric_sync import vocal_onsets
+    from .analysis.lyric_sync import phrase_starts
     from .analysis.separate import vocals_path
 
-    starts = await asyncio.to_thread(vocal_onsets, vocals_path(result_id))
+    # 놓을 줄 수를 알려 주면 그 개수에 가깝게 골라 준다. 자리가 줄보다
+    # 훨씬 많으면 뒤로 갈수록 밀린다.
+    starts = await asyncio.to_thread(phrase_starts, vocals_path(result_id), lines)
     return {"starts": [round(t, 2) for t in starts]}
 
 

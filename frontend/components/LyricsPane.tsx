@@ -121,18 +121,13 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
         } else {
           // 2) 자막이 없으면 노래가 시작하는 자리에 고르게 놓는다.
           const starts = online
-            ? await songPhrases(result.id)
+            ? await songPhrases(result.id, texts.length)
                 .then((r) => r.starts)
                 .catch(() => [])
             : [];
           next = starts.length
             ? placeOnPhrases(texts, starts, result.duration)
             : spreadEvenly(texts, result.duration);
-          setError(
-            starts.length
-              ? "노래가 시작하는 자리에 고르게 놓았습니다. 어긋나면 가사 화면에서 줄을 눌러 맞춰 주세요."
-              : "시각을 알 수 없어 고르게 나눠 놓았습니다. 가사 화면에서 줄을 눌러 맞춰 주세요.",
-          );
         }
       }
 

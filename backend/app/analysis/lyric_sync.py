@@ -35,8 +35,12 @@ _SEARCH = 2.0
 _STEP = 0.05
 
 
-def vocal_onsets(vocals_path: Path) -> list[float]:
-    """보컬이 울리기 시작하는 시각들. 트랙이 없으면 빈 목록."""
+def vocal_onsets(vocals_path: Path, quiet_before: float = 0.0) -> list[float]:
+    """보컬이 울리기 시작하는 시각들. 트랙이 없으면 빈 목록.
+
+    quiet_before를 주면 그만큼 조용했던 자리만 센다. 크게 잡을수록
+    숨 쉬는 사이가 빠지고 소절이 바뀌는 자리만 남는다.
+    """
     if not vocals_path.exists():
         return []
     try:
@@ -57,13 +61,42 @@ def vocal_onsets(vocals_path: Path) -> list[float]:
     active = rms > np.percentile(rms, 70) * _ACTIVE_RATIO
 
     hop = float(times[1] - times[0]) if len(times) > 1 else 0.023
-    need = max(int(_QUIET_BEFORE / hop), 1)
+    need = max(int((quiet_before or _QUIET_BEFORE) / hop), 1)
     starts = [
         float(times[i])
         for i in range(need, len(active))
         if active[i] and not active[i - 1] and not active[i - need : i].any()
     ]
     return starts
+
+
+def phrase_starts(vocals_path: Path, want: int = 0) -> list[float]:
+    """노래가 시작하는 자리들. want를 주면 그 개수에 가깝게 골라 준다.
+
+    조용했던 시간을 얼마로 잡느냐에 따라 자리 수가 크게 달라진다 —
+    0.6초로 잡으면 숨 쉬는 사이까지 잡혀 41개, 1.5초로 잡으면 소절이
+    바뀌는 자리만 남는다.
+
+    붙여넣은 가사를 놓을 때는 **줄 수와 자리 수가 비슷해야** 어긋나지
+    않는다. 자리가 두 배면 한 줄 건너 하나씩 골라야 하는데, 숨 쉬는
+    간격이 고르지 않아 뒤로 갈수록 밀린다. 그래서 줄 수에 가장 가까운
+    문턱을 찾아 쓴다.
+    """
+    if want <= 0:
+        return vocal_onsets(vocals_path)
+
+    best: list[float] = []
+    best_gap = None
+    for quiet in (0.5, 0.7, 0.9, 1.2, 1.6, 2.0, 2.5, 3.0):
+        starts = vocal_onsets(vocals_path, quiet)
+        if not starts:
+            continue
+        gap = abs(len(starts) - want)
+        if best_gap is None or gap < best_gap:
+            best, best_gap = starts, gap
+        if gap == 0:
+            break
+    return best
 
 
 def best_offset(line_times: list[float], onsets: list[float]) -> tuple[float, int, int]:
