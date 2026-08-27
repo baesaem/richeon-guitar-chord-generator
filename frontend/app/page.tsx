@@ -19,6 +19,7 @@ import { ChordPicker } from "@/components/ChordPicker";
 import { LyricEditor, LyricRow } from "@/components/LyricEditor";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
+import { measureOutputLatency } from "@/lib/latency";
 import { clearChordAt, setChordAt } from "@/lib/editChords";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
@@ -104,6 +105,19 @@ export default function Home() {
   // 가사 고치기: 지금 고르고 있는 줄 번호(없으면 null)
   const [editLyric, setEditLyric] = useState<number | null>(null);
   const [lyricBusy, setLyricBusy] = useState(false);
+  // 기기가 소리를 내보내는 데 걸리는 시간. 한 번만 재서 설정에 담는다.
+  // 곡이 아니라 기기의 성질이라 모든 곡에 함께 적용된다.
+  useEffect(() => {
+    if (settings.latency !== 0) return;
+    let alive = true;
+    measureOutputLatency().then((sec) => {
+      if (alive && sec > 0) setSettings({ ...settings, latency: sec });
+    });
+    return () => {
+      alive = false;
+    };
+    // 한 번만 잰다. 설정이 바뀔 때마다 다시 잴 이유가 없다.
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // 악보보기 모달에서 무엇을 볼지
   const [sheetTab, setSheetTab] = useState<
     "score" | "grid" | "lyrics" | "web" | "mine"
@@ -190,7 +204,8 @@ export default function Home() {
       const t = playback.getTime();
       stripRef.current?.draw(t);
       // 화면에 표시할 때만 보정을 얹는다. 재생·반복은 실제 시각 그대로.
-      const shownT = t + sync;
+      // 기기 지연(소리가 늦게 나오는 만큼)은 모든 곡에 함께 적용된다.
+      const shownT = t + sync - settings.latency;
       // 다듬은 목록 기준으로 세어야 화면에 그린 코드와 인덱스가 맞는다
       setChordIdx(chordIndexAt(shown.chords, shownT));
       setBarIdx(barIndexAt(bars, shownT));
@@ -209,7 +224,7 @@ export default function Home() {
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [playback, shown, bars, loop, sync]);
+  }, [playback, shown, bars, loop, sync, settings.latency]);
 
   /**
    * 곡을 화면에 올린다.
@@ -797,7 +812,7 @@ export default function Home() {
                 <section className="mx-2 mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
                   <LyricsPane
                     result={result}
-                    time={time + lyricSync}
+                    time={time + lyricSync - settings.latency}
                     online={!!health}
                     onLyrics={(lines) =>
                       setResult((prev) => (prev ? { ...prev, lyrics: lines } : prev))
@@ -1143,7 +1158,12 @@ export default function Home() {
                       text={line.text}
                       // 지금 부르는 줄을 짚어 준다. 이게 없으면 어디를 보고
                       // 있어야 할지 알 수 없어 가사가 어긋난 것처럼 느껴진다.
-                      now={lyricIndexAt(result.lyrics ?? [], time + lyricSync) === i}
+                      now={
+                        lyricIndexAt(
+                          result.lyrics ?? [],
+                          time + lyricSync - settings.latency,
+                        ) === i
+                      }
                       onSeek={() => {
                         playback?.seek(line.t);
                         setTime(line.t);

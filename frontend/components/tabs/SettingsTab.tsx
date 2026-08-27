@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Copyright } from "@/components/Copyright";
 import { LlmSettingsCard } from "@/components/LlmSettingsCard";
 import { Popup } from "@/components/Popup";
+import { measureOutputLatency } from "@/lib/latency";
 import { markAdminSession, type Notation, type Settings, type Theme } from "@/lib/settings";
 import type { Health } from "@/lib/types";
 
@@ -42,6 +43,7 @@ const NOTATIONS: { value: Notation; label: string }[] = [
 ];
 
 export function SettingsTab({ settings, onChange, health }: Props) {
+  const [measuring, setMeasuring] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(
     null,
@@ -235,6 +237,54 @@ export function SettingsTab({ settings, onChange, health }: Props) {
         <p className="mt-1 text-[11px] text-gray-500">
           자동은 조표를 보고 정합니다. Ab장조면 G#이 아니라 Ab으로 적습니다.
         </p>
+      </section>
+
+      <section className="mb-5">
+        <div className="mb-1.5 text-sm font-medium">기기 지연 보정</div>
+        <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          소리는 화면보다 조금 늦게 납니다. 블루투스 이어폰·스피커는 특히
+          늦습니다. 브라우저가 알려 주는 값을 그대로 쓰며, 모든 곡에
+          적용됩니다. 인터넷 속도와는 관계가 없습니다.
+        </p>
+        <div className="flex items-center gap-1.5">
+          <button
+            className="rounded bg-gray-100 px-3 py-1.5 text-xs dark:bg-gray-800"
+            onClick={() =>
+              set("latency", Math.max(Math.round((settings.latency - 0.02) * 100) / 100, 0))
+            }
+          >
+            −
+          </button>
+          <span className="w-16 text-center text-sm tabular-nums">
+            {settings.latency.toFixed(2)}초
+          </span>
+          <button
+            className="rounded bg-gray-100 px-3 py-1.5 text-xs dark:bg-gray-800"
+            onClick={() =>
+              set("latency", Math.min(Math.round((settings.latency + 0.02) * 100) / 100, 1))
+            }
+          >
+            +
+          </button>
+          <button
+            className="ml-auto rounded bg-gray-100 px-2.5 py-1.5 text-[11px] disabled:opacity-40 dark:bg-gray-800"
+            disabled={measuring}
+            onClick={async () => {
+              setMeasuring(true);
+              const sec = await measureOutputLatency();
+              set("latency", sec);
+              setMeasuring(false);
+            }}
+          >
+            {measuring ? "재는 중…" : "다시 재기"}
+          </button>
+        </div>
+        {settings.latency === 0 && (
+          <p className="mt-1.5 text-[11px] leading-snug text-gray-400">
+            이 브라우저는 값을 알려 주지 않습니다(사파리 등). 소리보다 화면이
+            빠르게 느껴지면 +로 조금씩 올려 보세요.
+          </p>
+        )}
       </section>
 
       {/* 서버 관련 메뉴는 관리자만. 수강생은 서버 없이 공유 폴더로 곡을 받는다. */}

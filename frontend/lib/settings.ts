@@ -32,6 +32,14 @@ export interface Settings {
   theme: Theme;
   /** 곡 전체 코드 그리드를 펼쳐 둘지 */
   showGrid: boolean;
+  /**
+   * 기기 지연 보정(초). 소리가 화면보다 늦게 나오는 만큼 화면을 늦춘다.
+   *
+   * 브라우저가 알려 주는 출력 지연을 그대로 쓴다. 곡이 아니라 기기의
+   * 성질이라 곡마다가 아니라 여기에 둔다 — 한 번 정해지면 모든 곡에
+   * 적용된다.
+   */
+  latency: number;
   /** 관리자 모드. 공유 폴더 관리 기능(드라이브 열기 등)이 보인다 */
   adminMode: boolean;
   /** 관리자 로그인 유지. 끄면 브라우저를 닫을 때 관리자 모드가 풀린다 */
@@ -53,6 +61,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSave: true,
   theme: "system",
   showGrid: true,
+  latency: 0,
   adminMode: false,
   adminKeep: true,
   chordVocab: "all",
