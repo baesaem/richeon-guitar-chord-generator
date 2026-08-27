@@ -63,7 +63,7 @@ const ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: "chords",
-    label: "코드목록",
+    label: "기타 기초",
     icon: (
       <>
         <rect x="4" y="3.5" width="16" height="17" rx="1.5" />

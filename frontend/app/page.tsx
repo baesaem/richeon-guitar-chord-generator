@@ -593,7 +593,7 @@ export default function Home() {
       {backendDown && settings.adminMode && (
         <p className="shrink-0 bg-amber-50 px-3 py-1.5 text-[11px] leading-snug text-amber-800">
           분석 서버에 연결되지 않았습니다. 새 분석은 안 되지만, 재생목록의
-          기기 저장 곡과 코드리스트는 그대로 쓸 수 있습니다. 서버 주소는 설정
+          기기 저장 곡과 기타 기초는 그대로 쓸 수 있습니다. 서버 주소는 설정
           탭에서 지정합니다.
         </p>
       )}
