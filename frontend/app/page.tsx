@@ -591,8 +591,33 @@ export default function Home() {
                 {/* 곡 이름. 영상 안에도 적혀 있지만 접으면 사라지고, 유튜브가
                     아닌 곡(업로드)에는 아예 없다. 지금 무슨 곡을 보고 있는지는
                     늘 보여야 한다. */}
-                <div className="truncate border-b border-gray-200 px-2.5 py-1.5 text-xs font-medium dark:border-gray-700">
-                  {result.title || "제목 없음"}
+                <div className="flex items-center gap-1.5 border-b border-gray-200 px-2.5 py-1.5 dark:border-gray-700">
+                  {/* 어디서 온 곡인지 아이콘으로. YouTube면 빨간 재생 딱지,
+                      올린 곡이면 음표 */}
+                  {result.source === "youtube" ? (
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-4 shrink-0" aria-hidden="true">
+                      <rect x="1" y="5" width="22" height="14" rx="4" fill="#FF0000" />
+                      <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
+                    </svg>
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.9}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 18V6l10-2v11" />
+                      <circle cx="6.5" cy="18" r="2.5" />
+                      <circle cx="16.5" cy="15" r="2.5" />
+                    </svg>
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                    {result.title || "제목 없음"}
+                  </span>
                 </div>
                 <PlayerPane
                   result={result}
