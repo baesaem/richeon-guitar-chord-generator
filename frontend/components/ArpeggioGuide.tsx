@@ -6,16 +6,19 @@
  * 패턴 번호와 손가락 순서, 어느 곡에 쓰는지는 유인물(과 선생님 필기)을
  * 그대로 따른다. 수업에서 부르는 이름과 앱이 다르면 서로 못 알아본다.
  *
+ * 패턴은 글자 나열이 아니라 유인물처럼 **타브 악보**로 그린다. 여섯 줄
+ * 위에 프렛 숫자가 놓여야 어느 줄을 뜯는지 눈으로 바로 보인다.
+ *
  * 유인물은 엄지를 T, 약지를 r로 적지만 세계 공통 표기는 p·i·m·a다.
- * 여기서는 표준 표기로 적고 대응표를 함께 둔다.
+ * 여기서는 표준 표기로 적고 대응만 각주로 남긴다.
  */
 
 /** 뜯는 손가락 이름. 유인물 아래쪽 손 그림의 표기 그대로 */
 const FINGERS = [
-  { pima: "p", cls: "T", es: "pulgar", en: "thumb", ko: "엄지" },
-  { pima: "i", cls: "i", es: "indice", en: "index", ko: "검지" },
-  { pima: "m", cls: "m", es: "medio", en: "middle", ko: "중지" },
-  { pima: "a", cls: "r", es: "anular", en: "ring", ko: "약지" },
+  { pima: "p", es: "pulgar", en: "thumb", ko: "엄지" },
+  { pima: "i", es: "indice", en: "index", ko: "검지" },
+  { pima: "m", es: "medio", en: "middle", ko: "중지" },
+  { pima: "a", es: "anular", en: "ring", ko: "약지" },
 ];
 
 /** 엄지(p)가 짚는 줄. 코드의 근음이 있는 줄이다 */
@@ -25,54 +28,174 @@ const BASS_RULE = [
   { chords: "D", string: "4번줄" },
 ];
 
+/** 보기 코드의 운지 — 줄 번호 → 프렛(0=개방현) */
+const CHORD_FRETS: Record<string, Record<number, number>> = {
+  Am: { 5: 0, 4: 2, 3: 2, 2: 1, 1: 0 },
+  C: { 5: 3, 4: 2, 3: 0, 2: 1, 1: 0 },
+  Dm: { 4: 0, 3: 2, 2: 3, 1: 1 },
+  E7: { 6: 0, 5: 2, 4: 0, 3: 1, 2: 0, 1: 0 },
+};
+
+/** 엄지(p)가 뜯는 근음 줄 */
+const BASS_STRING: Record<string, number> = { Am: 5, C: 5, Dm: 4, E7: 6 };
+
+/** 나머지 손가락이 맡는 줄 — 검지 3번줄, 중지 2번줄, 약지 1번줄 */
+const FINGER_STRING: Record<string, number> = { i: 3, m: 2, a: 1 };
+
 interface Pattern {
   no: number;
-  /** 유인물의 보기 코드 */
-  chord: string;
-  /** 한 마디의 손가락 순서. 8분음표 8칸 기준 */
-  seq: string[];
+  /** 보기 코드. 두 개면 마디 앞·뒤 절반씩 */
+  chords: string[];
+  /** 한 마디(8분음표 8칸)의 손가락. 한 칸에 여러 손가락이면 함께 뜯는다 */
+  seq: string[][];
   /** 선생님 필기 — 이 패턴을 쓰는 곡 */
   songs: string;
   note?: string;
 }
 
+const one = (fs: string) => fs.split(" ").map((f) => [f]);
+
 const PATTERNS: Pattern[] = [
   {
-    no: 1, chord: "Am", seq: ["p", "i", "m", "i", "a", "i", "m", "i"],
+    no: 1, chords: ["Am"], seq: one("p i m i a i m i"),
     songs: "정녕 그대를 · 모두가 사랑이에요",
     note: "제일 많이 쓰는 패턴",
   },
   {
-    no: 2, chord: "C", seq: ["p", "i", "m", "i", "a", "m", "i", "m"],
+    no: 2, chords: ["C"], seq: one("p i m i a m i m"),
     songs: "바위섬",
   },
   {
-    no: 3, chord: "C", seq: ["p", "i", "m", "i", "p", "i", "m", "i"],
+    no: 3, chords: ["C"], seq: one("p i m i p i m i"),
     songs: "J에게 · 이젠 사랑할 수 있어요 · 그대 먼 곳에",
   },
   {
-    no: 4, chord: "C", seq: ["p", "m", "i", "a", "m", "i", "a", "m"],
+    no: 4, chords: ["C"], seq: one("p m i a m i a m"),
     songs: "친구 · 행복한 사람",
   },
   {
-    no: 5, chord: "Am → E7", seq: ["p", "i", "m", "a", "p", "i", "m", "a"],
+    no: 5, chords: ["Am", "E7"], seq: one("p i m a p i m a"),
     songs: "사랑으로 · 촛불",
   },
   {
-    no: 6, chord: "Dm", seq: ["p", "i", "m", "a", "i", "m", "a", "m"],
+    no: 6, chords: ["Dm"], seq: one("p i m a i m a m"),
     songs: "정녕 그대를",
   },
   {
-    no: 7, chord: "Dm", seq: [],
+    no: 7, chords: ["Dm"],
+    seq: [["p"], ["i"], ["m", "a"], ["i"], ["p"], ["i"], ["m", "a"], ["i"]],
     songs: "새벽기차",
-    note: "두 줄을 함께 뜯는 변형 — 유인물의 타브 악보를 그대로 따라 치세요",
+    note: "중지(m)·약지(a)가 2·1번줄을 함께 뜯는 변형입니다. 유인물의 타브와 다르면 유인물을 따르세요.",
   },
   {
-    no: 8, chord: "Dm", seq: ["p", "i", "m", "i", "p", "i", "m", "i"],
+    no: 8, chords: ["Dm"], seq: one("p i m i p i m i"),
     songs: "옛 시인의 노래",
-    note: "표시된 박에서 약지(a)를 함께 뜯습니다",
+    note: "유인물에 표시된 박에서 약지(a)로 1번줄을 함께 뜯습니다.",
   },
 ];
+
+/**
+ * 패턴 한 마디의 타브 악보.
+ *
+ * 여섯 줄(맨 위가 1번줄) 위에 프렛 숫자를 동그라미로 얹는다. 숫자에 배경을
+ * 깔지 않고 칩으로 얹는 건 테마(밝게/어둡게)마다 바탕색이 달라서다.
+ */
+function TabBar({ chords, seq }: { chords: string[]; seq: string[][] }) {
+  const two = chords.length === 2;
+  const LBL = 18; // 줄 번호 자리
+  const COL = 36; // 8분음표 한 칸
+  const TOP = two ? 24 : 12;
+  const GAP = 13;
+  const W = LBL + COL * seq.length + 4;
+  const FY = TOP + GAP * 5 + 17; // 손가락 글자 줄
+  const H = FY + 4;
+  const y = (s: number) => TOP + (s - 1) * GAP;
+  const cx = (k: number) => LBL + COL * k + COL / 2;
+  const chordAt = (k: number) => chords[two && k >= seq.length / 2 ? 1 : 0];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
+      {two &&
+        chords.map((c, i) => (
+          <text
+            key={`${c}${i}`}
+            x={cx(i * (seq.length / 2))}
+            y={12}
+            textAnchor="middle"
+            fontSize={10}
+            fontWeight={700}
+            fill="currentColor"
+          >
+            {c}
+          </text>
+        ))}
+      {[1, 2, 3, 4, 5, 6].map((s) => (
+        <g key={s}>
+          <text
+            x={LBL - 6}
+            y={y(s) + 2.8}
+            textAnchor="end"
+            fontSize={7.5}
+            fill="currentColor"
+            opacity={0.45}
+          >
+            {s}
+          </text>
+          {/* 6번줄은 굵은 줄 — 지판과 음정 페이지와 같은 감각 */}
+          <line
+            x1={LBL}
+            x2={W - 2}
+            y1={y(s)}
+            y2={y(s)}
+            stroke="currentColor"
+            strokeOpacity={0.25}
+            strokeWidth={s === 6 ? 1.6 : 1}
+          />
+        </g>
+      ))}
+      {seq.map((fs, k) => (
+        <g key={k}>
+          {fs.map((f) => {
+            const chord = chordAt(k);
+            const str = f === "p" ? BASS_STRING[chord] : FINGER_STRING[f];
+            const fret = CHORD_FRETS[chord][str];
+            return (
+              <g key={f}>
+                <circle
+                  cx={cx(k)}
+                  cy={y(str)}
+                  r={7}
+                  fill={f === "p" ? "var(--accent)" : "#6b7280"}
+                />
+                <text
+                  x={cx(k)}
+                  y={y(str) + 3.2}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={700}
+                  fill="#fff"
+                >
+                  {fret}
+                </text>
+              </g>
+            );
+          })}
+          <text
+            x={cx(k)}
+            y={FY}
+            textAnchor="middle"
+            fontSize={10}
+            fontWeight={700}
+            fontFamily="ui-monospace, monospace"
+            fill={fs.includes("p") ? "var(--accent)" : "currentColor"}
+            opacity={fs.includes("p") ? 1 : 0.6}
+          >
+            {fs.join("")}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 export function ArpeggioGuide() {
   return (
@@ -85,11 +208,10 @@ export function ArpeggioGuide() {
 
       <h3 className="mb-1 text-sm font-semibold">뜯는 손가락</h3>
       <div className="mb-1.5 overflow-x-auto">
-        <table className="w-full min-w-[300px] text-center text-xs">
+        <table className="w-full min-w-[260px] text-center text-xs">
           <thead>
             <tr className="text-[10px] text-gray-400">
               <th className="py-1 font-normal">표기</th>
-              <th className="font-normal">유인물</th>
               <th className="font-normal">손가락</th>
               <th className="font-normal">스페인어</th>
               <th className="font-normal">영어</th>
@@ -101,7 +223,6 @@ export function ArpeggioGuide() {
                 <td className="py-1.5 font-mono text-sm font-bold text-[var(--accent)]">
                   {f.pima}
                 </td>
-                <td className="font-mono">{f.cls}</td>
                 <td className="font-medium">{f.ko}</td>
                 <td className="text-gray-500">{f.es}</td>
                 <td className="text-gray-500">{f.en}</td>
@@ -117,7 +238,8 @@ export function ArpeggioGuide() {
 
       <h3 className="mb-1 text-sm font-semibold">엄지(p)가 짚는 줄</h3>
       <p className="mb-1.5 text-[11px] leading-snug text-gray-500">
-        엄지는 코드의 근음(가장 낮은 음)이 있는 줄을 뜯습니다.
+        엄지는 코드의 근음(가장 낮은 음)이 있는 줄을 뜯습니다. 나머지는
+        검지 3번줄 · 중지 2번줄 · 약지 1번줄이 기본입니다.
       </p>
       <div className="mb-3 flex gap-1.5">
         {BASS_RULE.map((r) => (
@@ -140,25 +262,11 @@ export function ArpeggioGuide() {
           >
             <div className="mb-1 flex items-baseline gap-2">
               <span className="text-sm font-bold">패턴 {p.no}</span>
-              <span className="text-[11px] text-gray-500">보기 코드 {p.chord}</span>
+              <span className="text-[11px] text-gray-500">
+                보기 코드 {p.chords.join(" → ")}
+              </span>
             </div>
-            {p.seq.length > 0 && (
-              <div className="mb-1 flex gap-1">
-                {p.seq.map((f, i) => (
-                  <span
-                    key={i}
-                    className={[
-                      "flex h-7 flex-1 items-center justify-center rounded font-mono text-sm font-bold",
-                      f === "p"
-                        ? "bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-[var(--accent)]"
-                        : "bg-gray-100 dark:bg-gray-800",
-                    ].join(" ")}
-                  >
-                    {f}
-                  </span>
-                ))}
-              </div>
-            )}
+            <TabBar chords={p.chords} seq={p.seq} />
             {p.note && (
               <p className="text-[11px] leading-snug text-gray-500">{p.note}</p>
             )}
@@ -167,8 +275,9 @@ export function ArpeggioGuide() {
         ))}
       </ul>
       <p className="mt-2 text-[10px] leading-snug text-gray-400">
-        한 칸이 8분음표 하나입니다(4/4 한 마디 = 8칸). 색이 든 칸이 엄지(p) —
-        마디의 근음 자리입니다.
+        여섯 줄이 기타 줄이고 맨 위가 1번줄(가는 줄)입니다. 숫자는 누르는
+        프렛(0=개방현), 한 칸이 8분음표 하나(4/4 한 마디 = 8칸)입니다. 색이
+        든 음이 엄지(p)가 뜯는 근음입니다.
       </p>
     </div>
   );
