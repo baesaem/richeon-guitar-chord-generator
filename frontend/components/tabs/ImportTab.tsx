@@ -23,7 +23,13 @@ import {
   rmlBaseOf,
   songTitleOf,
 } from "@/lib/sharedFiles";
-import { STAGE_LABEL, type Health, type JobStatus } from "@/lib/types";
+import { changedSongs, alreadySame, type SongChange } from "@/lib/songDiff";
+import {
+  STAGE_LABEL,
+  type AnalysisResult,
+  type Health,
+  type JobStatus,
+} from "@/lib/types";
 
 const DRIVE_FOLDER_ID = "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd";
 const DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`;
@@ -108,6 +114,11 @@ export function ImportTab({
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [fetching, setFetching] = useState<string | null>(null);
   const [sharedNotice, setSharedNotice] = useState<string | null>(null);
+  // 받아 보니 기기에 있는 것과 달라진 곡들. 물어보고 나서 덮어쓴다.
+  const [pending, setPending] = useState<{
+    changes: SongChange[];
+    apply: () => Promise<void>;
+  } | null>(null);
   // 이미 받아서 기기에 남아 있는 드라이브 파일들
   const [fetched, setFetched] = useState<Set<string>>(new Set());
   // 목록 필터. 자동 동기화가 대부분 받아 두므로 기본은 '받지 않음'만 보여준다.
@@ -143,46 +154,179 @@ export function ImportTab({
   const audioBases = new Set(
     (shared ?? []).map((f) => audioBaseOf(f.name)).filter(Boolean),
   );
+  // 지금 걸러 놓은 것 기준으로 화면에 보이는 곡. 목록과 「모두 받기」가
+  // 같은 것을 보게 한 곳에서 계산한다.
+  const visible = (sharedSongs ?? []).filter((file) => {
+    const done = fetched.has(file.id);
+    if (filter === "unfetched") return !done;
+    if (filter === "fetched") return done;
+    return true;
+  });
 
-  /** 고른 곡을 내려받아 기기 저장 재생목록에 넣는다. 짝 음원도 함께. */
+  /**
+   * 공유 파일을 받아 해석만 한다. 저장은 아직 하지 않는다.
+   *
+   * 받아 봐야 기기에 있는 것과 같은지 알 수 있고, 다르면 물어보고 나서
+   * 덮어야 하기 때문에 「받기」와 「담기」를 나눴다.
+   */
+  const loadShared = async (file: SharedFile) => {
+    const text = await fileText(file.id);
+    const data = JSON.parse(text) as unknown;
+    // 곡 꾸러미면 코드뿐 아니라 웹 악보·연주설정까지 함께 들어 있다.
+    // 옛 파일(분석 결과만)도 그대로 읽힌다.
+    const results = isBundle(data) ? [data.result] : parseResultsText(text);
+    return { data, results };
+  };
+
+  /** 해석해 둔 것을 기기에 담는다. 짝 음원도 함께. */
+  const applyShared = async (
+    file: SharedFile,
+    data: unknown,
+    results: AnalysisResult[],
+  ) => {
+    if (isBundle(data)) await openBundle(data);
+    else for (const result of results) await saveLocal(result);
+    markFetched(file.id, results.map((r) => r.id));
+
+    // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
+    // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다.
+    let withAudio = 0;
+    for (const audioFile of shared ?? []) {
+      const audioId = audioIdFromName(audioFile.name);
+      if (!audioId || !results.some((r) => r.id === audioId)) continue;
+      await saveLocalAudio(audioId, await fileBlob(audioFile.id));
+      markFetched(audioFile.id, [audioId]);
+      withAudio += 1;
+    }
+    return { results, withAudio };
+  };
+
+  /** 담은 뒤 알림 한 줄 */
+  const doneNotice = async (results: AnalysisResult[], withAudio: number) => {
+    await refreshFetched();
+    const suffix = withAudio > 0 ? " (음원 포함)" : "";
+    setSharedNotice(
+      results.length === 1
+        ? `재생목록에 담았습니다: ${results[0].title || results[0].id}${suffix}`
+        : `${results.length}곡을 재생목록에 담았습니다.${suffix}`,
+    );
+  };
+
+  /** 한 곡 받기 버튼. 이미 받은 곡이 달라졌으면 물어보고 덮는다. */
   const fetchShared = async (file: SharedFile) => {
     setFetching(file.id);
     setSharedError(null);
     setSharedNotice(null);
     try {
-      const text = await fileText(file.id);
-      const data = JSON.parse(text) as unknown;
+      const { data, results } = await loadShared(file);
+      const changes = await changedSongs(results);
 
-      // 곡 꾸러미면 코드뿐 아니라 웹 악보·내 악보·연주설정까지 함께 푼다.
-      // 옛 파일(분석 결과만)도 그대로 들어온다.
-      const results = isBundle(data) ? [data.result] : parseResultsText(text);
-      if (isBundle(data)) await openBundle(data);
-      else for (const result of results) await saveLocal(result);
-      markFetched(file.id, results.map((r) => r.id));
-
-      // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
-      // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다.
-      let withAudio = 0;
-      for (const audioFile of shared ?? []) {
-        const audioId = audioIdFromName(audioFile.name);
-        if (!audioId || !results.some((r) => r.id === audioId)) continue;
-        await saveLocalAudio(audioId, await fileBlob(audioFile.id));
-        markFetched(audioFile.id, [audioId]);
-        withAudio += 1;
+      if (changes.length > 0) {
+        setPending({
+          changes,
+          apply: async () => {
+            const got = await applyShared(file, data, results);
+            await doneNotice(got.results, got.withAudio);
+          },
+        });
+        return;
       }
-
-      await refreshFetched();
-      const suffix = withAudio > 0 ? " (음원 포함)" : "";
-      setSharedNotice(
-        results.length === 1
-          ? `재생목록에 담았습니다: ${results[0].title || results[0].id}${suffix}`
-          : `${results.length}곡을 재생목록에 담았습니다.${suffix}`,
-      );
+      if (await alreadySame(results)) {
+        await refreshFetched();
+        setSharedNotice("이미 받은 것과 같습니다. 그대로 두었습니다.");
+        return;
+      }
+      const got = await applyShared(file, data, results);
+      await doneNotice(got.results, got.withAudio);
     } catch (e) {
       setSharedError(`가져오기 실패: ${(e as Error).message}`);
     } finally {
       setFetching(null);
     }
+  };
+
+  /**
+   * 목록에 보이는 곡을 모두 받는다.
+   *
+   * 한 곡이 실패해도 멈추지 않는다 — 스무 곡 받다가 하나 깨졌다고 나머지
+   * 열아홉 곡을 못 받으면 곤란하다. 끝에 몇 곡이 실패했는지 알려 준다.
+   */
+  const fetchAll = async (files: SharedFile[]) => {
+    setSharedError(null);
+    setSharedNotice(null);
+    let songs = 0;
+    let audio = 0;
+    const failed: string[] = [];
+
+    let same = 0;
+    const conflicts: {
+      file: SharedFile;
+      data: unknown;
+      results: AnalysisResult[];
+      changes: SongChange[];
+    }[] = [];
+
+    for (const file of files) {
+      setFetching(file.id);
+      try {
+        const { data, results } = await loadShared(file);
+        const changes = await changedSongs(results);
+        if (changes.length > 0) {
+          conflicts.push({ file, data, results, changes });
+          continue;
+        }
+        if (await alreadySame(results)) {
+          same += 1;
+          continue;
+        }
+        const got = await applyShared(file, data, results);
+        songs += got.results.length;
+        audio += got.withAudio;
+      } catch {
+        failed.push(songTitleOf(file.name));
+      }
+    }
+    setFetching(null);
+    await refreshFetched();
+
+    const tail =
+      (same > 0 ? ` · ${same}곡은 그대로(같음)` : "") +
+      (failed.length > 0 ? ` · ${failed.length}곡 실패` : "");
+
+    // 달라진 곡은 한 번에 물어본다. 스무 곡을 하나씩 묻지 않는다.
+    if (conflicts.length > 0) {
+      setPending({
+        changes: conflicts.flatMap((c) => c.changes),
+        apply: async () => {
+          let more = 0;
+          let moreAudio = 0;
+          for (const c of conflicts) {
+            try {
+              const got = await applyShared(c.file, c.data, c.results);
+              more += got.results.length;
+              moreAudio += got.withAudio;
+            } catch {
+              failed.push(songTitleOf(c.file.name));
+            }
+          }
+          await refreshFetched();
+          const audioNote = audio + moreAudio > 0 ? ` (음원 ${audio + moreAudio}곡 포함)` : "";
+          setSharedNotice(`${songs + more}곡을 재생목록에 담았습니다.${audioNote}${tail}`);
+        },
+      });
+      return;
+    }
+
+    if (songs === 0 && same === 0 && failed.length > 0) {
+      setSharedError(`받지 못했습니다: ${failed.join(", ")}`);
+      return;
+    }
+    const suffix = audio > 0 ? ` (음원 ${audio}곡 포함)` : "";
+    setSharedNotice(
+      (songs > 0 ? `${songs}곡을 재생목록에 담았습니다.` : "새로 받을 것이 없습니다.") +
+        suffix +
+        tail,
+    );
   };
 
   return (
@@ -408,6 +552,47 @@ export function ImportTab({
         </Popup>
       )}
 
+      {/* ---- 바뀐 곡 덮어쓸지 묻기 ---- */}
+      {pending && (
+        <Popup title="바뀐 곡이 있습니다" onClose={() => setPending(null)} width="max-w-xs">
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            이미 받아 둔 곡과 내용이 다릅니다. 새 것으로 바꿀까요? 바꾸면
+            지금 기기에 있는 것은 없어집니다.
+          </p>
+          <ul className="mb-3 max-h-48 space-y-1.5 overflow-y-auto">
+            {pending.changes.map((c) => (
+              <li key={c.title} className="rounded bg-gray-50 p-2 dark:bg-gray-800">
+                <div className="truncate text-xs font-medium">{c.title}</div>
+                <div className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                  {c.notes.join(" · ")}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <button
+              className="flex-1 rounded bg-gray-100 py-2.5 text-sm dark:bg-gray-800"
+              onClick={() => {
+                setPending(null);
+                setSharedNotice("그대로 두었습니다.");
+              }}
+            >
+              그대로 두기
+            </button>
+            <button
+              className="flex-1 rounded bg-black py-2.5 text-sm text-white dark:bg-white dark:text-black"
+              onClick={async () => {
+                const job = pending.apply;
+                setPending(null);
+                await job().catch((e) => setSharedError((e as Error).message));
+              }}
+            >
+              새 것으로
+            </button>
+          </div>
+        </Popup>
+      )}
+
       {/* ---- 강상기타반 모달 ---- */}
       {open === "shared" && (
         <Popup title="강상기타반" onClose={() => setOpen(null)}>
@@ -461,7 +646,7 @@ export function ImportTab({
             <p className="text-xs text-gray-400">폴더에 아직 곡이 없습니다.</p>
           ) : (
             <>
-            <div className="mb-2 flex gap-1.5">
+            <div className="mb-2 flex items-center gap-1.5">
               {SHARED_FILTERS.map((f) => (
                 <button
                   key={f.value}
@@ -477,20 +662,33 @@ export function ImportTab({
                 </button>
               ))}
             </div>
+
+            {/* 지금 보이는 곡을 한 번에. 스무 곡을 하나씩 누르게 하지 않는다 */}
+            {visible.length > 0 && (
+              <button
+                className="mb-2 w-full rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
+                disabled={fetching !== null}
+                onClick={() => fetchAll(visible)}
+              >
+                {fetching !== null
+                  ? "받는 중…"
+                  : filter === "fetched"
+                    ? `보이는 ${visible.length}곡 다시 받기`
+                    : `보이는 ${visible.length}곡 모두 받기`}
+              </button>
+            )}
+
             <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-              {sharedSongs?.filter((file) => {
-                const done = fetched.has(file.id);
-                if (filter === "unfetched") return !done;
-                if (filter === "fetched") return done;
-                return true;
-              }).map((file) => {
+              {visible.map((file) => {
                 const done = fetched.has(file.id);
                 const hasAudio = audioBases.has(rmlBaseOf(file.name));
                 return (
                   <li key={file.id}>
+                    {/* 받은 곡도 다시 받을 수 있다. 선생님이 코드를 고쳐
+                        올렸을 때 새 것으로 바꿔야 한다 */}
                     <button
                       className="flex w-full items-center gap-2 py-2.5 text-left disabled:opacity-50"
-                      disabled={done || fetching !== null}
+                      disabled={fetching !== null}
                       onClick={() => fetchShared(file)}
                     >
                       <span className="min-w-0 flex-1 truncate text-sm">
@@ -502,10 +700,14 @@ export function ImportTab({
                       <span
                         className={[
                           "shrink-0 text-[11px]",
-                          done ? "text-green-700" : "text-gray-500",
+                          done ? "text-gray-500" : "text-gray-500",
                         ].join(" ")}
                       >
-                        {done ? "받았음" : fetching === file.id ? "받는 중…" : "받기"}
+                        {fetching === file.id
+                          ? "받는 중…"
+                          : done
+                            ? "다시 받기"
+                            : "받기"}
                       </span>
                     </button>
                   </li>
