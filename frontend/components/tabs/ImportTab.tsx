@@ -13,7 +13,7 @@ import {
   listSharedDirect,
 } from "@/lib/driveDirect";
 import { isBundle, openBundle } from "@/lib/bundle";
-import { CLASSES, folderUrl } from "@/lib/classes";
+import { CLASSES } from "@/lib/classes";
 import { localIds, parseResultsText, saveLocal, saveLocalAudio } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
 import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
@@ -621,25 +621,9 @@ export function ImportTab({
       {/* ---- 반별 곡 목록 모달 ---- */}
       {klass && (
         <Popup title={klass.name} onClose={() => setOpen(null)}>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[11px] leading-snug text-gray-500">
-              필요한 곡을 골라 「받기」를 누르세요. 재생목록(기기 저장)에 담깁니다.
-            </p>
-            {adminMode && (
-              <a
-                href={folderUrl(klass.folderId)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-[11px] text-gray-500 underline"
-                onClick={(e) => {
-                  e.preventDefault();
-                  openLink(folderUrl(klass.folderId));
-                }}
-              >
-                드라이브에서 열기
-              </a>
-            )}
-          </div>
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            필요한 곡을 골라 「받기」를 누르세요. 재생목록(기기 저장)에 담깁니다.
+          </p>
 
           {sharedNotice && (
             <p className="mb-2 rounded bg-green-50 p-2 text-xs text-green-800">
