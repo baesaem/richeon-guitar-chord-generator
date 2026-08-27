@@ -270,17 +270,35 @@ export const deleteResult = (id: string) =>
     json<{ deleted: string }>,
   );
 
-/** SSE로 진행률을 구독한다. 반환값을 호출하면 구독을 끊는다. */
+/**
+ * 진행률을 1초 간격 폴링으로 받는다. 반환값을 호출하면 멈춘다.
+ *
+ * 원래 SSE였는데, 실측: Next 개발 프록시(:3000/api)가 SSE 응답을
+ * 통째로 버퍼링해 모든 이벤트가 작업이 끝난 순간 한꺼번에 도착했다 —
+ * 화면은 0%에 멈춘 것처럼 보이다 갑자기 완료로 건너뛴다. 폴링은
+ * 요청 하나하나가 짧게 끝나므로 어떤 프록시 뒤에서도 똑같이 돈다.
+ */
 export function watchJob(
   jobId: string,
   onStatus: (s: JobStatus) => void,
 ): () => void {
-  const es = new EventSource(`${apiBase()}/api/jobs/${jobId}/events`);
-  es.addEventListener("status", (ev) => {
-    const status = JSON.parse((ev as MessageEvent).data) as JobStatus;
-    onStatus(status);
-    if (status.stage === "done" || status.stage === "failed") es.close();
-  });
-  es.onerror = () => es.close();
-  return () => es.close();
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const res = await fetch(`${apiBase()}/api/jobs/${jobId}`);
+      if (res.ok) {
+        const status = (await res.json()) as JobStatus;
+        onStatus(status);
+        if (status.stage === "done" || status.stage === "failed") return;
+      }
+    } catch {
+      // 서버가 잠깐 안 보여도 다음 폴에서 다시 본다
+    }
+    if (!stopped) setTimeout(tick, 1000);
+  };
+  tick();
+  return () => {
+    stopped = true;
+  };
 }
