@@ -264,7 +264,7 @@ export function LibraryTab({
         <div className="truncate text-sm font-medium">{item.title || item.id}</div>
         <div className="mt-0.5 text-[11px] text-gray-500">
           {item.key ? spellKey(item.key) : "조성 미상"} · {Math.round(item.bpm)} BPM ·{" "}
-          {clock(item.duration)} · 코드 {item.chord_count}개
+          {clock(item.duration)}
         </div>
         <div className="text-[10px] text-gray-400">
           {item.source === "youtube" ? "YouTube" : "업로드"} · {when(item.analyzed_at)}

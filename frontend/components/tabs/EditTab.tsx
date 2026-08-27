@@ -94,7 +94,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
                 </div>
                 <div className="mt-0.5 text-[11px] text-gray-500">
                   {song.key ? spellKey(song.key) : "조성 미상"} ·{" "}
-                  {Math.round(song.bpm)} BPM · 코드 {song.chord_count}개
+                  {Math.round(song.bpm)} BPM
                 </div>
               </button>
             </li>
