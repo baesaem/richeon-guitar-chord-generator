@@ -202,6 +202,17 @@ export const fetchLyrics = (id: string, q = "") =>
     { method: "POST" },
   ).then(json<AnalysisResult>);
 
+/**
+ * 붙어 있는 가사를 AI로 다듬는다.
+ *
+ * 자동 자막에서 온 가사는 토막나 있고 글자가 틀린다. 없는 가사를
+ * 지어내는 것이 아니라 이미 있는 글을 고쳐 쓰는 일이라 잘 된다.
+ */
+export const tidyLyrics = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/lyrics/tidy`, { method: "POST" }).then(
+    json<AnalysisResult>,
+  );
+
 /** 사용자가 넣은 가사를 서버 결과에 저장한다. */
 export const putLyrics = (id: string, lyrics: LyricLine[]) =>
   fetch(`${apiBase()}/api/results/${id}/lyrics`, {

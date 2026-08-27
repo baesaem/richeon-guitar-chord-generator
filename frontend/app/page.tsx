@@ -33,6 +33,7 @@ import {
   analyzeUrl,
   putChords,
   putLyrics,
+  tidyLyrics,
   reanalyze,
   getHealth,
   getResult,
@@ -99,6 +100,7 @@ export default function Home() {
   const [undo, setUndo] = useState<Chord[][]>([]);
   // 가사 고치기: 지금 고르고 있는 줄 번호(없으면 null)
   const [editLyric, setEditLyric] = useState<number | null>(null);
+  const [lyricBusy, setLyricBusy] = useState(false);
   // 악보보기 모달에서 무엇을 볼지
   const [sheetTab, setSheetTab] = useState<
     "score" | "grid" | "lyrics" | "web" | "mine"
@@ -408,6 +410,28 @@ export default function Home() {
     if (health) await putLyrics(next.id, rows).catch(() => {});
     // 방금 넣은 줄을 바로 고치게 연다
     setEditLyric(rows.findIndex((l) => l.t === +time.toFixed(2)));
+  };
+
+  /**
+   * 가사를 AI로 다듬는다.
+   *
+   * 자동 자막에서 온 가사는 토막나 있고 글자가 틀린다("바라미 차가워진").
+   * 이미 있는 글을 고쳐 쓰는 일이라 AI가 잘한다 — 실측에서 52줄 토막이
+   * 25줄 소절로 정리되고 잘못 인식된 낱말들이 바로잡혔다.
+   */
+  const tidyWithAi = async () => {
+    if (!result?.lyrics?.length || !health) return;
+    setLyricBusy(true);
+    setError(null);
+    try {
+      const updated = await tidyLyrics(result.id);
+      setResult(updated);
+      await saveLocal(updated).catch(() => {});
+    } catch (e) {
+      setError(`가사를 다듬지 못했습니다: ${(e as Error).message}`);
+    } finally {
+      setLyricBusy(false);
+    }
   };
 
   /** 마지막 고침을 되돌린다. */
@@ -1073,6 +1097,16 @@ export default function Home() {
 
               {sheetTab === "lyrics" && (
                 <div className="text-[13px] leading-relaxed">
+                  {/* 자동 자막에서 온 가사를 다듬는다. 서버가 있어야 한다 */}
+                  {health && (result.lyrics ?? []).length > 1 && (
+                    <button
+                      className="mb-2 w-full rounded bg-[var(--accent)] py-2 text-xs text-white disabled:opacity-40"
+                      disabled={lyricBusy}
+                      onClick={tidyWithAi}
+                    >
+                      {lyricBusy ? "다듬는 중…" : "AI로 가사 다듬기"}
+                    </button>
+                  )}
                   {editMode && (
                     <button
                       className="mb-2 w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"

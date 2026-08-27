@@ -17,6 +17,7 @@ from .analysis.separate import instrumental_path, separate
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
 from .lyrics import fetch_lyrics_blocking
+from . import llm
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
 from .sheets import clean_query, search as search_sheets
@@ -514,6 +515,46 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
 
     result.lyrics = lyrics
     result.lyrics_approx = approx
+    save_result(result)
+    return result
+
+
+@app.post("/api/results/{result_id}/lyrics/tidy")
+async def tidy_lyrics_endpoint(result_id: str) -> AnalysisResult:
+    """붙어 있는 가사를 AI로 다듬는다.
+
+    자동 자막에서 온 가사는 토막나 있고 글자가 틀린다. 없는 가사를
+    지어내는 것이 아니라 이미 있는 글을 고쳐 쓰는 일이라, 이건 LLM이
+    실제로 잘한다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    if not result.lyrics:
+        raise HTTPException(400, "다듬을 가사가 없습니다")
+    if not llm.enabled():
+        raise HTTPException(400, "가사 도우미(AI) 키가 없습니다")
+
+    rows = await asyncio.to_thread(
+        llm.tidy_lyrics, [{"t": line.t, "text": line.text} for line in result.lyrics]
+    )
+    if not rows:
+        raise HTTPException(502, "다듬지 못했습니다")
+
+    lines = [
+        LyricLine(
+            t=row["t"],
+            end=rows[i + 1]["t"] if i + 1 < len(rows) else result.duration,
+            text=row["text"],
+        )
+        for i, row in enumerate(rows)
+    ]
+    result.lyrics = lines
+    # 다듬은 가사는 사람이 한 번 봐야 한다. 알아듣지 못한 구간을 그럴듯하게
+    # 메우는 일이 있어서다.
+    result.lyrics_approx = True
     save_result(result)
     return result
 

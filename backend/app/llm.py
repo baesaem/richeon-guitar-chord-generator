@@ -323,3 +323,72 @@ def spread_lines(lines: list[str], duration: float) -> list[dict]:
         start = round(span_start + i * step, 2)
         out.append({"t": start, "end": round(start + step, 2), "text": text})
     return out
+
+
+# ── 자동 자막 다듬기 ──────────────────────────────────────────────
+#
+# 이건 LLM이 잘하는 일이다. 없는 가사를 지어내라는 것이 아니라, 이미
+# 손에 있는 글을 고쳐 쓰는 일이기 때문이다.
+#
+# 실측(허만성 「우리 사랑 기억하겠네」 자동 자막 52줄):
+#   "바라미 차가워진" → "바람이 차가워진"
+#   "바람에 나연만이" → "바람에 낙엽만이"
+#   "어둠속에 한줄기 미은" → "어둠 속에 한 줄기 빛은"
+#   "그대 나의 마음 말아 주려는" → "그대 나의 마음 알아주려는"
+#   토막 52줄 → 소절 25줄
+#
+# 다만 알아듣지 못한 구간은 그럴듯하게 메우기도 한다. 그래서 다듬은
+# 가사에는 표시를 남기고, 화면에서 고칠 수 있게 해 둔다.
+
+_TIDY_PROMPT = """다음은 노래 영상의 자동 자막입니다. 자동 인식이라 토막나 있고
+글자가 틀립니다. 사람이 읽을 수 있는 가사로 다듬어 주세요.
+
+규칙:
+- 토막난 조각을 한 소절로 합치세요. 합친 줄의 시각은 **첫 조각의 시각**을 씁니다.
+- 잘못 인식된 글자를 문맥에 맞게 고치세요(예: "바라미"→"바람이").
+- **없는 내용을 지어내지 마세요.** 자막에 없는 소절은 넣지 않습니다. 알아듣기
+  어려운 구간은 들리는 대로 두세요.
+- 뜻이 없는 조각("k" 같은 것)은 버리세요.
+
+JSON 배열만 출력하세요: [[시각, "가사"], ...]
+
+자막:
+{lines}"""
+
+
+def tidy_lyrics(rows: list[dict]) -> list[dict]:
+    """자동 자막을 읽을 만한 가사로 다듬는다. 실패하면 빈 목록.
+
+    rows는 [{"t": 초, "text": "..."}]. 같은 모양으로 돌려준다.
+    """
+    if not enabled() or len(rows) < 2:
+        return []
+
+    joined = [str(row["t"]) + " " + str(row["text"]) for row in rows]
+    lines = "\n".join(joined)
+    try:
+        raw = _chat(_TIDY_PROMPT.format(lines=lines))
+    except Exception:
+        return []
+
+    start, end = raw.find("["), raw.rfind("]")
+    if start < 0 or end <= start:
+        return []
+    try:
+        data = json.loads(raw[start : end + 1])
+    except ValueError:
+        return []
+
+    out = []
+    for item in data:
+        if not isinstance(item, list) or len(item) < 2:
+            continue
+        try:
+            t = float(item[0])
+        except (TypeError, ValueError):
+            continue
+        text = str(item[1]).strip()
+        if text:
+            out.append({"t": round(t, 2), "text": text})
+    out.sort(key=lambda r: r["t"])
+    return out
