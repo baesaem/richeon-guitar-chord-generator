@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Popup } from "@/components/Popup";
 import { fetchLyrics, putLyrics } from "@/lib/api";
 import { saveLocal } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
@@ -37,7 +38,10 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  // 가사를 붙여넣는 창. 파일을 고르는 것보다 이쪽이 손에 익다 —
+  // 가사는 대개 웹에서 긁어 오지 파일로 받지 않는다.
+  const [pasting, setPasting] = useState(false);
+  const [draft, setDraft] = useState("");
 
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -73,14 +77,23 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
     }
   };
 
-  const importFile = async (file: File) => {
+  /**
+   * 붙여넣은 글을 가사로 삼는다.
+   *
+   * 시간 태그가 붙은 LRC면 그 시각을 그대로 쓰고, 자막 파일이면 자막
+   * 시각을, 그냥 가사 글이면 노래 길이에 고르게 편다. 어느 쪽이든
+   * 붙여넣기만 하면 된다.
+   */
+  const applyPasted = async () => {
     setError(null);
     try {
-      const next = parseLyricsText(await file.text(), result.duration);
+      const next = parseLyricsText(draft, result.duration);
       if (!next.length) throw new Error("가사를 읽지 못했습니다");
       await apply(next);
       // 서버가 있으면 그쪽에도 남겨 다음에 열 때 바로 나오게 한다
       if (online) await putLyrics(result.id, next).catch(() => {});
+      setPasting(false);
+      setDraft("");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -88,17 +101,28 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".lrc,.vtt,.srt,.txt,text/plain"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) importFile(f);
-          e.target.value = "";
-        }}
-      />
+      {pasting && (
+        <Popup title="가사 붙여넣기" onClose={() => setPasting(false)}>
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            가사를 붙여넣으세요. 시간이 적힌 가사(.lrc)나 자막 글이면 그 시각을
+            그대로 쓰고, 그냥 가사면 노래 길이에 고르게 나눠 붙입니다.
+          </p>
+          <textarea
+            className="h-48 w-full rounded border px-3 py-2 text-sm"
+            placeholder={"한 줄에 한 소절씩 붙여넣으세요"}
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          <button
+            className="mt-3 w-full rounded bg-[var(--accent)] py-3 text-sm font-medium text-white disabled:opacity-40"
+            disabled={!draft.trim()}
+            onClick={applyPasted}
+          >
+            이 가사로 바꾸기
+          </button>
+        </Popup>
+      )}
 
       {error && (
         <p className="shrink-0 rounded bg-red-50 px-2 py-1 text-[11px] text-red-700">
@@ -144,9 +168,9 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
             </div>
             <button
               className="rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
-              onClick={() => fileRef.current?.click()}
+              onClick={() => setPasting(true)}
             >
-              가사 파일 넣기 (.lrc · 자막)
+              가사 붙여넣기
             </button>
           </div>
         </div>
@@ -177,7 +201,7 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
           )}
           <div className="flex shrink-0 items-center justify-end gap-2 px-3 pb-1 text-[10px] text-gray-400">
             <span>{groups.length}묶음 · {lines.length}줄</span>
-            <button className="underline" onClick={() => fileRef.current?.click()}>
+            <button className="underline" onClick={() => setPasting(true)}>
               가사 바꾸기
             </button>
             <button
