@@ -39,6 +39,7 @@ import {
 } from "@/lib/notation";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
+import { SHEET_SOURCES, sheetQuery } from "@/lib/sheetSearch";
 import { PATTERNS, render } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
@@ -71,6 +72,8 @@ export default function Home() {
   const [showSheet, setShowSheet] = useState(false);
   // 스트로크 패턴 고르기 팝업
   const [showStrums, setShowStrums] = useState(false);
+  // 악보보기 모달에서 무엇을 볼지
+  const [sheetTab, setSheetTab] = useState<"score" | "grid" | "lyrics" | "web">("score");
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   const [vocalOff, setVocalOff] = useState(false);
   const [vocalBusy, setVocalBusy] = useState(false);
@@ -696,38 +699,121 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-              {/* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */}
-              <ChordScore
-                bars={bars}
-                chords={shownChords}
-                strums={result.strums}
-                playNotes={playNotes}
-                currentBar={barIdx}
-                flats={flats}
-                transpose={noteShift}
-                timeSignature={result.time_signature}
-                musicKey={result.key}
-                bpm={result.bpm}
-                onSeek={(t) => {
-                  playback?.seek(t);
-                  setTime(t);
-                }}
-                follow
-              />
+            {/* 한 화면에 다 담으면 스크롤이 길어진다. 볼 것만 골라 본다. */}
+            <div className="flex shrink-0 gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+              {(
+                [
+                  ["score", "악보"],
+                  ["grid", "그리드"],
+                  ["lyrics", "가사"],
+                  ["web", "웹 악보"],
+                ] as const
+              ).map(([value, label]) => {
+                const disabled =
+                  value === "lyrics" && !(result.lyrics && result.lyrics.length > 0);
+                return (
+                  <button
+                    key={value}
+                    disabled={disabled}
+                    onClick={() => setSheetTab(value)}
+                    className={[
+                      "flex-1 rounded-md py-1 text-[13px] font-medium transition-colors",
+                      disabled
+                        ? "text-gray-300 dark:text-gray-600"
+                        : sheetTab === value
+                          ? "bg-gray-200/80 text-black dark:bg-gray-700 dark:text-white"
+                          : "text-gray-500",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
-              <div className="mt-3 mb-1 text-[11px] font-semibold text-gray-500">
-                마디별 코드
-              </div>
-              <ChordSheet
-                bars={bars}
-                chords={shownChords}
-                currentBar={barIdx}
-                currentChord={chordIdx}
-                flats={flats}
-                transpose={noteShift}
-                follow={false}
-              />
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+              {sheetTab === "score" && (
+                /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
+                <ChordScore
+                  bars={bars}
+                  chords={shownChords}
+                  strums={result.strums}
+                  playNotes={playNotes}
+                  currentBar={barIdx}
+                  flats={flats}
+                  transpose={noteShift}
+                  timeSignature={result.time_signature}
+                  musicKey={result.key}
+                  bpm={result.bpm}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                  follow
+                />
+              )}
+
+              {sheetTab === "grid" && (
+                <ChordSheet
+                  bars={bars}
+                  chords={shownChords}
+                  currentBar={barIdx}
+                  currentChord={chordIdx}
+                  flats={flats}
+                  transpose={noteShift}
+                  follow={false}
+                />
+              )}
+
+              {sheetTab === "lyrics" && result.lyrics && (
+                <div className="text-[13px] leading-relaxed">
+                  {result.lyrics.map((line, i) => (
+                    <div
+                      key={`${line.t}-${i}`}
+                      className="cursor-pointer py-0.5"
+                      onClick={() => {
+                        playback?.seek(line.t);
+                        setTime(line.t);
+                      }}
+                    >
+                      {line.text}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {sheetTab === "web" && (
+                <>
+                  {/* 악보를 여기 옮겨 그리지 않고 있는 곳으로 연결한다 —
+                      남이 만든 악보를 복제하면 저작권에 걸린다. */}
+                  <p className="mb-2 text-[11px] leading-snug text-gray-500">
+                    검색어{" "}
+                    <span className="font-medium">{sheetQuery(result.title)}</span>
+                    <br />
+                    누르면 그 사이트에서 정식 악보를 볼 수 있습니다.
+                  </p>
+                  <ul className="space-y-1 pb-2">
+                    {SHEET_SOURCES.map((src) => (
+                      <li key={src.name}>
+                        <a
+                          href={src.url(sheetQuery(result.title))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-xs font-medium">{src.name}</span>
+                            <span className="block text-[11px] leading-snug text-gray-500">
+                              {src.note}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-gray-400">↗</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           </div>
         </div>
