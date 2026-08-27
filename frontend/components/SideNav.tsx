@@ -22,22 +22,22 @@ export function SideNav({
   return (
     <nav className="hidden w-64 shrink-0 flex-col bg-[var(--bar-bg)] md:flex lg:w-72">
       {/* 앱 이름 — 사이드바 머리 */}
-      <div className="flex items-center gap-2.5 px-4 py-4">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      <div className="flex items-center gap-3 px-4 py-5">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
           <Image
             src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/guitar.png`}
             alt=""
             width={20}
             height={32}
-            className="h-7 w-auto"
+            className="h-8 w-auto"
             priority
           />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[17px] font-bold leading-tight tracking-tight">
+          <span className="block truncate text-[20px] font-bold leading-tight tracking-tight">
             <span className="text-[var(--accent)]">리천</span> 기타 교실
           </span>
-          <span className="block text-[11px] leading-tight text-[var(--accent)] opacity-75">
+          <span className="block text-[12px] leading-tight text-[var(--accent)] opacity-75">
             강상주민센터 기타반
           </span>
         </span>

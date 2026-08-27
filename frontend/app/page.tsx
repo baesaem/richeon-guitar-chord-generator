@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
-import { BottomNav, type Tab } from "@/components/BottomNav";
+import { BottomNav, NAV_ITEMS, type Tab } from "@/components/BottomNav";
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
@@ -602,7 +602,7 @@ export default function Home() {
       <div className="mx-auto flex h-dvh min-w-0 w-full max-w-2xl flex-col md:mx-0 md:max-w-none md:border-l md:border-gray-200 md:dark:border-gray-800">
       {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바. */}
       <header className="shrink-0 bg-[var(--bar-bg)]">
-        <div className="flex items-center gap-2.5 px-3 py-2">
+        <div className="flex items-center gap-2.5 px-3 py-2 md:gap-3 md:px-5 md:py-4">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)] md:hidden">
             <Image
               src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/guitar.png`}
@@ -616,8 +616,23 @@ export default function Home() {
           <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight md:hidden">
             <span className="text-[var(--accent)]">리천</span> 기타 교실
           </h1>
-          {/* 넓은 화면: 앱 이름은 사이드바에 있으니 여기는 메뉴 이름 */}
-          <h1 className="hidden min-w-0 flex-1 truncate text-[17px] font-bold tracking-tight md:block">
+          {/* 넓은 화면: 앱 이름은 사이드바에 있으니 여기는 메뉴 이름.
+              앞에 그 메뉴의 아이콘을 세워 어디에 있는지 한눈에 보인다 */}
+          <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] md:flex">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-[22px] w-[22px]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              {NAV_ITEMS.find((i) => i.id === tab)?.icon}
+            </svg>
+          </span>
+          <h1 className="hidden min-w-0 flex-1 truncate text-[22px] font-bold tracking-tight md:block">
             {TAB_TITLE[tab]}
           </h1>
           {/* 이 앱을 누가 쓰는지. 수강생이 여러 앱을 오갈 때 여기서 알아본다.
