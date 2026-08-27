@@ -1,27 +1,28 @@
 "use client";
 
-import type { SheetHit } from "./api";
-import { saveLocal, saveLocalSheet } from "./library";
+import { apiBase, makeInstrumental, type SheetHit } from "./api";
+import { getLocalAudio, saveLocal, saveLocalAudio, saveLocalSheet } from "./library";
 import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
+import { instKey } from "./sharedFiles";
 import { loadSheets, saveSheets } from "./sheetCache";
 import type { AnalysisResult } from "./types";
 
 /**
  * 곡 꾸러미 — 한 곡에 딸린 모든 것을 한 파일에.
  *
- * 음원만 건네면 수강생 화면에는 코드도 가사도 없다. 결과 파일을 따로
- * 챙기게 하면 빠뜨린다. 그래서 한 곡에 관한 것을 전부 한 파일에 담는다.
+ * 음원만 건네면 수강생 화면에는 코드도 가사도 없다. 파일을 여럿 챙기게
+ * 하면 빠뜨린다(반주만 빠진 채 공유된 실사고). 그래서 전부 한 파일에:
  *
  *   - 분석 결과 (코드·비트·가사와 그 시각·파형)
+ *   - 음원과 반주 트랙 (base64 — 곡당 10~20MB, 와이파이에서 받는 조건)
  *   - 찾아 둔 웹 악보 목록
- *   - 곡별 연주설정 (카포·빠르기·반복·싱크 보정)
+ *   - 곡별 연주설정 (카포·빠르기·반복·싱크 보정·주법)
  *
- * 받는 쪽은 파일 하나만 가져오면 만든 사람과 같은 화면을 본다.
+ * 받는 쪽은 파일 하나만 가져오면 만든 사람과 같은 화면·소리를 얻는다.
+ * 반주는 받는 쪽이 저장할지 고를 수 있다(openBundle 옵션).
  *
- * **내 악보는 담지 않는다.** 이미지·PDF를 글자로 바꿔 넣으면 파일이
- * 수십 배로 불어난다(20MB 악보 하나가 27MB). 곡마다 그 짐을 지우면서
- * 공유 폴더로 주고받을 수는 없다. 받은 꾸러미에 들어 있으면 풀기는
- * 한다 — 예전에 만든 파일이 그냥 버려지지는 않게.
+ * **내 악보는 담지 않는다.** 받은 꾸러미에 들어 있으면 풀기는 한다 —
+ * 예전에 만든 파일이 그냥 버려지지는 않게.
  */
 
 const KIND = "richeon-song-bundle";
@@ -32,6 +33,10 @@ export interface SongBundle {
   result: AnalysisResult;
   sheets?: { query: string; items: SheetHit[]; at: number };
   setup?: SongSetup;
+  /** 원곡 음원. data URI — JSON 한 덩어리로 주고받기 위해 */
+  audio?: { dataUrl: string; ext: string };
+  /** 반주(보컬 뺀) 트랙. mp3 */
+  inst?: { dataUrl: string };
   /** 내 악보. data URI로 담는다 — JSON 한 덩어리로 주고받기 위해 */
   mySheet?: { kind: "image" | "pdf"; dataUrl: string };
 }
@@ -47,6 +52,58 @@ export function isBundle(data: unknown): data is SongBundle {
 
 async function fromDataUrl(dataUrl: string): Promise<Blob> {
   return (await fetch(dataUrl)).blob();
+}
+
+function toDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** 음원 MIME → 파일 확장자. 재생에는 MIME이 중요하고 이름은 참고용 */
+function extOf(mime: string): string {
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("mp4") || mime.includes("m4a")) return "m4a";
+  if (mime.includes("ogg") || mime.includes("opus")) return "ogg";
+  return "mp3";
+}
+
+/**
+ * 곡의 원곡 음원을 구한다. 이 기기(수강생) 것을 먼저 보고, 없으면
+ * 서버(관리자 PC)에서 받는다. 어디에도 없으면 null — 꾸러미에서 빠진다.
+ */
+async function findAudio(id: string): Promise<{ blob: Blob; ext: string } | null> {
+  const local = await getLocalAudio(id).catch(() => null);
+  if (local) return { blob: local, ext: extOf(local.type) };
+  try {
+    const res = await fetch(`${apiBase()}/api/audio/${id}`);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const cd = res.headers.get("content-disposition") ?? "";
+    const ext = cd.match(/\.([A-Za-z0-9]+)"?$/)?.[1] ?? extOf(blob.type);
+    return { blob, ext };
+  } catch {
+    return null;
+  }
+}
+
+/** 반주 트랙. 기기 → 서버(없으면 만들어 달라고 한다) 순서 */
+async function findInst(id: string): Promise<Blob | null> {
+  const local = await getLocalAudio(instKey(id)).catch(() => null);
+  if (local) return local;
+  try {
+    let res = await fetch(`${apiBase()}/api/audio/${id}/instrumental`);
+    if (!res.ok) {
+      await makeInstrumental(id);
+      res = await fetch(`${apiBase()}/api/audio/${id}/instrumental`);
+    }
+    return res.ok ? await res.blob() : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -70,6 +127,15 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
   ).some((key) => JSON.stringify(setup[key]) !== JSON.stringify(DEFAULT_SETUP[key]));
   if (touched) bundle.setup = setup;
 
+  // 음원·반주도 담는다 — 파일 하나로 곡이 통째로 옮겨지도록.
+  // 못 구하면 빠질 뿐, 내보내기가 실패하지는 않는다.
+  const audio = await findAudio(result.id);
+  if (audio) {
+    bundle.audio = { dataUrl: await toDataUrl(audio.blob), ext: audio.ext };
+    const inst = await findInst(result.id);
+    if (inst) bundle.inst = { dataUrl: await toDataUrl(inst) };
+  }
+
   return bundle;
 }
 
@@ -79,12 +145,36 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
  * 한 조각이 실패해도 나머지는 들어간다 — 악보 이미지가 깨졌다고 코드까지
  * 못 받으면 곤란하다.
  */
-export async function openBundle(bundle: SongBundle): Promise<string[]> {
+export async function openBundle(
+  bundle: SongBundle,
+  opts: { inst?: boolean } = {},
+): Promise<string[]> {
   const got: string[] = [];
 
   await saveLocal(bundle.result);
   got.push("코드");
   if (bundle.result.lyrics?.length) got.push("가사");
+
+  if (bundle.audio) {
+    try {
+      await saveLocalAudio(bundle.result.id, await fromDataUrl(bundle.audio.dataUrl));
+      got.push("음원");
+    } catch {
+      /* 음원이 깨져도 코드는 들어간다 */
+    }
+  }
+  // 반주는 받는 쪽이 고른다. 기본은 저장 — 빼겠다고 한 경우만 건너뛴다
+  if (bundle.inst && opts.inst !== false) {
+    try {
+      await saveLocalAudio(
+        instKey(bundle.result.id),
+        await fromDataUrl(bundle.inst.dataUrl),
+      );
+      got.push("반주");
+    } catch {
+      /* 무시 */
+    }
+  }
 
   if (bundle.sheets) {
     try {

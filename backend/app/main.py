@@ -417,7 +417,7 @@ async def _make_stem(result_id: str, kind: str) -> dict:
 
     # mp3로 줄여 두고 wav는 남긴다(재분리 없이 다시 인코딩할 수 있게).
     try:
-        await encode_mp3(wav, mp3)
+        await encode_mp3(wav, mp3, bitrate="128k")
     except Exception:
         return {"ready": True, "cached": False}  # 인코딩이 안 되면 wav로 서빙된다
     return {"ready": True, "cached": False}

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AskConfirm, AskText } from "@/components/Ask";
 import { Working } from "@/components/Working";
 import { Copyright } from "@/components/Copyright";
-import { apiBase, deleteResult, getResult, listResults, makeInstrumental } from "@/lib/api";
+import { deleteResult, getResult, listResults } from "@/lib/api";
 import {
   downloadBundle,
   isBundle,
@@ -183,62 +183,22 @@ export function LibraryTab({
    *
    * 결과 파일(.rml)에는 코드·비트·가사·파형이 모두 들어 있다.
    */
+  /**
+   * (관리자) 곡을 통째로 한 파일에 담아 내려받는다.
+   *
+   * 코드·가사·음원·반주가 전부 .rml 하나에 들어간다(곡당 10~20MB).
+   * 파일을 여럿 챙기게 하면 빠뜨린다 — 반주만 빠진 채 공유된 실사고가
+   * 있었다. 드라이브 공유 폴더에는 이 파일 하나만 올리면 된다.
+   */
   const exportAudio = async (item: ResultSummary) => {
-    setWorking("음원 내보내는 중");
+    setWorking("곡 꾸러미 만드는 중");
     try {
-      // 곡 꾸러미부터. 음원이 없어도 코드는 넘길 수 있다
       const result = await getResult(item.id);
       const bundle = await makeBundle(result);
       downloadBundle(bundle);
-
-      const res = await fetch(`${apiBase()}/api/audio/${item.id}`);
-      if (!res.ok) throw new Error(`음원을 찾을 수 없습니다 (${res.status})`);
-      const blob = await res.blob();
-
-      // Content-Disposition의 원본 파일명에서 확장자를 얻는다
-      const cd = res.headers.get("content-disposition") ?? "";
-      const ext = cd.match(/\.([A-Za-z0-9]+)"?$/)?.[1] ?? "mp3";
-
-      const safe = (item.title || item.id)
-        .replace(/[\/:*?"<>|]/g, "_")
-        .trim()
-        .slice(0, 60);
-      const source = item.source === "youtube" ? "YouTube" : "업로드";
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `리천 ${safe}(${source}).${item.id}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      // 반주도 함께 내보낸다. 수강생 기기에는 보컬을 걷어낼 GPU가 없으니
-      // 여기서 만들어 보내는 수밖에 없다. 없으면 그 자리에서 만든다.
-      let withInst = false;
-      try {
-        setWorking("반주 만드는 중");
-        let inst = await fetch(`${apiBase()}/api/audio/${item.id}/instrumental`);
-        if (!inst.ok) {
-          await makeInstrumental(item.id);
-          inst = await fetch(`${apiBase()}/api/audio/${item.id}/instrumental`);
-        }
-        if (inst.ok) {
-          const instBlob = await inst.blob();
-          const instUrl = URL.createObjectURL(instBlob);
-          const b = document.createElement("a");
-          b.href = instUrl;
-          b.download = `리천 ${safe}(반주).${item.id}.inst.mp3`;
-          b.click();
-          URL.revokeObjectURL(instUrl);
-          withInst = true;
-        }
-      } catch {
-        // 반주는 덤이다. 못 만들어도 원곡과 코드는 나간다
-      }
-
       flash(
-        `음원${withInst ? "·반주" : ""}와 곡 파일(${bundleParts(bundle).join(" · ")})을 ` +
-          "내려받았습니다. 드라이브 공유 폴더에 함께 올리세요.",
+        `곡 파일 하나(${bundleParts(bundle).join(" · ")})로 내려받았습니다. ` +
+          "드라이브 공유 폴더에 이 파일만 올리면 됩니다.",
       );
     } catch (e) {
       setError((e as Error).message);
@@ -784,6 +744,8 @@ const TrashIcon = (
 function bundleParts(bundle: SongBundle): string[] {
   const parts = ["코드"];
   if (bundle.result.lyrics?.length) parts.push("가사");
+  if (bundle.audio) parts.push("음원");
+  if (bundle.inst) parts.push("반주");
   if (bundle.sheets?.items.length) parts.push("웹 악보");
   if (bundle.setup) parts.push("연주설정");
   return parts;
