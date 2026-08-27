@@ -5,6 +5,12 @@ import { useState } from "react";
 import { Copyright } from "@/components/Copyright";
 import { LlmSettingsCard } from "@/components/LlmSettingsCard";
 import { Popup } from "@/components/Popup";
+import {
+  canPromptInstall,
+  isInstalled,
+  isIos,
+  promptInstall,
+} from "@/lib/installPrompt";
 import { measureOutputLatency } from "@/lib/latency";
 import { markAdminSession, type Notation, type Settings, type Theme } from "@/lib/settings";
 import type { Health } from "@/lib/types";
@@ -44,6 +50,33 @@ const NOTATIONS: { value: Notation; label: string }[] = [
 
 export function SettingsTab({ settings, onChange, health }: Props) {
   const [measuring, setMeasuring] = useState(false);
+  // 앱 설치. 설치 창을 못 띄우는 환경에서는 방법을 글로 안내한다
+  const [installed] = useState(() => isInstalled());
+  const [installMsg, setInstallMsg] = useState<string | null>(null);
+
+  const install = async () => {
+    setInstallMsg(null);
+    if (canPromptInstall()) {
+      const outcome = await promptInstall();
+      if (outcome === "accepted") {
+        setInstallMsg("설치했습니다. 홈 화면에서 아이콘을 찾아보세요.");
+      }
+      return;
+    }
+    if (isIos()) {
+      setInstallMsg(
+        "아이폰·아이패드: Safari에서 공유 단추(□↑)를 누르고 「홈 화면에 추가」를 고르세요.",
+      );
+    } else if (installed) {
+      setInstallMsg(
+        "이미 설치된 앱으로 실행 중입니다. 다시 설치하려면 홈 화면의 아이콘을 지우고, 브라우저로 이 주소를 열어 다시 설치하세요.",
+      );
+    } else {
+      setInstallMsg(
+        "브라우저 메뉴(⋮)에서 「홈 화면에 추가」 또는 「앱 설치」를 고르세요. 크롬에서 열면 단추 한 번으로 설치됩니다.",
+      );
+    }
+  };
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(
     null,
@@ -110,6 +143,37 @@ export function SettingsTab({ settings, onChange, health }: Props) {
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
       <h2 className="mb-3 text-lg font-bold">설정</h2>
+
+      {/* 앱 설치 — 맨 위. 수강생이 처음 받는 안내가 "홈 화면에 앱을
+          만드세요"라서, 찾기 쉬운 자리에 있어야 한다 */}
+      <section className="mb-5">
+        <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <div className="mb-1 flex items-center gap-2">
+            <span className="text-sm font-medium">앱 설치</span>
+            {installed && (
+              <span className="rounded bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
+                설치된 앱으로 실행 중
+              </span>
+            )}
+          </div>
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            홈 화면에 앱으로 설치하면 브라우저 없이 아이콘으로 바로
+            열립니다. 재설치는 홈 화면의 아이콘을 지운 뒤 여기서 다시
+            설치하면 됩니다.
+          </p>
+          <button
+            className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
+            onClick={install}
+          >
+            {installed ? "다시 설치하기" : "홈 화면에 설치"}
+          </button>
+          {installMsg && (
+            <p className="mt-1.5 rounded bg-gray-100 px-2 py-1.5 text-[11px] leading-snug text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              {installMsg}
+            </p>
+          )}
+        </div>
+      </section>
 
       <section className="mb-5">
         <label className="flex items-start gap-2">
