@@ -738,7 +738,9 @@ export default function Home() {
             // 서버가 있을 때만. 캐시된 오디오를 쓰므로 다시 받지 않는다.
             analyzing={busy}
             onReanalyze={
-              health
+              // 다시 분석은 서버가 하는 일이다. 수강생 화면에는 서버 개념이
+              // 없으므로 버튼도 내지 않는다
+              health && settings.adminMode
                 ? (item, refetch) =>
                     run(() =>
                       reanalyze(item.id, settings.separate, refetch, {

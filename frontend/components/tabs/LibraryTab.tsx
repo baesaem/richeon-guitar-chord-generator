@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AskConfirm, AskText } from "@/components/Ask";
 import { Copyright } from "@/components/Copyright";
-import { apiBase, deleteResult, getResult, listResults, mySheetUrl } from "@/lib/api";
+import { apiBase, deleteResult, getResult, listResults } from "@/lib/api";
 import {
   downloadBundle,
   isBundle,
@@ -178,7 +178,7 @@ export function LibraryTab({
     try {
       // 곡 꾸러미부터. 음원이 없어도 코드는 넘길 수 있다
       const result = await getResult(item.id);
-      const bundle = await makeBundle(result, serverSheet);
+      const bundle = await makeBundle(result);
       downloadBundle(bundle);
 
       const res = await fetch(`${apiBase()}/api/audio/${item.id}`);
@@ -213,7 +213,7 @@ export function LibraryTab({
   const exportOne = async (id: string) => {
     try {
       const result = (await getLocal(id)) ?? (await getResult(id));
-      downloadBundle(await makeBundle(result, adminMode ? serverSheet : undefined));
+      downloadBundle(await makeBundle(result));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -677,21 +677,7 @@ function bundleParts(bundle: SongBundle): string[] {
   const parts = ["코드"];
   if (bundle.result.lyrics?.length) parts.push("가사");
   if (bundle.sheets?.items.length) parts.push("웹 악보");
-  if (bundle.mySheet) parts.push("내 악보");
   if (bundle.setup) parts.push("연주설정");
   return parts;
 }
 
-/** 서버에 등록해 둔 내 악보를 받아 온다. 없으면 null. */
-async function serverSheet(
-  id: string,
-): Promise<{ blob: Blob; kind: "image" | "pdf" } | null> {
-  try {
-    const res = await fetch(mySheetUrl(id));
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return { blob, kind: blob.type === "application/pdf" ? "pdf" : "image" };
-  } catch {
-    return null;
-  }
-}

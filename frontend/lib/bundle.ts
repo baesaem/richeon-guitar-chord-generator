@@ -1,7 +1,7 @@
 "use client";
 
 import type { SheetHit } from "./api";
-import { getLocalSheet, saveLocal, saveLocalSheet } from "./library";
+import { saveLocal, saveLocalSheet } from "./library";
 import { loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { loadSheets, saveSheets } from "./sheetCache";
 import type { AnalysisResult } from "./types";
@@ -14,10 +14,14 @@ import type { AnalysisResult } from "./types";
  *
  *   - 분석 결과 (코드·비트·가사·파형)
  *   - 찾아 둔 웹 악보 목록
- *   - 등록해 둔 내 악보 (이미지·PDF)
  *   - 곡별 연주설정 (카포·빠르기·반복)
  *
  * 받는 쪽은 파일 하나만 가져오면 만든 사람과 같은 화면을 본다.
+ *
+ * **내 악보는 담지 않는다.** 이미지·PDF를 글자로 바꿔 넣으면 파일이
+ * 수십 배로 불어난다(20MB 악보 하나가 27MB). 곡마다 그 짐을 지우면서
+ * 공유 폴더로 주고받을 수는 없다. 받은 꾸러미에 들어 있으면 풀기는
+ * 한다 — 예전에 만든 파일이 그냥 버려지지는 않게.
  */
 
 const KIND = "richeon-song-bundle";
@@ -41,15 +45,6 @@ export function isBundle(data: unknown): data is SongBundle {
   );
 }
 
-function toDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("파일을 읽지 못했습니다"));
-    reader.readAsDataURL(blob);
-  });
-}
-
 async function fromDataUrl(dataUrl: string): Promise<Blob> {
   return (await fetch(dataUrl)).blob();
 }
@@ -60,11 +55,7 @@ async function fromDataUrl(dataUrl: string): Promise<Blob> {
  * 없는 것은 그냥 빠진다 — 악보를 등록하지 않았다고 내보내기가 실패하면
  * 안 된다.
  */
-export async function makeBundle(
-  result: AnalysisResult,
-  /** 서버에 있는 내 악보를 받아 오는 함수. 없으면 기기 저장분만 담는다 */
-  fetchServerSheet?: (id: string) => Promise<{ blob: Blob; kind: "image" | "pdf" } | null>,
-): Promise<SongBundle> {
+export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
   const bundle: SongBundle = { kind: KIND, version: 1, result };
 
   const sheets = loadSheets(result.id);
@@ -76,13 +67,6 @@ export async function makeBundle(
     bundle.setup = setup;
   }
 
-  let sheet = await getLocalSheet(result.id).catch(() => null);
-  if (!sheet && fetchServerSheet) {
-    sheet = await fetchServerSheet(result.id).catch(() => null);
-  }
-  if (sheet) {
-    bundle.mySheet = { kind: sheet.kind, dataUrl: await toDataUrl(sheet.blob) };
-  }
   return bundle;
 }
 
