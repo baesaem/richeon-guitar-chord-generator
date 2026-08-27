@@ -419,7 +419,13 @@ def polish_captions(lines: list[LyricLine]) -> list[LyricLine]:
     """
     if not llm.enabled() or len(lines) < 2:
         return lines
-    rows = llm.tidy_lyrics([{"t": line.t, "text": line.text} for line in lines])
+    payload = [{"t": line.t, "text": line.text} for line in lines]
+    rows = llm.tidy_lyrics(payload)
+    if not rows:
+        # 한 번은 다시 시도한다. 실측에서 같은 곡이 어떤 때는 다듬어지고
+        # 어떤 때는 원시 자막 그대로 남았다 — 호출이 일시적으로 미끄러진
+        # 것이라 두 번째에 대개 된다.
+        rows = llm.tidy_lyrics(payload)
     if not rows:
         return lines
     return [
