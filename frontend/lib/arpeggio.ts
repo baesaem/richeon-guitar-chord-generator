@@ -104,6 +104,27 @@ export function arpPattern(no: number): ArpPattern | null {
   return ARP_PATTERNS.find((p) => p.no === no) ?? null;
 }
 
+/**
+ * 이 곡에 어울리는 아르페지오 패턴. suggestStrum과 같은 태도 —
+ * 정답을 안다고 하지 않고, 박자·빠르기라는 근거를 이유로 함께 내민다.
+ */
+export function suggestArp(
+  timeSignature: string,
+  bpm: number,
+): { no: number; why: string } {
+  const beats = parseInt(timeSignature, 10) || 4;
+  if (beats === 3 || beats === 6) {
+    return { no: 9, why: "3박 계열 곡이라 왈츠 아르페지오가 맞습니다" };
+  }
+  if (bpm > 0 && bpm <= 75) {
+    return { no: 11, why: "느린 곡이라 부드러운 상행–하행이 어울립니다" };
+  }
+  if (bpm >= 120) {
+    return { no: 3, why: "빠른 곡은 엄지가 자주 짚는 단순한 패턴이 흔들리지 않습니다" };
+  }
+  return { no: 1, why: "수업에서 제일 많이 쓰는 기본 패턴입니다" };
+}
+
 /** 손가락이 뜯는 줄 번호(1~6). 뮤트 줄이면 null — 그 음은 없다. */
 export function arpString(finger: string, v: Voicing): number | null {
   if (finger === "p") {

@@ -692,6 +692,8 @@ export default function Home() {
                   onLoop={setLoop}
                   arp={arp}
                   onArp={setArp}
+                  timeSignature={result.time_signature}
+                  bpm={result.bpm}
                   stem={stem}
                   vocalBusy={vocalBusy}
                   vocalError={vocalError}

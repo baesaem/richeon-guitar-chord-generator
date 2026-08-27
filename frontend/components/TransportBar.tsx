@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
+import { ArpPickModal } from "@/components/ArpPick";
 import { Popup } from "@/components/Popup";
-import { ARP_PATTERNS } from "@/lib/arpeggio";
 import { useSettings } from "@/lib/settings";
 import type { StemChoice } from "@/lib/sharedFiles";
 
@@ -28,6 +28,9 @@ interface Props {
   /** 주법. 0 = 스트로크, 1~ = 아르페지오 패턴 번호 */
   arp?: number;
   onArp?: (no: number) => void;
+  /** 아르페지오 패턴 추천에 쓴다 */
+  timeSignature?: string;
+  bpm?: number;
   /** 음원 분리. 서버가 있거나 기기에 트랙이 있으면 된다 */
   stem?: StemChoice;
   onStem?: (next: StemChoice) => void;
@@ -86,6 +89,8 @@ export function SeekBar({
 export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle">) {
   const { duration, time, transpose, rate, loop, sync, lyricSync } = props;
   const [open, setOpen] = useState(false);
+  // 아르페지오 패턴 고르기 창
+  const [arpPick, setArpPick] = useState(false);
   const [settings, setSettings] = useSettings();
 
   const pill = (active: boolean) =>
@@ -160,7 +165,9 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
             기본은 7th·sus 같은 확장 화음을 쉬운 3화음으로 낮춰 보여줍니다.
           </p>
 
-          {/* ---- 주법 (스트로크 / 아르페지오) ---- */}
+          {/* ---- 주법 (스트로크 / 아르페지오) ----
+              번호 칩을 늘어놓지 않는다. 아르페지오를 누르면 곡에 맞는
+              패턴을 추천하고 운지 타브를 미리 보여주는 창이 뜬다. */}
           {props.onArp && (
             <>
               <div className={sectionTitle}>
@@ -170,28 +177,24 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                 <button className={pill(arp === 0)} onClick={() => props.onArp?.(0)}>
                   스트로크
                 </button>
-                <button className={pill(arp > 0)} onClick={() => props.onArp?.(1)}>
-                  아르페지오
+                <button className={pill(arp > 0)} onClick={() => setArpPick(true)}>
+                  아르페지오{arp > 0 ? ` ${arp}` : ""}
                 </button>
               </div>
-              {arp > 0 && (
-                <div className="mb-1 grid grid-cols-7 gap-1">
-                  {ARP_PATTERNS.map((p) => (
-                    <button
-                      key={p.no}
-                      className={pill(arp === p.no)}
-                      onClick={() => props.onArp?.(p.no)}
-                    >
-                      {p.no}
-                    </button>
-                  ))}
-                </div>
-              )}
               <p className="mb-2 text-[11px] leading-snug text-gray-500">
-                아르페지오를 고르면 악보가 그 패턴의 타브로 그려집니다. 패턴
-                설명은 기타 기초 탭에 있습니다.
+                아르페지오를 누르면 이 곡에 맞는 패턴을 추천하고 운지(타브)를
+                미리 보여줍니다. 고른 패턴대로 악보가 그려집니다.
               </p>
               <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+              {arpPick && (
+                <ArpPickModal
+                  current={arp}
+                  timeSignature={props.timeSignature ?? "4/4"}
+                  bpm={props.bpm ?? 0}
+                  onPick={(no) => props.onArp?.(no)}
+                  onClose={() => setArpPick(false)}
+                />
+              )}
             </>
           )}
 

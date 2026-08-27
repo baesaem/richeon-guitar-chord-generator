@@ -36,7 +36,7 @@ const BASS_RULE = [
  * 여섯 줄(맨 위가 1번줄) 위에 프렛 숫자를 동그라미로 얹는다. 숫자에 배경을
  * 깔지 않고 칩으로 얹는 건 테마(밝게/어둡게)마다 바탕색이 달라서다.
  */
-function TabBar({ chords, seq }: { chords: string[]; seq: string[][] }) {
+export function ArpPatternTab({ chords, seq }: { chords: string[]; seq: string[][] }) {
   const two = chords.length === 2;
   const LBL = 18; // 줄 번호 자리
   const COL = 36; // 8분음표 한 칸
@@ -209,7 +209,7 @@ export function ArpeggioGuide() {
                 </span>
               )}
             </div>
-            <TabBar chords={p.chords} seq={p.seq} />
+            <ArpPatternTab chords={p.chords} seq={p.seq} />
             {p.note && (
               <p className="text-[11px] leading-snug text-gray-500">{p.note}</p>
             )}
