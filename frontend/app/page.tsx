@@ -388,33 +388,6 @@ export default function Home() {
         <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_55%,transparent)] to-transparent" />
       </header>
 
-      {/* 분석은 탭을 옮겨 다녀도 계속 돈다. 어디에 있든 보이게 타이틀바
-          바로 아래에 둔다 — 재생목록에서 「분석만」을 누르고 나면 진행 상황을
-          볼 자리가 없었다. */}
-      {busy && status && (
-        <div className="shrink-0 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]">
-          <div className="flex items-center gap-2 px-3 py-1.5">
-            <span
-              className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent"
-              aria-hidden="true"
-            />
-            <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--accent)]">
-              {status.message || STAGE_LABEL[status.stage]}
-            </span>
-            <span className="shrink-0 text-[11px] tabular-nums text-[var(--accent)]">
-              {Math.round(status.progress * 100)}%
-            </span>
-          </div>
-          {/* 진행률 막대. 단계마다 0부터 다시 차는 게 아니라 전체 기준이다 */}
-          <div className="h-0.5 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
-            <div
-              className="h-full bg-[var(--accent)] transition-[width] duration-300"
-              style={{ width: `${Math.max(2, Math.round(status.progress * 100))}%` }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* 서버 관련 안내는 관리자에게만. 수강생 화면은 서버 개념을 모른다. */}
       {backendDown && settings.adminMode && (
         <p className="shrink-0 bg-amber-50 px-3 py-1.5 text-[11px] leading-snug text-amber-800">
@@ -951,6 +924,36 @@ export default function Home() {
               )}
 
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 분석 중 표시. 화면 한가운데 — 탭을 옮겨 다녀도 눈에 띈다.
+          닫는 버튼은 없다. 분석은 중간에 멈출 수 없고, 끝나면 저절로 사라진다. */}
+      {busy && status && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-full max-w-[220px] rounded-2xl bg-white p-5 text-center shadow-xl dark:bg-gray-900">
+            <span
+              className="mx-auto mb-3 block h-9 w-9 animate-spin rounded-full border-[3px] border-[var(--accent)] border-t-transparent"
+              aria-hidden="true"
+            />
+            <p className="text-sm font-medium">분석 중</p>
+            <p className="mt-0.5 truncate text-[11px] text-gray-500">
+              {status.message || STAGE_LABEL[status.stage]}
+            </p>
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+              <div
+                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
+                style={{ width: `${Math.max(3, Math.round(status.progress * 100))}%` }}
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] tabular-nums text-[var(--accent)]">
+              {Math.round(status.progress * 100)}%
+            </p>
           </div>
         </div>
       )}
