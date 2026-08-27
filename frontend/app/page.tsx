@@ -13,6 +13,7 @@ import { Copyright } from "@/components/Copyright";
 import { HomeDashboard } from "@/components/HomeDashboard";
 import { LyricsPane } from "@/components/LyricsPane";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
+import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
 import { ImportTab } from "@/components/tabs/ImportTab";
@@ -38,6 +39,7 @@ import {
 } from "@/lib/notation";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
+import { PATTERNS, render } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
@@ -65,6 +67,10 @@ export default function Home() {
   const [loop, setLoop] = useState<{ a: number; b: number } | null>(null);
   // 가사 보기: 켜면 코드 박스와 곡 전체 코드 자리를 가사가 대신 쓴다
   const [showLyrics, setShowLyrics] = useState(false);
+  // 곡 전체 악보 모달
+  const [showSheet, setShowSheet] = useState(false);
+  // 스트로크 패턴 고르기 팝업
+  const [showStrums, setShowStrums] = useState(false);
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   const [vocalOff, setVocalOff] = useState(false);
   const [vocalBusy, setVocalBusy] = useState(false);
@@ -253,6 +259,19 @@ export default function Home() {
   const cur = view(current);
   const nxt = view(next);
 
+  // 연주설정에서 기본값과 달라진 것만 모은다. 악보 안내줄에 적어
+  // "지금 무슨 설정으로 보고 있는지"를 늘 눈에 두게 한다.
+  const playNotes = useMemo(() => {
+    const out: string[] = [];
+    if (transpose > 0) out.push(`카포 ${transpose}프렛`);
+    else if (transpose < 0) out.push(`이조 ${transpose}`);
+    if (rate !== 1) out.push(`빠르기 ${rate}×`);
+    if (loop) out.push("구간 반복");
+    if (settings.chordVocab === "basic") out.push("코드 기본");
+    if (vocalOff) out.push("보컬 끔");
+    return out;
+  }, [transpose, rate, loop, settings.chordVocab, vocalOff]);
+
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
   const noteShift = -transpose;
@@ -423,13 +442,36 @@ export default function Home() {
                   <ChordScore
                     bars={bars}
                     chords={shownChords}
-                    melody={result.melody}
                     strums={result.strums}
+                    playNotes={playNotes}
+                    headerRight={
+                      <button
+                        className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-medium dark:bg-gray-800"
+                        onClick={() => setShowSheet(true)}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.9}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <rect x="3" y="4" width="18" height="16" rx="2" />
+                          <path d="M3 9h18M8 4v16" />
+                        </svg>
+                        악보보기
+                      </button>
+                    }
                     currentBar={barIdx}
                     flats={flats}
                     transpose={noteShift}
                     timeSignature={result.time_signature}
                     musicKey={result.key}
+                    bpm={result.bpm}
+                    onPickStrum={() => setShowStrums(true)}
                     onSeek={(t) => playback?.seek(t)}
                     visibleLines={2}
                     follow
@@ -499,36 +541,6 @@ export default function Home() {
                       label={nxt.label}
                       width={64}
                       showFingers={false}
-                    />
-                  </div>
-                )}
-              </section>
-
-              {/* 곡 전체를 훑는 마디 그리드. 4칸 × 2줄 높이, 감추기 가능 */}
-              <section className="mx-2 mt-1.5 shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-gray-500">
-                    곡 전체 코드
-                  </span>
-                  <button
-                    className="px-1.5 py-0.5 text-[11px] text-gray-500 underline"
-                    onClick={() =>
-                      setSettings({ ...settings, showGrid: !settings.showGrid })
-                    }
-                  >
-                    {settings.showGrid ? "감추기" : "보이기"}
-                  </button>
-                </div>
-                {settings.showGrid && (
-                  <div className="mt-1 h-[104px] overflow-y-auto">
-                    <ChordSheet
-                      bars={bars}
-                      chords={shownChords}
-                      currentBar={barIdx}
-                      currentChord={chordIdx}
-                      flats={flats}
-                      transpose={noteShift}
-                      follow={settings.view === "wave"}
                     />
                   </div>
                 )}
@@ -618,6 +630,108 @@ export default function Home() {
           <SettingsTab settings={settings} onChange={setSettings} health={health} />
         )}
       </div>
+
+      {/* 스트로크 고르기. 추천이 마음에 안 들면 직접 고른다. */}
+      {showStrums && result && (
+        <Popup title="스트로크" onClose={() => setShowStrums(false)}>
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            {Math.round(result.bpm)} BPM · {result.time_signature} 곡입니다.
+            소리에서 그대로 딴 것이 아니라, 이 곡에 어울리는 표준 패턴을
+            권해 드립니다. 골라서 연습하세요.
+          </p>
+          <ul className="space-y-1">
+            {PATTERNS.map((p) => {
+              const fits = result.bpm >= p.bpm[0] && result.bpm <= p.bpm[1];
+              return (
+                <li
+                  key={p.name}
+                  className={[
+                    "rounded border px-2.5 py-1.5",
+                    fits
+                      ? "border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[color-mix(in_srgb,var(--accent)_7%,transparent)]"
+                      : "border-gray-200 dark:border-gray-700",
+                  ].join(" ")}
+                >
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-sm tracking-wide">
+                      {render(p.cells)}
+                    </span>
+                    <span className="text-xs font-medium">{p.name}</span>
+                    {fits && (
+                      <span className="ml-auto text-[10px] text-[var(--accent)]">
+                        이 곡에 맞음
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                    {p.hint}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Popup>
+      )}
+
+      {/* 곡 전체 악보. 재생 화면은 좁으므로 볼 때만 크게 펼친다. */}
+      {showSheet && result && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/50 p-3"
+          onClick={() => setShowSheet(false)}
+        >
+          <div
+            className="mx-auto flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-[var(--background)] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-gray-800">
+              <h3 className="min-w-0 flex-1 truncate text-sm font-bold">
+                {result.title || "악보"}
+              </h3>
+              <button
+                className="rounded px-2 py-1 text-sm text-gray-500"
+                onClick={() => setShowSheet(false)}
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+              {/* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */}
+              <ChordScore
+                bars={bars}
+                chords={shownChords}
+                strums={result.strums}
+                playNotes={playNotes}
+                currentBar={barIdx}
+                flats={flats}
+                transpose={noteShift}
+                timeSignature={result.time_signature}
+                musicKey={result.key}
+                bpm={result.bpm}
+                onSeek={(t) => {
+                  playback?.seek(t);
+                  setTime(t);
+                }}
+                follow
+              />
+
+              <div className="mt-3 mb-1 text-[11px] font-semibold text-gray-500">
+                마디별 코드
+              </div>
+              <ChordSheet
+                bars={bars}
+                chords={shownChords}
+                currentBar={barIdx}
+                currentChord={chordIdx}
+                flats={flats}
+                transpose={noteShift}
+                follow={false}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav tab={tab} onChange={setTab} />
     </div>

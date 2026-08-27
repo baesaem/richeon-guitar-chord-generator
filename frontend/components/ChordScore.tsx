@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, spellKey, transposeRoot } from "@/lib/notation";
-import type { Chord, Note, Strum } from "@/lib/types";
+import { render, suggestStrum } from "@/lib/strumLibrary";
+import type { Chord, Strum } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
 function svgLabel(label: string): React.ReactNode {
@@ -20,30 +21,24 @@ function svgLabel(label: string): React.ReactNode {
   );
 }
 
-// 음이름 → 오선에서 몇 칸 위인지(온음계 자리). 검은건반은 바로 아래 흰건반
-// 자리에 ♯을 붙여 적는다.
-const DIATONIC_STEP = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
-const IS_SHARP = [false, true, false, true, false, false, true, false, true, false, true, false];
-
-/** 높은음자리표 맨 아래 줄은 E4다. 그 자리를 0으로 두고 칸 수를 센다. */
-function staffStep(midi: number): number {
-  const octave = Math.floor(midi / 12) - 1;
-  const pc = ((midi % 12) + 12) % 12;
-  return octave * 7 + DIATONIC_STEP[pc] - (4 * 7 + 2); // E4 기준
-}
-
 interface Props {
   bars: Bar[];
   chords: Chord[];
-  /** 보컬에서 딴 멜로디. 있으면 슬래시 대신 음표를 그린다 */
-  melody?: Note[];
-  /** 스트로크 패턴. 있으면 오선 아래에 ↓↑로 그린다 */
+  /** 스트로크. 주 패턴 하나만 뽑아 안내줄에 적는다 */
   strums?: Strum[];
+  /** 안내줄에 함께 보일 연주설정(카포·빠르기 등). 바꾼 것만 넘긴다 */
+  playNotes?: string[];
+  /** 안내줄 오른쪽 끝에 놓을 것(악보보기 버튼 등) */
+  headerRight?: React.ReactNode;
   currentBar: number;
   flats: boolean;
   transpose: number;
   timeSignature: string;
   musicKey: string;
+  /** 스트로크 패턴 추천에 쓴다 */
+  bpm?: number;
+  /** 스트로크 표기를 누르면 부른다(다른 패턴 고르기) */
+  onPickStrum?: () => void;
   follow: boolean;
   /**
    * 한 줄에 넣을 마디 수.
@@ -68,7 +63,6 @@ const STAFF_TOP = 34;      // 오선 첫 줄
 const LINE_GAP = 7;        // 오선 간격
 const STAFF_H = LINE_GAP * 4;
 const CHORD_Y = 22;        // 코드 심볼 기준선
-const STRUM_Y = STAFF_TOP + STAFF_H + 9;   // 오선 아래 스트로크 줄
 const ROW_H = STAFF_TOP + STAFF_H + 14;
 
 /**
@@ -80,13 +74,16 @@ const ROW_H = STAFF_TOP + STAFF_H + 14;
 export function ChordScore({
   bars,
   chords,
-  melody,
   strums,
+  playNotes,
+  headerRight,
   currentBar,
   flats,
   transpose,
   timeSignature,
   musicKey,
+  bpm = 0,
+  onPickStrum,
   follow,
   perLine = 4,
   visibleLines,
@@ -100,19 +97,12 @@ export function ChordScore({
     activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [currentBar, follow, visibleLines]);
 
-  /**
-   * 멜로디를 오선 한가운데로 끌어오는 옥타브 이동.
-   *
-   * 남성 보컬은 실제 음이 높은음자리표 아래로 한참 내려가 덧줄투성이가 된다.
-   * 성악 악보가 테너를 한 옥타브 올려 적는 것과 같은 처리다. 옥타브만
-   * 옮기므로 음이름과 선율의 모양은 그대로다.
-   */
-  const octaveShift = useMemo(() => {
-    if (!melody?.length) return 0;
-    const sorted = [...melody.map((n) => n.midi)].sort((a, b) => a - b);
-    const middle = sorted[Math.floor(sorted.length / 2)];
-    return Math.round((71 - middle) / 12) * 12; // 71 = B4, 오선 한가운데
-  }, [melody]);
+  // 이 곡에 어울리는 스트로크 한 가지. 소리에서 그대로 뽑는 대신
+  // 표준 패턴 중 실제 연주에 가장 가까운 것을 고른다.
+  const strum = useMemo(
+    () => suggestStrum(bars, strums, bpm, timeSignature),
+    [bars, strums, bpm, timeSignature],
+  );
 
   const lines: Bar[][] = [];
   for (let i = 0; i < bars.length; i += perLine) {
@@ -129,21 +119,35 @@ export function ChordScore({
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-[11px] text-gray-500">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
         <span>
           조성 {spellKey(musicKey) || "미상"} · 박자 {timeSignature}
-          {octaveShift !== 0 && (
-            <span className="ml-1 text-[var(--accent)]">
-              멜로디 {octaveShift > 0 ? "+" : "−"}
-              {Math.abs(octaveShift) / 12}옥타브 표기
-            </span>
-          )}
         </span>
-        {visibleLines && lines.length > visibleLines && (
-          <span className="tabular-nums">
-            {from + 1}–{Math.min(from + visibleLines, lines.length)} / {lines.length}줄
-          </span>
+        {/* 이 곡에 어울리는 스트로크. 눌러서 다른 패턴으로 바꾼다 */}
+        {strum && (
+          <button
+            className="text-gray-700 underline decoration-dotted underline-offset-2 dark:text-gray-300"
+            onClick={onPickStrum}
+            title={`${strum.why} · ${strum.pattern.hint}`}
+          >
+            <span className="font-mono tracking-wide">
+              {render(strum.pattern.cells)}
+            </span>
+            <span className="ml-1 text-gray-400">{strum.pattern.name}</span>
+          </button>
         )}
+        {/* 연주설정에서 바꾼 것들 */}
+        {playNotes?.map((note) => (
+          <span key={note} className="text-[var(--accent)]">
+            {note}
+          </span>
+        ))}
+        <span className="ml-auto tabular-nums">
+          {visibleLines && lines.length > visibleLines
+            ? `${from + 1}–${Math.min(from + visibleLines, lines.length)} / ${lines.length}줄`
+            : ""}
+        </span>
+        {headerRight}
       </div>
 
       {shown.map(([lineIndex, line]) => {
@@ -220,120 +224,6 @@ export function ChordScore({
                       </>
                     )}
 
-                    {/* 스트로크. 오선 아래에 ↓↑로 언제 쓸어내리고 올리는지 */}
-                    {strums?.map((s, k) => {
-                      const beatSpan =
-                        bar.beatTimes.length > 1
-                          ? bar.beatTimes[1] - bar.beatTimes[0]
-                          : 0.5;
-                      const barEnd =
-                        (bar.beatTimes[bar.beatTimes.length - 1] ?? bar.start) + beatSpan;
-                      if (s.t < bar.start - 1e-3 || s.t >= barEnd - 1e-3) return null;
-
-                      const span = Math.max(barEnd - bar.start, 1e-6);
-                      const x = contentX + (contentW * (s.t - bar.start)) / span;
-                      // 세게 친 스트로크를 진하게. 강약이 보이면 리듬이 읽힌다.
-                      const weight = 0.45 + s.strength * 0.55;
-
-                      return (
-                        <g key={`s${k}`} opacity={weight}>
-                          {s.down ? (
-                            // ↓ 쓸어내림: 세로줄 + 아래쪽 화살촉
-                            <path
-                              d={`M${x} ${STRUM_Y - 4} L${x} ${STRUM_Y + 2} M${x - 1.4} ${STRUM_Y} L${x} ${STRUM_Y + 2.2} L${x + 1.4} ${STRUM_Y}`}
-                              stroke="currentColor"
-                              strokeWidth={0.9}
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          ) : (
-                            // ↑ 쓸어올림: 세로줄 + 위쪽 화살촉
-                            <path
-                              d={`M${x} ${STRUM_Y + 2} L${x} ${STRUM_Y - 4} M${x - 1.4} ${STRUM_Y - 2} L${x} ${STRUM_Y - 4.2} L${x + 1.4} ${STRUM_Y - 2}`}
-                              stroke="currentColor"
-                              strokeWidth={0.9}
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          )}
-                        </g>
-                      );
-                    })}
-
-                    {/* 멜로디 음표. 있으면 이 마디에 걸친 음을 오선에 얹는다 */}
-                    {melody?.map((note, k) => {
-                      const barEnd = bar.beatTimes.length
-                        ? bar.beatTimes[bar.beatTimes.length - 1] +
-                          (bar.beatTimes[1] ?? bar.beatTimes[0] + 0.5) -
-                          bar.beatTimes[0]
-                        : bar.start;
-                      if (note.end <= bar.start || note.t >= barEnd) return null;
-
-                      const span = Math.max(barEnd - bar.start, 1e-6);
-                      const from = Math.max(note.t, bar.start);
-                      const to = Math.min(note.end, barEnd);
-                      const x = contentX + (contentW * (from - bar.start)) / span;
-                      const w = Math.max(
-                        2.2,
-                        (contentW * (to - from)) / span - 0.6,
-                      );
-
-                      const step = staffStep(note.midi + octaveShift);
-                      // 한 칸은 줄 간격의 절반. 위로 갈수록 y가 작아진다.
-                      const y = STAFF_TOP + STAFF_H - (step * LINE_GAP) / 2;
-                      // 오선을 벗어나면 덧줄을 그어 어느 음인지 알 수 있게 한다
-                      const ledgers: number[] = [];
-                      for (let s = 10; s <= step; s += 2) ledgers.push(s);
-                      for (let s = -2; s >= step; s -= 2) ledgers.push(s);
-
-                      return (
-                        <g key={`n${k}`} opacity={0.9}>
-                          {ledgers.map((s) => (
-                            <line
-                              key={s}
-                              x1={x - 1.6}
-                              x2={x + 3.4}
-                              y1={STAFF_TOP + STAFF_H - (s * LINE_GAP) / 2}
-                              y2={STAFF_TOP + STAFF_H - (s * LINE_GAP) / 2}
-                              stroke="currentColor"
-                              strokeWidth={0.5}
-                              opacity={0.6}
-                            />
-                          ))}
-                          {/* 길이는 가로 막대로 — 몇 박 끄는 음인지 바로 보인다 */}
-                          <rect
-                            x={x}
-                            y={y - 0.9}
-                            width={w}
-                            height={1.8}
-                            rx={0.9}
-                            fill="var(--accent)"
-                            opacity={0.35}
-                          />
-                          <ellipse
-                            cx={x + 1.4}
-                            cy={y}
-                            rx={1.9}
-                            ry={1.4}
-                            fill="var(--accent)"
-                          />
-                          {IS_SHARP[((note.midi % 12) + 12) % 12] && (
-                            <text
-                              x={x - 2.2}
-                              y={y + 1.4}
-                              fontSize={4}
-                              textAnchor="middle"
-                              fill="var(--accent)"
-                            >
-                              ♯
-                            </text>
-                          )}
-                        </g>
-                      );
-                    })}
-
                     {/* 박마다 리듬 슬래시 + 코드가 바뀌는 박 위에 코드 심볼 */}
                     {bar.beatTimes.map((t, b) => {
                       const slot = contentX + (contentW * (b + 0.5)) / beats;
@@ -355,8 +245,7 @@ export function ChordScore({
                             x1={slot - 2.6} y1={STAFF_TOP + STAFF_H - 1.5}
                             x2={slot + 2.6} y2={STAFF_TOP + 1.5}
                             stroke="currentColor" strokeWidth={1.5}
-                            // 멜로디를 얹으면 슬래시는 배경으로 물러난다
-                            opacity={(changed ? 0.85 : 0.35) * (melody?.length ? 0.35 : 1)}
+                            opacity={changed ? 0.85 : 0.35}
                           />
                           {changed && chord && (
                             <text
