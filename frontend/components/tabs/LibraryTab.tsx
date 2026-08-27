@@ -160,12 +160,20 @@ export function LibraryTab({
   };
 
   /**
-   * (관리자) 서버 원본 음원을 공유용 파일명으로 내려받는다.
-   * 파일명 "리천 노래명(출처).{결과id}.{확장자}" - 수강생 앱이 이 id로
-   * 코드 결과와 음원을 자동 매칭한다.
+   * (관리자) 음원과 분석 결과를 함께 내려받는다.
+   *
+   * 파일명 "리천 노래명(출처).{결과id}.{확장자}" — 수강생 앱이 이 id로
+   * 둘을 한 곡으로 묶는다. 음원만 올리면 수강생 화면에 코드도 가사도
+   * 없으므로, 두 파일을 한 번에 내보내 빠뜨리지 않게 한다.
+   *
+   * 결과 파일(.rml)에는 코드·비트·가사·파형이 모두 들어 있다.
    */
   const exportAudio = async (item: ResultSummary) => {
     try {
+      // 결과부터. 음원이 없어도 코드는 넘길 수 있다
+      const result = await getResult(item.id);
+      exportToFile(result, true);
+
       const res = await fetch(`${apiBase()}/api/audio/${item.id}`);
       if (!res.ok) throw new Error(`음원을 찾을 수 없습니다 (${res.status})`);
       const blob = await res.blob();
@@ -186,7 +194,10 @@ export function LibraryTab({
       a.download = `리천 ${safe}(${source}).${item.id}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
-      flash("음원 파일을 내려받았습니다. 드라이브 공유 폴더에 올리세요.");
+      flash(
+        "음원과 분석 결과(코드·가사) 두 파일을 내려받았습니다. " +
+          "드라이브 공유 폴더에 함께 올리세요.",
+      );
     } catch (e) {
       setError((e as Error).message);
     }

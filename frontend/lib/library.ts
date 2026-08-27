@@ -156,10 +156,19 @@ function sourceLabel(result: AnalysisResult): string {
   return result.source === "youtube" ? "YouTube" : "업로드";
 }
 
-/** 결과 한 곡을 파일로 내려받는다. 파일명: 리천 노래명(출처).rml */
-export function exportToFile(result: AnalysisResult): void {
+/**
+ * 결과 한 곡을 파일로 내려받는다. 파일명: 리천 노래명(출처).rml
+ *
+ * 코드·비트·가사·파형까지 결과 전부가 들어간다. 이 파일 하나면 다른
+ * 기기에서 같은 화면을 그대로 연다.
+ *
+ * withId를 주면 파일명에 결과 id를 넣는다. 음원과 나란히 둘 때 쓴다 —
+ * 이름이 같아야 수강생 앱이 둘을 한 곡으로 묶는다.
+ */
+export function exportToFile(result: AnalysisResult, withId = false): void {
   const name = safeName(result.title || result.id);
-  download(`리천 ${name}(${sourceLabel(result)}).rml`, result);
+  const tail = withId ? `.${result.id}` : "";
+  download(`리천 ${name}(${sourceLabel(result)})${tail}.rml`, result);
 }
 
 /** 오늘 날짜를 YYYY-MM-DD로 */
