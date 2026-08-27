@@ -8,6 +8,7 @@ import { Copyright } from "@/components/Copyright";
 import { ArpeggioGuide } from "@/components/ArpeggioGuide";
 import { FretPrimer } from "@/components/FretPrimer";
 import { MyLectures } from "@/components/MyLectures";
+import { StrumGuide } from "@/components/StrumGuide";
 import { labelFor } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
 
@@ -49,17 +50,23 @@ export function ChordsTab() {
   const [quality, setQuality] = useState("maj");
   // 상단 탭. 코드표·지판·아르페지오는 서로 다른 공부라 한 두루마리에
   // 쌓아 두면 아래 것은 있는 줄도 모른다.
-  const [page, setPage] = useState<"chords" | "fret" | "arp" | "lect">("chords");
+  const [page, setPage] = useState<
+    "fret" | "chords" | "strum" | "arp" | "lect"
+  >("fret");
   const picked = QUALITIES.find((q) => q.value === quality) ?? QUALITIES[0];
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
       <h2 className="mb-2 text-lg font-bold">기타 기초</h2>
-      <div className="mb-3 flex gap-1.5">
+      <div
+        className="mb-3 flex gap-1.5 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none" }}
+      >
         {(
           [
-            ["chords", "코드표"],
             ["fret", "지판과 음정"],
+            ["chords", "코드표"],
+            ["strum", "스트로크"],
             ["arp", "아르페지오"],
             ["lect", "내 강좌"],
           ] as const
@@ -68,7 +75,7 @@ export function ChordsTab() {
             key={value}
             onClick={() => setPage(value)}
             className={[
-              "flex-1 rounded px-1 py-2 text-[12px]",
+              "shrink-0 rounded px-3 py-2 text-[12px]",
               page === value
                 ? "bg-black text-white dark:bg-white dark:text-black"
                 : "bg-gray-100 dark:bg-gray-800",
@@ -144,6 +151,7 @@ export function ChordsTab() {
       )}
 
       {page === "fret" && <FretPrimer />}
+      {page === "strum" && <StrumGuide />}
       {page === "arp" && <ArpeggioGuide />}
       {page === "lect" && <MyLectures />}
 
