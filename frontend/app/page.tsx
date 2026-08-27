@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { ChordDiagram } from "@/components/ChordDiagram";
@@ -511,6 +511,7 @@ export default function Home() {
             <br />
             기타반
           </span>
+          <FullscreenButton />
         </div>
         {/* 강조색 헤어라인 */}
         <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_55%,transparent)] to-transparent" />
@@ -1184,5 +1185,68 @@ export default function Home() {
 
       <BottomNav tab={tab} onChange={setTab} />
     </div>
+  );
+}
+
+
+/**
+ * 전체화면.
+ *
+ * 폰 브라우저는 위아래로 주소창과 버튼 막대를 두는데, 악보를 볼 때는 그
+ * 자리가 아깝다. 전체화면으로 들어가면 한 줄이 더 들어온다.
+ *
+ * iOS 사파리는 이 기능을 막아 두었다. 그런 기기에서는 단추를 내지 않는다 —
+ * 눌러도 아무 일이 없는 단추만큼 헷갈리는 것이 없다.
+ */
+function FullscreenButton() {
+  const [on, setOn] = useState(false);
+  // 서버 렌더 때는 document가 없다. 화면이 뜬 뒤 한 번만 본다.
+  const can = useSyncExternalStore(
+    () => () => {},
+    () => !!document.documentElement.requestFullscreen,
+    () => false,
+  );
+
+  useEffect(() => {
+    const sync = () => setOn(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  if (!can) return null;
+
+  return (
+    <button
+      className="shrink-0 rounded p-1.5 text-[var(--accent)] opacity-80"
+      title={on ? "전체화면 끄기" : "전체화면"}
+      aria-label={on ? "전체화면 끄기" : "전체화면"}
+      onClick={() => {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        else document.documentElement.requestFullscreen().catch(() => {});
+      }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {on ? (
+          // 안으로 모이는 화살표 — 나가기
+          <>
+            <path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6" />
+          </>
+        ) : (
+          // 밖으로 뻗는 화살표 — 들어가기
+          <>
+            <path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6" />
+          </>
+        )}
+      </svg>
+    </button>
   );
 }
