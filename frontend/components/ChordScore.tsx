@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, spellKey, transposeRoot } from "@/lib/notation";
 import { render, suggestStrum } from "@/lib/strumLibrary";
-import type { Chord, LyricLine, Strum } from "@/lib/types";
+import type { Chord, Strum } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
 function svgLabel(label: string): React.ReactNode {
@@ -30,8 +30,6 @@ interface Props {
   playNotes?: string[];
   /** 안내줄 오른쪽 끝에 놓을 것(악보보기 버튼 등) */
   headerRight?: React.ReactNode;
-  /** 가사. 있으면 오선 아래에 그 마디에서 부르는 말을 적는다 */
-  lyrics?: LyricLine[];
   currentBar: number;
   flats: boolean;
   transpose: number;
@@ -65,17 +63,9 @@ const STAFF_TOP = 34;      // 오선 첫 줄
 const LINE_GAP = 5;        // 오선 간격. 좁혀 두면 한 화면에 더 많은 줄이 들어온다
 const STAFF_H = LINE_GAP * 4;
 const CHORD_Y = 22;        // 코드 심볼 기준선
-const ROW_H = STAFF_TOP + STAFF_H + 14;
-// 가사를 적을 때만 줄을 늘린다. 없는데 비워 두면 악보가 성겨 보인다.
-// 가사는 코드 다음으로 자주 보는 글자다. 작으면 눈이 아프다.
-const LYRIC_SIZE = 8.6;
-// 한글은 글자 하나가 글자 크기만큼의 폭을 먹는다. 이걸 절반으로 잡으면
-// 글자가 마디 밖으로 흘러나가 옆 마디를 덮는다.
-const LYRIC_CHAR_W = LYRIC_SIZE * 0.98;
-// 가사는 자기 오선에 바짝 붙인다. 아래 여백이 더 넓어야 다음 줄 악보가
-// 아니라 이 줄의 가사로 읽힌다.
-const LYRIC_Y = STAFF_TOP + STAFF_H + 10;
-const ROW_H_WITH_LYRICS = STAFF_TOP + STAFF_H + 15;
+// 오선 아래 여백. 가사를 적지 않으므로 마디 강조 사각형이 잘리지 않을
+// 만큼만 남긴다.
+const ROW_H = STAFF_TOP + STAFF_H + 8;
 
 /**
  * 코드 악보 (리듬 슬래시 표기).
@@ -89,7 +79,6 @@ export function ChordScore({
   strums,
   playNotes,
   headerRight,
-  lyrics,
   currentBar,
   flats,
   transpose,
@@ -131,7 +120,7 @@ export function ChordScore({
   const [beatsPerBar] = timeSignature.split("/");
 
   return (
-    <div className={lyrics?.length ? "space-y-3" : "space-y-1"}>
+    <div className="space-y-0.5">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
         <span>
           조성 {spellKey(musicKey) || "미상"} · 박자 {timeSignature}
@@ -175,7 +164,7 @@ export function ChordScore({
         return (
           <div key={lineIndex} ref={hasActive ? activeRef : undefined}>
             <svg
-              viewBox={`0 0 ${VB_W} ${lyrics?.length ? ROW_H_WITH_LYRICS : ROW_H}`}
+              viewBox={`0 0 ${VB_W} ${ROW_H}`}
               className="w-full text-gray-900 dark:text-gray-100"
               role="img"
               aria-label={`${lineIndex * perLine + 1}마디부터`}
@@ -298,47 +287,6 @@ export function ChordScore({
                   </g>
                 );
               })}
-
-              {/* 그 줄에서 부르는 가사. 마디마다 흩어 놓으면 줄 끝에만
-                  몰려 읽기 어렵다. 줄 왼쪽부터 이어서 적는다. */}
-              {lyrics?.length ? (() => {
-                const first = line[0];
-                const last = line[line.length - 1];
-                const beatSpan =
-                  last.beatTimes.length > 1
-                    ? last.beatTimes[1] - last.beatTimes[0]
-                    : 0.5;
-                const lineEnd =
-                  (last.beatTimes[last.beatTimes.length - 1] ?? last.start) + beatSpan;
-                // 시작 시각만 보면 안 된다. 가사 한 줄은 여러 마디에 걸쳐
-                // 불리므로, 앞 줄에서 시작해 이 줄까지 이어지는 가사가
-                // 화면에서 사라진다 — 지금 부르는 말이 안 보이게 된다.
-                // 부르는 구간이 이 줄과 겹치면 함께 적는다.
-                const here = lyrics
-                  .filter((l) => {
-                    const until = l.end > l.t ? l.end : l.t + 4;
-                    return until > first.start + 1e-3 && l.t < lineEnd - 1e-3;
-                  })
-                  .map((l) => l.text)
-                  .join("  ");
-                if (!here) return null;
-
-                const width = VB_W - PAD_X * 2 - 2;
-                const fit = Math.max(6, Math.floor(width / LYRIC_CHAR_W));
-                const text = here.length > fit ? `${here.slice(0, fit - 1)}…` : here;
-                return (
-                  <text
-                    x={PAD_X + 1}
-                    y={LYRIC_Y}
-                    textAnchor="start"
-                    fontSize={LYRIC_SIZE}
-                    fill="currentColor"
-                    opacity={0.85}
-                  >
-                    {text}
-                  </text>
-                );
-              })() : null}
 
               {/* 줄 끝 마디선 */}
               <line

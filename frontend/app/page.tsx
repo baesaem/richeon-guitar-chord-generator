@@ -524,7 +524,6 @@ export default function Home() {
                     chords={shownChords}
                     strums={result.strums}
                     playNotes={playNotes}
-                    lyrics={result.lyrics}
                     headerRight={
                       <button
                         className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-medium dark:bg-gray-800"
@@ -819,7 +818,6 @@ export default function Home() {
                   chords={shownChords}
                   strums={result.strums}
                   playNotes={playNotes}
-                  lyrics={result.lyrics}
                   currentBar={barIdx}
                   flats={flats}
                   transpose={noteShift}
