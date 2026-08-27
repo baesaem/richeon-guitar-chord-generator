@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 
+import { AskConfirm } from "@/components/Ask";
+
 import {
   getLlmSettings,
   putLlmSettings,
@@ -132,6 +134,8 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [models, setModels] = useState<string[]>([]);
+  // 시스템 confirm()을 쓰지 않는다. 폰 웹앱에서 막히는 환경이 있다
+  const [switchTo, setSwitchTo] = useState("");
 
   useEffect(() => {
     if (!online) return;
@@ -224,7 +228,8 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
           onPick={async (next) => {
             // 서비스가 바뀌면 이전 키·모델은 못 쓴다. 같이 비운다.
             // 키를 지우는 일이니 저장된 게 있으면 먼저 물어본다
-            if (cfg.configured && !confirm("저장된 키가 지워집니다. 바꿀까요?")) {
+            if (cfg.configured) {
+              setSwitchTo(next);
               return;
             }
             setModels([]);
@@ -310,6 +315,20 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
       </>
       )}
 
+      {switchTo && (
+        <AskConfirm
+          title="서비스 바꾸기"
+          message="저장된 키가 지워집니다. 새 서비스의 키를 다시 넣어야 합니다."
+          confirmLabel="바꾸기"
+          danger
+          onConfirm={async () => {
+            setModels([]);
+            await save({ base_url: switchTo, api_key: "", model: "" });
+          }}
+          onClose={() => setSwitchTo("")}
+        />
+      )}
+
       {online && (
       <details className="mt-1.5">
         <summary className="cursor-pointer text-[11px] text-gray-500">
@@ -360,6 +379,7 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [models, setModels] = useState<string[]>([]);
+  const [switchTo, setSwitchTo] = useState("");
 
   // 키가 있으면 고를 목록을 미리 채워 둔다. 모델을 바꾸지는 않는다
   useEffect(() => {
@@ -416,7 +436,8 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
         onPick={(next) => {
           // 서비스가 바뀌면 이전 키·모델은 못 쓴다. 같이 비운다.
           // 키를 지우는 일이니 저장된 게 있으면 먼저 물어본다
-          if (saved && !confirm("이 기기에 저장된 키가 지워집니다. 바꿀까요?")) {
+          if (saved) {
+            setSwitchTo(next);
             return;
           }
           setModels([]);
@@ -504,6 +525,21 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
       <p className="mt-1.5 text-[10px] leading-snug text-gray-400">
         키는 이 브라우저에만 남습니다. 여럿이 쓰는 기기라면 넣지 마세요.
       </p>
+
+      {switchTo && (
+        <AskConfirm
+          title="서비스 바꾸기"
+          message="이 기기에 저장된 키가 지워집니다. 새 서비스의 키를 다시 넣어야 합니다."
+          confirmLabel="바꾸기"
+          danger
+          onConfirm={() => {
+            setModels([]);
+            saveLocalLlm("", "", switchTo);
+            setNotice(null);
+          }}
+          onClose={() => setSwitchTo("")}
+        />
+      )}
     </div>
   );
 }

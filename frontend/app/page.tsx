@@ -368,11 +368,13 @@ export default function Home() {
           <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight">
             <span className="text-[var(--accent)]">리천</span> 기타 코드 자동생성기
           </h1>
-          {settings.adminMode && health && (
-            <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2 py-0.5 text-[10px] text-[var(--accent)]">
-              {health.device}
-            </span>
-          )}
+          {/* 이 앱을 누가 쓰는지. 수강생이 여러 앱을 오갈 때 여기서 알아본다.
+              폭이 좁으면 앱 이름이 먼저 줄고 이 표시는 남는다 */}
+          <span className="shrink-0 whitespace-nowrap text-[11px] font-medium leading-tight text-[var(--accent)] opacity-80">
+            강상주민센터
+            <br />
+            기타반
+          </span>
         </div>
         {/* 강조색 헤어라인 */}
         <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_55%,transparent)] to-transparent" />

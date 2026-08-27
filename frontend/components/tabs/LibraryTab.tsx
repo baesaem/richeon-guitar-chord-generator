@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { AskConfirm, AskText } from "@/components/Ask";
 import { Copyright } from "@/components/Copyright";
 import { apiBase, deleteResult, getResult, listResults } from "@/lib/api";
 import {
@@ -62,6 +63,9 @@ function when(unixSeconds: number): string {
  *  - 서버: PC 캐시에 있는 결과. 서버가 꺼지면 이 섹션만 사라진다
  */
 export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
+  // 시스템 prompt()/confirm()을 쓰지 않는다. 폰 웹앱에서 막혀 있다.
+  const [asking, setAsking] = useState<"folder" | "deleteFolder" | null>(null);
+  const [refetching, setRefetching] = useState<ResultSummary | null>(null);
   const [device, setDevice] = useState<ResultSummary[] | null>(null);
   const [server, setServer] = useState<ResultSummary[] | null>(null);
   const [serverDown, setServerDown] = useState(false);
@@ -301,25 +305,14 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
         ))}
         <button
           className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs text-gray-500 dark:border-gray-600"
-          onClick={() => {
-            const name = window.prompt("새 폴더 이름");
-            if (!name?.trim()) return;
-            setFolders(createFolder(name));
-            setCurrentFolder(name.trim());
-          }}
+          onClick={() => setAsking("folder")}
         >
           + 새 폴더
         </button>
         {currentFolder !== "all" && (
           <button
             className="px-1.5 py-1 text-xs text-red-500"
-            onClick={() => {
-              if (!window.confirm(`「${currentFolder}」 폴더를 지울까요? 곡은 미분류로 남습니다.`))
-                return;
-              setFolders(deleteFolder(currentFolder));
-              setAssignment(folderAssignments());
-              setCurrentFolder("all");
-            }}
+            onClick={() => setAsking("deleteFolder")}
           >
             폴더 삭제
           </button>
@@ -363,7 +356,11 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                     </select>
                   )}
                   {onReanalyze && (
-                    <ReanalyzeButtons item={item} onReanalyze={onReanalyze} />
+                    <ReanalyzeButtons
+                      item={item}
+                      onReanalyze={onReanalyze}
+                      onAskRefetch={setRefetching}
+                    />
                   )}
                   <button className={actionBtn} onClick={() => exportOne(item.id)}>
                     파일로
@@ -423,7 +420,11 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                   </button>
                 )}
                 {onReanalyze && (
-                  <ReanalyzeButtons item={item} onReanalyze={onReanalyze} />
+                  <ReanalyzeButtons
+                      item={item}
+                      onReanalyze={onReanalyze}
+                      onAskRefetch={setRefetching}
+                    />
                 )}
                 {saved.has(item.id) ? (
                   <span className="shrink-0 px-2 py-1 text-[10px] text-green-700">
@@ -460,6 +461,43 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
       </>
       )}
 
+      {asking === "folder" && (
+        <AskText
+          title="새 폴더"
+          placeholder="폴더 이름"
+          onSubmit={(name) => {
+            setFolders(createFolder(name));
+            setCurrentFolder(name);
+          }}
+          onClose={() => setAsking(null)}
+        />
+      )}
+
+      {asking === "deleteFolder" && (
+        <AskConfirm
+          title="폴더 삭제"
+          message={`「${currentFolder}」 폴더를 지울까요? 곡은 미분류로 남습니다.`}
+          confirmLabel="지우기"
+          danger
+          onConfirm={() => {
+            setFolders(deleteFolder(currentFolder));
+            setAssignment(folderAssignments());
+            setCurrentFolder("all");
+          }}
+          onClose={() => setAsking(null)}
+        />
+      )}
+
+      {refetching && (
+        <AskConfirm
+          title="음원부터 다시 받기"
+          message="음원을 새로 받아 처음부터 분석합니다. 시간이 걸립니다."
+          confirmLabel="다시 받기"
+          onConfirm={() => onReanalyze?.(refetching, true)}
+          onClose={() => setRefetching(null)}
+        />
+      )}
+
       <Copyright />
     </div>
   );
@@ -476,9 +514,12 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
 function ReanalyzeButtons({
   item,
   onReanalyze,
+  onAskRefetch,
 }: {
   item: ResultSummary;
   onReanalyze: (item: ResultSummary, refetch: boolean) => void;
+  /** 음원부터 다시 받기는 오래 걸린다. 묻고 나서 한다 */
+  onAskRefetch: (item: ResultSummary) => void;
 }) {
   const cls =
     "shrink-0 rounded border border-gray-200 px-2 py-1 text-[10px] " +
@@ -496,11 +537,7 @@ function ReanalyzeButtons({
         <button
           className={cls}
           title="음원을 새로 받아 처음부터 분석합니다"
-          onClick={() => {
-            if (confirm("음원을 새로 받아 처음부터 분석합니다. 시간이 걸립니다.")) {
-              onReanalyze(item, true);
-            }
-          }}
+          onClick={() => onAskRefetch(item)}
         >
           음원부터
         </button>
