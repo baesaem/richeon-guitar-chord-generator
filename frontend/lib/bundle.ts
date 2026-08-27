@@ -1,9 +1,9 @@
 "use client";
 
-import { apiBase, makeInstrumental, type SheetHit } from "./api";
+import { apiBase, makeInstrumental, makeVocals, type SheetHit } from "./api";
 import { getLocalAudio, saveLocal, saveLocalAudio, saveLocalSheet } from "./library";
 import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
-import { instKey } from "./sharedFiles";
+import { instKey, stemKey } from "./sharedFiles";
 import { loadSheets, saveSheets } from "./sheetCache";
 import type { AnalysisResult } from "./types";
 
@@ -37,6 +37,8 @@ export interface SongBundle {
   audio?: { dataUrl: string; ext: string };
   /** 반주(보컬 뺀) 트랙. mp3 */
   inst?: { dataUrl: string };
+  /** 보컬만 남긴 트랙. mp3 */
+  vocals?: { dataUrl: string };
   /** 내 악보. data URI로 담는다 — JSON 한 덩어리로 주고받기 위해 */
   mySheet?: { kind: "image" | "pdf"; dataUrl: string };
 }
@@ -90,15 +92,19 @@ async function findAudio(id: string): Promise<{ blob: Blob; ext: string } | null
   }
 }
 
-/** 반주 트랙. 기기 → 서버(없으면 만들어 달라고 한다) 순서 */
-async function findInst(id: string): Promise<Blob | null> {
-  const local = await getLocalAudio(instKey(id)).catch(() => null);
+/** 분리 트랙(반주·보컬). 기기 → 서버(없으면 만들어 달라고 한다) 순서 */
+async function findStem(
+  id: string,
+  kind: "instrumental" | "vocals",
+): Promise<Blob | null> {
+  const key = kind === "instrumental" ? instKey(id) : stemKey(id, "vocals");
+  const local = await getLocalAudio(key).catch(() => null);
   if (local) return local;
   try {
-    let res = await fetch(`${apiBase()}/api/audio/${id}/instrumental`);
+    let res = await fetch(`${apiBase()}/api/audio/${id}/${kind}`);
     if (!res.ok) {
-      await makeInstrumental(id);
-      res = await fetch(`${apiBase()}/api/audio/${id}/instrumental`);
+      await (kind === "instrumental" ? makeInstrumental(id) : makeVocals(id));
+      res = await fetch(`${apiBase()}/api/audio/${id}/${kind}`);
     }
     return res.ok ? await res.blob() : null;
   } catch {
@@ -132,8 +138,10 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
   const audio = await findAudio(result.id);
   if (audio) {
     bundle.audio = { dataUrl: await toDataUrl(audio.blob), ext: audio.ext };
-    const inst = await findInst(result.id);
+    const inst = await findStem(result.id, "instrumental");
     if (inst) bundle.inst = { dataUrl: await toDataUrl(inst) };
+    const vocals = await findStem(result.id, "vocals");
+    if (vocals) bundle.vocals = { dataUrl: await toDataUrl(vocals) };
   }
 
   return bundle;
@@ -147,7 +155,7 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
  */
 export async function openBundle(
   bundle: SongBundle,
-  opts: { inst?: boolean } = {},
+  opts: { inst?: boolean; vocals?: boolean } = {},
 ): Promise<string[]> {
   const got: string[] = [];
 
@@ -163,7 +171,7 @@ export async function openBundle(
       /* 음원이 깨져도 코드는 들어간다 */
     }
   }
-  // 반주는 받는 쪽이 고른다. 기본은 저장 — 빼겠다고 한 경우만 건너뛴다
+  // 반주·보컬은 받는 쪽이 고른다. 기본은 저장 — 빼겠다고 한 경우만 건너뛴다
   if (bundle.inst && opts.inst !== false) {
     try {
       await saveLocalAudio(
@@ -171,6 +179,17 @@ export async function openBundle(
         await fromDataUrl(bundle.inst.dataUrl),
       );
       got.push("반주");
+    } catch {
+      /* 무시 */
+    }
+  }
+  if (bundle.vocals && opts.vocals !== false) {
+    try {
+      await saveLocalAudio(
+        stemKey(bundle.result.id, "vocals"),
+        await fromDataUrl(bundle.vocals.dataUrl),
+      );
+      got.push("보컬");
     } catch {
       /* 무시 */
     }

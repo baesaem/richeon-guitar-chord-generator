@@ -151,6 +151,22 @@ async def list_results() -> list[ResultSummary]:
     return summaries
 
 
+@app.put("/api/results/{result_id}/title")
+async def rename_result(result_id: str, body: dict) -> AnalysisResult:
+    """곡 이름을 바꾼다. YouTube 제목은 대괄호·채널명 범벅이라 다듬게 둔다."""
+    _guard_id(result_id)
+
+    title = str(body.get("title", "")).strip()
+    if not title:
+        raise HTTPException(400, "이름이 비어 있습니다")
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    result.title = title
+    save_result(result)
+    return result
+
+
 @app.delete("/api/results/{result_id}")
 async def delete_result(result_id: str) -> dict:
     """분석 결과만 지운다. 원본·디코딩 오디오는 남아 재분석이 빠르다."""

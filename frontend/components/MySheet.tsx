@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { AskConfirm } from "@/components/Ask";
 import { Working } from "@/components/Working";
 import { openLink } from "@/lib/openLink";
 import { deleteMySheet, mySheetUrl, uploadMySheet } from "@/lib/api";
@@ -24,6 +25,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
   const [has, setHas] = useState<boolean | null>(null);
   const [kind, setKind] = useState<"image" | "pdf">("image");
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 가로로 찍힌 사진인가. 그럴 때만 세우기 버튼을 보여 준다.
   const [landscape, setLandscape] = useState(false);
@@ -143,10 +145,20 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
           <button
             className="px-2 py-1.5 text-xs text-gray-500 disabled:opacity-40"
             disabled={busy}
-            onClick={remove}
+            onClick={() => setConfirmRemove(true)}
           >
             지우기
           </button>
+        )}
+        {confirmRemove && (
+          <AskConfirm
+            title="내 악보 지우기"
+            message="이 곡에 붙여 둔 악보를 지웁니다."
+            confirmLabel="지우기"
+            danger
+            onConfirm={remove}
+            onClose={() => setConfirmRemove(false)}
+          />
         )}
         {online && (
           <span className="ml-auto text-[10px] text-gray-400">

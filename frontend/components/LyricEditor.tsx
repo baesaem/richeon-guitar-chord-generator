@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { AskConfirm } from "@/components/Ask";
 import { Popup } from "@/components/Popup";
 import { EDIT_HOLD_MS } from "@/lib/editChords";
 import { useLongPress } from "@/lib/useLongPress";
@@ -35,6 +36,7 @@ export function LyricEditor({
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState(text);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [start, setStart] = useState(at);
 
   const clock = (t: number) =>
@@ -73,13 +75,23 @@ export function LyricEditor({
       </button>
       <button
         className="mt-1.5 w-full rounded py-2.5 text-sm text-red-600"
-        onClick={() => {
-          onDelete();
-          onClose();
-        }}
+        onClick={() => setConfirmDelete(true)}
       >
         이 줄 지우기
       </button>
+      {confirmDelete && (
+        <AskConfirm
+          title="가사 줄 지우기"
+          message="이 가사 줄을 지웁니다."
+          confirmLabel="지우기"
+          danger
+          onConfirm={() => {
+            onDelete();
+            onClose();
+          }}
+          onClose={() => setConfirmDelete(false)}
+        />
+      )}
     </Popup>
   );
 }

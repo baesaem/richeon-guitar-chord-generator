@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
+import { AskConfirm } from "@/components/Ask";
 import { Popup } from "@/components/Popup";
 import { labelFor } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
@@ -50,6 +51,7 @@ export function ChordPicker({
 }) {
   const [root, setRoot] = useState(current?.root ?? "C");
   const [quality, setQuality] = useState(current?.quality ?? "maj");
+  const [confirmClear, setConfirmClear] = useState(false);
   const label = labelFor(root, quality, flats);
 
   return (
@@ -121,13 +123,23 @@ export function ChordPicker({
       {current && (
         <button
           className="mt-1.5 w-full rounded py-2.5 text-sm text-red-600"
-          onClick={() => {
-            onClear();
-            onClose();
-          }}
+          onClick={() => setConfirmClear(true)}
         >
           이 마디 코드 지우기
         </button>
+      )}
+      {confirmClear && (
+        <AskConfirm
+          title="코드 지우기"
+          message="이 마디의 코드를 지웁니다. 되돌리기로 되살릴 수 있습니다."
+          confirmLabel="지우기"
+          danger
+          onConfirm={() => {
+            onClear();
+            onClose();
+          }}
+          onClose={() => setConfirmClear(false)}
+        />
       )}
     </Popup>
   );

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AskConfirm, AskText } from "@/components/Ask";
 import { Working } from "@/components/Working";
 import { Copyright } from "@/components/Copyright";
-import { deleteResult, getResult, listResults } from "@/lib/api";
+import { deleteResult, getResult, listResults, renameResult } from "@/lib/api";
 import {
   downloadBundle,
   isBundle,
@@ -87,6 +87,13 @@ export function LibraryTab({
     "folder" | "deleteFolder" | "renameFolder" | null
   >(null);
   const [refetching, setRefetching] = useState<ResultSummary | null>(null);
+  // 삭제 확인. server가 true면 서버 캐시에서 지우는 것이다
+  const [confirmDelete, setConfirmDelete] = useState<{
+    item: ResultSummary;
+    server: boolean;
+  } | null>(null);
+  // 이름 바꾸는 중인 곡
+  const [renaming, setRenaming] = useState<ResultSummary | null>(null);
   const [device, setDevice] = useState<ResultSummary[] | null>(null);
   const [server, setServer] = useState<ResultSummary[] | null>(null);
   const [serverDown, setServerDown] = useState(false);
@@ -449,16 +456,16 @@ export function LibraryTab({
                       analyzing={analyzing}
                     />
                   )}
+                  <IconButton label="이름 바꾸기" onClick={() => setRenaming(item)}>
+                    {EditIcon}
+                  </IconButton>
                   <IconButton label="저장" onClick={() => exportOne(item.id)}>
                     {SaveIcon}
                   </IconButton>
                   <IconButton
                     label="삭제"
                     danger
-                    onClick={async () => {
-                      await removeLocal(item.id);
-                      reload();
-                    }}
+                    onClick={() => setConfirmDelete({ item, server: false })}
                   >
                     {TrashIcon}
                   </IconButton>
@@ -527,14 +534,7 @@ export function LibraryTab({
                 <IconButton
                   label="서버에서 삭제"
                   danger
-                  onClick={async () => {
-                    try {
-                      await deleteResult(item.id);
-                      reload();
-                    } catch (e) {
-                      setError((e as Error).message);
-                    }
-                  }}
+                  onClick={() => setConfirmDelete({ item, server: true })}
                 >
                   {TrashIcon}
                 </IconButton>
@@ -579,6 +579,51 @@ export function LibraryTab({
             if (!next.includes(currentFolder)) setCurrentFolder(name.trim());
           }}
           onClose={() => setAsking(null)}
+        />
+      )}
+
+      {confirmDelete && (
+        <AskConfirm
+          title={confirmDelete.server ? "서버에서 삭제" : "재생목록에서 삭제"}
+          message={
+            confirmDelete.server
+              ? `「${confirmDelete.item.title || confirmDelete.item.id}」의 분석 결과를 서버에서 지웁니다. 기기에 저장된 곡은 남습니다.`
+              : `「${confirmDelete.item.title || confirmDelete.item.id}」을(를) 재생목록(기기 저장)에서 지웁니다.`
+          }
+          confirmLabel="삭제"
+          danger
+          onConfirm={async () => {
+            try {
+              if (confirmDelete.server) await deleteResult(confirmDelete.item.id);
+              else await removeLocal(confirmDelete.item.id);
+              reload();
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+          onClose={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {renaming && (
+        <AskText
+          title="음원 이름 바꾸기"
+          placeholder="새 이름"
+          initial={renaming.title || renaming.id}
+          confirmLabel="바꾸기"
+          onSubmit={async (title) => {
+            try {
+              // 기기 저장분과 서버 양쪽에 적는다. 서버가 없으면 기기만.
+              const local = await getLocal(renaming.id).catch(() => null);
+              if (local) await saveLocal({ ...local, title });
+              await renameResult(renaming.id, title).catch(() => {});
+              reload();
+              flash("이름을 바꿨습니다. 내보내는 파일 이름에도 적용됩니다.");
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+          onClose={() => setRenaming(null)}
         />
       )}
 
@@ -714,6 +759,22 @@ const SaveIcon = (
 );
 
 /** 분석만 다시 — 같은 음원을 한 바퀴 더 돌린다 */
+const EditIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+
 const RerunIcon = (
   <>
     <path d="M20 12a8 8 0 1 1-2.3-5.6" />
@@ -746,6 +807,7 @@ function bundleParts(bundle: SongBundle): string[] {
   if (bundle.result.lyrics?.length) parts.push("가사");
   if (bundle.audio) parts.push("음원");
   if (bundle.inst) parts.push("반주");
+  if (bundle.vocals) parts.push("보컬");
   if (bundle.sheets?.items.length) parts.push("웹 악보");
   if (bundle.setup) parts.push("연주설정");
   return parts;

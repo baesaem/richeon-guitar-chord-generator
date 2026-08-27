@@ -121,6 +121,14 @@ export const makeVocals = (id: string) =>
     json<{ ready: boolean; cached: boolean }>,
   );
 
+/** 곡 이름 바꾸기. YouTube 제목은 대괄호 범벅이라 다듬게 둔다 */
+export const renameResult = (id: string, title: string) =>
+  fetch(`${apiBase()}/api/results/${id}/title`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  }).then(json<AnalysisResult>);
+
 export interface LlmSettings {
   configured: boolean;
   /** 앞뒤만 남기고 가린 키. 저장된 값이 있는지 확인하는 용도 */

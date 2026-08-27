@@ -109,8 +109,9 @@ export function ImportTab({
   onAnalyzeWithAi,
 }: Props) {
   const [url, setUrl] = useState("");
-  // 반주(보컬 뺀 트랙)도 저장할지. 기기 공간을 아끼려는 사람은 끈다
+  // 반주·보컬 트랙도 저장할지. 기기 공간을 아끼려는 사람은 끈다
   const [wantInst, setWantInst] = useState(true);
+  const [wantVocals, setWantVocals] = useState(false);
   const [open, setOpen] = useState<CardKind | null>(autoOpen ?? null);
   // 지금 열어 둔 반. 카드마다 폴더가 다르다
   const klass = CLASSES.find((c) => c.id === open) ?? null;
@@ -212,7 +213,7 @@ export function ImportTab({
   ) => {
     let bundleAudio = false;
     if (isBundle(data)) {
-      const got = await openBundle(data, { inst: wantInst });
+      const got = await openBundle(data, { inst: wantInst, vocals: wantVocals });
       bundleAudio = got.includes("음원");
     } else {
       for (const result of results) await saveLocal(result);
@@ -652,21 +653,31 @@ export function ImportTab({
           <p className="mb-1.5 text-[11px] leading-snug text-gray-500">
             필요한 곡을 골라 「받기」를 누르세요. 재생목록(기기 저장)에 담깁니다.
           </p>
-          {/* 반주는 곡당 5MB쯤 — 받을지 수강자가 고른다 */}
-          <label className="mb-2 flex items-start gap-1.5 text-[11px] text-gray-600 dark:text-gray-300">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={wantInst}
-              onChange={(e) => setWantInst(e.target.checked)}
-            />
-            <span>
-              반주(노래를 뺀 트랙)도 함께 저장
-              <span className="block text-[10px] text-gray-400">
-                끄면 저장 공간을 아낍니다. 연주설정의 반주/보컬 전환에 필요합니다.
-              </span>
-            </span>
-          </label>
+          {/* 분리 트랙은 곡당 4~5MB씩 — 받을지 수강자가 고른다 */}
+          <div className="mb-2 space-y-1">
+            <label className="flex items-start gap-1.5 text-[11px] text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={wantInst}
+                onChange={(e) => setWantInst(e.target.checked)}
+              />
+              <span>반주(노래를 뺀 트랙)도 함께 저장</span>
+            </label>
+            <label className="flex items-start gap-1.5 text-[11px] text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={wantVocals}
+                onChange={(e) => setWantVocals(e.target.checked)}
+              />
+              <span>보컬(노래만 남긴 트랙)도 함께 저장</span>
+            </label>
+            <p className="text-[10px] text-gray-400">
+              연주설정의 원음/반주/보컬 전환에 쓰입니다. 끄면 저장 공간을
+              아낍니다.
+            </p>
+          </div>
 
           {sharedNotice && (
             <p className="mb-2 rounded bg-green-50 p-2 text-xs text-green-800">
