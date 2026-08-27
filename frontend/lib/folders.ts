@@ -50,6 +50,21 @@ export function createFolder(name: string): string[] {
   return data.folders;
 }
 
+/** 폴더 이름을 바꾼다. 안에 있던 곡의 배정도 따라간다. */
+export function renameFolder(oldName: string, newName: string): string[] {
+  const trimmed = newName.trim();
+  const data = read();
+  if (!trimmed || trimmed === oldName || data.folders.includes(trimmed)) {
+    return data.folders;
+  }
+  data.folders = data.folders.map((f) => (f === oldName ? trimmed : f));
+  for (const id of Object.keys(data.assignment)) {
+    if (data.assignment[id] === oldName) data.assignment[id] = trimmed;
+  }
+  write(data);
+  return data.folders;
+}
+
 /** 폴더를 지운다. 안에 있던 곡은 미분류로 돌아간다(곡 자체는 지워지지 않는다). */
 export function deleteFolder(name: string): string[] {
   const data = read();

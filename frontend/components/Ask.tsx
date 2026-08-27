@@ -16,18 +16,21 @@ import { Popup } from "@/components/Popup";
 export function AskText({
   title,
   placeholder = "",
+  initial = "",
   confirmLabel = "만들기",
   onSubmit,
   onClose,
 }: {
   title: string;
   placeholder?: string;
+  /** 미리 채워 둘 값. 이름 바꾸기처럼 고칠 원본이 있을 때 쓴다 */
+  initial?: string;
   confirmLabel?: string;
   /** 빈 값은 넘어오지 않는다 */
   onSubmit: (value: string) => void;
   onClose: () => void;
 }) {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initial);
   const submit = () => {
     const text = value.trim();
     if (!text) return;

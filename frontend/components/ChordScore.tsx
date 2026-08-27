@@ -7,6 +7,7 @@ import { EDIT_HOLD_MS } from "@/lib/editChords";
 import { useLongPress } from "@/lib/useLongPress";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, transposeRoot } from "@/lib/notation";
+import { voicingFor } from "@/lib/voicings";
 import { suggestStrum } from "@/lib/strumLibrary";
 import type { Chord, Strum } from "@/lib/types";
 
@@ -64,19 +65,23 @@ interface Props {
 // 좌표계. width는 100%로 늘어나고 viewBox 비율대로 확대된다.
 const VB_W = 400;
 const PAD_X = 10;
-const STAFF_TOP = 34;      // 오선 첫 줄
-const LINE_GAP = 5;        // 오선 간격. 좁혀 두면 한 화면에 더 많은 줄이 들어온다
-const STAFF_H = LINE_GAP * 4;
+const STAFF_TOP = 34;      // 타브 첫 줄(1번줄)
+// 타브 여섯 줄. 간격을 오선(5×4)과 같은 총높이(4×5)로 맞춰 행 높이가
+// 오선 시절과 달라지지 않게 한다.
+const LINE_GAP = 4;
+const STAFF_H = LINE_GAP * 5;
 const CHORD_Y = 22;        // 코드 심볼 기준선
 // 오선 아래 여백. 가사를 적지 않으므로 마디 강조 사각형이 잘리지 않을
 // 만큼만 남긴다.
 const ROW_H = STAFF_TOP + STAFF_H + 8;
 
 /**
- * 코드 악보 (리듬 슬래시 표기).
+ * 코드 악보 (타브 + 리듬 슬래시).
  *
- * 오선 위에 코드 심볼을 얹고, 박마다 슬래시를 그어 몇 박씩 치는지 보이게 한다.
- * 멜로디는 추출하지 않으므로 음표 대신 슬래시를 쓰는 기타 리듬 악보 형식이다.
+ * 여섯 줄 타브(맨 위가 1번줄) 위에 코드 심볼을 얹고, 코드가 바뀌는 박에는
+ * 그 코드의 운지(프렛 숫자)를 줄 위에 찍는다 — 코드표를 오가지 않아도
+ * 악보만 보고 짚을 수 있다. 나머지 박은 슬래시로 리듬만 보인다.
+ * 멜로디는 추출하지 않으므로 음표는 없다.
  */
 export function ChordScore({
   bars,
@@ -157,13 +162,14 @@ export function ChordScore({
               role="img"
               aria-label={`${lineIndex * perLine + 1}마디부터`}
             >
-              {/* 오선 */}
-              {Array.from({ length: 5 }, (_, i) => (
+              {/* 타브 여섯 줄. 맨 아래(6번줄)는 굵은 줄이라 살짝 두껍게 */}
+              {Array.from({ length: 6 }, (_, i) => (
                 <line
                   key={i}
                   x1={PAD_X} x2={VB_W - PAD_X}
                   y1={STAFF_TOP + i * LINE_GAP} y2={STAFF_TOP + i * LINE_GAP}
-                  stroke="currentColor" strokeWidth={0.6} opacity={0.55}
+                  stroke="currentColor" strokeWidth={i === 5 ? 0.9 : 0.6}
+                  opacity={0.5}
                 />
               ))}
 
@@ -198,14 +204,14 @@ export function ChordScore({
                     {firstLine && i === 0 && (
                       <>
                         <text
-                          x={x0 + 8} y={STAFF_TOP + LINE_GAP * 1.15}
+                          x={x0 + 8} y={STAFF_TOP + 5.8}
                           textAnchor="middle" fontSize={9} fontWeight="700"
                           fill="currentColor"
                         >
                           {beatsPerBar}
                         </text>
                         <text
-                          x={x0 + 8} y={STAFF_TOP + LINE_GAP * 3.3}
+                          x={x0 + 8} y={STAFF_TOP + 16.6}
                           textAnchor="middle" fontSize={9} fontWeight="700"
                           fill="currentColor"
                         >
@@ -228,15 +234,46 @@ export function ChordScore({
                       // 반드시 적어 준다. 그래야 무엇을 짚고 있는지 알 수 있다.
                       const opensView = lineIndex === from && i === 0 && b === 0;
                       const changed = idx !== prevIdx || opensView;
+                      // 코드가 바뀌는 박에는 슬래시 대신 그 코드의 운지를
+                      // 줄 위에 찍는다. 매 박마다 찍으면 숫자에 파묻힌다.
+                      const voicing =
+                        changed && chord
+                          ? voicingFor(
+                              transposeRoot(chord.root, transpose),
+                              chord.quality,
+                            )
+                          : null;
 
                       return (
                         <g key={b}>
-                          <line
-                            x1={slot - 2.6} y1={STAFF_TOP + STAFF_H - 1.5}
-                            x2={slot + 2.6} y2={STAFF_TOP + 1.5}
-                            stroke="currentColor" strokeWidth={1.5}
-                            opacity={changed ? 0.85 : 0.35}
-                          />
+                          {voicing ? (
+                            voicing.frets.map((fret, s) =>
+                              fret < 0 ? null : (
+                                <text
+                                  key={s}
+                                  x={slot}
+                                  // frets[0]이 6번줄(맨 아래 줄)이다
+                                  y={STAFF_TOP + (5 - s) * LINE_GAP + 1.6}
+                                  textAnchor="middle"
+                                  fontSize={5.2}
+                                  fontWeight="700"
+                                  fill="currentColor"
+                                  stroke="var(--background)"
+                                  strokeWidth={1.4}
+                                  paintOrder="stroke"
+                                >
+                                  {fret}
+                                </text>
+                              ),
+                            )
+                          ) : (
+                            <line
+                              x1={slot - 2.6} y1={STAFF_TOP + STAFF_H - 1.5}
+                              x2={slot + 2.6} y2={STAFF_TOP + 1.5}
+                              stroke="currentColor" strokeWidth={1.5}
+                              opacity={changed ? 0.85 : 0.35}
+                            />
+                          )}
                           {changed && chord && (
                             <text
                               x={slot} y={CHORD_Y}

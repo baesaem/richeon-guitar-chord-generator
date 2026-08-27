@@ -19,6 +19,7 @@ import {
   deleteFolder,
   folderAssignments,
   listFolders,
+  renameFolder,
 } from "@/lib/folders";
 import {
   exportAllToFile,
@@ -81,7 +82,9 @@ export function LibraryTab({
   // 시스템 prompt()/confirm()을 쓰지 않는다. 폰 웹앱에서 막혀 있다.
   // 몇 초 이상 걸리는 일. 화면 한가운데에 알린다
   const [working, setWorking] = useState<string | null>(null);
-  const [asking, setAsking] = useState<"folder" | "deleteFolder" | null>(null);
+  const [asking, setAsking] = useState<
+    "folder" | "deleteFolder" | "renameFolder" | null
+  >(null);
   const [refetching, setRefetching] = useState<ResultSummary | null>(null);
   const [device, setDevice] = useState<ResultSummary[] | null>(null);
   const [server, setServer] = useState<ResultSummary[] | null>(null);
@@ -386,12 +389,20 @@ export function LibraryTab({
           + 새 폴더
         </button>
         {currentFolder !== "all" && (
-          <button
-            className="px-1.5 py-1 text-xs text-red-500"
-            onClick={() => setAsking("deleteFolder")}
-          >
-            폴더 삭제
-          </button>
+          <>
+            <button
+              className="px-1.5 py-1 text-xs text-gray-500 underline"
+              onClick={() => setAsking("renameFolder")}
+            >
+              이름 바꾸기
+            </button>
+            <button
+              className="px-1.5 py-1 text-xs text-red-500"
+              onClick={() => setAsking("deleteFolder")}
+            >
+              폴더 삭제
+            </button>
+          </>
         )}
       </div>
 
@@ -550,6 +561,23 @@ export function LibraryTab({
           onSubmit={(name) => {
             setFolders(createFolder(name));
             setCurrentFolder(name);
+          }}
+          onClose={() => setAsking(null)}
+        />
+      )}
+
+      {asking === "renameFolder" && (
+        <AskText
+          title="폴더 이름 바꾸기"
+          placeholder="새 이름"
+          initial={currentFolder}
+          confirmLabel="바꾸기"
+          onSubmit={(name) => {
+            const next = renameFolder(currentFolder, name);
+            setFolders(next);
+            setAssignment(folderAssignments());
+            // 같은 이름이 이미 있으면 바뀌지 않는다 — 그때는 그대로 둔다
+            if (!next.includes(currentFolder)) setCurrentFolder(name.trim());
           }}
           onClose={() => setAsking(null)}
         />
