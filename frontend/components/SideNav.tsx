@@ -55,7 +55,7 @@ export function SideNav({
                 onClick={() => onChange(item.id)}
                 aria-current={active ? "page" : undefined}
                 className={[
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[15px] transition-colors",
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-3.5 text-left text-[17px] transition-colors",
                   active
                     ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] font-semibold text-[var(--accent)]"
                     : "text-gray-500 hover:bg-gray-500/10 dark:text-gray-400",
@@ -64,13 +64,13 @@ export function SideNav({
                 {/* 활성 메뉴는 왼쪽에 강조색 기둥이 선다 */}
                 <span
                   className={[
-                    "h-6 w-[3px] shrink-0 rounded-full",
+                    "h-7 w-[3px] shrink-0 rounded-full",
                     active ? "bg-[var(--accent)]" : "bg-transparent",
                   ].join(" ")}
                 />
                 <svg
                   viewBox="0 0 24 24"
-                  className="h-[22px] w-[22px] shrink-0"
+                  className="h-6 w-6 shrink-0"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={active ? 2.1 : 1.6}
