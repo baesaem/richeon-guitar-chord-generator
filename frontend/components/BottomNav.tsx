@@ -1,6 +1,13 @@
 "use client";
 
-export type Tab = "home" | "import" | "library" | "mic" | "chords" | "settings";
+export type Tab =
+  | "home"
+  | "library"
+  | "import"
+  | "mic"
+  | "edit"
+  | "chords"
+  | "settings";
 
 interface Props {
   tab: Tab;
@@ -14,16 +21,6 @@ const ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     icon: <path d="M3 10.5 12 3l9 7.5V21H3z" />,
   },
   {
-    id: "import",
-    label: "음원가져오기",
-    icon: (
-      <>
-        <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />
-        <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-      </>
-    ),
-  },
-  {
     id: "library",
     label: "재생목록",
     icon: (
@@ -31,6 +28,16 @@ const ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
         <path d="M3 6h12M3 11h12M3 16h7" />
         <circle cx="17.5" cy="17" r="3" />
         <path d="M20.5 17V8l2.5 1.2" />
+      </>
+    ),
+  },
+  {
+    id: "import",
+    label: "음원가져오기",
+    icon: (
+      <>
+        <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />
+        <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
       </>
     ),
   },
@@ -45,8 +52,18 @@ const ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    id: "edit",
+    label: "코드수정",
+    icon: (
+      <>
+        <path d="M4 20h4L20 8l-4-4L4 16z" />
+        <path d="M14.5 5.5 18.5 9.5" />
+      </>
+    ),
+  },
+  {
     id: "chords",
-    label: "코드리스트",
+    label: "코드목록",
     icon: (
       <>
         <rect x="4" y="3.5" width="16" height="17" rx="1.5" />

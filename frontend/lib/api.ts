@@ -1,6 +1,7 @@
 import { getSettings } from "./settings";
 import type {
   AnalysisResult,
+  Chord,
   Health,
   JobStatus,
   LyricLine,
@@ -207,6 +208,14 @@ export const putLyrics = (id: string, lyrics: LyricLine[]) =>
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(lyrics),
+  }).then(json<AnalysisResult>);
+
+/** 손으로 고친 코드를 서버 결과에 저장한다. */
+export const putChords = (id: string, chords: Chord[]) =>
+  fetch(`${apiBase()}/api/results/${id}/chords`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(chords),
   }).then(json<AnalysisResult>);
 
 export const deleteResult = (id: string) =>

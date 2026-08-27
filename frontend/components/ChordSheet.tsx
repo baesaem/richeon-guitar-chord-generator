@@ -4,7 +4,9 @@ import { useEffect, useRef } from "react";
 
 import { ChordLabel } from "@/components/ChordLabel";
 import { chordIndexAt, type Bar } from "@/lib/bars";
+import { EDIT_HOLD_MS } from "@/lib/editChords";
 import { labelFor, transposeRoot } from "@/lib/notation";
+import { useLongPress } from "@/lib/useLongPress";
 import type { Chord } from "@/lib/types";
 
 interface Props {
@@ -16,6 +18,10 @@ interface Props {
   flats: boolean;
   transpose: number;
   follow: boolean;
+  /** 마디를 길게 누르거나 오른쪽 클릭했을 때. 코드 고치기에 쓴다 */
+  onEditBar?: (barIndex: number) => void;
+  /** 마디를 짧게 눌렀을 때 그 자리로 건너뛴다 */
+  onSeek?: (t: number) => void;
 }
 
 interface Span {
@@ -49,6 +55,8 @@ export function ChordSheet({
   flats,
   transpose,
   follow,
+  onEditBar,
+  onSeek,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
 
@@ -68,16 +76,12 @@ export function ChordSheet({
         const prevLast = i > 0 ? spansOf(bars[i - 1], chords).at(-1)?.chordIndex : undefined;
 
         return (
-          <div
+          <BarCell
             key={bar.number}
-            ref={active ? activeRef : undefined}
-            className={[
-              // 한 줄 4칸. 코드 이름이 넉넉히 들어간다.
-              "rounded border px-0.5 pb-0.5 pt-1",
-              active
-                ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
-                : "border-gray-200 dark:border-gray-700",
-            ].join(" ")}
+            innerRef={active ? activeRef : undefined}
+            active={active}
+            onSeek={onSeek ? () => onSeek(bar.start) : undefined}
+            onEdit={onEditBar ? () => onEditBar(i) : undefined}
           >
             <div
               className="grid items-center gap-x-0.5"
@@ -122,9 +126,55 @@ export function ChordSheet({
               })}
             </div>
             <div className="mt-0.5 text-[10px] leading-none opacity-40">{bar.number}</div>
-          </div>
+          </BarCell>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * 마디 칸.
+ *
+ * 짧게 누르면 그 자리로 건너뛰고, 길게 누르면 코드를 고친다. 누르는 동안
+ * 칸이 왼쪽부터 물들어 얼마나 남았는지 보인다 — 이게 없으면 눌러도 아무
+ * 일이 없다고 느껴 손을 뗀다.
+ */
+function BarCell({
+  innerRef,
+  active,
+  onSeek,
+  onEdit,
+  children,
+}: {
+  innerRef?: React.Ref<HTMLDivElement>;
+  active: boolean;
+  onSeek?: () => void;
+  onEdit?: () => void;
+  children: React.ReactNode;
+}) {
+  const press = useLongPress(() => onEdit?.(), EDIT_HOLD_MS);
+  return (
+    <div
+      ref={innerRef}
+      onClick={() => onSeek?.()}
+      {...(onEdit ? press.handlers : {})}
+      className={[
+        // 한 줄 4칸. 코드 이름이 넉넉히 들어간다.
+        "relative overflow-hidden rounded border px-0.5 pb-0.5 pt-1",
+        onSeek || onEdit ? "cursor-pointer select-none" : "",
+        active
+          ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
+          : "border-gray-200 dark:border-gray-700",
+      ].join(" ")}
+    >
+      {press.progress > 0 && (
+        <span
+          className="pointer-events-none absolute inset-y-0 left-0 bg-[var(--accent)] opacity-25"
+          style={{ width: `${press.progress * 100}%` }}
+        />
+      )}
+      <span className="relative block">{children}</span>
     </div>
   );
 }

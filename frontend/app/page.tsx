@@ -14,8 +14,11 @@ import { HomeDashboard } from "@/components/HomeDashboard";
 import { LyricsPane } from "@/components/LyricsPane";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { MySheet } from "@/components/MySheet";
+import { EditTab } from "@/components/tabs/EditTab";
+import { ChordPicker } from "@/components/ChordPicker";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
+import { setChordAt } from "@/lib/editChords";
 import { CLASSES } from "@/lib/classes";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
@@ -28,6 +31,7 @@ import { SettingsTab } from "@/components/tabs/SettingsTab";
 import {
   analyzeUpload,
   analyzeUrl,
+  putChords,
   reanalyze,
   getHealth,
   getResult,
@@ -79,6 +83,8 @@ export default function Home() {
   const [showSheet, setShowSheet] = useState(false);
   // 스트로크 패턴 고르기 팝업
   const [showStrums, setShowStrums] = useState(false);
+  // 코드 고치기: 지금 고르고 있는 마디 번호(없으면 null)
+  const [editBar, setEditBar] = useState<number | null>(null);
   // 악보보기 모달에서 무엇을 볼지
   const [sheetTab, setSheetTab] = useState<
     "score" | "grid" | "lyrics" | "web" | "mine"
@@ -306,7 +312,32 @@ export default function Home() {
     }
   };
 
-  const openSaved = async (id: string) => {
+  /**
+   * 한 마디의 코드를 바꾼다.
+   *
+   * 화면에 보이는 코드는 「기본」 어휘로 낮추고 다듬은 것이지만, 고치는
+   * 대상은 원본이어야 한다 — 다듬은 결과에 손대면 다음에 어휘를 「전부」로
+   * 바꿨을 때 고친 것이 사라진다.
+   *
+   * 카포를 올려 둔 상태에서도 화면에 보이는 이름으로 고를 수 있어야 하니,
+   * 고른 근음을 원래 조성으로 되돌려 저장한다.
+   */
+  const applyChordEdit = async (barIndex: number, root: string, quality: string) => {
+    if (!result) return;
+    const bar = bars[barIndex];
+    if (!bar) return;
+
+    const realRoot = transposeRoot(root, -noteShift) ?? root;
+    const next = {
+      ...result,
+      chords: setChordAt(result.chords, bar.start, bar.end, realRoot, quality),
+    };
+    setResult(next);
+    await saveLocal(next).catch(() => {});
+    if (health) await putChords(next.id, next.chords).catch(() => {});
+  };
+
+  const openSaved = async (id: string): Promise<boolean> => {
     setError(null);
     resetPlayback();
     setTab("home");
@@ -319,8 +350,10 @@ export default function Home() {
         : await getLocal(id);
       if (!result) throw new Error("결과 없음");
       showSong(result);
+      return true;
     } catch {
       setError("이 곡을 열 수 없습니다. 기기에 저장돼 있지 않고 서버에도 연결되지 않았습니다.");
+      return false;
     }
   };
 
@@ -754,6 +787,20 @@ export default function Home() {
           />
         )}
 
+        {tab === "edit" && (
+          <EditTab
+            onPick={async (id) => {
+              // 고르면 그 곡을 열고 악보를 바로 펼친다. 고치는 자리가
+              // 악보라 한 번에 데려다 놓는다. 곡이 올라온 뒤에 펼쳐야
+              // 빈 화면이 스치지 않는다.
+              const ok = await openSaved(id);
+              if (!ok) return;
+              setSheetTab("score");
+              setShowSheet(true);
+            }}
+          />
+        )}
+
         {tab === "mic" && (
           <RecordTab
             busy={busy}
@@ -884,6 +931,7 @@ export default function Home() {
                     playback?.seek(t);
                     setTime(t);
                   }}
+                  onEditBar={setEditBar}
                   follow
                 />
               )}
@@ -897,6 +945,11 @@ export default function Home() {
                   flats={flats}
                   transpose={noteShift}
                   follow={false}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                  onEditBar={setEditBar}
                 />
               )}
 
@@ -940,6 +993,22 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 마디 코드 고르기 */}
+      {editBar !== null && result && bars[editBar] && (
+        <ChordPicker
+          barNumber={bars[editBar].number}
+          current={(() => {
+            const c = shownChords[chordIndexAt(shownChords, bars[editBar].start)];
+            return c?.root
+              ? { root: transposeRoot(c.root, noteShift) ?? c.root, quality: c.quality }
+              : null;
+          })()}
+          flats={flats}
+          onPick={(root, quality) => applyChordEdit(editBar, root, quality)}
+          onClose={() => setEditBar(null)}
+        />
       )}
 
       {/* 분석 중 표시. 화면 한가운데 — 탭을 옮겨 다녀도 눈에 띈다.

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef } from "react";
 
 import { SongInfoLine } from "@/components/SongInfoLine";
+import { EDIT_HOLD_MS } from "@/lib/editChords";
+import { useLongPress } from "@/lib/useLongPress";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, transposeRoot } from "@/lib/notation";
 import { suggestStrum } from "@/lib/strumLibrary";
@@ -55,6 +57,8 @@ interface Props {
    */
   visibleLines?: number;
   onSeek?: (t: number) => void;
+  /** 마디를 길게 누르거나 오른쪽 클릭했을 때. 코드 고치기에 쓴다 */
+  onEditBar?: (barIndex: number) => void;
 }
 
 // 좌표계. width는 100%로 늘어나고 viewBox 비율대로 확대된다.
@@ -91,6 +95,7 @@ export function ChordScore({
   perLine = 4,
   visibleLines,
   onSeek,
+  onEditBar,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
 
@@ -259,13 +264,12 @@ export function ChordScore({
                       {bar.number}
                     </text>
 
-                    {/* 클릭하면 그 마디로 이동 */}
-                    <rect
+                    {/* 누르면 그 마디로 이동, 길게 누르면 코드 고치기 */}
+                    <BarTarget
                       x={x0} y={STAFF_TOP - 12}
                       width={measureW} height={STAFF_H + 24}
-                      fill="transparent"
-                      className={onSeek ? "cursor-pointer" : undefined}
-                      onClick={() => onSeek?.(bar.start)}
+                      onSeek={onSeek ? () => onSeek(bar.start) : undefined}
+                      onEdit={onEditBar ? () => onEditBar(index) : undefined}
                     />
                   </g>
                 );
@@ -282,5 +286,59 @@ export function ChordScore({
         );
       })}
     </div>
+  );
+}
+
+
+/**
+ * 마디를 덮는 투명한 판.
+ *
+ * 짧게 누르면 그 자리로 건너뛰고, 길게 누르면 코드를 고친다. 재생하면서
+ * 고치기 때문에 짧은 탭으로 편집창이 열리면 곤란하다 — 듣던 자리로
+ * 돌아가려고 누른 것이 코드 편집으로 이어진다.
+ *
+ * 누르는 동안 마디가 서서히 물든다. 이게 없으면 눌러도 아무 일이 없다고
+ * 느껴 손을 뗀다.
+ */
+function BarTarget({
+  x,
+  y,
+  width,
+  height,
+  onSeek,
+  onEdit,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  onSeek?: () => void;
+  onEdit?: () => void;
+}) {
+  const press = useLongPress(() => onEdit?.(), EDIT_HOLD_MS);
+  return (
+    <g>
+      {press.progress > 0 && (
+        <rect
+          x={x}
+          y={y}
+          width={width * press.progress}
+          height={height}
+          fill="var(--accent)"
+          opacity={0.25}
+          pointerEvents="none"
+        />
+      )}
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill="transparent"
+        className={onSeek || onEdit ? "cursor-pointer" : undefined}
+        onClick={() => onSeek?.()}
+        {...(onEdit ? press.handlers : {})}
+      />
+    </g>
   );
 }
