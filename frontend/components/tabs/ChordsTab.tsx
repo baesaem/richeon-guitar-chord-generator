@@ -88,13 +88,15 @@ export function ChordsTab() {
         </button>
       </div>
 
-      <div className="mb-1.5 grid grid-cols-4 gap-1.5">
+      {/* 성질 단추는 한 줄에 8개 — 크게 만들면 두 줄을 차지해
+          정작 보러 온 코드 그림이 밀려 내려간다 */}
+      <div className="mb-1.5 grid grid-cols-8 gap-1">
         {QUALITIES.map((q) => (
           <button
             key={q.value}
             onClick={() => setQuality(q.value)}
             className={[
-              "rounded py-2 text-sm",
+              "rounded py-1.5 text-xs",
               q.value === quality
                 ? "bg-black text-white dark:bg-white dark:text-black"
                 : "bg-gray-100 dark:bg-gray-800",
