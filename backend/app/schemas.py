@@ -147,6 +147,21 @@ class ResultSummary(BaseModel):
     analyzed_at: float = Field(default=0.0, description="결과 파일 수정 시각(유닉스 초)")
 
 
+class ReanalyzeRequest(BaseModel):
+    """이미 등록된 곡 다시 분석하기."""
+
+    separate: bool = True
+    refetch: bool = Field(
+        default=False,
+        description="음원부터 다시 받는다. 기본은 받아 둔 음원을 그대로 쓴다",
+    )
+    source: SourceKind | None = Field(
+        default=None,
+        description="서버에 결과가 없을 때 쓸 힌트. 기기에만 저장해 둔 곡을 위한 것",
+    )
+    title: str = Field(default="", description="서버에 결과가 없을 때 쓸 제목")
+
+
 class AnalyzeRequest(BaseModel):
     url: str | None = Field(default=None, description="YouTube URL. ENABLE_YOUTUBE=false면 거부")
     separate: bool = Field(default=True, description="Demucs 음원 분리 사용 여부")

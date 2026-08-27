@@ -23,13 +23,17 @@ from .sheets import clean_query, search as search_sheets
 from .schemas import (
     AnalysisResult,
     AnalyzeRequest,
+    ReanalyzeRequest,
     Chord,
     LlmSettings,
     LyricLine,
     ResultSummary,
+    SourceKind,
 )
 from .shared_drive import download_shared, list_shared
 from .sources import UploadSource, YouTubeSource
+from .sources.base import AudioSource
+from .sources.cached import CachedSource, find_source_audio
 from .sources.youtube import YouTubeUnavailable
 
 app = FastAPI(title="리천 기타 코드 자동생성기 API", version=PIPELINE_VERSION)
@@ -401,6 +405,67 @@ async def get_result(result_id: str) -> AnalysisResult:
     if result is None:
         raise HTTPException(404, "분석 결과가 없습니다")
     return result
+
+
+def _purge_derived(result_id: str, *, include_source: bool) -> int:
+    """이 곡에서 만들어 둔 파일을 지운다. 몇 개 지웠는지 돌려준다.
+
+    디코딩본(`{id}.22050.wav`)·분리 스템·반주 mp3가 대상이다. 음원을 다시
+    받을 때는 이것들이 옛 소리에서 나온 것이라 반드시 같이 지워야 한다.
+    """
+    removed = 0
+    for path in settings.audio_dir.glob(f"{result_id}.*"):
+        rest = path.name[len(result_id) + 1 :]
+        is_derived = "." in rest
+        if is_derived or include_source:
+            path.unlink(missing_ok=True)
+            removed += 1
+    return removed
+
+
+@app.post("/api/results/{result_id}/reanalyze")
+async def reanalyze(result_id: str, req: ReanalyzeRequest) -> dict:
+    """이미 등록된 곡을 다시 분석한다.
+
+    파이프라인이 좋아졌거나 결과가 마음에 안 들 때 쓴다. 기본은 받아 둔
+    음원을 그대로 쓰므로 빠르다(내려받기 단계가 통째로 빠진다).
+
+    refetch=true면 음원부터 다시 받는다. YouTube가 영상을 바꿔 올렸거나
+    받다가 깨진 경우다. 업로드 곡은 다시 받을 곳이 없어 거절한다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    # 서버에서 지웠지만 기기에는 남아 있는 곡이 있다. 그럴 때 화면이
+    # 알려 준 정보로 되살린다 — YouTube 곡은 id만 알면 다시 받을 수 있다.
+    kind = result.source if result else req.source
+    title = result.title if result else req.title
+    if kind is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+
+    if req.refetch:
+        if kind != SourceKind.YOUTUBE:
+            raise HTTPException(
+                400, "업로드한 곡은 다시 받을 곳이 없습니다. 파일을 새로 올려 주세요"
+            )
+        if not settings.enable_youtube:
+            raise HTTPException(403, "이 서버는 YouTube 입력이 꺼져 있습니다")
+        _purge_derived(result_id, include_source=True)
+        source: AudioSource = YouTubeSource(f"https://www.youtube.com/watch?v={result_id}")
+    else:
+        path = find_source_audio(result_id)
+        if path is None:
+            # 음원도 없다. YouTube 곡이면 받아 오면 되고, 업로드 곡은 방법이 없다
+            if kind != SourceKind.YOUTUBE or not settings.enable_youtube:
+                raise HTTPException(404, "받아 둔 음원이 없습니다")
+            source = YouTubeSource(f"https://www.youtube.com/watch?v={result_id}")
+        else:
+            # 디코딩본과 분리 스템은 지운다. 남겨 두면 옛 산출물을 그대로 쓴다
+            _purge_derived(result_id, include_source=False)
+            source = CachedSource(result_id, kind, path, title)
+
+    job_id = manager.submit(source, separate=req.separate, force=True)
+    return {"job_id": job_id}
 
 
 @app.post("/api/results/{result_id}/lyrics")

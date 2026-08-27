@@ -30,7 +30,8 @@ interface Props {
    * 곡을 다시 분석한다. 분석을 고치면 새로 분석해야 반영되는데,
    * 곡마다 주소를 다시 넣게 할 수는 없다. YouTube 곡만 가능하다.
    */
-  onReanalyze?: (id: string) => void;
+  /** 다시 분석. refetch면 음원부터 새로 받는다 */
+  onReanalyze?: (item: ResultSummary, refetch: boolean) => void;
   /** 탭이 보일 때만 목록을 새로 읽는다 */
   active: boolean;
   /** 관리자 모드: 공유 폴더에 올릴 음원 내보내기 버튼이 보인다 */
@@ -361,14 +362,8 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                       ))}
                     </select>
                   )}
-                  {onReanalyze && item.source === "youtube" && (
-                    <button
-                      className={actionBtn}
-                      onClick={() => onReanalyze(item.id)}
-                      title="분석이 개선되었을 때 최신 결과로 갱신합니다"
-                    >
-                      재분석
-                    </button>
+                  {onReanalyze && (
+                    <ReanalyzeButtons item={item} onReanalyze={onReanalyze} />
                   )}
                   <button className={actionBtn} onClick={() => exportOne(item.id)}>
                     파일로
@@ -427,6 +422,9 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                     음원
                   </button>
                 )}
+                {onReanalyze && (
+                  <ReanalyzeButtons item={item} onReanalyze={onReanalyze} />
+                )}
                 {saved.has(item.id) ? (
                   <span className="shrink-0 px-2 py-1 text-[10px] text-green-700">
                     저장됨
@@ -464,5 +462,49 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
 
       <Copyright />
     </div>
+  );
+}
+
+
+/**
+ * 다시 분석 버튼 묶음.
+ *
+ * 「다시 분석」은 받아 둔 음원을 그대로 쓴다 — 파이프라인만 다시 돌리므로
+ * 빠르다. 「음원부터」는 내려받기부터 새로 한다. YouTube가 영상을 바꿔
+ * 올렸거나 받다가 깨진 경우가 아니면 쓸 일이 없어 따로 두었다.
+ */
+function ReanalyzeButtons({
+  item,
+  onReanalyze,
+}: {
+  item: ResultSummary;
+  onReanalyze: (item: ResultSummary, refetch: boolean) => void;
+}) {
+  const cls =
+    "shrink-0 rounded border border-gray-200 px-2 py-1 text-[10px] " +
+    "text-gray-600 dark:border-gray-700 dark:text-gray-300";
+  return (
+    <>
+      <button
+        className={cls}
+        title="받아 둔 음원으로 분석만 다시 합니다"
+        onClick={() => onReanalyze(item, false)}
+      >
+        다시 분석
+      </button>
+      {item.source === "youtube" && (
+        <button
+          className={cls}
+          title="음원을 새로 받아 처음부터 분석합니다"
+          onClick={() => {
+            if (confirm("음원을 새로 받아 처음부터 분석합니다. 시간이 걸립니다.")) {
+              onReanalyze(item, true);
+            }
+          }}
+        >
+          음원부터
+        </button>
+      )}
+    </>
   );
 }

@@ -25,6 +25,7 @@ import { SettingsTab } from "@/components/tabs/SettingsTab";
 import {
   analyzeUpload,
   analyzeUrl,
+  reanalyze,
   getHealth,
   getResult,
   makeInstrumental,
@@ -639,13 +640,12 @@ export default function Home() {
             // 서버가 있을 때만. 캐시된 오디오를 쓰므로 다시 받지 않는다.
             onReanalyze={
               health
-                ? (id) =>
+                ? (item, refetch) =>
                     run(() =>
-                      analyzeUrl(
-                        `https://www.youtube.com/watch?v=${id}`,
-                        settings.separate,
-                        true,
-                      ),
+                      reanalyze(item.id, settings.separate, refetch, {
+                        source: item.source,
+                        title: item.title,
+                      }),
                     )
                 : undefined
             }

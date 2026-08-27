@@ -47,6 +47,25 @@ export const analyzeUpload = (file: File, separate: boolean, force = false) => {
   );
 };
 
+/**
+ * 이미 등록된 곡을 다시 분석한다.
+ *
+ * 기본은 받아 둔 음원을 그대로 쓴다 — 내려받기 단계가 빠져 훨씬 빠르다.
+ * refetch를 주면 음원부터 다시 받는다(YouTube 곡만).
+ */
+export const reanalyze = (
+  id: string,
+  separate: boolean,
+  refetch = false,
+  /** 서버에 결과가 없을 때 되살릴 단서. 기기에만 남은 곡을 위한 것 */
+  hint?: { source: string; title: string },
+) =>
+  fetch(`${apiBase()}/api/results/${id}/reanalyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ separate, refetch, ...hint }),
+  }).then(json<{ job_id: string }>);
+
 export const getResult = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}`).then(json<AnalysisResult>);
 
