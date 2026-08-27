@@ -62,19 +62,20 @@ interface Props {
 const VB_W = 400;
 const PAD_X = 10;
 const STAFF_TOP = 34;      // 오선 첫 줄
-const LINE_GAP = 7;        // 오선 간격
+const LINE_GAP = 5;        // 오선 간격. 좁혀 두면 한 화면에 더 많은 줄이 들어온다
 const STAFF_H = LINE_GAP * 4;
 const CHORD_Y = 22;        // 코드 심볼 기준선
 const ROW_H = STAFF_TOP + STAFF_H + 14;
 // 가사를 적을 때만 줄을 늘린다. 없는데 비워 두면 악보가 성겨 보인다.
-const LYRIC_SIZE = 6.4;
+// 가사는 코드 다음으로 자주 보는 글자다. 작으면 눈이 아프다.
+const LYRIC_SIZE = 8.6;
 // 한글은 글자 하나가 글자 크기만큼의 폭을 먹는다. 이걸 절반으로 잡으면
 // 글자가 마디 밖으로 흘러나가 옆 마디를 덮는다.
 const LYRIC_CHAR_W = LYRIC_SIZE * 0.98;
 // 가사는 자기 오선에 바짝 붙인다. 아래 여백이 더 넓어야 다음 줄 악보가
 // 아니라 이 줄의 가사로 읽힌다.
-const LYRIC_Y = STAFF_TOP + STAFF_H + 8.5;
-const ROW_H_WITH_LYRICS = STAFF_TOP + STAFF_H + 13;
+const LYRIC_Y = STAFF_TOP + STAFF_H + 10;
+const ROW_H_WITH_LYRICS = STAFF_TOP + STAFF_H + 15;
 
 /**
  * 코드 악보 (리듬 슬래시 표기).
