@@ -82,6 +82,8 @@ export function tidyChords(chords: Chord[], bpm: number): Chord[] {
   const beat = bpm > 0 ? 60 / bpm : 0.5;
   let out = mergeSame(chords);
   out = dropSandwiched(out, beat * 2.2);
-  out = absorbGaps(out, beat * 2.2);
+  // 곡 한가운데 무음은 넉넉히 앞 코드로 넘긴다. 연주가 잠깐 멎는
+  // 브레이크에서도 연주자는 그 코드를 짚고 있다.
+  out = absorbGaps(out, beat * 16);
   return out;
 }

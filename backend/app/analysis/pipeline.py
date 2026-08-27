@@ -168,9 +168,13 @@ async def analyze(
     # 한 코드가 이어지는 중에 잠깐 끼어든 다른 코드·무음을 걷어낸다.
     # 마디가 바뀌는 지점에서 특히 잘 생기는 오인식이다.
     segments = chord_rec.drop_sandwiched(segments, max_duration=beat_period * 2.2)
-    segments = chord_rec.absorb_gaps(segments, max_duration=beat_period * 2.2)
-    # 연주가 이어지는데 N.C.가 뜬 자리를 파형 세기로 가려내 되돌린다.
-    segments = chord_rec.fix_sounding_gaps(segments, peaks, PEAKS_PER_SECOND)
+    # 곡 한가운데의 무음은 넉넉히 앞 코드로 넘긴다. 연주가 잠깐 멎는
+    # 브레이크에서도 연주자는 그 코드를 짚고 있다 — 악보에 N.C.가 뜨면
+    # 무엇을 잡아야 할지 알 수 없다. 도입·아웃트로는 건드리지 않는다.
+    segments = chord_rec.absorb_gaps(segments, max_duration=beat_period * 16)
+    # 소리가 나는데 N.C.가 뜬 자리도 되돌린다(브레이크의 잔향까지 잡도록
+    # 문턱을 낮게 둔다).
+    segments = chord_rec.fix_sounding_gaps(segments, peaks, PEAKS_PER_SECOND, ratio=0.12)
 
     # 조성은 코드 진행에서 정한다. 크로마 방식은 딸림음이 강한 곡에서
     # 5도 위 조로 밀렸다(혜화동을 B♭장조 대신 F장조로 봤다). 코드가
