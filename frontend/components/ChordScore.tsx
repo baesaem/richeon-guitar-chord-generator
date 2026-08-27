@@ -71,8 +71,10 @@ const LYRIC_SIZE = 6.4;
 // 한글은 글자 하나가 글자 크기만큼의 폭을 먹는다. 이걸 절반으로 잡으면
 // 글자가 마디 밖으로 흘러나가 옆 마디를 덮는다.
 const LYRIC_CHAR_W = LYRIC_SIZE * 0.98;
-const LYRIC_Y = STAFF_TOP + STAFF_H + 12;
-const ROW_H_WITH_LYRICS = STAFF_TOP + STAFF_H + 21;
+// 가사는 자기 오선에 바짝 붙인다. 아래 여백이 더 넓어야 다음 줄 악보가
+// 아니라 이 줄의 가사로 읽힌다.
+const LYRIC_Y = STAFF_TOP + STAFF_H + 8.5;
+const ROW_H_WITH_LYRICS = STAFF_TOP + STAFF_H + 13;
 
 /**
  * 코드 악보 (리듬 슬래시 표기).
@@ -128,7 +130,7 @@ export function ChordScore({
   const [beatsPerBar] = timeSignature.split("/");
 
   return (
-    <div className="space-y-1">
+    <div className={lyrics?.length ? "space-y-3" : "space-y-1"}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
         <span>
           조성 {spellKey(musicKey) || "미상"} · 박자 {timeSignature}
