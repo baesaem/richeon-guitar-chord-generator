@@ -143,12 +143,15 @@ export function ChordScore({
 
   return (
     <div className="space-y-0.5">
+      {/* 아르페지오 모드에서는 스트로크 패턴을 숨긴다 — 치지 않는 주법의
+          화살표가 안내줄에 남아 있으면 어느 쪽을 따르라는 건지 헷갈린다.
+          주법 표시는 playNotes의 「아르페지오 N」이 대신한다. */}
       <SongInfoLine
         musicKey={musicKey}
         timeSignature={timeSignature}
-        strum={strum}
+        strum={pattern ? null : strum}
         playNotes={playNotes}
-        onPickStrum={onPickStrum}
+        onPickStrum={pattern ? undefined : onPickStrum}
         right={headerRight}
       >
         {visibleLines && lines.length > visibleLines
