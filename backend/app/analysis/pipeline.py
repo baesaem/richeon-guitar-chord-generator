@@ -23,6 +23,7 @@ from ..sources.base import FetchedAudio, ProgressFn, save_sidecar
 from . import chords as chord_rec
 from . import chords_btc as btc
 from . import melody
+from . import strum
 from .beats import (
     FALLBACK_MODEL as FALLBACK_BEAT_MODEL,
     estimate_downbeat_phase,
@@ -168,6 +169,8 @@ async def analyze(
     # 한 코드가 이어지는 중에 잠깐 끼어든 다른 코드·무음을 걷어낸다.
     # 마디가 바뀌는 지점에서 특히 잘 생기는 오인식이다.
     segments = chord_rec.drop_sandwiched(segments, max_duration=beat_period * 2.2)
+    # 근음은 같은데 성격만 흔들리는 자리(C-C7, Gm-G)를 하나로 합친다.
+    segments = chord_rec.merge_same_root(segments, min_duration=beat_period * 2.2)
     # 곡 한가운데의 무음은 넉넉히 앞 코드로 넘긴다. 연주가 잠깐 멎는
     # 브레이크에서도 연주자는 그 코드를 짚고 있다 — 악보에 N.C.가 뜨면
     # 무엇을 잡아야 할지 알 수 없다. 도입·아웃트로는 건드리지 않는다.
@@ -186,6 +189,16 @@ async def analyze(
     # --- 멜로디 채보 ---
     # 보컬을 분리해 둔 곡만. 실패해도 코드는 그대로 쓸 수 있으므로 삼킨다.
     notes: list = []
+    strokes: list = []
+    if separated and harmonic_path != decoded.path:
+        # 스트로크는 드럼을 걷어낸 트랙에서 읽는다. 드럼이 있으면 킥·스네어
+        # 온셋이 섞여 기타를 언제 쳤는지 알 수 없다.
+        try:
+            strokes = await asyncio.to_thread(strum.detect, harmonic_path, grid.times)
+            await progress(JobStage.POSTPROCESS, 0.4, f"스트로크 {len(strokes)}회")
+        except Exception as exc:
+            await progress(JobStage.POSTPROCESS, 0.4, f"스트로크 건너뜀 ({exc})")
+
     if vocals_path is not None:
         await progress(JobStage.POSTPROCESS, 0.5, "멜로디 따는 중")
         try:
@@ -206,6 +219,7 @@ async def analyze(
         grid=grid,
         segments=segments,
         notes=notes,
+        strokes=strokes,
         key_name=key_name,
         chord_model=chord_model,
         peaks=peaks,
@@ -222,6 +236,7 @@ def _build_result(
     grid,
     segments: list[chord_rec.ChordSegment],
     notes: list,
+    strokes: list,
     key_name: str,
     chord_model: str,
     peaks: list[float],
@@ -265,6 +280,7 @@ def _build_result(
         beats=beats,
         chords=chord_list,
         melody=notes,
+        strums=strokes,
         peaks=peaks,
         peaks_per_second=PEAKS_PER_SECOND,
         confidence=round(min(max(overall, 0.0), 1.0), 3),

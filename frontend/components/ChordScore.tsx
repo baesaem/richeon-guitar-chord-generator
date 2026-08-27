@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, spellKey, transposeRoot } from "@/lib/notation";
-import type { Chord, Note } from "@/lib/types";
+import type { Chord, Note, Strum } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
 function svgLabel(label: string): React.ReactNode {
@@ -37,6 +37,8 @@ interface Props {
   chords: Chord[];
   /** 보컬에서 딴 멜로디. 있으면 슬래시 대신 음표를 그린다 */
   melody?: Note[];
+  /** 스트로크 패턴. 있으면 오선 아래에 ↓↑로 그린다 */
+  strums?: Strum[];
   currentBar: number;
   flats: boolean;
   transpose: number;
@@ -66,6 +68,7 @@ const STAFF_TOP = 34;      // 오선 첫 줄
 const LINE_GAP = 7;        // 오선 간격
 const STAFF_H = LINE_GAP * 4;
 const CHORD_Y = 22;        // 코드 심볼 기준선
+const STRUM_Y = STAFF_TOP + STAFF_H + 9;   // 오선 아래 스트로크 줄
 const ROW_H = STAFF_TOP + STAFF_H + 14;
 
 /**
@@ -78,6 +81,7 @@ export function ChordScore({
   bars,
   chords,
   melody,
+  strums,
   currentBar,
   flats,
   transpose,
@@ -215,6 +219,48 @@ export function ChordScore({
                         </text>
                       </>
                     )}
+
+                    {/* 스트로크. 오선 아래에 ↓↑로 언제 쓸어내리고 올리는지 */}
+                    {strums?.map((s, k) => {
+                      const beatSpan =
+                        bar.beatTimes.length > 1
+                          ? bar.beatTimes[1] - bar.beatTimes[0]
+                          : 0.5;
+                      const barEnd =
+                        (bar.beatTimes[bar.beatTimes.length - 1] ?? bar.start) + beatSpan;
+                      if (s.t < bar.start - 1e-3 || s.t >= barEnd - 1e-3) return null;
+
+                      const span = Math.max(barEnd - bar.start, 1e-6);
+                      const x = contentX + (contentW * (s.t - bar.start)) / span;
+                      // 세게 친 스트로크를 진하게. 강약이 보이면 리듬이 읽힌다.
+                      const weight = 0.45 + s.strength * 0.55;
+
+                      return (
+                        <g key={`s${k}`} opacity={weight}>
+                          {s.down ? (
+                            // ↓ 쓸어내림: 세로줄 + 아래쪽 화살촉
+                            <path
+                              d={`M${x} ${STRUM_Y - 4} L${x} ${STRUM_Y + 2} M${x - 1.4} ${STRUM_Y} L${x} ${STRUM_Y + 2.2} L${x + 1.4} ${STRUM_Y}`}
+                              stroke="currentColor"
+                              strokeWidth={0.9}
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          ) : (
+                            // ↑ 쓸어올림: 세로줄 + 위쪽 화살촉
+                            <path
+                              d={`M${x} ${STRUM_Y + 2} L${x} ${STRUM_Y - 4} M${x - 1.4} ${STRUM_Y - 2} L${x} ${STRUM_Y - 4.2} L${x + 1.4} ${STRUM_Y - 2}`}
+                              stroke="currentColor"
+                              strokeWidth={0.9}
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          )}
+                        </g>
+                      );
+                    })}
 
                     {/* 멜로디 음표. 있으면 이 마디에 걸친 음을 오선에 얹는다 */}
                     {melody?.map((note, k) => {

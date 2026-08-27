@@ -72,6 +72,14 @@ class Note(BaseModel):
     midi: int = Field(description="MIDI 번호. 60이 가온다(C4)")
 
 
+class Strum(BaseModel):
+    """스트로크 한 번. 언제, 어느 방향으로, 얼마나 세게 쳤는지."""
+
+    t: float = Field(description="치는 시각(초)")
+    down: bool = Field(description="True면 쓸어내림(↓), False면 쓸어올림(↑)")
+    strength: float = Field(default=1.0, ge=0.0, le=1.0, description="0~1 세기")
+
+
 class LyricLine(BaseModel):
     """시간이 붙은 가사 한 줄. YouTube 자막이나 사용자가 넣은 LRC에서 온다."""
 
@@ -112,6 +120,8 @@ class AnalysisResult(BaseModel):
     lyrics: list[LyricLine] = []
     # 보컬에서 딴 멜로디. 음원 분리를 쓴 경우에만 채워진다.
     melody: list[Note] = []
+    # 스트로크(스트럼) 패턴. 음원 분리를 쓴 경우에만 채워진다.
+    strums: list[Strum] = []
 
     # 타임라인에 그릴 파형 포락선. 0~1로 정규화된 값이 초당 peaks_per_second개.
     peaks: list[float] = []

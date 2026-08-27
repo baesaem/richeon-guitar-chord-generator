@@ -424,6 +424,7 @@ export default function Home() {
                     bars={bars}
                     chords={shownChords}
                     melody={result.melody}
+                    strums={result.strums}
                     currentBar={barIdx}
                     flats={flats}
                     transpose={noteShift}

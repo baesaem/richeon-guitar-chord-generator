@@ -8,8 +8,8 @@ node_modules/
 .next/
 out/
 # 캐시 (오디오 원본 · 분석 결과)
-backend/cache/audio/
-backend/cache/results/
+# 캐시 전체를 뺀다. runtime.json에는 API 키가 들어간다.
+backend/cache/
 *.db
 *.db-journal
 # 환경설정

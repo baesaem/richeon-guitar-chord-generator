@@ -76,12 +76,44 @@ function absorbGaps(chords: Chord[], maxDuration: number): Chord[] {
   return mergeSame(out);
 }
 
+/**
+ * 같은 근음이 이어지면 짧은 쪽을 긴 쪽에 흡수한다.
+ *
+ * 한 마디 안에서 C – C7 이나 Gm – G 처럼 근음은 그대로인데 성격만
+ * 흔들리는 일이 잦다. 코드가 울리는 동안 7음이 스치거나 3음이 묻히면
+ * 다른 화음으로 읽힌 것이다. 연주자는 그 마디 내내 한 코드를 짚는다.
+ *
+ * 길게 이어지는 변화는 살린다 — 한 마디씩 가는 C → C7은 실제 진행이다.
+ */
+function mergeSameRoot(chords: Chord[], minDuration: number): Chord[] {
+  const out: Chord[] = [];
+  for (const c of chords) {
+    const prev = out[out.length - 1];
+    if (prev && prev.root && prev.root === c.root && prev.quality !== "N") {
+      const prevLen = prev.end - prev.start;
+      const len = c.end - c.start;
+      if (len < minDuration && len <= prevLen) {
+        prev.end = c.end; // 앞 코드가 이어받는다
+        continue;
+      }
+      if (prevLen < minDuration && prevLen < len) {
+        out.pop();
+        out.push({ ...c, start: prev.start }); // 뒤 코드가 앞을 끌어안는다
+        continue;
+      }
+    }
+    out.push({ ...c });
+  }
+  return out;
+}
+
 /** 화면에 그리기 전에 코드 목록을 다듬는다. */
 export function tidyChords(chords: Chord[], bpm: number): Chord[] {
   if (chords.length < 2) return chords;
   const beat = bpm > 0 ? 60 / bpm : 0.5;
   let out = mergeSame(chords);
   out = dropSandwiched(out, beat * 2.2);
+  out = mergeSameRoot(out, beat * 2.2);
   // 곡 한가운데 무음은 넉넉히 앞 코드로 넘긴다. 연주가 잠깐 멎는
   // 브레이크에서도 연주자는 그 코드를 짚고 있다.
   out = absorbGaps(out, beat * 16);

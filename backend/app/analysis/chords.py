@@ -265,6 +265,37 @@ def fix_sounding_gaps(
     return merge_same_label(out)
 
 
+def merge_same_root(
+    segments: list[ChordSegment], min_duration: float
+) -> list[ChordSegment]:
+    """같은 근음이 이어지면 짧은 쪽을 긴 쪽에 흡수한다.
+
+    한 마디 안에서 C - C7 이나 Gm - G 처럼 근음은 그대로인데 성격만
+    흔들리는 일이 잦다. 코드가 울리는 동안 7음이 스치거나 3음이 묻히면
+    모델이 다른 화음으로 본 것이다. 연주자는 그 마디 내내 한 코드를
+    짚고 있으므로 악보에 둘로 적히면 오히려 헷갈린다.
+
+    길게 지속되는 변화는 살린다. C가 한 마디, C7이 한 마디 이어지면
+    그것은 실제로 딸림7화음으로 넘어간 진행이다.
+    """
+    out: list[ChordSegment] = []
+    for seg in segments:
+        prev = out[-1] if out else None
+        if prev and prev.root and prev.root == seg.root and prev.quality != "N":
+            prev_len = prev.end - prev.start
+            seg_len = seg.end - seg.start
+            if seg_len < min_duration and seg_len <= prev_len:
+                prev.end = seg.end          # 앞 코드가 이어받는다
+                continue
+            if prev_len < min_duration and prev_len < seg_len:
+                seg.start = prev.start      # 뒤 코드가 앞을 끌어안는다
+                out.pop()
+                out.append(seg)
+                continue
+        out.append(seg)
+    return out
+
+
 def merge_short_segments(
     segments: list[ChordSegment], min_duration: float
 ) -> list[ChordSegment]:

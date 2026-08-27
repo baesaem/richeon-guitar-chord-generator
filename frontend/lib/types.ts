@@ -55,6 +55,13 @@ export interface Note {
   midi: number;
 }
 
+/** 스트로크 한 번. down이면 쓸어내림(↓), 아니면 쓸어올림(↑) */
+export interface Strum {
+  t: number;
+  down: boolean;
+  strength: number;
+}
+
 /** 시간이 붙은 가사 한 줄 */
 export interface LyricLine {
   t: number;
@@ -86,6 +93,8 @@ export interface AnalysisResult {
   lyrics?: LyricLine[];
   /** 보컬에서 딴 멜로디. 음원 분리를 쓴 곡만 채워진다 */
   melody?: Note[];
+  /** 스트로크(스트럼) 패턴. 음원 분리를 쓴 곡만 채워진다 */
+  strums?: Strum[];
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;
