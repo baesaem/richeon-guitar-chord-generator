@@ -77,9 +77,11 @@ export interface SharedFile {
   name: string;
 }
 
-/** 강상기타반 공유 폴더(구글드라이브)의 파일 목록. 서버가 프록시한다. */
-export const listShared = () =>
-  fetch(`${apiBase()}/api/shared`).then(json<SharedFile[]>);
+/** 반별 공유 폴더(구글드라이브)의 파일 목록. 서버가 프록시한다. */
+export const listShared = (folderId: string) =>
+  fetch(`${apiBase()}/api/shared?folder=${encodeURIComponent(folderId)}`).then(
+    json<SharedFile[]>,
+  );
 
 async function sharedResponse(id: string): Promise<Response> {
   const res = await fetch(`${apiBase()}/api/shared/${id}`);

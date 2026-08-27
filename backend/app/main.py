@@ -324,10 +324,12 @@ async def find_sheets(result_id: str) -> dict:
 
 
 @app.get("/api/shared")
-async def shared_list() -> list[dict]:
-    """강상기타반 공유 폴더의 파일 목록."""
+async def shared_list(folder: str = "") -> list[dict]:
+    """반별 공유 폴더의 파일 목록. folder를 주지 않으면 초급 폴더."""
     try:
-        files = await list_shared()
+        files = await list_shared(folder)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         raise HTTPException(502, f"공유 폴더를 읽지 못했습니다: {exc}") from exc
     return [{"id": f.id, "name": f.name} for f in files]

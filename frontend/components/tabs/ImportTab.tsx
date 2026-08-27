@@ -13,6 +13,7 @@ import {
   listSharedDirect,
 } from "@/lib/driveDirect";
 import { isBundle, openBundle } from "@/lib/bundle";
+import { CLASSES, folderUrl } from "@/lib/classes";
 import { localIds, parseResultsText, saveLocal, saveLocalAudio } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
 import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
@@ -30,9 +31,6 @@ import {
   type Health,
   type JobStatus,
 } from "@/lib/types";
-
-const DRIVE_FOLDER_ID = "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd";
-const DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`;
 
 interface Props {
   health: Health | null;
@@ -53,7 +51,8 @@ interface Props {
   onAnalyzeWithAi: (url: string) => void;
 }
 
-type CardKind = "youtube" | "file" | "shared" | "ai";
+// 반은 CLASSES의 id를 그대로 카드 종류로 쓴다("beginner"·"intermediate")
+type CardKind = "youtube" | "file" | "ai" | (string & {});
 type SharedFilter = "unfetched" | "fetched" | "all";
 
 const SHARED_FILTERS: { value: SharedFilter; label: string }[] = [
@@ -108,9 +107,14 @@ export function ImportTab({
 }: Props) {
   const [url, setUrl] = useState("");
   const [open, setOpen] = useState<CardKind | null>(autoOpen ?? null);
+  // 지금 열어 둔 반. 카드마다 폴더가 다르다
+  const klass = CLASSES.find((c) => c.id === open) ?? null;
 
   // 강상기타반 공유 재생목록 (구글드라이브, 서버가 프록시)
-  const [shared, setShared] = useState<SharedFile[] | null>(null);
+  const [shared, setShared] = useState<{
+    folderId: string;
+    files: SharedFile[];
+  } | null>(null);
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [fetching, setFetching] = useState<string | null>(null);
   const [sharedNotice, setSharedNotice] = useState<string | null>(null);
@@ -137,22 +141,39 @@ export function ImportTab({
     health ? downloadSharedBlob(id) : downloadDirectBlob(id);
 
   useEffect(() => {
+    if (!klass) return;
     if (!health && !hasDriveKey()) return;
-    (health ? listShared() : listSharedDirect())
+    // 반을 바꾸면 앞 반의 목록이 잠깐 보이면 안 된다. 목록 자체를 반
+    // 기준으로 담아 두고, 지금 반의 것만 골라 쓴다.
+    let alive = true;
+    (health
+      ? listShared(klass.folderId)
+      : listSharedDirect(klass.folderId))
       .then((files) => {
-        setShared(files);
+        if (!alive) return;
+        setShared({ folderId: klass.folderId, files });
         setSharedError(null);
       })
-      .catch((e) => setSharedError((e as Error).message));
+      .catch((e) => {
+        if (alive) setSharedError((e as Error).message);
+      });
     refreshFetched();
-  }, [health]);
+    return () => {
+      alive = false;
+    };
+  }, [health, klass]);
 
   // 목록에는 곡(.rml)만 보여준다. 음원 파일은 파일명 속 결과 id로
   // 곡과 짝을 맞춰, 곡을 받을 때 함께 내려받는다.
-  const sharedSongs = shared?.filter((f) => isRmlName(f.name)) ?? null;
+  // 지금 열어 둔 반의 목록만 쓴다. 반을 막 바꿨을 때 앞 반의 곡이
+  // 스쳐 보이지 않게 한다.
+  const files = shared && klass && shared.folderId === klass.folderId
+    ? shared.files
+    : null;
+  const sharedSongs = files?.filter((f) => isRmlName(f.name)) ?? null;
   // 같은 이름의 음원이 올라와 있는 곡 (목록에 "음원 포함" 표시용)
   const audioBases = new Set(
-    (shared ?? []).map((f) => audioBaseOf(f.name)).filter(Boolean),
+    (files ?? []).map((f) => audioBaseOf(f.name)).filter(Boolean),
   );
   // 지금 걸러 놓은 것 기준으로 화면에 보이는 곡. 목록과 「모두 받기」가
   // 같은 것을 보게 한 곳에서 계산한다.
@@ -191,7 +212,7 @@ export function ImportTab({
     // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
     // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다.
     let withAudio = 0;
-    for (const audioFile of shared ?? []) {
+    for (const audioFile of files ?? []) {
       const audioId = audioIdFromName(audioFile.name);
       if (!audioId || !results.some((r) => r.id === audioId)) continue;
       await saveLocalAudio(audioId, await fileBlob(audioFile.id));
@@ -350,27 +371,31 @@ export function ImportTab({
         </p>
       )}
 
-      {/* ---- 방식 카드: 수강생이 주로 쓰는 순서(강상기타반 → 음원 → YouTube) ---- */}
-      <Card
-        icon={
-          <svg
-            viewBox="0 0 24 24"
-            className="h-6 w-6 text-gray-600 dark:text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <path d="M12 11v6M9 14l3 3 3-3" />
-          </svg>
-        }
-        title="강상기타반"
-        description="곡 목록에서 필요한 곡을 골라 재생목록에 담습니다"
-        onClick={() => setOpen("shared")}
-      />
+      {/* ---- 방식 카드: 수강생이 주로 쓰는 순서(반 → 음원 → YouTube) ----
+           초급·중급은 나가는 곡이 달라 폴더를 따로 둔다 */}
+      {CLASSES.map((c) => (
+        <Card
+          key={c.id}
+          icon={
+            <svg
+              viewBox="0 0 24 24"
+              className="h-6 w-6 text-gray-600 dark:text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <path d="M12 11v6M9 14l3 3 3-3" />
+            </svg>
+          }
+          title={c.name}
+          description="곡 목록에서 필요한 곡을 골라 재생목록에 담습니다"
+          onClick={() => setOpen(c.id)}
+        />
+      ))}
 
       <Card
         icon={
@@ -593,22 +618,22 @@ export function ImportTab({
         </Popup>
       )}
 
-      {/* ---- 강상기타반 모달 ---- */}
-      {open === "shared" && (
-        <Popup title="강상기타반" onClose={() => setOpen(null)}>
+      {/* ---- 반별 곡 목록 모달 ---- */}
+      {klass && (
+        <Popup title={klass.name} onClose={() => setOpen(null)}>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[11px] leading-snug text-gray-500">
               필요한 곡을 골라 「받기」를 누르세요. 재생목록(기기 저장)에 담깁니다.
             </p>
             {adminMode && (
               <a
-                href={DRIVE_FOLDER_URL}
+                href={folderUrl(klass.folderId)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="shrink-0 text-[11px] text-gray-500 underline"
                 onClick={(e) => {
                   e.preventDefault();
-                  openLink(DRIVE_FOLDER_URL);
+                  openLink(folderUrl(klass.folderId));
                 }}
               >
                 드라이브에서 열기
@@ -631,9 +656,9 @@ export function ImportTab({
             // 서버도 드라이브 키도 없으면 드라이브 폴더 뷰를 그대로 임베드한다.
             <>
               <iframe
-                src={`https://drive.google.com/embeddedfolderview?id=${DRIVE_FOLDER_ID}#list`}
+                src={`https://drive.google.com/embeddedfolderview?id=${klass.folderId}#list`}
                 className="h-64 w-full rounded border border-gray-200 bg-white dark:border-gray-700"
-                title="강상기타반 공유 폴더"
+                title={`${klass.name} 공유 폴더`}
               />
               <p className="mt-2 text-[11px] leading-snug text-gray-500">
                 파일을 누르면 드라이브에서 내려받아집니다. 받은 파일은 재생목록의

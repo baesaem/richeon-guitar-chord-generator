@@ -43,11 +43,14 @@ def _fetch_blocking(url: str) -> bytes:
         return response.content
 
 
-async def list_shared() -> list[SharedFile]:
+async def list_shared(folder_id: str = "") -> list[SharedFile]:
+    """반별 공유 폴더의 파일 목록. 폴더를 주지 않으면 기본 폴더(초급)."""
+    target = folder_id or settings.shared_folder_id
+    if target not in settings.shared_folder_ids:
+        raise ValueError(f"허용되지 않은 폴더입니다: {target}")
+
     html = (
-        await asyncio.to_thread(
-            _fetch_blocking, _LIST_URL.format(folder_id=settings.shared_folder_id)
-        )
+        await asyncio.to_thread(_fetch_blocking, _LIST_URL.format(folder_id=target))
     ).decode("utf-8", "replace")
 
     return [

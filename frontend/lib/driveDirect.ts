@@ -17,7 +17,6 @@ import type { SharedFile } from "./api";
 
 const DRIVE_API_KEY = process.env.NEXT_PUBLIC_DRIVE_API_KEY ?? "";
 
-const FOLDER_ID = "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd";
 const API = "https://www.googleapis.com/drive/v3";
 
 /** 직접 조회가 가능한 빌드인가 (키가 들어 있는가) */
@@ -25,9 +24,9 @@ export function hasDriveKey(): boolean {
   return DRIVE_API_KEY.length > 0;
 }
 
-export async function listSharedDirect(): Promise<SharedFile[]> {
+export async function listSharedDirect(folderId: string): Promise<SharedFile[]> {
   const params = new URLSearchParams({
-    q: `'${FOLDER_ID}' in parents and trashed=false`,
+    q: `'${folderId}' in parents and trashed=false`,
     fields: "files(id,name)",
     pageSize: "1000",
     key: DRIVE_API_KEY,

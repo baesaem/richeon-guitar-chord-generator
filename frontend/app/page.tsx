@@ -16,6 +16,7 @@ import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { MySheet } from "@/components/MySheet";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
+import { CLASSES } from "@/lib/classes";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
@@ -54,7 +55,7 @@ import { voicingFor } from "@/lib/voicings";
 export default function Home() {
   const [tab, setTab] = useState<Tab>("home");
   // 홈에서 「강상기타반」으로 들어오면 그 카드를 바로 펼친다
-  const [importCard, setImportCard] = useState<"shared" | undefined>(undefined);
+  const [importCard, setImportCard] = useState<string | undefined>(undefined);
   const [settings, setSettings] = useSettings();
 
   const [health, setHealth] = useState<Health | null>(null);
@@ -694,7 +695,7 @@ export default function Home() {
                   setTab("import");
                 }}
                 onShared={() => {
-                  setImportCard("shared");
+                  setImportCard(CLASSES[0].id);
                   setTab("import");
                 }}
                 onLibrary={() => setTab("library")}

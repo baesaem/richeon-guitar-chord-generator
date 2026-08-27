@@ -37,7 +37,14 @@ class Settings(BaseSettings):
 
     # 강상기타반 공유 재생목록(구글드라이브 공개 폴더).
     # 여기 올려 둔 .rml 파일을 앱에서 바로 내려받아 기기에 저장한다.
+    # 강상주민센터 기타반 초급. 반을 지정하지 않고 부를 때의 기본값이다.
     shared_folder_id: str = "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd"
+    # 열어 줄 공유 폴더들. 여기 없는 폴더는 거절한다 — 이 서버를 아무
+    # 드라이브 폴더나 읽어 주는 대리인으로 쓰이게 두지 않는다.
+    shared_folder_ids: tuple[str, ...] = (
+        "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd",  # 초급
+        "14DkfLqbYBapOD3rlrTxpqpLNEmX90CzL",  # 중급
+    )
 
     # --- LLM (선택) ---
     # 영상 제목에서 가수·곡명을 가려내고 로마자 표기를 만드는 데만 쓴다.
