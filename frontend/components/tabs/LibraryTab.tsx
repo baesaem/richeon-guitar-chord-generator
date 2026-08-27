@@ -362,7 +362,7 @@ export function LibraryTab({
         <p className="py-2 text-xs text-gray-400">
           {adminMode
             ? "아직 없습니다. 아래 서버 목록에서 「저장」을 누르면 여기 담깁니다."
-            : "아직 없습니다. 음원 가져오기의 강상기타반에서 곡을 받으면 여기 담깁니다."}
+            : "아직 없습니다. 음원 가져오기의 기타반에서 곡을 받으면 여기 담깁니다."}
         </p>
       ) : (
         <ul className="divide-y divide-gray-200 dark:divide-gray-800">

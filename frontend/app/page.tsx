@@ -20,7 +20,6 @@ import { LyricEditor, LyricRow } from "@/components/LyricEditor";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { clearChordAt, setChordAt } from "@/lib/editChords";
-import { CLASSES } from "@/lib/classes";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
@@ -67,7 +66,7 @@ import { voicingFor } from "@/lib/voicings";
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("home");
-  // 홈에서 「강상기타반」으로 들어오면 그 카드를 바로 펼친다
+  // 홈에서 「기타반」으로 들어오면 그 카드를 바로 펼친다
   const [importCard, setImportCard] = useState<string | undefined>(undefined);
   const [settings, setSettings] = useSettings();
 
@@ -112,8 +111,8 @@ export default function Home() {
   const [backendDown, setBackendDown] = useState(false);
 
   // 설정에서 서버 주소를 바꾸면 다시 확인한다.
-  // 강상기타반 곡은 자동으로 담지 않는다 - 수강생이 음원 가져오기의
-  // 강상기타반 목록에서 필요한 곡만 골라 받는다.
+  // 기타반 곡은 자동으로 담지 않는다 - 수강생이 음원 가져오기의
+  // 기타반 목록에서 필요한 곡만 골라 받는다.
   useEffect(() => {
     getHealth()
       .then((h) => {
@@ -323,7 +322,7 @@ export default function Home() {
       setStatus(null);
       setError(
         e instanceof NotKnown
-          ? `${e.message}. 강상기타반에서 받거나, 집 서버에 연결해 분석해 주세요.`
+          ? `${e.message}. 기타반에서 받거나, 집 서버에 연결해 분석해 주세요.`
           : (e as Error).message,
       );
     }
@@ -819,8 +818,8 @@ export default function Home() {
                   setImportCard(undefined);
                   setTab("import");
                 }}
-                onShared={() => {
-                  setImportCard(CLASSES[0].id);
+                onShared={(classId) => {
+                  setImportCard(classId);
                   setTab("import");
                 }}
                 onLibrary={() => setTab("library")}

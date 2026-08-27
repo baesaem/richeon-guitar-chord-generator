@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
+import { CLASSES } from "@/lib/classes";
 import { listFolders } from "@/lib/folders";
 import { listLocal } from "@/lib/library";
 import { labelFor } from "@/lib/notation";
@@ -15,7 +16,8 @@ interface Props {
   onOpen: (id: string) => void;
   onImport: () => void;
   onLibrary: () => void;
-  onShared: () => void;
+  /** 반별 곡 목록 열기. 반 id를 넘긴다 */
+  onShared: (classId: string) => void;
   onChords: () => void;
 }
 
@@ -67,13 +69,21 @@ export function HomeDashboard({ onOpen, onImport, onLibrary, onShared, onChords 
   const last = recent[0];
   const rest = recent.slice(1, 6);
 
-  const quick = (label: string, icon: React.ReactNode, onClick: () => void) => (
+  const quick = (
+    label: string,
+    icon: React.ReactNode,
+    onClick: () => void,
+    key?: string,
+  ) => (
     <button
+      key={key ?? label}
       onClick={onClick}
       className="flex flex-col items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 py-2.5 dark:border-gray-700 dark:bg-gray-900"
     >
       <span className="text-[var(--accent)]">{icon}</span>
-      <span className="text-[11px] font-medium">{label}</span>
+      <span className="px-1 text-center text-[11px] font-medium leading-tight">
+        {label}
+      </span>
     </button>
   );
 
@@ -113,17 +123,21 @@ export function HomeDashboard({ onOpen, onImport, onLibrary, onShared, onChords 
         </button>
       )}
 
-      {/* 빠른 실행 */}
-      <div className="grid grid-cols-4 gap-2">
-        {quick(
-          "강상기타반",
-          icon(
-            <>
-              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <path d="M12 11v6M9 14l3 3 3-3" />
-            </>,
+      {/* 빠른 실행. 반이 둘이라 다섯 칸 — 3+2로 접힌다 */}
+      <div className="grid grid-cols-3 gap-2">
+        {CLASSES.map((c) =>
+          quick(
+            // 타일에는 반 이름만. "강상주민센터"는 타이틀바에 이미 있다
+            c.name.replace("강상주민센터 ", ""),
+            icon(
+              <>
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <path d="M12 11v6M9 14l3 3 3-3" />
+              </>,
+            ),
+            () => onShared(c.id),
+            c.id,
           ),
-          onShared,
         )}
         {quick(
           "가져오기",

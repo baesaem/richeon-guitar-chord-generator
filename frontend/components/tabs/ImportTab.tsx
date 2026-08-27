@@ -41,7 +41,7 @@ interface Props {
   /** 관리자 모드일 때만 드라이브 폴더 관리 링크를 보여준다 */
   adminMode: boolean;
   /**
-   * 탭을 열자마자 펼칠 카드. 홈의 「강상기타반」 바로가기가 쓴다.
+   * 탭을 열자마자 펼칠 카드. 홈의 「기타반」 바로가기가 쓴다.
    * 탭이 바뀔 때 이 컴포넌트가 다시 마운트되므로 초기값으로 충분하다.
    */
   autoOpen?: CardKind;
@@ -110,7 +110,7 @@ export function ImportTab({
   // 지금 열어 둔 반. 카드마다 폴더가 다르다
   const klass = CLASSES.find((c) => c.id === open) ?? null;
 
-  // 강상기타반 공유 재생목록 (구글드라이브, 서버가 프록시)
+  // 기타반 공유 재생목록 (구글드라이브, 서버가 프록시)
   const [shared, setShared] = useState<{
     folderId: string;
     files: SharedFile[];
@@ -360,7 +360,7 @@ export function ImportTab({
             {health
               ? `${health.device} · ${health.pipeline_version}` +
                 (health.youtube_enabled ? "" : " · 업로드 전용")
-              : "분석 서버 미연결 — 강상기타반 받기는 가능"}
+              : "분석 서버 미연결 — 기타반 받기는 가능"}
           </p>
         )}
       </header>
@@ -533,7 +533,7 @@ export function ImportTab({
           <p className="mb-2 rounded bg-amber-50 px-2 py-2 text-[11px] leading-snug text-amber-800">
             분석 서버가 없을 때 쓰는 대체 수단입니다. AI가 <b>음원을 듣지
             않고</b> 아는 코드를 적어 주는 것이라, 되는 곡이 드물고 되더라도
-            전주 길이나 반복 횟수가 실제 녹음과 어긋납니다. 강상기타반에서
+            전주 길이나 반복 횟수가 실제 녹음과 어긋납니다. 기타반에서
             받은 곡이 언제나 더 정확합니다.
           </p>
           <input
