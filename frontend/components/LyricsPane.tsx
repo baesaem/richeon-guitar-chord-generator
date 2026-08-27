@@ -5,8 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchLyrics, putLyrics } from "@/lib/api";
 import { saveLocal } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
-import { buildBars } from "@/lib/bars";
-import { groupByBars, groupIndexAt } from "@/lib/lyricGroups";
+import { groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
 import { parseLyricsText } from "@/lib/lrc";
 import { findLyrics } from "@/lib/lyricsClient";
 import type { AnalysisResult, LyricLine } from "@/lib/types";
@@ -29,12 +28,9 @@ interface Props {
  */
 export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
   const lines = useMemo(() => result.lyrics ?? [], [result.lyrics]);
-  // 악보와 같은 네 마디 묶음으로 끊는다. 자막에서 온 가사는 숨 쉬는
-  // 자리마다 토막나 그대로 늘어놓으면 어디까지가 한 소절인지 알 수 없다.
-  const groups = useMemo(
-    () => groupByBars(lines, buildBars(result)),
-    [lines, result],
-  );
+  // 문장 단위로 끊는다. 자막에서 온 가사는 숨 쉬는 자리마다 토막나
+  // 그대로 늘어놓으면 어디까지가 한 소절인지 알 수 없다.
+  const groups = useMemo(() => groupBySentence(lines), [lines]);
   const index = groupIndexAt(groups, time);
 
   const activeRef = useRef<HTMLLIElement | null>(null);

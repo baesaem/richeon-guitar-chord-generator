@@ -428,9 +428,12 @@ def align_to_vocals(lines: list[LyricLine], audio_id: str) -> list[LyricLine]:
     if moved == 0:
         return lines
 
+    # 줄이 실제로 얼마나 이어졌는지(end)는 그대로 옮긴다. 다음 줄 시작으로
+    # 덮으면 줄 사이의 빈틈이 사라져, 어디서 소절이 끊기는지 알 수 없게 된다.
     fixed = []
     for i, line in enumerate(lines):
-        end = starts[i + 1] if i + 1 < len(starts) else line.end
+        shift = starts[i] - line.t
+        end = round(line.end + shift, 2) if line.end > line.t else line.end
         fixed.append(LyricLine(t=starts[i], end=end, text=line.text))
     return fixed
 
