@@ -588,6 +588,12 @@ export default function Home() {
             // 영역을 카드로 묶어 서로 구별한다: 영상 / 타임라인+탐색 / 현재 코드 / 곡 전체
             <>
               <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                {/* 곡 이름. 영상 안에도 적혀 있지만 접으면 사라지고, 유튜브가
+                    아닌 곡(업로드)에는 아예 없다. 지금 무슨 곡을 보고 있는지는
+                    늘 보여야 한다. */}
+                <div className="truncate border-b border-gray-200 px-2.5 py-1.5 text-xs font-medium dark:border-gray-700">
+                  {result.title || "제목 없음"}
+                </div>
                 <PlayerPane
                   result={result}
                   onReady={attachPlayback}

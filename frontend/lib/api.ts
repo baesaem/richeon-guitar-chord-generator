@@ -203,6 +203,15 @@ export const fetchLyrics = (id: string, q = "") =>
   ).then(json<AnalysisResult>);
 
 /**
+ * 이 곡에서 노래가 시작하는 자리들(초).
+ *
+ * 시간 표시가 없는 가사를 붙여넣었을 때 어디에 놓을지 정하는 데 쓴다.
+ * 음원 분리를 쓴 곡에만 있다.
+ */
+export const songPhrases = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/phrases`).then(json<{ starts: number[] }>);
+
+/**
  * 붙어 있는 가사를 AI로 다듬는다.
  *
  * 자동 자막에서 온 가사는 토막나 있고 글자가 틀린다. 없는 가사를

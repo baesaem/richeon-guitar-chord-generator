@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Popup } from "@/components/Popup";
-import { fetchLyrics, putLyrics } from "@/lib/api";
+import { fetchLyrics, putLyrics, songPhrases } from "@/lib/api";
+import { placeOnPhrases, spreadEvenly } from "@/lib/placeLyrics";
 import { saveLocal } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
 import { groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
@@ -80,14 +81,45 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
   /**
    * 붙여넣은 글을 가사로 삼는다.
    *
-   * 시간 태그가 붙은 LRC면 그 시각을 그대로 쓰고, 자막 파일이면 자막
-   * 시각을, 그냥 가사 글이면 노래 길이에 고르게 편다. 어느 쪽이든
-   * 붙여넣기만 하면 된다.
+   * 시간 태그가 붙은 LRC·자막이면 그 시각이 정답이라 손대지 않는다.
+   *
+   * 시각이 없는 글은 **분석 결과를 보고 놓는다.** 노래 길이에 고르게
+   * 펴면 전주·간주까지 가사가 깔려 하나도 맞지 않는다 — 4분 곡에 전주가
+   * 24초면 첫 줄부터 어긋난다. 보컬 트랙에서 노래가 시작하는 자리를
+   * 뽑아 두었으니 거기에 하나씩 놓는다.
    */
   const applyPasted = async () => {
     setError(null);
+    setBusy(true);
     try {
-      const next = parseLyricsText(draft, result.duration);
+      // 시간 태그가 있으면 그 시각이 정답이다. 손대지 않는다.
+      const timed = parseLyricsText(draft, 0);
+      let next = timed;
+
+      if (!timed.length || timed.every((line) => line.t === 0)) {
+        // 시각이 없는 글이다. 분석 결과를 보고 노래 자리에 놓는다.
+        const texts = draft
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        if (!texts.length) throw new Error("가사를 읽지 못했습니다");
+
+        const starts = online
+          ? await songPhrases(result.id)
+              .then((r) => r.starts)
+              .catch(() => [])
+          : [];
+        next = starts.length
+          ? placeOnPhrases(texts, starts, result.duration)
+          : spreadEvenly(texts, result.duration);
+        if (!starts.length) {
+          setError(
+            "노래 시작 자리를 알 수 없어 고르게 나눠 놓았습니다. " +
+              "가사 화면에서 줄을 눌러 맞춰 주세요.",
+          );
+        }
+      }
+
       if (!next.length) throw new Error("가사를 읽지 못했습니다");
       await apply(next);
       // 서버가 있으면 그쪽에도 남겨 다음에 열 때 바로 나오게 한다
@@ -96,6 +128,8 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
       setDraft("");
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -105,7 +139,8 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
         <Popup title="가사 붙여넣기" onClose={() => setPasting(false)}>
           <p className="mb-2 text-[11px] leading-snug text-gray-500">
             가사를 붙여넣으세요. 시간이 적힌 가사(.lrc)나 자막 글이면 그 시각을
-            그대로 쓰고, 그냥 가사면 노래 길이에 고르게 나눠 붙입니다.
+            그대로 쓰고, 그냥 가사면 <b>분석 결과를 보고 노래가 시작하는 자리에</b>{" "}
+            놓습니다.
           </p>
           <textarea
             className="h-48 w-full rounded border px-3 py-2 text-sm"
@@ -116,10 +151,10 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
           />
           <button
             className="mt-3 w-full rounded bg-[var(--accent)] py-3 text-sm font-medium text-white disabled:opacity-40"
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || busy}
             onClick={applyPasted}
           >
-            이 가사로 바꾸기
+            {busy ? "맞추는 중…" : "이 가사로 바꾸기"}
           </button>
         </Popup>
       )}

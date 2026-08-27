@@ -520,6 +520,22 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
     return result
 
 
+@app.get("/api/results/{result_id}/phrases")
+async def song_phrases(result_id: str) -> dict:
+    """이 곡에서 노래가 시작하는 자리들.
+
+    시간 표시가 없는 가사를 붙여넣었을 때 어디에 놓을지 정하는 데 쓴다.
+    노래 전체에 고르게 펴면 전주·간주까지 가사가 깔려 맞지 않는다.
+    """
+    _guard_id(result_id)
+
+    from .analysis.lyric_sync import vocal_onsets
+    from .analysis.separate import vocals_path
+
+    starts = await asyncio.to_thread(vocal_onsets, vocals_path(result_id))
+    return {"starts": [round(t, 2) for t in starts]}
+
+
 @app.post("/api/results/{result_id}/lyrics/tidy")
 async def tidy_lyrics_endpoint(result_id: str) -> AnalysisResult:
     """붙어 있는 가사를 AI로 다듬는다.
