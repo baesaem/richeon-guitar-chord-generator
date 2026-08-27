@@ -40,8 +40,9 @@ jobs:
         working-directory: frontend
         env:
           STATIC_EXPORT: "1"
-          # 프로젝트 페이지는 /<저장소 이름> 아래에 놓인다
-          BASE_PATH: /${{ github.event.repository.name }}
+          # 커스텀 도메인(gita.richeon.kr)은 도메인 뿌리에 놓이므로
+          # BASE_PATH를 붙이지 않는다
+          BASE_PATH: ""
           NEXT_PUBLIC_API_BASE: ${{ vars.NEXT_PUBLIC_API_BASE }}
           # 있으면 서버 없이도 강상기타반 목록을 드라이브에서 직접 읽는다
           NEXT_PUBLIC_DRIVE_API_KEY: ${{ vars.NEXT_PUBLIC_DRIVE_API_KEY }}
@@ -49,6 +50,9 @@ jobs:
 
       - name: Jekyll 처리 방지
         run: touch frontend/out/.nojekyll
+
+      - name: 커스텀 도메인
+        run: echo gita.richeon.kr > frontend/out/CNAME
 
       - uses: actions/upload-pages-artifact@v3
         with:
