@@ -66,7 +66,7 @@ export function ChordSheet({
   }, [currentBar, follow]);
 
   return (
-    <div className="grid grid-cols-4 gap-1">
+    <div className="grid grid-cols-4 gap-1 lg:grid-cols-8">
       {bars.map((bar, i) => {
         const active = i === currentBar;
         const spans = spansOf(bar, chords);

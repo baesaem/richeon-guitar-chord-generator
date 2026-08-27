@@ -644,9 +644,9 @@ export default function Home() {
         </p>
       )}
 
-      {/* 넓은 화면에서 본문이 끝까지 늘어지면 눈이 가로로 너무 멀리 간다.
-          읽기 좋은 폭으로 모으고 가운데 둔다 */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden md:mx-auto md:w-full md:max-w-3xl">
+      {/* 뷰는 화면 폭을 그대로 쓴다. 넓어진 만큼 각 화면의 격자가
+          칸을 늘려 채운다(코드표·홈 카드·그리드 악보) */}
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         {/* 홈 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}
         <div className={tab === "home" ? "flex h-full flex-col overflow-y-auto" : "hidden"}>
           {result ? (

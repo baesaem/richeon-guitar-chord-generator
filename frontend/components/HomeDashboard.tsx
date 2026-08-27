@@ -124,7 +124,7 @@ export function HomeDashboard({ onOpen, onImport, onLibrary, onShared, onChords 
       )}
 
       {/* 빠른 실행. 반이 둘이라 다섯 칸 — 3+2로 접힌다 */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 lg:grid-cols-5">
         {CLASSES.map((c) =>
           quick(
             // 타일에는 반 이름만. "강상주민센터"는 타이틀바에 이미 있다

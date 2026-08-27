@@ -120,7 +120,7 @@ export function ChordsTab() {
         {picked.full} 코드 ({picked.label})
       </p>
 
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
         {ROOTS.map((root) => {
           const label = labelFor(root, quality, flats);
           return (
