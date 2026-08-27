@@ -93,6 +93,36 @@ export const makeInstrumental = (id: string) =>
     json<{ ready: boolean; cached: boolean }>,
   );
 
+export interface LlmSettings {
+  configured: boolean;
+  /** 앞뒤만 남기고 가린 키. 저장된 값이 있는지 확인하는 용도 */
+  masked_key: string;
+  base_url: string;
+  model: string;
+}
+
+/** 가사 도우미(AI) 설정 읽기. 키 자체는 서버 밖으로 나오지 않는다. */
+export const getLlmSettings = () =>
+  fetch(`${apiBase()}/api/settings/llm`).then(json<LlmSettings>);
+
+/** 설정 저장. 값을 빼면 그대로 두고, 빈 문자열을 주면 지운다. */
+export const putLlmSettings = (body: {
+  api_key?: string;
+  base_url?: string;
+  model?: string;
+}) =>
+  fetch(`${apiBase()}/api/settings/llm`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).then(json<LlmSettings>);
+
+/** 저장된 키로 실제 호출해 보고, 쓸 수 있는 모델 목록을 받는다. */
+export const testLlmSettings = () =>
+  fetch(`${apiBase()}/api/settings/llm/test`, { method: "POST" }).then(
+    json<{ ok: boolean; model_available: boolean; message: string; models: string[] }>,
+  );
+
 /** 서버가 가사를 찾아 결과에 붙인다. q를 주면 그 검색어로 다시 찾는다. */
 export const fetchLyrics = (id: string, q = "") =>
   fetch(

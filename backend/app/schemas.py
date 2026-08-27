@@ -143,6 +143,14 @@ class AnalyzeRequest(BaseModel):
     force: bool = Field(default=False, description="캐시 무시하고 재분석")
 
 
+class LlmSettings(BaseModel):
+    """가사 도우미 설정. None은 "그대로 두기", ""는 "지우기"."""
+
+    api_key: str | None = Field(default=None, description="빈 문자열이면 저장된 키를 지운다")
+    base_url: str | None = Field(default=None, description="OpenAI 호환 API 주소")
+    model: str | None = None
+
+
 class JobStatus(BaseModel):
     job_id: str
     stage: JobStage

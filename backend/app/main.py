@@ -16,7 +16,15 @@ from .analysis.separate import instrumental_path, separate
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
 from .lyrics import fetch_lyrics_blocking
-from .schemas import AnalysisResult, AnalyzeRequest, Chord, LyricLine, ResultSummary
+from .runtime_config import llm_config, mask, save_llm_config
+from .schemas import (
+    AnalysisResult,
+    AnalyzeRequest,
+    Chord,
+    LlmSettings,
+    LyricLine,
+    ResultSummary,
+)
 from .shared_drive import download_shared, list_shared
 from .sources import UploadSource, YouTubeSource
 from .sources.youtube import YouTubeUnavailable
@@ -140,6 +148,76 @@ async def delete_result(result_id: str) -> dict:
         raise HTTPException(404, "분석 결과가 없습니다")
     path.unlink()
     return {"deleted": result_id}
+
+
+# ---- 설정 (화면에서 바꾸는 값) ----
+
+@app.get("/api/settings/llm")
+async def get_llm_settings() -> dict:
+    """가사 도우미 설정. 키는 가려서 보낸다."""
+    cfg = llm_config()
+    return {
+        "configured": bool(cfg["api_key"]),
+        "masked_key": mask(cfg["api_key"]),
+        "base_url": cfg["base_url"],
+        "model": cfg["model"],
+    }
+
+
+@app.put("/api/settings/llm")
+async def put_llm_settings(body: LlmSettings) -> dict:
+    """키·주소·모델을 저장한다. 빈 문자열을 보내면 지운다."""
+    save_llm_config(
+        api_key=body.api_key, base_url=body.base_url, model=body.model
+    )
+    return await get_llm_settings()
+
+
+@app.post("/api/settings/llm/test")
+async def test_llm_settings() -> dict:
+    """저장된 키로 실제 호출해 본다. 쓸 수 있는 모델 목록도 함께 준다."""
+    cfg = llm_config()
+    if not cfg["api_key"]:
+        raise HTTPException(400, "API 키가 없습니다")
+
+    def probe() -> dict:
+        import urllib.error
+        import urllib.request
+
+        req = urllib.request.Request(
+            f"{cfg['base_url'].rstrip('/')}/models",
+            headers={"Authorization": f"Bearer {cfg['api_key']}"},
+        )
+        with urllib.request.urlopen(req, timeout=settings.llm_timeout) as res:
+            data = json.load(res)
+        names = sorted(m["id"] for m in data.get("data", []))
+        return {"count": len(names), "models": names}
+
+    try:
+        found = await asyncio.to_thread(probe)
+    except Exception as exc:
+        raise HTTPException(502, f"연결하지 못했습니다: {exc}") from exc
+
+    # 대화용 모델만 추린다. 임베딩·음성·이미지 모델은 걸러 낸다.
+    chat = [
+        m
+        for m in found["models"]
+        if any(m.startswith(p) for p in ("gpt-", "o1", "o3", "o4", "claude", "gemini"))
+        and not any(
+            bad in m
+            for bad in ("embed", "tts", "whisper", "image", "realtime", "audio", "moderation")
+        )
+    ]
+    ok = cfg["model"] in found["models"]
+    return {
+        "ok": True,
+        "model_available": ok,
+        "message": (
+            f"연결됨 · 모델 {found['count']}개"
+            + ("" if ok else f" · 주의: '{cfg['model']}'는 이 키로 쓸 수 없습니다")
+        ),
+        "models": chat[:40],
+    }
 
 
 @app.get("/api/shared")

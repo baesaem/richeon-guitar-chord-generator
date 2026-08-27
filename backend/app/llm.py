@@ -27,6 +27,7 @@ import urllib.error
 import urllib.request
 
 from .config import settings
+from .runtime_config import llm_config
 
 
 class SongInfo:
@@ -69,18 +70,19 @@ JSON만 출력하세요. 설명을 붙이지 마세요.
 
 def _chat(prompt: str) -> str:
     """OpenAI 호환 chat completions 호출. 실패하면 예외."""
+    cfg = llm_config()
     body = json.dumps(
         {
-            "model": settings.llm_model,
+            "model": cfg["model"],
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
         }
     ).encode()
     req = urllib.request.Request(
-        f"{settings.llm_base_url.rstrip('/')}/chat/completions",
+        f"{cfg['base_url'].rstrip('/')}/chat/completions",
         data=body,
         headers={
-            "Authorization": f"Bearer {settings.llm_api_key}",
+            "Authorization": f"Bearer {cfg['api_key']}",
             "Content-Type": "application/json",
         },
     )
@@ -111,7 +113,7 @@ def _parse(raw: str) -> SongInfo:
 
 
 def enabled() -> bool:
-    return bool(settings.llm_api_key)
+    return bool(llm_config()["api_key"])
 
 
 def song_info(video_title: str) -> SongInfo | None:
