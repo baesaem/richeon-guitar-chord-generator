@@ -14,6 +14,7 @@ import { HomeDashboard } from "@/components/HomeDashboard";
 import { LyricsPane } from "@/components/LyricsPane";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { MySheet } from "@/components/MySheet";
+import { SongInfoLine } from "@/components/SongInfoLine";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
@@ -46,7 +47,7 @@ import { loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
 import { SHEET_SOURCES, sheetQuery } from "@/lib/sheetSearch";
-import { PATTERNS, render } from "@/lib/strumLibrary";
+import { PATTERNS, render, suggestStrum } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
@@ -140,6 +141,15 @@ export default function Home() {
   }, [result, settings.chordVocab]);
 
   const bars = useMemo(() => (result ? buildBars(result) : []), [result]);
+  // 코드악보와 같은 추천을 파형 안내줄에도 쓴다. 두 화면이 다른 패턴을
+  // 권하면 어느 쪽을 믿어야 할지 알 수 없다.
+  const waveStrum = useMemo(
+    () =>
+      result
+        ? suggestStrum(bars, result.strums, result.bpm, result.time_signature)
+        : null,
+    [bars, result],
+  );
   const flats = useMemo(
     () => (result ? resolveFlats(result.key, settings.notation) : false),
     [result, settings.notation],
@@ -374,7 +384,7 @@ export default function Home() {
             />
           </span>
           <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight">
-            <span className="text-[var(--accent)]">리천</span> 기타 코드 자동생성기
+            <span className="text-[var(--accent)]">리천</span> 기타 코드 자동 생성기
           </h1>
           {/* 이 앱을 누가 쓰는지. 수강생이 여러 앱을 오갈 때 여기서 알아본다.
               폭이 좁으면 앱 이름이 먼저 줄고 이 표시는 남는다 */}
@@ -510,14 +520,47 @@ export default function Home() {
 
               {/* 파형과 코드악보는 같은 자리(영상 바로 아래)를 쓴다 */}
               {settings.view === "wave" ? (
-                <ChordStrip
-                  ref={stripRef}
-                  result={shown ?? result}
-                  flats={flats}
-                  transpose={noteShift}
-                  pixelsPerSecond={settings.pixelsPerSecond}
-                  onSeek={(t) => playback?.seek(t)}
-                />
+                <>
+                  {/* 파형에서도 곡의 성격은 같은 자리에 있어야 한다 */}
+                  <div className="shrink-0 px-2 pb-0.5">
+                    <SongInfoLine
+                      musicKey={result.key}
+                      timeSignature={result.time_signature}
+                      strum={waveStrum}
+                      playNotes={playNotes}
+                      onPickStrum={() => setShowStrums(true)}
+                      right={
+                        <button
+                          className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-medium dark:bg-gray-800"
+                          onClick={() => setShowSheet(true)}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-3 w-3"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={1.9}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <rect x="3" y="4" width="18" height="16" rx="2" />
+                            <path d="M3 9h18M8 4v16" />
+                          </svg>
+                          악보보기
+                        </button>
+                      }
+                    />
+                  </div>
+                  <ChordStrip
+                    ref={stripRef}
+                    result={shown ?? result}
+                    flats={flats}
+                    transpose={noteShift}
+                    pixelsPerSecond={settings.pixelsPerSecond}
+                    onSeek={(t) => playback?.seek(t)}
+                  />
+                </>
               ) : (
                 <div className="shrink-0 px-2 py-1">
                   {/* AI가 아는 코드로 만든 초안은 반드시 밝힌다.

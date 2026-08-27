@@ -118,12 +118,18 @@ function slotsOf(bar: Bar, strums: Strum[]): boolean[] | null {
  * 소리에서 뽑은 칸별 타율이 있으면 그것과 가장 가까운 표준 패턴을,
  * 없으면 템포에 맞는 패턴을 권한다. 어느 쪽인지 이유도 함께 돌려준다.
  */
+/** 고른 패턴과 고른 이유 */
+export interface StrumChoice {
+  pattern: StrumPattern;
+  why: string;
+}
+
 export function suggestStrum(
   bars: Bar[],
   strums: Strum[] | undefined,
   bpm: number,
   timeSignature: string,
-): { pattern: StrumPattern; why: string } | null {
+): StrumChoice | null {
   const threeFour = timeSignature.startsWith("3");
   const pool = PATTERNS.filter((p) =>
     threeFour ? p.name === "왈츠" : p.name !== "왈츠",

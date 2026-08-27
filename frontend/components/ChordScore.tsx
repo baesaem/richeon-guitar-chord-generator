@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
+import { SongInfoLine } from "@/components/SongInfoLine";
 import { chordIndexAt, type Bar } from "@/lib/bars";
-import { labelFor, spellKey, transposeRoot } from "@/lib/notation";
-import { render, suggestStrum } from "@/lib/strumLibrary";
+import { labelFor, transposeRoot } from "@/lib/notation";
+import { suggestStrum } from "@/lib/strumLibrary";
 import type { Chord, Strum } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
@@ -121,36 +122,18 @@ export function ChordScore({
 
   return (
     <div className="space-y-0.5">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
-        <span>
-          조성 {spellKey(musicKey) || "미상"} · 박자 {timeSignature}
-        </span>
-        {/* 이 곡에 어울리는 스트로크. 눌러서 다른 패턴으로 바꾼다 */}
-        {strum && (
-          <button
-            className="text-gray-700 underline decoration-dotted underline-offset-2 dark:text-gray-300"
-            onClick={onPickStrum}
-            title={`${strum.why} · ${strum.pattern.hint}`}
-          >
-            <span className="font-mono tracking-wide">
-              {render(strum.pattern.cells)}
-            </span>
-            <span className="ml-1 text-gray-400">{strum.pattern.name}</span>
-          </button>
-        )}
-        {/* 연주설정에서 바꾼 것들 */}
-        {playNotes?.map((note) => (
-          <span key={note} className="text-[var(--accent)]">
-            {note}
-          </span>
-        ))}
-        <span className="ml-auto tabular-nums">
-          {visibleLines && lines.length > visibleLines
-            ? `${from + 1}–${Math.min(from + visibleLines, lines.length)} / ${lines.length}줄`
-            : ""}
-        </span>
-        {headerRight}
-      </div>
+      <SongInfoLine
+        musicKey={musicKey}
+        timeSignature={timeSignature}
+        strum={strum}
+        playNotes={playNotes}
+        onPickStrum={onPickStrum}
+        right={headerRight}
+      >
+        {visibleLines && lines.length > visibleLines
+          ? `${from + 1}–${Math.min(from + visibleLines, lines.length)} / ${lines.length}줄`
+          : ""}
+      </SongInfoLine>
 
       {shown.map(([lineIndex, line]) => {
         const hasActive = line.some((_, i) => lineIndex * perLine + i === currentBar);

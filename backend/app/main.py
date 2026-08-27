@@ -36,7 +36,7 @@ from .sources.base import AudioSource
 from .sources.cached import CachedSource, find_source_audio
 from .sources.youtube import YouTubeUnavailable
 
-app = FastAPI(title="리천 기타 코드 자동생성기 API", version=PIPELINE_VERSION)
+app = FastAPI(title="리천 기타 코드 자동 생성기 API", version=PIPELINE_VERSION)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
