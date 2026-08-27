@@ -875,20 +875,24 @@ export default function Home() {
                 </div>
               )}
 
-              <SeekBar
-                duration={result.duration}
-                time={time}
-                playing={playing}
-                onSeek={(t) => {
-                  playback?.seek(t);
-                  setTime(t);
-                }}
-                onToggle={() => {
-                  if (!playback) return;
-                  if (playback.isPlaying()) playback.pause();
-                  else playback.play();
-                }}
-              />
+              {/* YouTube 곡은 영상에 자체 재생·탐색 조작이 있다.
+                  같은 조작이 두 벌 보이면 어느 쪽을 눌러야 할지 헷갈린다 */}
+              {result.source !== "youtube" && (
+                <SeekBar
+                  duration={result.duration}
+                  time={time}
+                  playing={playing}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                  onToggle={() => {
+                    if (!playback) return;
+                    if (playback.isPlaying()) playback.pause();
+                    else playback.play();
+                  }}
+                />
+              )}
               </section>
 
               {/* 가사 보기: 코드 박스와 곡 전체 코드를 감추고 그 자리에 가사를 띄운다 */}
