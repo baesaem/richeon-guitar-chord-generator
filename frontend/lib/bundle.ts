@@ -115,14 +115,19 @@ export async function openBundle(bundle: SongBundle): Promise<string[]> {
 }
 
 
-/** 꾸러미를 파일로 내려받는다. 파일명: 리천 노래명(출처).{id}.rml */
-export function downloadBundle(bundle: SongBundle): void {
+/** 공유 규약 파일명: 리천 노래명(출처).{id}.rml */
+export function bundleFileName(bundle: SongBundle): string {
   const result = bundle.result;
   const name = (result.title || result.id)
     .replace(/[\/:*?"<>|]/g, "_")
     .trim()
     .slice(0, 60);
   const source = result.source === "youtube" ? "YouTube" : "업로드";
+  return `리천 ${name}(${source}).${result.id}.rml`;
+}
+
+/** 꾸러미를 파일로 내려받는다. */
+export function downloadBundle(bundle: SongBundle): void {
   // application/json으로 주면 Chrome이 .rml 뒤에 .json을 덧붙인다
   const blob = new Blob([JSON.stringify(bundle)], {
     type: "application/octet-stream",
@@ -130,7 +135,52 @@ export function downloadBundle(bundle: SongBundle): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `리천 ${name}(${source}).${result.id}.rml`;
+  a.download = bundleFileName(bundle);
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ------------------------------------------------------------ 폴더에 바로 저장
+
+/** 폴더 선택 API(Chrome·Edge). 폴더를 한 번 고르면 그 안에 바로 쓴다 */
+interface DirHandle {
+  getFileHandle(
+    name: string,
+    opts: { create: boolean },
+  ): Promise<{
+    createWritable(): Promise<{
+      write(data: Blob | string): Promise<void>;
+      close(): Promise<void>;
+    }>;
+  }>;
+}
+
+/**
+ * 저장할 폴더를 한 번 묻는다. 지원하지 않는 브라우저면 null —
+ * 부를 쪽이 한 파일씩 내려받기로 물러난다. 사용자가 창을 닫으면
+ * "cancelled"를 던진다.
+ */
+export async function pickSaveFolder(): Promise<DirHandle | null> {
+  const w = window as unknown as {
+    showDirectoryPicker?: (opts: { mode: string }) => Promise<DirHandle>;
+  };
+  if (!w.showDirectoryPicker) return null;
+  try {
+    return await w.showDirectoryPicker({ mode: "readwrite" });
+  } catch {
+    throw new Error("cancelled");
+  }
+}
+
+/** 고른 폴더 안에 꾸러미를 바로 쓴다. 같은 이름이 있으면 덮어쓴다. */
+export async function writeBundleTo(
+  dir: DirHandle,
+  bundle: SongBundle,
+): Promise<void> {
+  const handle = await dir.getFileHandle(bundleFileName(bundle), {
+    create: true,
+  });
+  const writable = await handle.createWritable();
+  await writable.write(JSON.stringify(bundle));
+  await writable.close();
 }

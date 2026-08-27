@@ -11,6 +11,8 @@ import {
   isBundle,
   makeBundle,
   openBundle,
+  pickSaveFolder,
+  writeBundleTo,
   type SongBundle,
 } from "@/lib/bundle";
 import {
@@ -287,24 +289,46 @@ export function LibraryTab({
    * 곡마다 따로 한 파일씩 내보낸다. 묶음 한 파일이 아니다 —
    * 드라이브 공유 폴더는 곡 단위 파일을 기대하므로, 묶음으로 내보내면
    * 그대로 올릴 수 없어 다시 쪼개야 했다.
+   *
+   * 저장 위치는 처음 한 번만 묻는다. 폴더 선택 API가 있는 브라우저
+   * (Chrome·Edge)에서는 고른 폴더에 나머지를 바로 쓰고, 없는 브라우저는
+   * 한 파일씩 내려받기로 물러난다.
    */
   const exportAll = async () => {
-    setWorking("전체 내보내는 중");
     try {
       const items = device ?? [];
       if (items.length === 0) {
         setError("기기에 저장된 곡이 없습니다");
         return;
       }
+
+      // 폴더를 먼저 고른다 — 진행 표시가 뜬 채로 창이 열리면 가려진다
+      let dir: Awaited<ReturnType<typeof pickSaveFolder>> = null;
+      try {
+        dir = await pickSaveFolder();
+      } catch {
+        return; // 사용자가 폴더 선택을 닫았다. 내보내기 취소
+      }
+
+      setWorking("전체 내보내는 중");
       let count = 0;
       for (const item of items) {
         const result = (await getLocal(item.id)) ?? (await getResult(item.id));
-        downloadBundle(await makeBundle(result));
+        const bundle = await makeBundle(result);
+        if (dir) {
+          await writeBundleTo(dir, bundle);
+        } else {
+          downloadBundle(bundle);
+          // 연속 다운로드를 너무 몰아치면 브라우저가 일부를 흘린다
+          await new Promise((r) => setTimeout(r, 400));
+        }
         count += 1;
-        // 연속 다운로드를 너무 몰아치면 브라우저가 일부를 흘린다
-        await new Promise((r) => setTimeout(r, 400));
       }
-      flash(`${count}곡을 각각의 파일로 내보냈습니다.`);
+      flash(
+        dir
+          ? `${count}곡을 고른 폴더에 저장했습니다.`
+          : `${count}곡을 각각의 파일로 내보냈습니다.`,
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
