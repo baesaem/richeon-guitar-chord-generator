@@ -16,9 +16,10 @@ import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { MySheet } from "@/components/MySheet";
 import { EditTab } from "@/components/tabs/EditTab";
 import { ChordPicker } from "@/components/ChordPicker";
+import { LyricEditor, LyricRow } from "@/components/LyricEditor";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
-import { setChordAt } from "@/lib/editChords";
+import { clearChordAt, setChordAt } from "@/lib/editChords";
 import { CLASSES } from "@/lib/classes";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
@@ -32,6 +33,7 @@ import {
   analyzeUpload,
   analyzeUrl,
   putChords,
+  putLyrics,
   reanalyze,
   getHealth,
   getResult,
@@ -53,7 +55,14 @@ import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
 import { PATTERNS, render, suggestStrum } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
-import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
+import {
+  STAGE_LABEL,
+  type AnalysisResult,
+  type Chord,
+  type LyricLine,
+  type Health,
+  type JobStatus,
+} from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
 
 export default function Home() {
@@ -85,6 +94,12 @@ export default function Home() {
   const [showStrums, setShowStrums] = useState(false);
   // 코드 고치기: 지금 고르고 있는 마디 번호(없으면 null)
   const [editBar, setEditBar] = useState<number | null>(null);
+  // 코드수정으로 들어왔는가. 고치는 데 쓰지 않는 탭은 감춘다
+  const [editMode, setEditMode] = useState(false);
+  // 되돌리기용. 고치기 전 코드를 쌓아 둔다 — 잘못 눌렀을 때 돌아갈 자리다
+  const [undo, setUndo] = useState<Chord[][]>([]);
+  // 가사 고치기: 지금 고르고 있는 줄 번호(없으면 null)
+  const [editLyric, setEditLyric] = useState<number | null>(null);
   // 악보보기 모달에서 무엇을 볼지
   const [sheetTab, setSheetTab] = useState<
     "score" | "grid" | "lyrics" | "web" | "mine"
@@ -199,6 +214,8 @@ export default function Home() {
   const showSong = (r: AnalysisResult) => {
     const setup = loadSetup(r.id);
     setResult(r);
+    // 다른 곡의 되돌리기가 이 곡에 적용되면 안 된다
+    setUndo([]);
     setTranspose(setup.transpose);
     setRate(setup.rate);
     setLoop(setup.loop);
@@ -322,16 +339,64 @@ export default function Home() {
    * 카포를 올려 둔 상태에서도 화면에 보이는 이름으로 고를 수 있어야 하니,
    * 고른 근음을 원래 조성으로 되돌려 저장한다.
    */
-  const applyChordEdit = async (barIndex: number, root: string, quality: string) => {
+  const applyChordEdit = async (
+    barIndex: number,
+    change: { root: string; quality: string } | null,
+  ) => {
     if (!result) return;
     const bar = bars[barIndex];
     if (!bar) return;
 
-    const realRoot = transposeRoot(root, -noteShift) ?? root;
-    const next = {
-      ...result,
-      chords: setChordAt(result.chords, bar.start, bar.end, realRoot, quality),
-    };
+    const chords = change
+      ? setChordAt(
+          result.chords,
+          bar.start,
+          bar.end,
+          transposeRoot(change.root, -noteShift) ?? change.root,
+          change.quality,
+        )
+      : clearChordAt(result.chords, bar.start, bar.end);
+
+    // 고치기 전 상태를 쌓아 둔다. 20단계면 충분하다
+    setUndo((prev) => [...prev, result.chords].slice(-20));
+
+    const next = { ...result, chords };
+    setResult(next);
+    await saveLocal(next).catch(() => {});
+    if (health) await putChords(next.id, next.chords).catch(() => {});
+  };
+
+  /**
+   * 가사 한 줄을 고치거나 지운다.
+   *
+   * 시각을 바꾸면 순서가 달라질 수 있어 다시 정렬하고, 각 줄의 끝도
+   * 다음 줄 시작에 맞춘다 — 이게 어긋나면 악보에 붙일 때 겹친다.
+   */
+  const applyLyricEdit = async (
+    index: number,
+    change: { text: string; at: number } | null,
+  ) => {
+    if (!result?.lyrics) return;
+    const rows = result.lyrics
+      .map((l, i) =>
+        i !== index ? l : change ? { ...l, text: change.text, t: change.at } : null,
+      )
+      .filter((l): l is LyricLine => l !== null)
+      .sort((a, b) => a.t - b.t)
+      .map((l, i, all) => ({ ...l, end: i + 1 < all.length ? all[i + 1].t : l.end }));
+
+    const next = { ...result, lyrics: rows };
+    setResult(next);
+    await saveLocal(next).catch(() => {});
+    if (health) await putLyrics(next.id, rows).catch(() => {});
+  };
+
+  /** 마지막 고침을 되돌린다. */
+  const undoChordEdit = async () => {
+    if (!result || undo.length === 0) return;
+    const prev = undo[undo.length - 1];
+    setUndo((u) => u.slice(0, -1));
+    const next = { ...result, chords: prev };
     setResult(next);
     await saveLocal(next).catch(() => {});
     if (health) await putChords(next.id, next.chords).catch(() => {});
@@ -566,7 +631,10 @@ export default function Home() {
                       right={
                         <button
                           className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-medium dark:bg-gray-800"
-                          onClick={() => setShowSheet(true)}
+                          onClick={() => {
+                            setEditMode(false);
+                            setShowSheet(true);
+                          }}
                         >
                           <svg
                             viewBox="0 0 24 24"
@@ -614,7 +682,10 @@ export default function Home() {
                     headerRight={
                       <button
                         className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-medium dark:bg-gray-800"
-                        onClick={() => setShowSheet(true)}
+                        onClick={() => {
+                          setEditMode(false);
+                          setShowSheet(true);
+                        }}
                       >
                         <svg
                           viewBox="0 0 24 24"
@@ -795,6 +866,7 @@ export default function Home() {
               // 빈 화면이 스치지 않는다.
               const ok = await openSaved(id);
               if (!ok) return;
+              setEditMode(true);
               setSheetTab("score");
               setShowSheet(true);
             }}
@@ -871,6 +943,15 @@ export default function Home() {
               <h3 className="min-w-0 flex-1 truncate text-sm font-bold">
                 {result.title || "악보"}
               </h3>
+              {/* 잘못 고쳤을 때 돌아갈 자리. 고칠 것이 있을 때만 낸다 */}
+              {editMode && undo.length > 0 && (
+                <button
+                  className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] dark:bg-gray-800"
+                  onClick={undoChordEdit}
+                >
+                  되돌리기 {undo.length}
+                </button>
+              )}
               <button
                 className="rounded px-2 py-1 text-sm text-gray-500"
                 onClick={() => setShowSheet(false)}
@@ -890,7 +971,11 @@ export default function Home() {
                   ["web", "웹 악보"],
                   ["mine", "내 악보"],
                 ] as const
-              ).map(([value, label]) => {
+              )
+                // 코드수정으로 들어왔으면 고치는 데 쓰는 탭만 남긴다
+                .filter(([value]) => !editMode || value !== "web")
+                .filter(([value]) => !editMode || value !== "mine")
+                .map(([value, label]) => {
                 const disabled =
                   value === "lyrics" && !(result.lyrics && result.lyrics.length > 0);
                 return (
@@ -912,6 +997,16 @@ export default function Home() {
                 );
               })}
             </div>
+
+            {/* 고치는 법은 탭 바로 아래에 둔다. 길게 눌러야 열린다는 것을
+                모르면 아무것도 못 고친다 */}
+            {editMode && (
+              <p className="shrink-0 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-3 py-1.5 text-[11px] leading-snug text-[var(--accent)]">
+                {sheetTab === "lyrics"
+                  ? "고칠 줄을 3초 길게 누르세요(마우스는 오른쪽 클릭). 재생하면서 고칠 수 있습니다."
+                  : "고칠 마디를 3초 길게 누르세요(마우스는 오른쪽 클릭). 재생하면서 고칠 수 있습니다."}
+              </p>
+            )}
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
               {sheetTab === "score" && (
@@ -955,26 +1050,20 @@ export default function Home() {
 
               {sheetTab === "lyrics" && result.lyrics && (
                 <div className="text-[13px] leading-relaxed">
-                  {result.lyrics.map((line, i) => {
-                    // 지금 부르는 줄을 짚어 준다. 이게 없으면 어디를 보고
-                    // 있어야 할지 알 수 없어 가사가 어긋난 것처럼 느껴진다.
-                    const now = lyricIndexAt(result.lyrics ?? [], time) === i;
-                    return (
-                      <div
-                        key={`${line.t}-${i}`}
-                        className={[
-                          "cursor-pointer py-0.5 transition-colors",
-                          now ? "font-bold text-[var(--accent)]" : "",
-                        ].join(" ")}
-                        onClick={() => {
-                          playback?.seek(line.t);
-                          setTime(line.t);
-                        }}
-                      >
-                        {line.text}
-                      </div>
-                    );
-                  })}
+                  {result.lyrics.map((line, i) => (
+                    <LyricRow
+                      key={`${line.t}-${i}`}
+                      text={line.text}
+                      // 지금 부르는 줄을 짚어 준다. 이게 없으면 어디를 보고
+                      // 있어야 할지 알 수 없어 가사가 어긋난 것처럼 느껴진다.
+                      now={lyricIndexAt(result.lyrics ?? [], time) === i}
+                      onSeek={() => {
+                        playback?.seek(line.t);
+                        setTime(line.t);
+                      }}
+                      onEdit={editMode ? () => setEditLyric(i) : undefined}
+                    />
+                  ))}
                 </div>
               )}
 
@@ -1006,8 +1095,22 @@ export default function Home() {
               : null;
           })()}
           flats={flats}
-          onPick={(root, quality) => applyChordEdit(editBar, root, quality)}
+          onPick={(root, quality) => applyChordEdit(editBar, { root, quality })}
+          onClear={() => applyChordEdit(editBar, null)}
           onClose={() => setEditBar(null)}
+        />
+      )}
+
+      {/* 가사 한 줄 고치기 */}
+      {editLyric !== null && result?.lyrics?.[editLyric] && (
+        <LyricEditor
+          index={editLyric}
+          text={result.lyrics[editLyric].text}
+          at={result.lyrics[editLyric].t}
+          now={time}
+          onSave={(text, at) => applyLyricEdit(editLyric, { text, at })}
+          onDelete={() => applyLyricEdit(editLyric, null)}
+          onClose={() => setEditLyric(null)}
         />
       )}
 

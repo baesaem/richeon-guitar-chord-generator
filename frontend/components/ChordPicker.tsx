@@ -36,6 +36,7 @@ export function ChordPicker({
   current,
   flats,
   onPick,
+  onClear,
   onClose,
 }: {
   barNumber: number;
@@ -43,6 +44,8 @@ export function ChordPicker({
   current: { root: string; quality: string } | null;
   flats: boolean;
   onPick: (root: string, quality: string) => void;
+  /** 이 마디의 코드를 지운다. 간주처럼 코드를 잡지 않는 자리에 쓴다 */
+  onClear: () => void;
   onClose: () => void;
 }) {
   const [root, setRoot] = useState(current?.root ?? "C");
@@ -113,6 +116,19 @@ export function ChordPicker({
       >
         {labelFor(root, quality, flats)} 로 바꾸기
       </button>
+
+      {/* 코드를 아예 없애는 자리. 간주처럼 코드를 잡지 않는 마디가 있다 */}
+      {current && (
+        <button
+          className="mt-1.5 w-full rounded py-2.5 text-sm text-red-600"
+          onClick={() => {
+            onClear();
+            onClose();
+          }}
+        >
+          이 마디 코드 지우기
+        </button>
+      )}
     </Popup>
   );
 }

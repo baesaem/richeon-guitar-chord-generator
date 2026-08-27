@@ -101,6 +101,26 @@ export function setChordAt(
   return mergeSame(out.filter((c) => c.end - c.start > 0.05));
 }
 
+/**
+ * 이 마디의 코드를 지운다.
+ *
+ * 코드가 없는 마디는 악보에서 빈칸으로 남는다 — 간주처럼 코드를 잡지
+ * 않는 자리이거나, 인식이 없는 코드를 지어낸 자리다.
+ */
+export function clearChordAt(chords: Chord[], from: number, to: number): Chord[] {
+  const out: Chord[] = [];
+  for (const c of chords) {
+    if (c.end <= from + EPS || c.start >= to - EPS) {
+      out.push(c);
+      continue;
+    }
+    if (c.start < from - EPS) out.push({ ...c, end: +from.toFixed(3) });
+    if (c.end > to + EPS) out.push({ ...c, start: +to.toFixed(3) });
+  }
+  out.sort((a, b) => a.start - b.start);
+  return mergeSame(out.filter((c) => c.end - c.start > 0.05));
+}
+
 /** 이름이 같고 맞닿은 구간을 하나로 잇는다 */
 function mergeSame(chords: Chord[]): Chord[] {
   const out: Chord[] = [];
