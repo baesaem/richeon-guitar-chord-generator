@@ -408,6 +408,30 @@ def fetch_youtube_captions(video_id: str) -> list[LyricLine]:
 
 # ---------------------------------------------------------------- 진입점
 
+def polish_captions(lines: list[LyricLine]) -> list[LyricLine]:
+    """자막에서 온 가사를 소절로 다듬는다. 못 다듬으면 그대로 돌려준다.
+
+    자동 자막은 토막나 있고 글자가 틀린다("바라미 차가워진"). 지금까지는
+    가사 화면의 단추를 눌러야 다듬어졌는데, 매 곡 눌러야 한다면 그건
+    분석이 덜 끝난 것이다. 키가 있으면 분석하면서 바로 건다.
+
+    시각은 자막의 첫 조각 시각이 그대로 남으므로 어림이 아니다.
+    """
+    if not llm.enabled() or len(lines) < 2:
+        return lines
+    rows = llm.tidy_lyrics([{"t": line.t, "text": line.text} for line in lines])
+    if not rows:
+        return lines
+    return [
+        LyricLine(
+            t=row["t"],
+            end=rows[i + 1]["t"] if i + 1 < len(rows) else lines[-1].end,
+            text=row["text"],
+        )
+        for i, row in enumerate(rows)
+    ]
+
+
 def align_to_vocals(lines: list[LyricLine], audio_id: str) -> list[LyricLine]:
     """가사 시각을 실제 노래에 맞춘다. 맞출 수 없으면 그대로 돌려준다.
 
@@ -443,10 +467,12 @@ def fetch_lyrics_blocking(
     title: str = "",
     duration: float = 0.0,
     query: str = "",
-) -> tuple[list[LyricLine], bool]:
+) -> tuple[list[LyricLine], bool, str]:
     """가사를 찾는다. 스레드에서 부른다.
 
-    (가사, 시각이_어림인가)를 돌려준다.
+    (가사, 시각이_어림인가, 출처)를 돌려준다. 출처는 "lrclib" | "captions" |
+    "plain" | "ai" | "" — 자막에서 온 가사는 뒤에서 AI 다듬기를 걸 수 있게
+    표식이 필요하다.
 
     순서대로 내려간다. 위쪽이 정확하다.
       1. 동기화 가사 (LRCLIB) — 시각까지 맞는 진짜 가사
@@ -488,7 +514,7 @@ def fetch_lyrics_blocking(
         try:
             lines = fetch_lrclib(search, want_duration, artists, song_title)
             if lines:
-                return lines, False
+                return lines, False, "lrclib"
         except Exception:
             pass  # 가사 서비스가 죽어도 다음 수단으로 계속 간다
 
@@ -500,7 +526,7 @@ def fetch_lyrics_blocking(
             try:
                 lines = fetch_lrclib(search, 0.0, artists, song_title)
                 if lines:
-                    return lines, False
+                    return lines, False, "lrclib"
             except Exception:
                 pass
 
@@ -516,7 +542,7 @@ def fetch_lyrics_blocking(
             try:
                 lines = fetch_lrclib(extra, 0.0, artists, song_title)
                 if lines:
-                    return lines, False
+                    return lines, False, "lrclib"
             except Exception:
                 pass
 
@@ -525,7 +551,7 @@ def fetch_lyrics_blocking(
         try:
             lines = fetch_youtube_captions(video_id)
             if lines:
-                return lines, False
+                return lines, False, "captions"
         except Exception:
             pass
 
@@ -533,17 +559,23 @@ def fetch_lyrics_blocking(
     for search, want_duration in tried:
         plain = fetch_lrclib_plain(search, want_duration, artists, song_title)
         if plain:
-            return [LyricLine(**row) for row in llm.spread_lines(plain, duration)], True
+            return (
+                [LyricLine(**row) for row in llm.spread_lines(plain, duration)],
+                True,
+                "plain",
+            )
 
     # 마지막으로 AI에게 물어본다. 키가 없으면 조용히 빈 목록.
     if llm.enabled():
         artist, song = _song_names(title, query)
         ai_lines = llm.lyrics_text(artist, song)
         if ai_lines:
-            return [
-                LyricLine(**row) for row in llm.spread_lines(ai_lines, duration)
-            ], True
-    return [], False
+            return (
+                [LyricLine(**row) for row in llm.spread_lines(ai_lines, duration)],
+                True,
+                "ai",
+            )
+    return [], False, ""
 
 
 def _song_names(title: str, query: str) -> tuple[str, str]:

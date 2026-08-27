@@ -209,10 +209,12 @@ export default function Home() {
     let lastTick = -1;
     const frame = () => {
       const t = playback.getTime();
-      stripRef.current?.draw(t);
       // 화면에 표시할 때만 보정을 얹는다. 재생·반복은 실제 시각 그대로.
       // 기기 지연(소리가 늦게 나오는 만큼)은 모든 곡에 함께 적용된다.
       const shownT = t + sync - settings.latency;
+      // 파형 커서도 같은 시각을 써야 한다. 코드 강조만 보정하면 커서와
+      // 강조가 서로 어긋나 어느 쪽이 맞는지 알 수 없다.
+      stripRef.current?.draw(shownT);
       // 다듬은 목록 기준으로 세어야 화면에 그린 코드와 인덱스가 맞는다
       setChordIdx(chordIndexAt(shown.chords, shownT));
       setBarIdx(barIndexAt(bars, shownT));

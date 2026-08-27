@@ -141,15 +141,27 @@ def enabled() -> bool:
     return bool(llm_config()["api_key"])
 
 
+# 제목 → 곡 정보. 가사를 한 번 찾는 동안 같은 제목을 서너 번 묻는다 —
+# 물을 때마다 몇 초와 호출 비용이 든다. 답이 바뀔 물음이 아니므로 담아 둔다.
+_INFO_CACHE: dict[str, SongInfo | None] = {}
+
+
 def song_info(video_title: str) -> SongInfo | None:
     """영상 제목 → 가수·곡명·로마자. 키가 없거나 실패하면 None."""
     if not enabled() or not video_title.strip():
         return None
+    if video_title in _INFO_CACHE:
+        return _INFO_CACHE[video_title]
     try:
-        return _parse(_chat(_PROMPT.format(title=video_title)))
+        info = _parse(_chat(_PROMPT.format(title=video_title)))
     except (urllib.error.URLError, urllib.error.HTTPError, ValueError, KeyError):
         # 가사는 부가 기능이다. LLM이 죽어도 분석은 그대로 간다.
+        # 실패는 담지 않는다 — 다음에 다시 시도할 수 있어야 한다.
         return None
+    if len(_INFO_CACHE) > 200:
+        _INFO_CACHE.clear()
+    _INFO_CACHE[video_title] = info
+    return info
 
 
 # ── 모델 목록 고르기 ──────────────────────────────────────────────

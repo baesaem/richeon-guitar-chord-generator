@@ -16,7 +16,12 @@ from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .analysis.separate import instrumental_path, separate
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
-from .lyrics import align_to_vocals, fetch_lyrics_blocking, fetch_youtube_captions
+from .lyrics import (
+    align_to_vocals,
+    fetch_lyrics_blocking,
+    fetch_youtube_captions,
+    polish_captions,
+)
 from . import llm
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
@@ -503,7 +508,7 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
     if result is None:
         raise HTTPException(404, "분석 결과가 없습니다")
 
-    lyrics, approx = await asyncio.to_thread(
+    lyrics, approx, source = await asyncio.to_thread(
         fetch_lyrics_blocking,
         result_id if result.source == "youtube" else None,
         result.title,
@@ -513,7 +518,10 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
     if not lyrics:
         raise HTTPException(404, "이 곡의 가사를 찾지 못했습니다")
 
-    # 자막에서 온 가사는 노래보다 늦다. 보컬 트랙이 있으면 맞춰 당긴다.
+    # 자막이면 소절로 다듬고, 시각은 보컬 트랙에 맞춰 당긴다 —
+    # 분석 때와 같은 순서. 어디서 찾았든 결과가 같아야 한다.
+    if source == "captions":
+        lyrics = await asyncio.to_thread(polish_captions, lyrics)
     result.lyrics = await asyncio.to_thread(align_to_vocals, lyrics, result_id)
     result.lyrics_approx = approx
     save_result(result)
@@ -614,10 +622,10 @@ async def tidy_lyrics_endpoint(result_id: str) -> AnalysisResult:
         )
         for i, row in enumerate(rows)
     ]
-    result.lyrics = lines
-    # 다듬은 가사는 사람이 한 번 봐야 한다. 알아듣지 못한 구간을 그럴듯하게
-    # 메우는 일이 있어서다.
-    result.lyrics_approx = True
+    # 다듬은 시각은 자막의 첫 조각 시각이라 어림이 아니다. 마지막으로
+    # 보컬 트랙에 맞춰 당긴다 — 분석 때와 같은 마무리.
+    result.lyrics = await asyncio.to_thread(align_to_vocals, lines, result_id)
+    result.lyrics_approx = False
     save_result(result)
     return result
 
