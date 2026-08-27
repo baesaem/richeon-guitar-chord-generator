@@ -58,7 +58,7 @@ export function ChordsTab() {
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
-      <h2 className="mb-2 text-lg font-bold">기타 기초</h2>
+      <h2 className="mb-2 text-lg font-bold md:hidden">기타 기초</h2>
       {/* 탭 다섯 개가 폰 폭에 다 들어가야 한다 — 옆으로 밀면 마지막
           탭은 있는 줄도 모른다. 글자·여백을 줄여 한 줄에 맞춘다 */}
       <div className="mb-3 flex gap-1">

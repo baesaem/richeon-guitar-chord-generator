@@ -372,7 +372,7 @@ export function ImportTab({
   return (
     <div className="h-full space-y-3 overflow-y-auto p-4">
       <header>
-        <h2 className="text-lg font-bold">음원 가져오기</h2>
+        <h2 className="text-lg font-bold md:hidden">음원 가져오기</h2>
         {/* 서버 상태는 관리자에게만. 수강생 화면에는 서버 이야기를 하지 않는다. */}
         {adminMode && (
           <p className="text-sm text-gray-500">

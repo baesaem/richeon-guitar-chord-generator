@@ -91,7 +91,7 @@ export function RecordTab({ onRecorded, busy }: Props) {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto px-3 py-3">
-      <h2 className="mb-1 text-lg font-bold">마이크로 녹음</h2>
+      <h2 className="mb-1 text-lg font-bold md:hidden">마이크로 녹음</h2>
       <p className="text-xs text-gray-500">
         스피커로 튼 곡이나 직접 친 연주를 녹음해 코드를 뽑습니다.
       </p>

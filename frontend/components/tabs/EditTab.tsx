@@ -47,7 +47,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
-      <h2 className="mb-1 text-lg font-bold">코드수정</h2>
+      <h2 className="mb-1 text-lg font-bold md:hidden">코드수정</h2>
       <p className="mb-3 text-[11px] leading-snug text-gray-500">
         고칠 곡을 고르세요. 악보에서 마디를 <b>3초 길게 누르면</b>(마우스는
         오른쪽 클릭) 그 마디의 코드를 바꿉니다. 재생하면서 고칠 수 있습니다.

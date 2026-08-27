@@ -327,7 +327,7 @@ export function LibraryTab({
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-lg font-bold">재생목록</h2>
+        <h2 className="text-lg font-bold md:hidden">재생목록</h2>
         <div className="flex items-center gap-2">
           <button
             className="text-xs text-gray-500 underline"

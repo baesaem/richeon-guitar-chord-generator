@@ -14,7 +14,8 @@ interface Props {
   onChange: (tab: Tab) => void;
 }
 
-const ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+/** 주메뉴 항목. 폰의 아래 탭과 태블릿·PC의 왼쪽 사이드바가 함께 쓴다 */
+export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   {
     id: "home",
     label: "홈",
@@ -84,14 +85,15 @@ const ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 /** 화면 맨 아래 탭 막대. 폰에서 엄지로 누르는 자리라 세로 여백을 넉넉히 둔다.
- *  테마 강조색이 활성 탭에 물든다. */
+ *  테마 강조색이 활성 탭에 물든다. 넓은 화면에서는 왼쪽 사이드바가
+ *  대신하므로 숨는다(md 이상). */
 export function BottomNav({ tab, onChange }: Props) {
   return (
-    <nav className="shrink-0 bg-[var(--bar-bg)] shadow-[0_-4px_16px_rgba(0,0,0,0.07)]">
+    <nav className="shrink-0 bg-[var(--bar-bg)] shadow-[0_-4px_16px_rgba(0,0,0,0.07)] md:hidden">
       {/* 강조색 헤어라인 */}
       <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_45%,transparent)] to-transparent" />
       <div className="flex">
-        {ITEMS.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const active = item.id === tab;
           return (
             <button

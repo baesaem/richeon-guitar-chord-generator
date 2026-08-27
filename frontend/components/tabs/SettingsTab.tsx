@@ -142,7 +142,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
-      <h2 className="mb-3 text-lg font-bold">설정</h2>
+      <h2 className="mb-3 text-lg font-bold md:hidden">설정</h2>
 
       {/* 앱 설치 — 맨 위. 수강생이 처음 받는 안내가 "홈 화면에 앱을
           만드세요"라서, 찾기 쉬운 자리에 있어야 한다 */}

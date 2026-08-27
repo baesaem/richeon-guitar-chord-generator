@@ -11,6 +11,7 @@ import { ChordScore } from "@/components/ChordScore";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { HelpButton } from "@/components/Help";
+import { SideNav } from "@/components/SideNav";
 import { HomeDashboard } from "@/components/HomeDashboard";
 import { LyricsPane } from "@/components/LyricsPane";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
@@ -578,14 +579,31 @@ export default function Home() {
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
   const noteShift = -transpose;
 
+  // 지금 보고 있는 메뉴의 이름. 넓은 화면에서는 사이드바가 앱 이름을
+  // 맡고, 위쪽 띠는 "여기가 어디인지"를 맡는다.
+  const TAB_TITLE: Record<Tab, string> = {
+    home: result ? result.title || "재생" : "홈",
+    library: "재생목록",
+    import: "음원 가져오기",
+    mic: "마이크로 녹음",
+    edit: "코드수정",
+    chords: "기타 기초",
+    settings: "설정",
+  };
+
   return (
-    // w-full이 없으면 mx-auto(가로 auto 마진)가 flex 아이템의 stretch를 무효화해
-    // 너비가 내용물 기준으로 잡히고, 긴 곡 제목 때문에 화면이 가로로 넘친다.
-    <div className="mx-auto flex h-dvh w-full max-w-2xl flex-col overflow-x-hidden">
+    /* 화면 크기에 따라 두 모습이 된다.
+       - 폰: 위에 앱 이름 띠, 아래에 탭 막대 (지금까지의 모습)
+       - 태블릿·PC(md 이상): 왼쪽에 주메뉴 기둥(위에 앱 이름), 오른쪽 본문
+         위에 지금 메뉴 이름 띠. 본문은 넓은 화면에서 가운데로 모은다 */
+    <div className="flex h-dvh w-full overflow-x-hidden">
+      <SideNav tab={tab} onChange={setTab} />
+
+      <div className="mx-auto flex h-dvh min-w-0 w-full max-w-2xl flex-col md:mx-0 md:max-w-none md:border-l md:border-gray-200 md:dark:border-gray-800">
       {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바. */}
       <header className="shrink-0 bg-[var(--bar-bg)]">
         <div className="flex items-center gap-2.5 px-3 py-2">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)] md:hidden">
             <Image
               src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/guitar.png`}
               alt=""
@@ -595,12 +613,16 @@ export default function Home() {
               priority
             />
           </span>
-          <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight md:hidden">
             <span className="text-[var(--accent)]">리천</span> 기타 교실
+          </h1>
+          {/* 넓은 화면: 앱 이름은 사이드바에 있으니 여기는 메뉴 이름 */}
+          <h1 className="hidden min-w-0 flex-1 truncate text-[17px] font-bold tracking-tight md:block">
+            {TAB_TITLE[tab]}
           </h1>
           {/* 이 앱을 누가 쓰는지. 수강생이 여러 앱을 오갈 때 여기서 알아본다.
               폭이 좁으면 앱 이름이 먼저 줄고 이 표시는 남는다 */}
-          <span className="shrink-0 whitespace-nowrap text-[11px] font-medium leading-tight text-[var(--accent)] opacity-80">
+          <span className="shrink-0 whitespace-nowrap text-[11px] font-medium leading-tight text-[var(--accent)] opacity-80 md:hidden">
             강상주민센터
             <br />
             기타반
@@ -622,7 +644,9 @@ export default function Home() {
         </p>
       )}
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+      {/* 넓은 화면에서 본문이 끝까지 늘어지면 눈이 가로로 너무 멀리 간다.
+          읽기 좋은 폭으로 모으고 가운데 둔다 */}
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden md:mx-auto md:w-full md:max-w-3xl">
         {/* 홈 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}
         <div className={tab === "home" ? "flex h-full flex-col overflow-y-auto" : "hidden"}>
           {result ? (
@@ -1320,6 +1344,7 @@ export default function Home() {
       )}
 
       <BottomNav tab={tab} onChange={setTab} />
+      </div>
     </div>
   );
 }
