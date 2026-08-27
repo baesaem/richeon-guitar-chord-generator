@@ -60,16 +60,15 @@ export function SongInfoLine({
           {note}
         </span>
       ))}
+      {/* 진행 줄수도 같은 줄 오른쪽 끝에. 자리가 남으면 밀려가 붙고,
+          모자라면 뒤에 이어져 옆으로 밀어 볼 수 있다 */}
+      {children && (
+        <span className="ml-auto shrink-0 pl-2 tabular-nums">{children}</span>
+      )}
       </div>
 
-      {/* 줄 번호와 악보보기는 아래 줄에. 위 줄은 곡 정보만 담는다 —
-          섞어 놓으면 좁은 화면에서 곡 정보가 밀려 안 보인다 */}
-      {(children || right) && (
-        <div className="flex items-center justify-end gap-2 text-[11px] text-gray-500">
-          <span className="tabular-nums">{children}</span>
-          {right}
-        </div>
-      )}
+      {/* 악보보기만 아래 줄에. 글자 사이에 버튼이 끼면 읽는 흐름이 끊긴다 */}
+      {right && <div className="flex justify-end">{right}</div>}
     </div>
   );
 }
