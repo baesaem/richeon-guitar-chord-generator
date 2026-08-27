@@ -93,11 +93,14 @@ export function LyricEditor({
  */
 export function LyricRow({
   text,
+  label,
   now,
   onSeek,
   onEdit,
 }: {
   text: string;
+  /** 왼쪽에 붙일 표시(마디 번호 등) */
+  label?: string;
   now: boolean;
   onSeek: () => void;
   onEdit?: () => void;
@@ -118,7 +121,14 @@ export function LyricRow({
           style={{ width: `${press.progress * 100}%` }}
         />
       )}
-      <span className="relative">{text}</span>
+      <span className="relative flex gap-2">
+        {label && (
+          <span className="w-16 shrink-0 pt-0.5 text-[10px] tabular-nums text-gray-400">
+            {label}
+          </span>
+        )}
+        <span className="min-w-0 flex-1">{text}</span>
+      </span>
     </div>
   );
 }

@@ -43,6 +43,7 @@ import {
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, saveLocal } from "@/lib/library";
+import { groupByBars, groupIndexAt } from "@/lib/lyricGroups";
 import { lyricIndexAt } from "@/lib/lrc";
 import {
   labelFor,
@@ -188,6 +189,11 @@ export default function Home() {
         ? suggestStrum(bars, result.strums, result.bpm, result.time_signature)
         : null,
     [bars, result],
+  );
+  // 가사를 악보와 같은 네 마디 묶음으로. 편집할 때는 줄 그대로 본다.
+  const lyricGroups = useMemo(
+    () => groupByBars(result?.lyrics ?? [], bars),
+    [result?.lyrics, bars],
   );
   const flats = useMemo(
     () => (result ? resolveFlats(result.key, settings.notation) : false),
@@ -1152,25 +1158,44 @@ export default function Home() {
                       {editMode ? " 위 단추로 한 줄씩 넣을 수 있습니다." : ""}
                     </p>
                   )}
-                  {(result.lyrics ?? []).map((line, i) => (
-                    <LyricRow
-                      key={`${line.t}-${i}`}
-                      text={line.text}
-                      // 지금 부르는 줄을 짚어 준다. 이게 없으면 어디를 보고
-                      // 있어야 할지 알 수 없어 가사가 어긋난 것처럼 느껴진다.
-                      now={
-                        lyricIndexAt(
-                          result.lyrics ?? [],
-                          time + lyricSync - settings.latency,
-                        ) === i
-                      }
-                      onSeek={() => {
-                        playback?.seek(line.t);
-                        setTime(line.t);
-                      }}
-                      onEdit={editMode ? () => setEditLyric(i) : undefined}
-                    />
-                  ))}
+                  {/* 악보와 같은 네 마디 묶음으로 끊는다. 자막 가사는 숨
+                      쉬는 자리마다 토막나 그대로 늘어놓으면 소절을 알 수 없다.
+                      고칠 때는 줄 그대로 봐야 해서 편집 모드에서는 안 묶는다 */}
+                  {editMode
+                    ? (result.lyrics ?? []).map((line, i) => (
+                        <LyricRow
+                          key={`${line.t}-${i}`}
+                          text={line.text}
+                          now={
+                            lyricIndexAt(
+                              result.lyrics ?? [],
+                              time + lyricSync - settings.latency,
+                            ) === i
+                          }
+                          onSeek={() => {
+                            playback?.seek(line.t);
+                            setTime(line.t);
+                          }}
+                          onEdit={() => setEditLyric(i)}
+                        />
+                      ))
+                    : lyricGroups.map((g, i) => (
+                        <LyricRow
+                          key={`${g.start}-${i}`}
+                          text={g.text}
+                          label={`${g.from}–${g.to}마디`}
+                          now={
+                            groupIndexAt(
+                              lyricGroups,
+                              time + lyricSync - settings.latency,
+                            ) === i
+                          }
+                          onSeek={() => {
+                            playback?.seek(g.start);
+                            setTime(g.start);
+                          }}
+                        />
+                      ))}
                 </div>
               )}
 

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchLyrics, putLyrics } from "@/lib/api";
 import { saveLocal } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
-import { lyricIndexAt, parseLyricsText } from "@/lib/lrc";
+import { buildBars } from "@/lib/bars";
+import { groupByBars, groupIndexAt } from "@/lib/lyricGroups";
+import { parseLyricsText } from "@/lib/lrc";
 import { findLyrics } from "@/lib/lyricsClient";
 import type { AnalysisResult, LyricLine } from "@/lib/types";
 
@@ -26,8 +28,14 @@ interface Props {
  * 화면 가운데로 따라 올린다 — 노래방처럼 눈이 한 자리를 본다.
  */
 export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
-  const lines = result.lyrics ?? [];
-  const index = lyricIndexAt(lines, time);
+  const lines = useMemo(() => result.lyrics ?? [], [result.lyrics]);
+  // 악보와 같은 네 마디 묶음으로 끊는다. 자막에서 온 가사는 숨 쉬는
+  // 자리마다 토막나 그대로 늘어놓으면 어디까지가 한 소절인지 알 수 없다.
+  const groups = useMemo(
+    () => groupByBars(lines, buildBars(result)),
+    [lines, result],
+  );
+  const index = groupIndexAt(groups, time);
 
   const activeRef = useRef<HTMLLIElement | null>(null);
   const [busy, setBusy] = useState(false);
@@ -148,12 +156,12 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
         </div>
       ) : (
         <>
-          <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2 text-center">
-            {lines.map((line, i) => (
+          <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-2 text-center">
+            {groups.map((g, i) => (
               <li
-                key={`${line.t}-${i}`}
+                key={`${g.start}-${i}`}
                 ref={i === index ? activeRef : undefined}
-                onClick={() => onSeek(line.t)}
+                onClick={() => onSeek(g.start)}
                 className={[
                   "cursor-pointer leading-snug transition-colors",
                   i === index
@@ -161,7 +169,7 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
                     : "text-sm text-gray-500",
                 ].join(" ")}
               >
-                {line.text}
+                {g.text}
               </li>
             ))}
           </ul>
@@ -172,7 +180,7 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
             </p>
           )}
           <div className="flex shrink-0 items-center justify-end gap-2 px-3 pb-1 text-[10px] text-gray-400">
-            <span>{lines.length}줄</span>
+            <span>{groups.length}묶음 · {lines.length}줄</span>
             <button className="underline" onClick={() => fileRef.current?.click()}>
               가사 바꾸기
             </button>
