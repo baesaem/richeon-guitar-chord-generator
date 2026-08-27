@@ -230,6 +230,14 @@ export default function Home() {
   const run = async (start: () => Promise<{ job_id: string }>) => {
     setError(null);
     resetPlayback();
+    // 누르자마자 표시한다. 서버에 일을 맡기고 첫 진행 신호가 올 때까지
+    // 1~2초가 비는데, 그동안 아무 반응이 없으면 안 눌린 줄 알고 또 누른다.
+    setStatus({
+      job_id: "",
+      stage: "queued",
+      progress: 0,
+      message: "분석 준비 중",
+    } as JobStatus);
     // 탭은 그대로 둔다. 진행률을 보던 자리에서 계속 보고, 끝나면 재생 화면으로 넘어간다.
     try {
       const { job_id } = await start();
@@ -379,6 +387,33 @@ export default function Home() {
         {/* 강조색 헤어라인 */}
         <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_55%,transparent)] to-transparent" />
       </header>
+
+      {/* 분석은 탭을 옮겨 다녀도 계속 돈다. 어디에 있든 보이게 타이틀바
+          바로 아래에 둔다 — 재생목록에서 「분석만」을 누르고 나면 진행 상황을
+          볼 자리가 없었다. */}
+      {busy && status && (
+        <div className="shrink-0 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]">
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            <span
+              className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent"
+              aria-hidden="true"
+            />
+            <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--accent)]">
+              {status.message || STAGE_LABEL[status.stage]}
+            </span>
+            <span className="shrink-0 text-[11px] tabular-nums text-[var(--accent)]">
+              {Math.round(status.progress * 100)}%
+            </span>
+          </div>
+          {/* 진행률 막대. 단계마다 0부터 다시 차는 게 아니라 전체 기준이다 */}
+          <div className="h-0.5 bg-[color-mix(in_srgb,var(--accent)_20%,transparent)]">
+            <div
+              className="h-full bg-[var(--accent)] transition-[width] duration-300"
+              style={{ width: `${Math.max(2, Math.round(status.progress * 100))}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 서버 관련 안내는 관리자에게만. 수강생 화면은 서버 개념을 모른다. */}
       {backendDown && settings.adminMode && (
@@ -685,6 +720,7 @@ export default function Home() {
             onOpen={openSaved}
             adminMode={settings.adminMode}
             // 서버가 있을 때만. 캐시된 오디오를 쓰므로 다시 받지 않는다.
+            analyzing={busy}
             onReanalyze={
               health
                 ? (item, refetch) =>

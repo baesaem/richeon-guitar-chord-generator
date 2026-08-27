@@ -33,6 +33,8 @@ interface Props {
    */
   /** 다시 분석. refetch면 음원부터 새로 받는다 */
   onReanalyze?: (item: ResultSummary, refetch: boolean) => void;
+  /** 지금 다른 분석이 돌고 있다. 두 번 눌러 줄 세우지 않게 잠근다 */
+  analyzing?: boolean;
   /** 탭이 보일 때만 목록을 새로 읽는다 */
   active: boolean;
   /** 관리자 모드: 공유 폴더에 올릴 음원 내보내기 버튼이 보인다 */
@@ -62,7 +64,13 @@ function when(unixSeconds: number): string {
  *  - 기기 저장: 브라우저(IndexedDB)에 담긴 결과. 서버(PC)가 꺼져도 남는다
  *  - 서버: PC 캐시에 있는 결과. 서버가 꺼지면 이 섹션만 사라진다
  */
-export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
+export function LibraryTab({
+  onOpen,
+  onReanalyze,
+  analyzing = false,
+  active,
+  adminMode,
+}: Props) {
   // 시스템 prompt()/confirm()을 쓰지 않는다. 폰 웹앱에서 막혀 있다.
   const [asking, setAsking] = useState<"folder" | "deleteFolder" | null>(null);
   const [refetching, setRefetching] = useState<ResultSummary | null>(null);
@@ -360,6 +368,7 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                       item={item}
                       onReanalyze={onReanalyze}
                       onAskRefetch={setRefetching}
+                      analyzing={analyzing}
                     />
                   )}
                   <IconButton label="저장" onClick={() => exportOne(item.id)}>
@@ -425,6 +434,7 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                       item={item}
                       onReanalyze={onReanalyze}
                       onAskRefetch={setRefetching}
+                      analyzing={analyzing}
                     />
                 )}
                 {saved.has(item.id) ? (
@@ -517,22 +527,32 @@ function ReanalyzeButtons({
   item,
   onReanalyze,
   onAskRefetch,
+  analyzing,
 }: {
   item: ResultSummary;
   onReanalyze: (item: ResultSummary, refetch: boolean) => void;
   /** 음원 교체는 오래 걸린다. 묻고 나서 한다 */
   onAskRefetch: (item: ResultSummary) => void;
+  /** 다른 분석이 도는 중 */
+  analyzing: boolean;
 }) {
   return (
     <>
       <IconButton
-        label="분석만 (받아 둔 음원 그대로)"
+        label={
+          analyzing ? "분석이 끝나면 누를 수 있습니다" : "분석만 (받아 둔 음원 그대로)"
+        }
+        disabled={analyzing}
         onClick={() => onReanalyze(item, false)}
       >
         {RerunIcon}
       </IconButton>
       {item.source === "youtube" && (
-        <IconButton label="음원교체 (새로 받아 분석)" onClick={() => onAskRefetch(item)}>
+        <IconButton
+          label={analyzing ? "분석이 끝나면 누를 수 있습니다" : "음원교체 (새로 받아 분석)"}
+          disabled={analyzing}
+          onClick={() => onAskRefetch(item)}
+        >
           {ReplaceAudioIcon}
         </IconButton>
       )}
@@ -551,20 +571,23 @@ function ReanalyzeButtons({
 function IconButton({
   label,
   danger = false,
+  disabled = false,
   onClick,
   children,
 }: {
   label: string;
   danger?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
       className={[
-        "shrink-0 rounded p-1.5",
+        "shrink-0 rounded p-1.5 disabled:opacity-30",
         danger ? "text-red-500" : "text-gray-500 dark:text-gray-400",
       ].join(" ")}
+      disabled={disabled}
       onClick={onClick}
       title={label}
       aria-label={label}
