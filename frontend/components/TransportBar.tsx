@@ -149,48 +149,6 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
             기본은 7th·sus 같은 확장 화음을 쉬운 3화음으로 낮춰 보여줍니다.
           </p>
 
-          {/* ---- 싱크 맞추기 ---- */}
-          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
-          <div className="mb-1 text-sm font-medium">싱크 맞추기</div>
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
-            소리보다 화면이 빠르면 −, 느리면 +. 블루투스 스피커는 소리가
-            늦게 나와 보정이 필요합니다.
-          </p>
-          {(
-            [
-              ["코드", sync, props.onSync],
-              ["가사", lyricSync, props.onLyricSync],
-            ] as const
-          ).map(([label, value, set]) => (
-            <div key={label} className="mb-1.5 flex items-center gap-1.5">
-              <span className="w-7 shrink-0 text-xs text-gray-500">{label}</span>
-              <button
-                className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
-                onClick={() => set(Math.round((value - 0.1) * 10) / 10)}
-              >
-                −
-              </button>
-              <span className="w-14 text-center text-xs tabular-nums">
-                {value > 0 ? "+" : ""}
-                {value.toFixed(1)}초
-              </span>
-              <button
-                className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
-                onClick={() => set(Math.round((value + 0.1) * 10) / 10)}
-              >
-                +
-              </button>
-              {value !== 0 && (
-                <button
-                  className="ml-auto text-[11px] text-gray-500 underline"
-                  onClick={() => set(0)}
-                >
-                  되돌리기
-                </button>
-              )}
-            </div>
-          ))}
-
           {/* ---- 보컬 끄기 (반주만) ---- */}
           {props.onVocalOff && (
             <>
@@ -334,6 +292,47 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
               해제
             </button>
           </div>
+          {/* ---- 싱크 맞추기 ---- */}
+          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className="mb-1 text-sm font-medium">싱크 맞추기</div>
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            소리보다 화면이 빠르면 −, 느리면 +. 블루투스 스피커는 소리가
+            늦게 나와 보정이 필요합니다.
+          </p>
+          {(
+            [
+              ["코드", sync, props.onSync],
+              ["가사", lyricSync, props.onLyricSync],
+            ] as const
+          ).map(([label, value, set]) => (
+            <div key={label} className="mb-1.5 flex items-center gap-1.5">
+              <span className="w-7 shrink-0 text-xs text-gray-500">{label}</span>
+              <button
+                className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
+                onClick={() => set(Math.round((value - 0.1) * 10) / 10)}
+              >
+                −
+              </button>
+              <span className="w-14 text-center text-xs tabular-nums">
+                {value > 0 ? "+" : ""}
+                {value.toFixed(1)}초
+              </span>
+              <button
+                className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
+                onClick={() => set(Math.round((value + 0.1) * 10) / 10)}
+              >
+                +
+              </button>
+              {value !== 0 && (
+                <button
+                  className="ml-auto text-[11px] text-gray-500 underline"
+                  onClick={() => set(0)}
+                >
+                  되돌리기
+                </button>
+              )}
+            </div>
+          ))}
         </Popup>
       )}
     </>

@@ -13,7 +13,7 @@ from typing import AsyncIterator
 
 from .analysis.pipeline import PIPELINE_VERSION, analyze
 from .config import settings
-from .lyrics import fetch_lyrics_blocking
+from .lyrics import align_to_vocals, fetch_lyrics_blocking
 from .schemas import AnalysisResult, JobStage, JobStatus, SourceKind
 from .sources.base import AudioSource
 
@@ -84,6 +84,11 @@ class JobManager:
                     result.title,
                     result.duration,
                 )
+                # 자막에서 온 가사는 노래보다 늦다. 보컬 트랙에 맞춰 당긴다.
+                if result.lyrics and separate:
+                    result.lyrics = await asyncio.to_thread(
+                        align_to_vocals, result.lyrics, audio.id
+                    )
 
                 save_result(result)
 

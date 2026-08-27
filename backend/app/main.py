@@ -16,7 +16,7 @@ from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .analysis.separate import instrumental_path, separate
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
-from .lyrics import fetch_lyrics_blocking
+from .lyrics import align_to_vocals, fetch_lyrics_blocking
 from . import llm
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
@@ -513,7 +513,8 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
     if not lyrics:
         raise HTTPException(404, "이 곡의 가사를 찾지 못했습니다")
 
-    result.lyrics = lyrics
+    # 자막에서 온 가사는 노래보다 늦다. 보컬 트랙이 있으면 맞춰 당긴다.
+    result.lyrics = await asyncio.to_thread(align_to_vocals, lyrics, result_id)
     result.lyrics_approx = approx
     save_result(result)
     return result

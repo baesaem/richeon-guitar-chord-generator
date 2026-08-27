@@ -408,6 +408,33 @@ def fetch_youtube_captions(video_id: str) -> list[LyricLine]:
 
 # ---------------------------------------------------------------- 진입점
 
+def align_to_vocals(lines: list[LyricLine], audio_id: str) -> list[LyricLine]:
+    """가사 시각을 실제 노래에 맞춘다. 맞출 수 없으면 그대로 돌려준다.
+
+    보컬 트랙이 있으면 어디서 노래가 시작하는지 알 수 있다. 줄마다 가장
+    가까운 문구 시작점에 붙인다 — 0.6초 안일 때만. 곡 전체를 통째로 미는
+    방식은 이미 잘 맞는 가사를 망가뜨려 쓰지 않는다.
+    """
+    if len(lines) < 4:
+        return lines
+
+    from .analysis.lyric_sync import snap
+    from .analysis.separate import vocals_path
+
+    try:
+        starts, moved = snap([line.t for line in lines], vocals_path(audio_id))
+    except Exception:
+        return lines
+    if moved == 0:
+        return lines
+
+    fixed = []
+    for i, line in enumerate(lines):
+        end = starts[i + 1] if i + 1 < len(starts) else line.end
+        fixed.append(LyricLine(t=starts[i], end=end, text=line.text))
+    return fixed
+
+
 def fetch_lyrics_blocking(
     video_id: str | None,
     title: str = "",
