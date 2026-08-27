@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 
 from . import llm
@@ -264,6 +265,42 @@ def parse_vtt(text: str) -> list[LyricLine]:
     return _dedupe(lines)
 
 
+def parse_json3(text: str) -> list[LyricLine]:
+    """YouTube json3 자막 → 가사 줄 목록.
+
+    **자동 자막은 이 형식으로 받는다.** vtt로 받으면 롤업(같은 말을 창을
+    밀어 가며 되풀이 송출) 때문에 줄이 겹쳐 나오고, 그 겹침을 걷어내다
+    멀쩡한 줄까지 지운다 — 실측에서 두 줄에 한 줄꼴로 사라졌다.
+
+    json3에는 한 소절이 한 덩이(event)로 들어 있고 시작 시각이 밀리초로
+    적혀 있다. 걷어낼 겹침도, 맞출 시각도 없다.
+    """
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+
+    rows: list[LyricLine] = []
+    for event in data.get("events") or []:
+        segs = event.get("segs") or []
+        body = "".join(seg.get("utf8", "") for seg in segs)
+        body = _clean_caption(body.replace("\n", " "))
+        if not body:
+            continue
+        start = float(event.get("tStartMs", 0)) / 1000
+        dur = float(event.get("dDurationMs", 0)) / 1000
+        rows.append(LyricLine(t=round(start, 2), end=round(start + dur, 2), text=body))
+
+    rows.sort(key=lambda r: r.t)
+    # 같은 말이 곧바로 되풀이되면 하나만 남긴다(드물게 겹치는 경우가 있다)
+    out: list[LyricLine] = []
+    for row in rows:
+        if out and out[-1].text == row.text and row.t - out[-1].t < 0.5:
+            continue
+        out.append(row)
+    return out
+
+
 def _clean_caption(line: str) -> str:
     """자막 한 줄에서 태그·엔티티·효과음 표기를 걷어낸다."""
     text = _INLINE_TAG_RE.sub("", line)
@@ -349,12 +386,14 @@ def fetch_youtube_captions(video_id: str) -> list[LyricLine]:
     if not formats:
         return []
 
-    # 파서가 다루는 형식만 고른다. vtt를 먼저, 없으면 srt.
+    # json3을 먼저 고른다. 자동 자막의 롤업 중복이 없어 줄을 잃지 않는다.
+    # 없을 때만 vtt·srt로 내려간다(수동 자막은 어느 쪽이든 같다).
     url = None
-    for want in ("vtt", "srt"):
+    kind = ""
+    for want in ("json3", "vtt", "srt"):
         for fmt in formats:
             if fmt.get("ext") == want:
-                url = fmt.get("url")
+                url, kind = fmt.get("url"), want
                 break
         if url:
             break
@@ -364,7 +403,7 @@ def fetch_youtube_captions(video_id: str) -> list[LyricLine]:
     with httpx.Client(timeout=20.0, follow_redirects=True, headers={"User-Agent": _UA}) as client:
         res = client.get(url)
         res.raise_for_status()
-        return parse_vtt(res.text)
+        return parse_json3(res.text) if kind == "json3" else parse_vtt(res.text)
 
 
 # ---------------------------------------------------------------- 진입점
