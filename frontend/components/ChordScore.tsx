@@ -63,8 +63,7 @@ interface Props {
   onEditBar?: (barIndex: number) => void;
   /**
    * 주법. 0이면 스트로크(리듬 슬래시), 1~이면 아르페지오 패턴 번호 —
-   * 슬래시 대신 8분음표 칸마다 뜯는 줄의 프렛 숫자를 찍고, 숫자가
-   * 촘촘해지므로 한 줄을 2마디로 넓힌다.
+   * 슬래시 대신 8분음표 칸마다 뜯는 줄의 프렛 숫자를 찍는다.
    */
   arp?: number;
 }
@@ -74,8 +73,8 @@ const VB_W = 400;
 const PAD_X = 10;
 const STAFF_TOP = 34;      // 타브 첫 줄(1번줄)
 // 타브 여섯 줄. 프렛 숫자가 줄 위에 앉으므로 숫자가 서로 닿지 않을
-// 만큼 간격을 벌린다.
-const LINE_GAP = 5;
+// 만큼 간격을 넉넉히 벌린다.
+const LINE_GAP = 6;
 const STAFF_H = LINE_GAP * 5;
 const CHORD_Y = 22;        // 코드 심볼 기준선
 // 오선 아래 여백. 가사를 적지 않으므로 마디 강조 사각형이 잘리지 않을
@@ -111,10 +110,10 @@ export function ChordScore({
   arp = 0,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
-  // 아르페지오 모드면 한 줄 2마디 — 마디마다 프렛 숫자 8칸이 들어가므로
-  // 4마디씩 넣으면 숫자가 겹쳐 못 읽는다.
+  // 아르페지오 모드에서도 한 줄 4마디를 유지한다 — 줄바꿈이 악구와
+  // 일치하는 쪽이 숫자가 조금 촘촘한 것보다 낫다.
   const pattern = arp > 0 ? arpPattern(arp) : null;
-  const per = pattern ? Math.min(perLine, 2) : perLine;
+  const per = perLine;
 
   useEffect(() => {
     // 창 방식일 때는 화면이 알아서 따라오므로 스크롤할 것이 없다
@@ -216,14 +215,14 @@ export function ChordScore({
                     {firstLine && i === 0 && (
                       <>
                         <text
-                          x={x0 + 8} y={STAFF_TOP + 7.4}
+                          x={x0 + 8} y={STAFF_TOP + 8.8}
                           textAnchor="middle" fontSize={9} fontWeight="700"
                           fill="currentColor"
                         >
                           {beatsPerBar}
                         </text>
                         <text
-                          x={x0 + 8} y={STAFF_TOP + 20.6}
+                          x={x0 + 8} y={STAFF_TOP + 24.8}
                           textAnchor="middle" fontSize={9} fontWeight="700"
                           fill="currentColor"
                         >
