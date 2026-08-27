@@ -805,7 +805,7 @@ export default function Home() {
                             <rect x="3" y="4" width="18" height="16" rx="2" />
                             <path d="M3 9h18M8 4v16" />
                           </svg>
-                          악보(전체)보기
+                          전체보기
                         </button>
                       }
                     />
@@ -858,7 +858,7 @@ export default function Home() {
                           <rect x="3" y="4" width="18" height="16" rx="2" />
                           <path d="M3 9h18M8 4v16" />
                         </svg>
-                        악보(전체)보기
+                        전체보기
                       </button>
                     }
                     currentBar={barIdx}
