@@ -58,10 +58,9 @@ export function ChordsTab() {
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
       <h2 className="mb-2 text-lg font-bold">기타 기초</h2>
-      <div
-        className="mb-3 flex gap-1.5 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden"
-        style={{ scrollbarWidth: "none" }}
-      >
+      {/* 탭 다섯 개가 폰 폭에 다 들어가야 한다 — 옆으로 밀면 마지막
+          탭은 있는 줄도 모른다. 글자·여백을 줄여 한 줄에 맞춘다 */}
+      <div className="mb-3 flex gap-1">
         {(
           [
             ["fret", "지판과 음정"],
@@ -75,7 +74,7 @@ export function ChordsTab() {
             key={value}
             onClick={() => setPage(value)}
             className={[
-              "shrink-0 rounded px-3 py-2 text-[12px]",
+              "flex-1 whitespace-nowrap rounded px-0.5 py-2 text-[11px]",
               page === value
                 ? "bg-black text-white dark:bg-white dark:text-black"
                 : "bg-gray-100 dark:bg-gray-800",
