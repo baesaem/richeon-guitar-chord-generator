@@ -547,6 +547,8 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
         lyrics = await asyncio.to_thread(polish_captions, lyrics)
     result.lyrics = await asyncio.to_thread(align_to_vocals, lyrics, result_id)
     result.lyrics_approx = approx
+    # 「다시 찾기」는 새로 찾겠다는 뜻이다. 수동 표식을 지운다.
+    result.lyrics_manual = False
     save_result(result)
     return result
 
@@ -609,6 +611,7 @@ async def align_pasted_lyrics(result_id: str, texts: list[str]) -> AnalysisResul
         for i, row in enumerate(placed)
     ]
     result.lyrics_approx = False
+    result.lyrics_manual = True
     save_result(result)
     return result
 
@@ -664,6 +667,7 @@ async def put_lyrics(result_id: str, lyrics: list[LyricLine]) -> AnalysisResult:
     result.lyrics = lyrics
     # 사용자가 직접 넣은 가사는 어림이 아니다. 시각이 파일에 들어 있다
     result.lyrics_approx = False
+    result.lyrics_manual = True
     save_result(result)
     return result
 

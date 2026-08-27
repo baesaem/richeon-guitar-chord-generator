@@ -450,7 +450,7 @@ export default function Home() {
       .sort((a, b) => a.t - b.t)
       .map((l, i, all) => ({ ...l, end: i + 1 < all.length ? all[i + 1].t : l.end }));
 
-    const next = { ...result, lyrics: rows };
+    const next = { ...result, lyrics: rows, lyrics_manual: true };
     setResult(next);
     await saveLocal(next).catch(() => {});
     if (health) await putLyrics(next.id, rows).catch(() => {});

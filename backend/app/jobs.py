@@ -78,21 +78,30 @@ class JobManager:
                 # 가사를 미리 찾아 둔다(웹 가사 → YouTube 자막 순).
                 # 없으면 그냥 넘어간다 — 부가 정보라 분석을 실패시키지 않는다.
                 await progress(JobStage.POSTPROCESS, 0.95, "가사 찾는 중")
-                result.lyrics, result.lyrics_approx, lyric_source = (
-                    await asyncio.to_thread(
-                        fetch_lyrics_blocking,
-                        audio.id if audio.kind == SourceKind.YOUTUBE else None,
-                        result.title,
-                        result.duration,
+                # 사람이 넣거나 고친 가사는 지운 채 덮지 않는다. 재분석은
+                # 코드·박자를 새로 재는 일이지 공들여 맞춘 가사를 버리는
+                # 일이 아니다. 그대로 두고 아래에서 싱크만 다시 맞춘다.
+                old = load_result(audio.id)
+                if old and old.lyrics_manual and old.lyrics:
+                    result.lyrics = old.lyrics
+                    result.lyrics_approx = old.lyrics_approx
+                    result.lyrics_manual = True
+                else:
+                    result.lyrics, result.lyrics_approx, lyric_source = (
+                        await asyncio.to_thread(
+                            fetch_lyrics_blocking,
+                            audio.id if audio.kind == SourceKind.YOUTUBE else None,
+                            result.title,
+                            result.duration,
+                        )
                     )
-                )
-                # 자막에서 온 가사는 토막나 있고 글자가 틀린다. AI 키가
-                # 있으면 분석하면서 바로 소절로 다듬는다 — 매 곡 단추를
-                # 눌러야 한다면 분석이 덜 끝난 것이다.
-                if lyric_source == "captions" and result.lyrics:
-                    result.lyrics = await asyncio.to_thread(
-                        polish_captions, result.lyrics
-                    )
+                    # 자막에서 온 가사는 토막나 있고 글자가 틀린다. AI 키가
+                    # 있으면 분석하면서 바로 소절로 다듬는다 — 매 곡 단추를
+                    # 눌러야 한다면 분석이 덜 끝난 것이다.
+                    if lyric_source == "captions" and result.lyrics:
+                        result.lyrics = await asyncio.to_thread(
+                            polish_captions, result.lyrics
+                        )
                 # 시각을 보컬 트랙에 맞춰 당긴다.
                 if result.lyrics and separate:
                     result.lyrics = await asyncio.to_thread(

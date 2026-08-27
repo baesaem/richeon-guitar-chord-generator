@@ -50,11 +50,14 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
   }, [index]);
 
   /** 가사를 결과·기기 저장분 양쪽에 반영한다. */
-  const apply = async (next: LyricLine[], approx = false) => {
+  const apply = async (next: LyricLine[], approx = false, manual = false) => {
     onLyrics(next);
-    await saveLocal({ ...result, lyrics: next, lyrics_approx: approx }).catch(
-      () => {},
-    );
+    await saveLocal({
+      ...result,
+      lyrics: next,
+      lyrics_approx: approx,
+      lyrics_manual: manual,
+    }).catch(() => {});
   };
 
   const search = async (q: string) => {
@@ -134,7 +137,7 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
       }
 
       if (!next.length) throw new Error("가사를 읽지 못했습니다");
-      await apply(next);
+      await apply(next, false, true);
       // 서버가 있으면 그쪽에도 남겨 다음에 열 때 바로 나오게 한다
       if (online) await putLyrics(result.id, next).catch(() => {});
       setPasting(false);
