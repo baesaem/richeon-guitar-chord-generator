@@ -245,6 +245,25 @@ def _my_sheet(result_id: str) -> Path | None:
     return None
 
 
+@app.head("/api/sheets/{result_id}/mine")
+async def head_my_sheet(result_id: str) -> Response:
+    """등록된 악보가 있는지만 확인한다.
+
+    이 경로에 GET만 두었더니 화면의 확인 요청이 405로 튕겼고, 그래서
+    악보를 등록해 둔 곡에도 「등록된 악보가 없습니다」가 떴다. 파일을
+    통째로 내려받지 않고 있는지만 보는 길이 필요하다.
+    """
+    _guard_id(result_id)
+    path = _my_sheet(result_id)
+    if path is None:
+        raise HTTPException(404, "등록된 악보가 없습니다")
+    kind = "application/pdf" if path.suffix == ".pdf" else f"image/{path.suffix[1:]}"
+    return Response(
+        status_code=200,
+        headers={"content-type": kind, "content-length": str(path.stat().st_size)},
+    )
+
+
 @app.get("/api/sheets/{result_id}/mine")
 async def get_my_sheet(result_id: str) -> Response:
     """등록해 둔 악보. 없으면 404."""

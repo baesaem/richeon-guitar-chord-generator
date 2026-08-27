@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AskConfirm, AskText } from "@/components/Ask";
 import { Copyright } from "@/components/Copyright";
-import { apiBase, deleteResult, getResult, listResults } from "@/lib/api";
+import { apiBase, deleteResult, getResult, listResults, mySheetUrl } from "@/lib/api";
+import {
+  downloadBundle,
+  isBundle,
+  makeBundle,
+  openBundle,
+  type SongBundle,
+} from "@/lib/bundle";
 import {
   assignFolder,
   createFolder,
@@ -14,10 +21,9 @@ import {
 } from "@/lib/folders";
 import {
   exportAllToFile,
-  exportToFile,
   getLocal,
-  importFromFile,
   listLocal,
+  parseResultsText,
   removeLocal,
   saveLocal,
 } from "@/lib/library";
@@ -170,9 +176,10 @@ export function LibraryTab({
    */
   const exportAudio = async (item: ResultSummary) => {
     try {
-      // 결과부터. 음원이 없어도 코드는 넘길 수 있다
+      // 곡 꾸러미부터. 음원이 없어도 코드는 넘길 수 있다
       const result = await getResult(item.id);
-      exportToFile(result, true);
+      const bundle = await makeBundle(result, serverSheet);
+      downloadBundle(bundle);
 
       const res = await fetch(`${apiBase()}/api/audio/${item.id}`);
       if (!res.ok) throw new Error(`음원을 찾을 수 없습니다 (${res.status})`);
@@ -195,7 +202,7 @@ export function LibraryTab({
       a.click();
       URL.revokeObjectURL(url);
       flash(
-        "음원과 분석 결과(코드·가사) 두 파일을 내려받았습니다. " +
+        `음원과 곡 파일(${bundleParts(bundle).join(" · ")})을 내려받았습니다. ` +
           "드라이브 공유 폴더에 함께 올리세요.",
       );
     } catch (e) {
@@ -206,7 +213,7 @@ export function LibraryTab({
   const exportOne = async (id: string) => {
     try {
       const result = (await getLocal(id)) ?? (await getResult(id));
-      exportToFile(result);
+      downloadBundle(await makeBundle(result, adminMode ? serverSheet : undefined));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -214,7 +221,18 @@ export function LibraryTab({
 
   const importOne = async (file: File) => {
     try {
-      const results = await importFromFile(file);
+      const text = await file.text();
+      const data = JSON.parse(text) as unknown;
+
+      // 곡 꾸러미면 코드뿐 아니라 웹 악보·내 악보·연주설정까지 함께 푼다
+      if (isBundle(data)) {
+        const got = await openBundle(data);
+        flash(`가져왔습니다: ${data.result.title || data.result.id} (${got.join(" · ")})`);
+        reload();
+        return;
+      }
+
+      const results = parseResultsText(text);
       for (const result of results) await saveLocal(result);
       flash(
         results.length === 1
@@ -652,3 +670,28 @@ const TrashIcon = (
     <path d="M9 7V4h6v3" />
   </>
 );
+
+
+/** 꾸러미에 무엇이 담겼는지 사람 말로 */
+function bundleParts(bundle: SongBundle): string[] {
+  const parts = ["코드"];
+  if (bundle.result.lyrics?.length) parts.push("가사");
+  if (bundle.sheets?.items.length) parts.push("웹 악보");
+  if (bundle.mySheet) parts.push("내 악보");
+  if (bundle.setup) parts.push("연주설정");
+  return parts;
+}
+
+/** 서버에 등록해 둔 내 악보를 받아 온다. 없으면 null. */
+async function serverSheet(
+  id: string,
+): Promise<{ blob: Blob; kind: "image" | "pdf" } | null> {
+  try {
+    const res = await fetch(mySheetUrl(id));
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return { blob, kind: blob.type === "application/pdf" ? "pdf" : "image" };
+  } catch {
+    return null;
+  }
+}

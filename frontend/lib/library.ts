@@ -17,16 +17,21 @@ const DB_NAME = "chordgen";
 const STORE = "results";
 // 공유받은 음원(오디오 blob). 업로드 곡도 서버 없이 재생할 수 있게 한다.
 const AUDIO_STORE = "audio";
+// 내가 가진 악보(이미지·PDF). 서버 없는 수강생 기기에도 남아야 한다.
+const SHEET_STORE = "sheets";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 2);
+    const req = indexedDB.open(DB_NAME, 3);
     req.onupgradeneeded = () => {
       if (!req.result.objectStoreNames.contains(STORE)) {
         req.result.createObjectStore(STORE, { keyPath: "id" });
       }
       if (!req.result.objectStoreNames.contains(AUDIO_STORE)) {
         req.result.createObjectStore(AUDIO_STORE, { keyPath: "id" });
+      }
+      if (!req.result.objectStoreNames.contains(SHEET_STORE)) {
+        req.result.createObjectStore(SHEET_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -132,6 +137,37 @@ export async function removeLocalAudio(id: string): Promise<void> {
   db.close();
 }
 
+/** 내가 가진 악보를 기기에 담는다. kind는 "image" 또는 "pdf". */
+export async function saveLocalSheet(
+  id: string,
+  blob: Blob,
+  kind: "image" | "pdf",
+): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(SHEET_STORE, "readwrite");
+  await requestAsPromise(tx.objectStore(SHEET_STORE).put({ id, blob, kind }));
+  db.close();
+}
+
+export async function getLocalSheet(
+  id: string,
+): Promise<{ blob: Blob; kind: "image" | "pdf" } | null> {
+  const db = await openDb();
+  const tx = db.transaction(SHEET_STORE, "readonly");
+  const record = (await requestAsPromise(tx.objectStore(SHEET_STORE).get(id))) as
+    | { id: string; blob: Blob; kind: "image" | "pdf" }
+    | undefined;
+  db.close();
+  return record ? { blob: record.blob, kind: record.kind } : null;
+}
+
+export async function removeLocalSheet(id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(SHEET_STORE, "readwrite");
+  await requestAsPromise(tx.objectStore(SHEET_STORE).delete(id));
+  db.close();
+}
+
 // ---- 파일 내보내기 / 가져오기 ----
 
 function download(name: string, payload: unknown): void {
@@ -199,11 +235,17 @@ export async function exportAllToFile(): Promise<number> {
 
 /** rml/JSON 텍스트(한 곡 또는 묶음)를 결과 목록으로 파싱한다. 실패하면 예외. */
 export function parseResultsText(text: string): AnalysisResult[] {
-  const data = JSON.parse(text) as AnalysisResult | { results?: AnalysisResult[] };
+  const data = JSON.parse(text) as
+    | AnalysisResult
+    | { results?: AnalysisResult[]; result?: AnalysisResult };
 
-  const list = Array.isArray((data as { results?: unknown }).results)
-    ? (data as { results: AnalysisResult[] }).results
-    : [data as AnalysisResult];
+  // 곡 꾸러미(한 곡에 딸린 모든 것)는 result 안에 분석이 들어 있다
+  const single = (data as { result?: AnalysisResult }).result;
+  const list = single
+    ? [single]
+    : Array.isArray((data as { results?: unknown }).results)
+      ? (data as { results: AnalysisResult[] }).results
+      : [data as AnalysisResult];
 
   const valid = list.filter(
     (r) => r && r.id && Array.isArray(r.chords) && Array.isArray(r.beats),

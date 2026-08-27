@@ -12,6 +12,7 @@ import {
   hasDriveKey,
   listSharedDirect,
 } from "@/lib/driveDirect";
+import { isBundle, openBundle } from "@/lib/bundle";
 import { localIds, parseResultsText, saveLocal, saveLocalAudio } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
 import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
@@ -149,8 +150,14 @@ export function ImportTab({
     setSharedError(null);
     setSharedNotice(null);
     try {
-      const results = parseResultsText(await fileText(file.id));
-      for (const result of results) await saveLocal(result);
+      const text = await fileText(file.id);
+      const data = JSON.parse(text) as unknown;
+
+      // 곡 꾸러미면 코드뿐 아니라 웹 악보·내 악보·연주설정까지 함께 푼다.
+      // 옛 파일(분석 결과만)도 그대로 들어온다.
+      const results = isBundle(data) ? [data.result] : parseResultsText(text);
+      if (isBundle(data)) await openBundle(data);
+      else for (const result of results) await saveLocal(result);
       markFetched(file.id, results.map((r) => r.id));
 
       // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
