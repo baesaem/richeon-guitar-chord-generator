@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AskConfirm, AskText } from "@/components/Ask";
 import { Working } from "@/components/Working";
 import { Copyright } from "@/components/Copyright";
-import { apiBase, deleteResult, getResult, listResults } from "@/lib/api";
+import { apiBase, deleteResult, getResult, listResults, makeInstrumental } from "@/lib/api";
 import {
   downloadBundle,
   isBundle,
@@ -207,9 +207,34 @@ export function LibraryTab({
       a.download = `리천 ${safe}(${source}).${item.id}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
+
+      // 반주도 함께 내보낸다. 수강생 기기에는 보컬을 걷어낼 GPU가 없으니
+      // 여기서 만들어 보내는 수밖에 없다. 없으면 그 자리에서 만든다.
+      let withInst = false;
+      try {
+        setWorking("반주 만드는 중");
+        let inst = await fetch(`${apiBase()}/api/audio/${item.id}/instrumental`);
+        if (!inst.ok) {
+          await makeInstrumental(item.id);
+          inst = await fetch(`${apiBase()}/api/audio/${item.id}/instrumental`);
+        }
+        if (inst.ok) {
+          const instBlob = await inst.blob();
+          const instUrl = URL.createObjectURL(instBlob);
+          const b = document.createElement("a");
+          b.href = instUrl;
+          b.download = `리천 ${safe}(반주).${item.id}.inst.mp3`;
+          b.click();
+          URL.revokeObjectURL(instUrl);
+          withInst = true;
+        }
+      } catch {
+        // 반주는 덤이다. 못 만들어도 원곡과 코드는 나간다
+      }
+
       flash(
-        `음원과 곡 파일(${bundleParts(bundle).join(" · ")})을 내려받았습니다. ` +
-          "드라이브 공유 폴더에 함께 올리세요.",
+        `음원${withInst ? "·반주" : ""}와 곡 파일(${bundleParts(bundle).join(" · ")})을 ` +
+          "내려받았습니다. 드라이브 공유 폴더에 함께 올리세요.",
       );
     } catch (e) {
       setError((e as Error).message);

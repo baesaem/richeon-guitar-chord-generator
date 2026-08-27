@@ -21,6 +21,7 @@ import { SongInfoLine } from "@/components/SongInfoLine";
 import { Working } from "@/components/Working";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { measureOutputLatency } from "@/lib/latency";
+import { stemKey, type StemChoice } from "@/lib/sharedFiles";
 import { clearChordAt, setChordAt } from "@/lib/editChords";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
@@ -40,10 +41,11 @@ import {
   getHealth,
   getResult,
   makeInstrumental,
+  makeVocals,
   watchJob,
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
-import { getLocal, saveLocal } from "@/lib/library";
+import { getLocal, getLocalAudio, saveLocal } from "@/lib/library";
 import { LYRIC_LEAD, groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
 import { lyricIndexAt } from "@/lib/lrc";
 import {
@@ -125,7 +127,8 @@ export default function Home() {
     "score" | "grid" | "lyrics" | "web" | "mine"
   >("score");
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
-  const [vocalOff, setVocalOff] = useState(false);
+  // 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만
+  const [stem, setStem] = useState<StemChoice>("off");
   const [vocalBusy, setVocalBusy] = useState(false);
   const [vocalError, setVocalError] = useState<string | null>(null);
 
@@ -272,23 +275,33 @@ export default function Home() {
     setLoop(null);
     setSync(0);
     setLyricSync(0);
-    setVocalOff(false);
+    setStem("off");
     setVocalError(null);
   };
 
-  /** 보컬 끄기: 반주 트랙을 준비시킨 뒤에 켠다. */
-  const toggleVocalOff = async (off: boolean) => {
+  /** 음원 분리 고르기: 트랙을 준비시킨 뒤에 바꾼다. */
+  const pickStem = async (next: StemChoice) => {
     setVocalError(null);
-    if (!off || !result) {
-      setVocalOff(false);
+    if (next === "off" || !result) {
+      setStem("off");
       return;
     }
     setVocalBusy(true);
     try {
-      await makeInstrumental(result.id);
-      setVocalOff(true);
+      // 기기에 받아 둔 트랙이 있으면 그걸로 충분하다 — 서버가 없는
+      // 수강생 기기가 이 경우다. 없으면 서버에 만들어 달라고 한다.
+      const stored = await getLocalAudio(stemKey(result.id, next)).catch(() => null);
+      if (!stored) {
+        if (!health) {
+          throw new Error(
+            "이 기기에 트랙이 없습니다. 기타반에서 곡을 다시 받으면 함께 옵니다",
+          );
+        }
+        await (next === "vocals" ? makeVocals : makeInstrumental)(result.id);
+      }
+      setStem(next);
     } catch (e) {
-      setVocalError(`반주를 준비하지 못했습니다: ${(e as Error).message}`);
+      setVocalError(`트랙을 준비하지 못했습니다: ${(e as Error).message}`);
     } finally {
       setVocalBusy(false);
     }
@@ -534,9 +547,10 @@ export default function Home() {
     if (settings.chordVocab === "basic") out.push("코드 기본");
     if (sync !== 0) out.push(`코드 ${sync > 0 ? "+" : ""}${sync.toFixed(1)}초`);
     if (lyricSync !== 0) out.push(`가사 ${lyricSync > 0 ? "+" : ""}${lyricSync.toFixed(1)}초`);
-    if (vocalOff) out.push("보컬 끔");
+    if (stem === "inst") out.push("반주만");
+    if (stem === "vocals") out.push("보컬만");
     return out;
-  }, [transpose, rate, loop, settings.chordVocab, vocalOff, sync, lyricSync]);
+  }, [transpose, rate, loop, settings.chordVocab, stem, sync, lyricSync]);
 
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
@@ -626,7 +640,7 @@ export default function Home() {
                   result={result}
                   onReady={attachPlayback}
                   compact={settings.videoCompact}
-                  vocalOff={vocalOff}
+                  stem={stem}
                 />
               </section>
 
@@ -672,10 +686,10 @@ export default function Home() {
                     playback?.setRate(r);
                   }}
                   onLoop={setLoop}
-                  vocalOff={vocalOff}
+                  stem={stem}
                   vocalBusy={vocalBusy}
                   vocalError={vocalError}
-                  onVocalOff={health ? toggleVocalOff : undefined}
+                  onStem={pickStem}
                 />
                 {/* 가사 보기 — 코드 박스·곡 전체 코드 자리를 대신 쓴다 */}
                 <button

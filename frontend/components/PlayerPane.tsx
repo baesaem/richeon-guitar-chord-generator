@@ -5,6 +5,7 @@ import YouTube, { type YouTubePlayer } from "react-youtube";
 
 import { apiBase } from "@/lib/api";
 import { getLocalAudio } from "@/lib/library";
+import { stemKey, type StemChoice } from "@/lib/sharedFiles";
 import type { AnalysisResult } from "@/lib/types";
 
 /** 재생 제어. YouTube든 업로드 오디오든 화면 쪽은 이 인터페이스만 안다. */
@@ -28,13 +29,14 @@ interface Props {
    */
   compact?: boolean;
   /** 보컬을 뺀 반주로 듣는다 */
-  vocalOff?: boolean;
+  /** 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만 */
+  stem?: StemChoice;
 }
 
 /** 영상 소리와 반주가 이만큼 벌어지면 맞춘다(초). */
 const SYNC_TOLERANCE = 0.3;
 
-export function PlayerPane({ result, onReady, compact = false, vocalOff = false }: Props) {
+export function PlayerPane({ result, onReady, compact = false, stem = "off" }: Props) {
   const ytRef = useRef<YouTubePlayer | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // YouTube 곡에서 영상 대신 소리를 내는 반주 트랙
@@ -43,9 +45,30 @@ export function PlayerPane({ result, onReady, compact = false, vocalOff = false 
   const rateRef = useRef(1);
 
   const isYouTube = result.source === "youtube";
-  const instUrl = `${apiBase()}/api/audio/${result.id}/instrumental`;
+  // 반주. 기기에 받아 둔 것이 있으면 그것을, 없으면 서버 것을 쓴다.
+  // 공유 폴더에서 곡을 받은 수강생은 서버 없이도 보컬을 끌 수 있다.
+  const [localInst, setLocalInst] = useState<string | null>(null);
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    if (stem === "off") return;
+    getLocalAudio(stemKey(result.id, stem))
+      .then((blob) => {
+        if (blob) {
+          objectUrl = URL.createObjectURL(blob);
+          setLocalInst(objectUrl);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setLocalInst(null);
+    };
+  }, [result.id, stem]);
+  const instUrl =
+    localInst ??
+    `${apiBase()}/api/audio/${result.id}/${stem === "vocals" ? "vocals" : "instrumental"}`;
   // 영상과 반주를 함께 몰아야 하는 상태
-  const dual = isYouTube && vocalOff;
+  const dual = isYouTube && stem !== "off";
 
   // 마지막으로 YouTube가 알려 준 시각과 그때의 시계. 사이를 이어 붙인다
   const tickRef = useRef({ at: -1, wall: 0 });
@@ -127,8 +150,8 @@ export function PlayerPane({ result, onReady, compact = false, vocalOff = false 
     };
   }, [result.id, isYouTube]);
 
-  // 보컬을 껐으면 서버가 만든 반주를 쓴다(기기 저장분에는 반주가 없다)
-  const audioSrc = vocalOff ? instUrl : localSrc;
+  // 트랙을 골랐으면 그 트랙을 쓴다(기기에 받아 둔 것 → 서버 순)
+  const audioSrc = stem !== "off" ? instUrl : localSrc;
 
   // 영상 소리와 반주를 맞춘다. 영상은 화면만 쓰고 소리는 반주가 낸다.
   useEffect(() => {

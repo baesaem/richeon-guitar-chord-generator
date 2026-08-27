@@ -115,6 +115,12 @@ export const makeInstrumental = (id: string) =>
     json<{ ready: boolean; cached: boolean }>,
   );
 
+/** 보컬만 남긴 트랙을 준비시킨다. 노래 연습용. */
+export const makeVocals = (id: string) =>
+  fetch(`${apiBase()}/api/audio/${id}/vocals`, { method: "POST" }).then(
+    json<{ ready: boolean; cached: boolean }>,
+  );
+
 export interface LlmSettings {
   configured: boolean;
   /** 앞뒤만 남기고 가린 키. 저장된 값이 있는지 확인하는 용도 */

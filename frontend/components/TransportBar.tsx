@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Popup } from "@/components/Popup";
 import { useSettings } from "@/lib/settings";
+import type { StemChoice } from "@/lib/sharedFiles";
 
 interface Props {
   duration: number;
@@ -23,9 +24,9 @@ interface Props {
   onLoop: (loop: { a: number; b: number } | null) => void;
   onSync: (sec: number) => void;
   onLyricSync: (sec: number) => void;
-  /** 보컬 끄기 (반주만 재생). 서버가 있어야 쓸 수 있다 */
-  vocalOff?: boolean;
-  onVocalOff?: (off: boolean) => void;
+  /** 음원 분리. 서버가 있거나 기기에 트랙이 있으면 된다 */
+  stem?: StemChoice;
+  onStem?: (next: StemChoice) => void;
   /** 반주를 준비하는 중이면 스위치를 잠근다 */
   vocalBusy?: boolean;
   vocalError?: string | null;
@@ -149,43 +150,6 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
             기본은 7th·sus 같은 확장 화음을 쉬운 3화음으로 낮춰 보여줍니다.
           </p>
 
-          {/* ---- 보컬 끄기 (반주만) ---- */}
-          {props.onVocalOff && (
-            <>
-              <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={!!props.vocalOff}
-                  disabled={props.vocalBusy}
-                  onChange={(e) => props.onVocalOff?.(e.target.checked)}
-                />
-                <span>
-                  <span className="text-sm font-medium">
-                    보컬 끄기
-                    {props.vocalBusy && (
-                      <span className="ml-1 text-[11px] font-normal text-[var(--accent)]">
-                        반주 만드는 중…
-                      </span>
-                    )}
-                  </span>
-                  <span className="block text-[11px] text-gray-500">
-                    노래를 지우고 반주만 들립니다. 처음 한 번은 만드는 데
-                    시간이 걸립니다.
-                  </span>
-                </span>
-              </label>
-              {props.vocalError && (
-                <p className="mt-1 rounded bg-red-50 p-2 text-[11px] text-red-700">
-                  {props.vocalError}
-                </p>
-              )}
-            </>
-          )}
-
-          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
-
           {/* ---- 음높이 (이조 + 카포) ---- */}
           <div className={sectionTitle}>
             음높이
@@ -292,6 +256,53 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
               해제
             </button>
           </div>
+          {/* ---- 음원 분리 ---- */}
+          {props.onStem && (
+            <>
+              <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+              <div className={sectionTitle}>
+                음원 분리
+                {props.vocalBusy && (
+                  <span className="ml-1 text-[11px] font-normal text-[var(--accent)]">
+                    트랙 만드는 중…
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    ["off", "원음"],
+                    ["inst", "반주"],
+                    ["vocals", "보컬"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    disabled={props.vocalBusy}
+                    onClick={() => props.onStem?.(value)}
+                    className={[
+                      "flex-1 disabled:opacity-40",
+                      pill((props.stem ?? "off") === value),
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-gray-500">
+                반주는 노래를 지우고, 보컬은 반주를 지웁니다. 처음 한 번은
+                만드는 데 시간이 걸립니다.
+              </p>
+              {props.vocalError && (
+                <p className="mt-1 rounded bg-red-50 p-2 text-[11px] text-red-700">
+                  {props.vocalError}
+                </p>
+              )}
+            </>
+          )}
+
+          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+
           {/* ---- 싱크 맞추기 ---- */}
           <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
           <div className="mb-1 text-sm font-medium">싱크 맞추기</div>

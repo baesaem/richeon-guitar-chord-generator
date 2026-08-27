@@ -21,6 +21,8 @@ import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
 import {
   audioBaseOf,
   audioIdFromName,
+  instIdFromName,
+  instKey,
   isRmlName,
   rmlBaseOf,
   songTitleOf,
@@ -211,14 +213,22 @@ export function ImportTab({
     markFetched(file.id, results.map((r) => r.id));
 
     // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
-    // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다.
+    // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다. 반주(.inst)가 있으면
+    // 그것도 담는다 — 수강생도 서버 없이 보컬을 끌 수 있게.
     let withAudio = 0;
     for (const audioFile of files ?? []) {
       const audioId = audioIdFromName(audioFile.name);
-      if (!audioId || !results.some((r) => r.id === audioId)) continue;
-      await saveLocalAudio(audioId, await fileBlob(audioFile.id));
-      markFetched(audioFile.id, [audioId]);
-      withAudio += 1;
+      if (audioId && results.some((r) => r.id === audioId)) {
+        await saveLocalAudio(audioId, await fileBlob(audioFile.id));
+        markFetched(audioFile.id, [audioId]);
+        withAudio += 1;
+        continue;
+      }
+      const instId = instIdFromName(audioFile.name);
+      if (instId && results.some((r) => r.id === instId)) {
+        await saveLocalAudio(instKey(instId), await fileBlob(audioFile.id));
+        markFetched(audioFile.id, [instId]);
+      }
     }
     return { results, withAudio };
   };

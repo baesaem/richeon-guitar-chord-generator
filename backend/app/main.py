@@ -13,7 +13,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from .analysis.decode import encode_mp3, ffmpeg_available
 from .analysis.pipeline import PIPELINE_VERSION, resolve_device
-from .analysis.separate import instrumental_path, separate
+from .analysis.separate import instrumental_path, separate, vocals_path
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
 from .lyrics import (
@@ -378,35 +378,32 @@ def _source_audio(result_id: str) -> Path | None:
     return None
 
 
-def _instrumental_mp3(result_id: str) -> Path:
-    """재생·공유용 반주. wav는 4분 곡이 50MB라 폰으로 스트리밍하기 무겁다."""
-    return settings.audio_dir / f"{result_id}.instrumental.mp3"
+# 분리 트랙 서빙. "instrumental"(반주)과 "vocals"(보컬)를 같은 방식으로 낸다.
+# wav는 4분 곡이 50MB라 폰으로 스트리밍하기 무거워 mp3로 줄여 둔다.
+_STEM_WAVS = {"instrumental": instrumental_path, "vocals": vocals_path}
 
 
-@app.get("/api/audio/{result_id}/instrumental")
-async def get_instrumental(result_id: str) -> FileResponse:
-    """보컬을 뺀 반주 트랙. 없으면 404 — 프론트가 만들기를 요청한다."""
-    _guard_id(result_id)
+def _stem_mp3(result_id: str, kind: str) -> Path:
+    return settings.audio_dir / f"{result_id}.{kind}.mp3"
 
-    for path in (_instrumental_mp3(result_id), instrumental_path(result_id)):
+
+def _serve_stem(result_id: str, kind: str) -> FileResponse:
+    for path in (_stem_mp3(result_id, kind), _STEM_WAVS[kind](result_id)):
         if path.exists():
             return FileResponse(path, filename=path.name)
-    raise HTTPException(404, "반주 트랙이 아직 없습니다")
+    raise HTTPException(404, "트랙이 아직 없습니다")
 
 
-@app.post("/api/audio/{result_id}/instrumental")
-async def make_instrumental(result_id: str) -> dict:
-    """원본을 분리해 반주 트랙을 만든다. 이미 있으면 그대로 쓴다.
+async def _make_stem(result_id: str, kind: str) -> dict:
+    """원본을 분리해 트랙을 만든다. 이미 있으면 그대로 쓴다.
 
     GPU에서 4분 곡이 10초 안쪽이라 요청을 붙잡고 기다리게 둔다.
     """
-    _guard_id(result_id)
-
-    mp3 = _instrumental_mp3(result_id)
+    mp3 = _stem_mp3(result_id, kind)
     if mp3.exists():
         return {"ready": True, "cached": True}
 
-    wav = instrumental_path(result_id)
+    wav = _STEM_WAVS[kind](result_id)
     if not wav.exists():
         source = _source_audio(result_id)
         if source is None:
@@ -414,9 +411,9 @@ async def make_instrumental(result_id: str) -> dict:
         try:
             await separate(source, result_id, resolve_device())
         except Exception as exc:
-            raise HTTPException(500, f"반주를 만들지 못했습니다: {exc}") from exc
+            raise HTTPException(500, f"트랙을 만들지 못했습니다: {exc}") from exc
         if not wav.exists():
-            raise HTTPException(500, "반주 트랙 생성에 실패했습니다")
+            raise HTTPException(500, "트랙 생성에 실패했습니다")
 
     # mp3로 줄여 두고 wav는 남긴다(재분리 없이 다시 인코딩할 수 있게).
     try:
@@ -424,6 +421,32 @@ async def make_instrumental(result_id: str) -> dict:
     except Exception:
         return {"ready": True, "cached": False}  # 인코딩이 안 되면 wav로 서빙된다
     return {"ready": True, "cached": False}
+
+
+@app.get("/api/audio/{result_id}/instrumental")
+async def get_instrumental(result_id: str) -> FileResponse:
+    """보컬을 뺀 반주 트랙. 없으면 404 — 프론트가 만들기를 요청한다."""
+    _guard_id(result_id)
+    return _serve_stem(result_id, "instrumental")
+
+
+@app.post("/api/audio/{result_id}/instrumental")
+async def make_instrumental(result_id: str) -> dict:
+    _guard_id(result_id)
+    return await _make_stem(result_id, "instrumental")
+
+
+@app.get("/api/audio/{result_id}/vocals")
+async def get_vocals(result_id: str) -> FileResponse:
+    """보컬만 남긴 트랙. 노래 연습용 — 반주를 빼고 목소리만 듣는다."""
+    _guard_id(result_id)
+    return _serve_stem(result_id, "vocals")
+
+
+@app.post("/api/audio/{result_id}/vocals")
+async def make_vocals(result_id: str) -> dict:
+    _guard_id(result_id)
+    return await _make_stem(result_id, "vocals")
 
 
 @app.get("/api/results/{result_id}")
