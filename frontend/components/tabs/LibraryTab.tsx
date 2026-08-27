@@ -362,18 +362,19 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                       onAskRefetch={setRefetching}
                     />
                   )}
-                  <button className={actionBtn} onClick={() => exportOne(item.id)}>
-                    파일로
-                  </button>
-                  <button
-                    className={actionBtn}
+                  <IconButton label="저장" onClick={() => exportOne(item.id)}>
+                    {SaveIcon}
+                  </IconButton>
+                  <IconButton
+                    label="삭제"
+                    danger
                     onClick={async () => {
                       await removeLocal(item.id);
                       reload();
                     }}
                   >
-                    삭제
-                  </button>
+                    {TrashIcon}
+                  </IconButton>
                 </>,
               ),
             )}
@@ -431,12 +432,13 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                     저장됨
                   </span>
                 ) : (
-                  <button className={actionBtn} onClick={() => saveToDevice(item.id)}>
-                    저장
-                  </button>
+                  <IconButton label="기기에 저장" onClick={() => saveToDevice(item.id)}>
+                    {SaveIcon}
+                  </IconButton>
                 )}
-                <button
-                  className={actionBtn}
+                <IconButton
+                  label="서버에서 삭제"
+                  danger
                   onClick={async () => {
                     try {
                       await deleteResult(item.id);
@@ -446,8 +448,8 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
                     }
                   }}
                 >
-                  삭제
-                </button>
+                  {TrashIcon}
+                </IconButton>
               </>,
             ),
           )}
@@ -545,3 +547,65 @@ function ReanalyzeButtons({
     </>
   );
 }
+
+
+/**
+ * 목록 줄의 아이콘 버튼.
+ *
+ * 폰 폭에서 곡 한 줄에 버튼이 넷씩 붙으면 글자 버튼으로는 자리가 없다.
+ * 자주 쓰는 저장·삭제만 아이콘으로 줄이고, 무엇인지는 길게 눌러(title)
+ * 확인할 수 있게 한다. 화면 낭독기에는 aria-label로 이름이 간다.
+ */
+function IconButton({
+  label,
+  danger = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  danger?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      className={[
+        "shrink-0 rounded p-1.5",
+        danger ? "text-red-500" : "text-gray-500 dark:text-gray-400",
+      ].join(" ")}
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {children}
+      </svg>
+    </button>
+  );
+}
+
+/** 내려받아 저장 */
+const SaveIcon = (
+  <>
+    <path d="M12 3v11M8 11l4 4 4-4" />
+    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+  </>
+);
+
+/** 지우기 */
+const TrashIcon = (
+  <>
+    <path d="M4 7h16M10 11v6M14 11v6" />
+    <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+    <path d="M9 7V4h6v3" />
+  </>
+);
