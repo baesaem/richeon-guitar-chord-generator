@@ -6,7 +6,7 @@ jobs:
     steps:
       - name: probe
         run: |
-          key=$(curl -s https://gita.richeon.kr/ | grep -o '/_next/static/chunks/[^"]*\.js' | sort -u | while read f; do curl -s "https://gita.richeon.kr$f" | grep -o 'AIza[A-Za-z0-9_-]\{35\}' | head -1; done | head -1)
+          key=$(curl -s http://gita.richeon.kr/ | grep -o '/_next/static/chunks/[^"]*\.js' | sort -u | while read f; do curl -s "http://gita.richeon.kr$f" | grep -o 'AIza[A-Za-z0-9_-]\{35\}' | head -1; done | head -1)
           echo "key head: ${key:0:10}"
           echo -n "small: "; curl -s -o /dev/null -w "%{http_code} %{size_download}\n" -e "https://gita.richeon.kr/" "https://www.googleapis.com/drive/v3/files/1EKXMOP0ioZMOu1ra4tR4ahj6H4Yv1hEg?alt=media&key=$key"
           echo -n "big:   "; curl -s -o /dev/null -w "%{http_code} %{size_download}\n" -e "https://gita.richeon.kr/" "https://www.googleapis.com/drive/v3/files/1gZ-w_2mLW6goyB9nK4ig9DvilRz9PR6R?alt=media&key=$key"
