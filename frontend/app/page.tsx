@@ -61,6 +61,7 @@ import {
 import { loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
+import { useWideScreen } from "@/lib/useMedia";
 import { suggestStrum } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import {
@@ -575,6 +576,10 @@ export default function Home() {
     return out;
   }, [transpose, rate, loop, settings.chordVocab, stem, sync, lyricSync, arp]);
 
+  // 태블릿·PC 폭인가. 넓으면 악보를 더 많은 줄 보인다 —
+  // 세로도 폭만큼 남으므로 두 줄만 띄우면 화면이 텅 빈다.
+  const wide = useWideScreen();
+
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
   const noteShift = -transpose;
@@ -663,11 +668,21 @@ export default function Home() {
           칸을 늘려 채운다(코드표·홈 카드·그리드 악보) */}
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         {/* 홈 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}
-        <div className={tab === "home" ? "flex h-full flex-col overflow-y-auto" : "hidden"}>
+        <div
+          className={
+            tab === "home"
+              ? "flex h-full flex-col overflow-y-auto md:overflow-hidden"
+              : "hidden"
+          }
+        >
           {result ? (
             // 영역을 카드로 묶어 서로 구별한다: 영상 / 타임라인+탐색 / 현재 코드 / 곡 전체
             <>
-              <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+            {/* 넓은 화면에서는 왼쪽에 악보·가사, 오른쪽에 영상을 세운다.
+                영상은 참고용이라 자리를 조금만 쓰고, 눈이 오래 머무는
+                악보가 넓은 쪽을 갖는다. 폰은 지금처럼 위아래로 쌓인다 */}
+            <div className="flex min-h-0 flex-1 flex-col md:flex-row md:gap-1">
+              <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 md:order-2 md:w-[280px] md:self-start lg:w-[340px]">
                 {/* 곡 이름. 영상 안에도 적혀 있지만 접으면 사라지고, 유튜브가
                     아닌 곡(업로드)에는 아예 없다. 지금 무슨 곡을 보고 있는지는
                     늘 보여야 한다. */}
@@ -706,6 +721,10 @@ export default function Home() {
                   stem={stem}
                 />
               </section>
+
+              {/* 왼쪽 칸 — 악보/파형, 코드 박스, 가사. 넓은 화면에서는
+                  이 칸만 따로 스크롤해 영상은 늘 제자리에 있다 */}
+              <div className="flex min-h-0 flex-1 flex-col md:order-1 md:min-w-0 md:overflow-y-auto">
 
               <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
               {/* 코드악보/파형 세그먼트 + 연주설정·영상접기. 글자 크기를 통일한 한 줄.
@@ -911,7 +930,7 @@ export default function Home() {
                     bpm={result.bpm}
                     onPickStrum={() => setShowStrums(true)}
                     onSeek={(t) => playback?.seek(t)}
-                    visibleLines={2}
+                    visibleLines={wide ? 5 : 2}
                     follow
                   />
                 </div>
@@ -993,6 +1012,8 @@ export default function Home() {
               </div>
               </>
               )}
+              </div>
+            </div>
             </>
           ) : (
             <div className="flex h-full flex-col">

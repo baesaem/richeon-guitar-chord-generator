@@ -103,7 +103,7 @@ export function HomeDashboard({ onOpen, onImport, onLibrary, onShared, onChords 
   );
 
   return (
-    <div className="space-y-2.5 p-3">
+    <div className="h-full space-y-2.5 overflow-y-auto p-3">
       {/* 이어듣기 — 마지막에 열었던 곡 */}
       {last && (
         <button

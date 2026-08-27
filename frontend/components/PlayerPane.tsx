@@ -196,7 +196,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
             "shrink-0 overflow-hidden bg-black",
             // 화면 가득 채우지 않고 살짝 줄인다 — 영상은 참고용이고,
             // 그만큼 악보·가사가 한 줄 더 들어온다
-            compact ? "h-14 w-full" : "mx-auto aspect-video w-[85%]",
+            compact ? "h-14 w-full" : "mx-auto aspect-video w-[85%] md:w-full",
           ].join(" ")}
         >
           <YouTube
