@@ -78,7 +78,7 @@ class JobManager:
                 # 가사를 미리 찾아 둔다(웹 가사 → YouTube 자막 순).
                 # 없으면 그냥 넘어간다 — 부가 정보라 분석을 실패시키지 않는다.
                 await progress(JobStage.POSTPROCESS, 0.95, "가사 찾는 중")
-                result.lyrics = await asyncio.to_thread(
+                result.lyrics, result.lyrics_approx = await asyncio.to_thread(
                     fetch_lyrics_blocking,
                     audio.id if audio.kind == SourceKind.YOUTUBE else None,
                     result.title,

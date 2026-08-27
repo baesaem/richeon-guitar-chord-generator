@@ -1,7 +1,13 @@
 "use client";
 
 import { parseLyricsText } from "./lrc";
-import { searchQueries, songInfo } from "./llmClient";
+import {
+  artistNames,
+  lyricsFromAi,
+  moreQueries,
+  searchQueries,
+  songInfo,
+} from "./llmClient";
 import type { LyricLine } from "./types";
 
 /**
@@ -52,16 +58,106 @@ export function titleVariants(title: string): string[] {
 
 interface Hit {
   syncedLyrics?: string | null;
+  plainLyrics?: string | null;
   duration?: number | null;
+  artistName?: string | null;
+  trackName?: string | null;
 }
 
-async function lrclib(query: string, duration: number): Promise<LyricLine[]> {
+/** 곡을 맞춰 볼 단서. 가수 이름들과 원래 제목 */
+interface Expect {
+  artists: string[];
+  title: string;
+}
+
+const tokens = (text: string): Set<string> =>
+  new Set((text.toLowerCase().match(/[0-9a-z가-힣]+/g) ?? []).filter((t) => t.length >= 2));
+
+const overlaps = (a: string, b: string): boolean => {
+  const left = tokens(a);
+  for (const t of tokens(b)) if (left.has(t)) return true;
+  return false;
+};
+
+/**
+ * 이 검색 결과가 우리가 찾던 곡인가.
+ *
+ * 로마자로 찾으면 엉뚱한 곡이 잘 걸린다. 실측: "이장희 - 그건 너"의 영어
+ * 번역 제목 "That's You"로 검색하니 Lucky Daye·Gold Revere 등 무관한
+ * 영어 곡이 20건 나왔고, 그중 하나는 길이가 3초 차이라 그대로 붙었다.
+ *
+ * 가수만 봐도 안 된다. 옛 가요는 동기화 가사가 리메이크한 가수 이름으로
+ * 올라 있다 — "그건 너"의 동기화 가사는 민해경으로 등록돼 있다.
+ *
+ * 그래서 가수가 맞거나, 원래 제목(한글)이 맞으면 받아들인다. 번역 제목으로
+ * 맞추면 "That's You"가 다시 통과한다.
+ */
+function songMatches(hit: Hit, expect: Expect | null): boolean {
+  if (!expect) return true;
+  const artists = expect.artists.filter(Boolean);
+  if (!artists.length && !expect.title) return true;
+  if (artists.some((name) => overlaps(name, hit.artistName ?? ""))) return true;
+  return !!expect.title && overlaps(expect.title, hit.trackName ?? "");
+}
+
+/**
+ * 시각 없는 가사에 시각을 붙인다.
+ *
+ * 노래 길이에 고르게 편다. 맞을 리는 없지만, 악보에 아예 못 붙이는 것보다
+ * 낫다는 판단이다. 앞뒤로 전주·후주를 조금 비워 둔다.
+ */
+function spread(lines: string[], duration: number): LyricLine[] {
+  if (!lines.length) return [];
+  const start = duration ? duration * 0.08 : 0;
+  const end = duration ? duration * 0.92 : lines.length * 4;
+  const step = Math.max((end - start) / lines.length, 0.5);
+  return lines.map((text, i) => ({
+    t: Math.round((start + i * step) * 100) / 100,
+    end: Math.round((start + (i + 1) * step) * 100) / 100,
+    text,
+  }));
+}
+
+/** 시각 없는 가사 본문. 동기화 가사가 없을 때의 차선책. */
+async function lrclibPlain(
+  query: string,
+  duration: number,
+  expect: Expect | null = null,
+): Promise<string[]> {
+  const url = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: { "Lrclib-Client": UA_NOTE } });
+  if (!res.ok) return [];
+  const hits = (await res.json()) as Hit[];
+  const plain = hits.filter((h) => h.plainLyrics && songMatches(h, expect));
+  if (!plain.length) return [];
+
+  let best = plain[0];
+  if (duration) {
+    const near = plain
+      .filter((h) => h.duration)
+      .map((h) => ({ gap: Math.abs((h.duration ?? 0) - duration), h }))
+      .filter((x) => x.gap <= 15)
+      .sort((a, b) => a.gap - b.gap);
+    if (!near.length) return [];
+    best = near[0].h;
+  }
+  return String(best.plainLyrics ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+async function lrclib(
+  query: string,
+  duration: number,
+  expect: Expect | null = null,
+): Promise<LyricLine[]> {
   const url = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
   const res = await fetch(url, { headers: { "Lrclib-Client": UA_NOTE } });
   if (!res.ok) return [];
 
   const hits = (await res.json()) as Hit[];
-  const synced = hits.filter((h) => h.syncedLyrics);
+  const synced = hits.filter((h) => h.syncedLyrics && songMatches(h, expect));
   if (synced.length === 0) return [];
 
   let best = synced[0];
@@ -85,24 +181,36 @@ async function lrclib(query: string, duration: number): Promise<LyricLine[]> {
  * query를 주면 그 검색어만 쓴다(사용자가 직접 넣은 경우). 아니면 제목을
  * 다듬고, LLM이 있으면 로마자 표기까지 만들어 차례로 시도한다.
  */
+export interface FoundLyrics {
+  lines: LyricLine[];
+  /** 시각이 어림인가. 줄을 고르게 편 경우 참 */
+  approx: boolean;
+}
+
 export async function findLyrics(
   title: string,
   duration: number,
   query = "",
-): Promise<LyricLine[]> {
+): Promise<FoundLyrics> {
   if (query) {
     // 사용자가 곡을 특정한 상황이므로 길이 조건을 풀어 준다
-    return lrclib(query, 0).catch(() => []);
+    const lines = await lrclib(query, 0).catch(() => []);
+    if (lines.length) return { lines, approx: false };
+    const plain = await lrclibPlain(query, 0).catch(() => []);
+    return { lines: spread(plain, duration), approx: plain.length > 0 };
   }
 
   const variants = titleVariants(title);
   const info = await songInfo(title);
   const attempts = [...searchQueries(info, variants[0]), ...variants.slice(1)];
+  const expect: Expect | null = info
+    ? { artists: artistNames(info), title: info.title }
+    : null;
 
   for (const q of attempts) {
     try {
-      const lines = await lrclib(q, duration);
-      if (lines.length) return lines;
+      const lines = await lrclib(q, duration, expect);
+      if (lines.length) return { lines, approx: false };
     } catch {
       // 한 검색어가 막혀도 다음 것을 시도한다
     }
@@ -111,11 +219,35 @@ export async function findLyrics(
   // 라이브·리메이크는 원곡과 길이가 달라 여기서 걸린다.
   for (const q of attempts) {
     try {
-      const lines = await lrclib(q, 0);
-      if (lines.length) return lines;
+      const lines = await lrclib(q, 0, expect);
+      if (lines.length) return { lines, approx: false };
     } catch {
       /* 무시 */
     }
   }
-  return [];
+
+  // 표기가 달라 못 찾았을 수 있다. AI에게 다른 표기를 받아 다시 훑는다.
+  const extra = (await moreQueries(info)).filter((q) => !attempts.includes(q));
+  for (const q of extra) {
+    try {
+      const lines = await lrclib(q, 0, expect);
+      if (lines.length) return { lines, approx: false };
+    } catch {
+      /* 무시 */
+    }
+  }
+
+  // 여기부터는 시각이 어림이다. 못 붙이는 것보다 낫다는 판단.
+  for (const q of [...attempts, ...extra]) {
+    try {
+      const plain = await lrclibPlain(q, duration, expect);
+      if (plain.length) return { lines: spread(plain, duration), approx: true };
+    } catch {
+      /* 무시 */
+    }
+  }
+
+  // 마지막으로 AI에게 가사를 물어본다. 대개 저작권을 이유로 거부한다.
+  const ai = await lyricsFromAi(info);
+  return { lines: spread(ai, duration), approx: ai.length > 0 };
 }

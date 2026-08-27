@@ -122,10 +122,12 @@ async function chat(prompt: string): Promise<string> {
       Authorization: `Bearer ${localLlmKey()}`,
       "Content-Type": "application/json",
     },
+    // temperature는 보내지 않는다. gpt-5.6 계열이 0을 거부한다
+    // ("Only the default (1) value is supported"). 최신 모델을 자동으로
+    // 고르는 이상, 거부당할 값은 애초에 안 보내는 편이 안전하다.
     body: JSON.stringify({
       model,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0,
     }),
   });
   if (!res.ok) {
@@ -147,14 +149,23 @@ const PROMPT = `다음은 음악 영상의 제목입니다. 여기서 가수 이
 - 한국 곡이면 가수와 곡명의 로마자 표기도 함께 주세요. 해외 가사
   데이터베이스에 영문으로 등록된 경우가 많습니다.
 - 모르면 빈 문자열로 두세요. 지어내지 마세요.
+- artist_romanized에는 **가수 이름만** 로마자로 여러 표기 넣으세요.
+  곡명은 넣지 마세요. 찾은 결과가 이 가수의 곡인지 맞춰 보는 데 씁니다.
 
 JSON만 출력하세요. 설명을 붙이지 마세요.
-{"artist": "...", "title": "...", "romanized": ["가수 곡명 로마자", "곡명 영문 번역"]}`;
+{"artist": "...", "title": "...", "artist_romanized": ["Cho Yong Pil", "Jo Yong-pil"], "romanized": ["가수 곡명 로마자", "곡명 영문 번역"]}`;
 
 export interface SongInfo {
   artist: string;
   title: string;
   romanized: string[];
+  /**
+   * 가수 이름만 로마자로.
+   *
+   * 찾은 결과가 이 가수의 곡인지 맞춰 보는 데 쓴다. 곡명 로마자를 섞으면
+   * 안 된다 — 번역 제목("That's You")이 무관한 영어 곡을 통과시킨다.
+   */
+  artistRomanized: string[];
 }
 
 /** 영상 제목에서 가수·곡명·로마자를 뽑는다. 실패하면 null. */
@@ -165,16 +176,17 @@ export async function songInfo(videoTitle: string): Promise<SongInfo | null> {
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
     if (start < 0 || end <= start) return null;
-    const data = JSON.parse(raw.slice(start, end + 1)) as Partial<SongInfo>;
-    const roman = Array.isArray(data.romanized)
-      ? data.romanized
-      : data.romanized
-        ? [String(data.romanized)]
-        : [];
+    const data = JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
+    const list = (key: string): string[] => {
+      const value = data[key];
+      const rows = Array.isArray(value) ? value : value ? [value] : [];
+      return rows.map((r) => String(r).trim()).filter(Boolean);
+    };
     return {
       artist: String(data.artist ?? "").trim(),
       title: String(data.title ?? "").trim(),
-      romanized: roman.map((r) => String(r).trim()).filter(Boolean),
+      romanized: list("romanized"),
+      artistRomanized: list("artist_romanized"),
     };
   } catch {
     return null;
@@ -262,3 +274,101 @@ export async function testLocalLlm(): Promise<{ ok: boolean; message: string }> 
     return { ok: false, message: (e as Error).message };
   }
 }
+
+
+const QUERIES_PROMPT = `다음 곡을 해외 가사 데이터베이스에서 찾으려 합니다.
+검색어 후보를 만들어 주세요.
+
+가수: {artist}
+곡명: {title}
+
+규칙:
+- 한 줄에 하나씩, 최대 6개.
+- 로마자 표기를 여러 방식으로(띄어쓰기·하이픈 차이 포함) 넣으세요.
+- 영어 번역 제목, 널리 쓰이는 다른 표기(예명·한자 표기)도 넣으세요.
+- 설명 없이 검색어만 출력하세요.`;
+
+/**
+ * 가사를 못 찾았을 때 던져 볼 검색어를 더 만든다.
+ *
+ * 한국 가요가 가사 데이터베이스에 어떤 표기로 올라 있는지는 곡마다 다르다.
+ * 실측: "이장희 그건 너" → Lee Jang Hee / Yi Jang-hui / That's You / 李章熙.
+ */
+export async function moreQueries(info: SongInfo | null): Promise<string[]> {
+  if (!hasLocalLlm() || !info?.title) return [];
+  try {
+    const raw = await chat(
+      QUERIES_PROMPT.replace("{artist}", info.artist || "(모름)").replace(
+        "{title}",
+        info.title,
+      ),
+    );
+    return raw
+      .split(/\r?\n/)
+      .map((line) => line.trim().replace(/^[-*\d.\s]+/, "").trim())
+      .filter((line) => line && line.length < 80)
+      .slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
+const LYRICS_PROMPT = `다음 곡의 가사를 알려주세요.
+
+가수: {artist}
+곡명: {title}
+
+규칙:
+- 가사 본문만 한 줄에 한 소절씩 적으세요.
+- 번호, 굵은 글씨, [Verse]·[후렴] 같은 구조 표시는 넣지 마세요.
+- 설명이나 머리말을 붙이지 마세요.
+- 이 곡의 가사를 모르면 정확히 \`MODR\` 네 글자만 출력하세요. 절대
+  지어내지 마세요. 비슷한 다른 곡의 가사를 적는 것이 가장 나쁩니다.`;
+
+const REFUSAL = [
+  "저작권", "제공할 수 없", "제공해 드릴 수 없", "도와드릴 수 없", "죄송",
+  "알려드릴 수 없", "copyright", "can't provide", "cannot provide",
+  "unable to provide", "sorry",
+];
+
+/**
+ * AI가 아는 이 곡의 가사. 모르거나 거부하면 빈 목록.
+ *
+ * **대개 거부한다.** 실측: "이장희 그건 너"에 "저작권이 있는 노래 가사
+ * 전문은 제공할 수 없습니다"라고 답했다. 마지막 수단으로만 두고, 앞의
+ * 수단(가사 목록 검색)이 먼저다.
+ */
+export async function lyricsFromAi(info: SongInfo | null): Promise<string[]> {
+  if (!hasLocalLlm() || !info?.title) return [];
+  try {
+    const raw = await chat(
+      LYRICS_PROMPT.replace("{artist}", info.artist || "(모름)").replace(
+        "{title}",
+        info.title,
+      ),
+    );
+    const lines = raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (!lines.length) return [];
+    if (lines.slice(0, 2).some((line) => line.replace(/[`* ]/g, "") === "MODR")) {
+      return [];
+    }
+    // 거부 문구가 가사로 둔갑하지 않게 막는다
+    const head = lines.slice(0, 2).join(" ").toLowerCase();
+    if (lines.length <= 3 && REFUSAL.some((w) => head.includes(w.toLowerCase()))) {
+      return [];
+    }
+    return lines
+      .filter((line) => !/^[[(].{0,20}[\])]$/.test(line))
+      .slice(0, 200);
+  } catch {
+    return [];
+  }
+}
+
+
+/** 이 곡을 가리키는 가수 이름들. 검색 결과를 맞춰 보는 데 쓴다. */
+export const artistNames = (info: SongInfo | null): string[] =>
+  info ? [info.artist, ...info.artistRomanized].filter(Boolean) : [];

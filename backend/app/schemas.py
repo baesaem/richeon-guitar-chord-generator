@@ -118,6 +118,9 @@ class AnalysisResult(BaseModel):
     sections: list[Section] = []
     # 시간 동기화된 가사. 없을 수도 있다(자막이 없는 영상·업로드 곡).
     lyrics: list[LyricLine] = []
+    # 가사 시각이 어림인가. 동기화 가사를 못 찾아 줄을 고르게 편 경우다.
+    # 화면이 "시각은 대략"이라고 알려 줄 수 있게 남긴다.
+    lyrics_approx: bool = False
     # 보컬에서 딴 멜로디. 음원 분리를 쓴 경우에만 채워진다.
     melody: list[Note] = []
     # 스트로크(스트럼) 패턴. 음원 분리를 쓴 경우에만 채워진다.

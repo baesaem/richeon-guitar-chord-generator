@@ -91,6 +91,13 @@ export interface AnalysisResult {
   sections: Section[];
   /** 시간 동기화된 가사. 없을 수도 있다 */
   lyrics?: LyricLine[];
+  /**
+   * 가사 시각이 어림인가.
+   *
+   * 동기화 가사를 못 찾아 줄을 노래 길이에 고르게 편 경우다. 글자는
+   * 맞지만 넘어가는 시점은 맞지 않는다. 화면이 그 사실을 알려 준다.
+   */
+  lyrics_approx?: boolean;
   /** 보컬에서 딴 멜로디. 음원 분리를 쓴 곡만 채워진다 */
   melody?: Note[];
   /** 스트로크(스트럼) 패턴. 음원 분리를 쓴 곡만 채워진다 */

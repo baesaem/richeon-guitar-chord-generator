@@ -481,7 +481,7 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
     if result is None:
         raise HTTPException(404, "분석 결과가 없습니다")
 
-    lyrics = await asyncio.to_thread(
+    lyrics, approx = await asyncio.to_thread(
         fetch_lyrics_blocking,
         result_id if result.source == "youtube" else None,
         result.title,
@@ -492,6 +492,7 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
         raise HTTPException(404, "이 곡의 가사를 찾지 못했습니다")
 
     result.lyrics = lyrics
+    result.lyrics_approx = approx
     save_result(result)
     return result
 
@@ -505,6 +506,8 @@ async def put_lyrics(result_id: str, lyrics: list[LyricLine]) -> AnalysisResult:
     if result is None:
         raise HTTPException(404, "분석 결과가 없습니다")
     result.lyrics = lyrics
+    # 사용자가 직접 넣은 가사는 어림이 아니다. 시각이 파일에 들어 있다
+    result.lyrics_approx = False
     save_result(result)
     return result
 

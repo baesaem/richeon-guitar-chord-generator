@@ -98,26 +98,111 @@ def parse_lrc(text: str) -> list[LyricLine]:
 
 # ---------------------------------------------------------------- 웹 가사
 
-def fetch_lrclib(title: str, duration: float) -> list[LyricLine]:
-    """LRCLIB에서 곡을 찾아 동기화 가사를 가져온다.
-
-    길이가 비슷한 결과만 받아들인다. 같은 제목의 다른 곡·다른 편곡을
-    가져다 붙이면 가사가 통째로 어긋나기 때문이다.
-    """
+def _lrclib_hits(query: str) -> list[dict]:
     import httpx
-
-    query = clean_title(title)
-    if not query:
-        return []
 
     with httpx.Client(timeout=20.0, headers={"User-Agent": _UA}) as client:
         res = client.get("https://lrclib.net/api/search", params={"q": query})
         if res.status_code != 200:
             return []
-        hits = res.json()
+        return res.json()
+
+
+_TOKEN = re.compile(r"[0-9a-z가-힣]+")
+
+
+def _tokens(text: str) -> set[str]:
+    return {t for t in _TOKEN.findall(text.lower()) if len(t) >= 2}
+
+
+def song_matches(hit: dict, artists: list[str], song_title: str) -> bool:
+    """이 검색 결과가 우리가 찾던 곡인가.
+
+    로마자로 찾으면 엉뚱한 곡이 잘 걸린다. 실측: "이장희 - 그건 너"의
+    영어 번역 제목 "That's You"로 검색하니 Lucky Daye·Gold Revere 등
+    무관한 영어 곡이 20건 나왔고, 그중 하나는 길이가 3초 차이라 길이
+    검사도 통과해 그대로 붙었다.
+
+    가수만 봐도 안 된다. 옛 가요는 동기화 가사가 리메이크한 가수 이름으로
+    올라 있다 — "그건 너"의 동기화 가사는 이장희가 아니라 민해경으로
+    등록돼 있다. 그래도 가사는 같은 곡이다.
+
+    그래서 **가수가 맞거나, 원래 제목이 맞으면** 받아들인다. 제목은
+    원문(한글)으로만 맞춘다. 번역 제목으로 맞추면 "That's You"가 다시
+    통과한다. 둘 다 모르면 검사하지 않는다.
+    """
+    known_artist = [a for a in artists if a]
+    if not known_artist and not song_title:
+        return True
+
+    for name in known_artist:
+        if _tokens(name) & _tokens(str(hit.get("artistName") or "")):
+            return True
+    if song_title and _tokens(song_title) & _tokens(str(hit.get("trackName") or "")):
+        return True
+    return False
+
+
+def fetch_lrclib_plain(
+    title: str,
+    duration: float,
+    artists: list[str] | None = None,
+    song_title: str = "",
+) -> list[str]:
+    """시각 없는 가사 본문. 동기화 가사가 없을 때의 차선책.
+
+    시각이 없어 악보에 정확히 붙지는 않지만, 진짜 가사라는 점에서 AI가
+    적어 주는 것보다 낫다. 시각은 부르는 쪽에서 고르게 나눠 붙인다.
+    """
+    query = clean_title(title)
+    if not query:
+        return []
+    try:
+        hits = _lrclib_hits(query)
+    except Exception:
+        return []
+
+    plain = [h for h in hits if h.get("plainLyrics")]
+    plain = [h for h in plain if song_matches(h, artists or [], song_title)]
+    if duration:
+        near = [
+            (abs(float(h.get("duration") or 0) - duration), h)
+            for h in plain
+            if h.get("duration")
+        ]
+        near = [pair for pair in near if pair[0] <= 15]
+        if not near:
+            return []
+        best = min(near, key=lambda pair: pair[0])[1]
+    elif plain:
+        best = plain[0]
+    else:
+        return []
+
+    lines = [line.strip() for line in str(best["plainLyrics"]).splitlines()]
+    return [line for line in lines if line]
+
+
+def fetch_lrclib(
+    title: str,
+    duration: float,
+    artists: list[str] | None = None,
+    song_title: str = "",
+) -> list[LyricLine]:
+    """LRCLIB에서 곡을 찾아 동기화 가사를 가져온다.
+
+    길이가 비슷한 결과만 받아들인다. 같은 제목의 다른 곡·다른 편곡을
+    가져다 붙이면 가사가 통째로 어긋나기 때문이다.
+    """
+    query = clean_title(title)
+    if not query:
+        return []
+
+    hits = _lrclib_hits(query)
 
     # 시간 없는 가사는 동기화에 못 쓴다
     synced = [h for h in hits if h.get("syncedLyrics")]
+    synced = [h for h in synced if song_matches(h, artists or [], song_title)]
     if not synced:
         return []
 
@@ -289,13 +374,24 @@ def fetch_lyrics_blocking(
     title: str = "",
     duration: float = 0.0,
     query: str = "",
-) -> list[LyricLine]:
-    """웹 가사를 먼저, 없으면 YouTube 자막을 찾는다. 스레드에서 부른다.
+) -> tuple[list[LyricLine], bool]:
+    """가사를 찾는다. 스레드에서 부른다.
+
+    (가사, 시각이_어림인가)를 돌려준다.
+
+    순서대로 내려간다. 위쪽이 정확하다.
+      1. 동기화 가사 (LRCLIB) — 시각까지 맞는 진짜 가사
+      2. AI가 만든 표기로 다시 검색 — 표기가 달라 못 찾는 경우를 건진다
+      3. YouTube 자막 — 시각은 맞지만 자동 자막은 글자가 자주 틀린다
+      4. 시각 없는 가사 (LRCLIB) — 글자는 맞고 시각은 어림
+      5. AI가 아는 가사 — 대개 저작권을 이유로 거부한다. 기대하지 말 것
 
     query를 주면 제목 대신 그 검색어로 찾는다. 영상 제목이 곡명과 다를 때
     (라이브 실황·모음집) 사용자가 직접 "가수 곡명"을 넣어 다시 찾는 용도다.
     """
     # 던져 볼 검색어를 순서대로 모은다.
+    artists: list[str] = []
+    song_title = ""
     if query:
         # 사용자가 직접 준 검색어. 곡을 특정한 상황이므로 길이 필터를 푼다.
         attempts = [(query, 0.0)]
@@ -306,27 +402,87 @@ def fetch_lyrics_blocking(
         # ("조용필 단발머리" 0건 → "Cho Yong Pil" 20건).
         info = llm.song_info(title) if title else None
         if info:
+            artists = info.artist_names()
+            song_title = info.title
             attempts += [(q, duration) for q in info.queries()]
             # 로마자로 찾을 때는 길이만 맞으면 받아들인다. 표기가 달라
             # 후보가 적기 때문이다.
             attempts += [(q, 0.0) for q in info.romanized]
 
     seen: set[str] = set()
+    tried: list[tuple[str, float]] = []
     for search, want_duration in attempts:
         if not search or search in seen:
             continue
         seen.add(search)
+        tried.append((search, want_duration))
         try:
-            lines = fetch_lrclib(search, want_duration)
+            lines = fetch_lrclib(search, want_duration, artists, song_title)
             if lines:
-                return lines
+                return lines, False
         except Exception:
-            pass  # 가사 서비스가 죽어도 자막으로 계속 간다
+            pass  # 가사 서비스가 죽어도 다음 수단으로 계속 간다
+
+    # 길이가 달라 놓친 경우를 위해 조건 없이 한 번 더. 라이브·리메이크는
+    # 원곡과 길이가 다르다 — "그건 너"의 동기화 가사는 228초로 올라 있는데
+    # 우리가 가진 영상은 175초다. 곡을 맞추는 일은 위의 검사가 한다.
+    if not query and (artists or song_title):
+        for search, _ in list(tried):
+            try:
+                lines = fetch_lrclib(search, 0.0, artists, song_title)
+                if lines:
+                    return lines, False
+            except Exception:
+                pass
+
+    # 표기 문제로 못 찾았을 수 있다. AI에게 다른 표기를 받아 다시 훑는다.
+    # 실측: "이장희 그건 너" → Lee Jang Hee / Yi Jang-hui / That's You / 李章熙.
+    if not query and llm.enabled():
+        artist, song = _song_names(title, "")
+        for extra in llm.more_queries(artist, song):
+            if extra in seen:
+                continue
+            seen.add(extra)
+            tried.append((extra, 0.0))
+            try:
+                lines = fetch_lrclib(extra, 0.0, artists, song_title)
+                if lines:
+                    return lines, False
+            except Exception:
+                pass
 
     # YouTube 자막은 최근 요청 제한(429)이 잦아 최선 노력으로만 쓴다.
     if video_id and settings.enable_youtube:
         try:
-            return fetch_youtube_captions(video_id)
+            lines = fetch_youtube_captions(video_id)
+            if lines:
+                return lines, False
         except Exception:
             pass
-    return []
+
+    # 여기부터는 시각이 어림이다. 못 붙이는 것보다 낫다는 판단.
+    for search, want_duration in tried:
+        plain = fetch_lrclib_plain(search, want_duration, artists, song_title)
+        if plain:
+            return [LyricLine(**row) for row in llm.spread_lines(plain, duration)], True
+
+    # 마지막으로 AI에게 물어본다. 키가 없으면 조용히 빈 목록.
+    if llm.enabled():
+        artist, song = _song_names(title, query)
+        ai_lines = llm.lyrics_text(artist, song)
+        if ai_lines:
+            return [
+                LyricLine(**row) for row in llm.spread_lines(ai_lines, duration)
+            ], True
+    return [], False
+
+
+def _song_names(title: str, query: str) -> tuple[str, str]:
+    """AI에게 물어볼 가수·곡명. 사용자가 검색어를 줬으면 그것을 믿는다."""
+    if query:
+        parts = query.split()
+        return (parts[0], " ".join(parts[1:])) if len(parts) > 1 else ("", query)
+    info = llm.song_info(title)
+    if info and info.title:
+        return info.artist, info.title
+    return "", clean_title(title)

@@ -40,9 +40,11 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
   }, [index]);
 
   /** 가사를 결과·기기 저장분 양쪽에 반영한다. */
-  const apply = async (next: LyricLine[]) => {
+  const apply = async (next: LyricLine[], approx = false) => {
     onLyrics(next);
-    await saveLocal({ ...result, lyrics: next }).catch(() => {});
+    await saveLocal({ ...result, lyrics: next, lyrics_approx: approx }).catch(
+      () => {},
+    );
   };
 
   const search = async (q: string) => {
@@ -51,13 +53,13 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
     try {
       if (online) {
         const updated = await fetchLyrics(result.id, q);
-        await apply(updated.lyrics ?? []);
+        await apply(updated.lyrics ?? [], !!updated.lyrics_approx);
       } else {
         // 서버가 없으면 브라우저가 직접 찾는다. 가사 목록(LRCLIB)은
         // 키 없이 열려 있어 이 기기에서 바로 부를 수 있다.
-        const lines = await findLyrics(result.title, result.duration, q);
-        if (!lines.length) throw new Error("이 곡의 가사를 찾지 못했습니다");
-        await apply(lines);
+        const found = await findLyrics(result.title, result.duration, q);
+        if (!found.lines.length) throw new Error("이 곡의 가사를 찾지 못했습니다");
+        await apply(found.lines, found.approx);
       }
       setQuery("");
     } catch (e) {
@@ -163,6 +165,12 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
               </li>
             ))}
           </ul>
+          {result.lyrics_approx && (
+            <p className="shrink-0 px-3 text-[10px] leading-snug text-amber-700">
+              동기화 가사를 못 찾아 줄을 고르게 폈습니다. 글자는 맞지만
+              넘어가는 시점은 맞지 않습니다.
+            </p>
+          )}
           <div className="flex shrink-0 items-center justify-end gap-2 px-3 pb-1 text-[10px] text-gray-400">
             <span>{lines.length}줄</span>
             <button className="underline" onClick={() => fileRef.current?.click()}>

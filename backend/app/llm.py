@@ -34,10 +34,23 @@ from .runtime_config import llm_config
 class SongInfo:
     """제목에서 뽑아낸 곡 정보."""
 
-    def __init__(self, artist: str = "", title: str = "", romanized: list[str] | None = None):
+    def __init__(
+        self,
+        artist: str = "",
+        title: str = "",
+        romanized: list[str] | None = None,
+        artist_romanized: list[str] | None = None,
+    ):
         self.artist = artist
         self.title = title
         self.romanized = romanized or []
+        # 가수 이름만 로마자로. 찾은 결과가 이 가수의 곡인지 맞춰 보는 데 쓴다.
+        # 곡명 로마자를 섞으면 안 된다 — 번역 제목("That's You")이 무관한
+        # 영어 곡을 통과시킨다.
+        self.artist_romanized = artist_romanized or []
+
+    def artist_names(self) -> list[str]:
+        return [n for n in [self.artist, *self.artist_romanized] if n]
 
     def queries(self) -> list[str]:
         """가사를 찾을 때 던져 볼 검색어들. 그럴듯한 순서대로."""
@@ -65,18 +78,25 @@ _PROMPT = """다음은 음악 영상의 제목입니다. 여기서 가수 이름
   데이터베이스에 영문으로 등록된 경우가 많습니다.
 - 모르면 빈 문자열로 두세요. 지어내지 마세요.
 
+- artist_romanized에는 **가수 이름만** 로마자로 여러 표기 넣으세요.
+  곡명은 넣지 마세요. 찾은 결과가 이 가수의 곡인지 맞춰 보는 데 씁니다.
+
 JSON만 출력하세요. 설명을 붙이지 마세요.
-{{"artist": "...", "title": "...", "romanized": ["가수 곡명 로마자", "곡명 영문 번역"]}}"""
+{{"artist": "...", "title": "...", "artist_romanized": ["Cho Yong Pil", "Jo Yong-pil"], "romanized": ["가수 곡명 로마자", "곡명 영문 번역"]}}"""
 
 
 def _chat(prompt: str) -> str:
     """OpenAI 호환 chat completions 호출. 실패하면 예외."""
     cfg = llm_config()
+    # temperature를 보내지 않는다.
+    # gpt-5.6 계열은 0을 거부한다("Only the default (1) value is supported").
+    # 최신 모델을 자동으로 고르게 해 둔 터라, 하나라도 거부하는 값이
+    # 있으면 그날로 가사 도우미가 멈춘다. 하는 일이 제목 정리라 굳이
+    # 온도를 낮출 이유도 없다.
     body = json.dumps(
         {
             "model": cfg["model"],
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0,
         }
     ).encode()
     req = urllib.request.Request(
@@ -103,13 +123,17 @@ def _parse(raw: str) -> SongInfo:
     if start < 0 or end <= start:
         return SongInfo()
     data = json.loads(text[start : end + 1])
-    roman = data.get("romanized") or []
-    if isinstance(roman, str):
-        roman = [roman]
+    def _list(key: str) -> list[str]:
+        value = data.get(key) or []
+        if isinstance(value, str):
+            value = [value]
+        return [str(v).strip() for v in value if str(v).strip()]
+
     return SongInfo(
         artist=str(data.get("artist") or "").strip(),
         title=str(data.get("title") or "").strip(),
-        romanized=[str(r).strip() for r in roman if str(r).strip()],
+        romanized=_list("romanized"),
+        artist_romanized=_list("artist_romanized"),
     )
 
 
@@ -182,3 +206,120 @@ def pick_model(models: list[str]) -> str:
     """
     stable = [m for m in models if not _SNAPSHOT.search(_bare(m))]
     return (stable or models or [""])[0]
+
+
+# ── AI에게 가사를 물어보기 ────────────────────────────────────────
+#
+# 마지막 수단이다. 가사 데이터베이스에도 없고 자막도 없을 때만 쓴다.
+#
+# 알고 써야 할 것.
+#   1. **대개 거부한다.** 실측: "이장희 그건 너"를 물으니 "저작권이 있는
+#      노래 가사 전문은 제공할 수 없습니다", "안치환 사람이 꽃보다
+#      아름다워"는 모른다고 답했다. 유명한 곡일수록 거부한다. 그래서 이
+#      경로에 기대면 안 되고, 앞의 수단들이 먼저다.
+#   2. 답하더라도 아는 대로 적는 것이라 틀릴 수 있다.
+#   3. 줄이 언제 나오는지는 모델이 알 수 없다. 시각은 노래 길이에 고르게
+#      나눠 붙인 어림값이다.
+
+_LYRICS_PROMPT = """다음 곡의 가사를 알려주세요.
+
+가수: {artist}
+곡명: {title}
+
+규칙:
+- 가사 본문만 한 줄에 한 소절씩 적으세요.
+- 번호, 굵은 글씨, [Verse]·[후렴] 같은 구조 표시는 넣지 마세요.
+- 설명이나 머리말을 붙이지 마세요.
+- 이 곡의 가사를 모르면 정확히 `MODR` 네 글자만 출력하세요. 절대
+  지어내지 마세요. 비슷한 다른 곡의 가사를 적는 것이 가장 나쁩니다."""
+
+
+def lyrics_text(artist: str, title: str) -> list[str]:
+    """AI가 아는 이 곡의 가사. 모르면 빈 목록."""
+    if not enabled() or not title:
+        return []
+    try:
+        raw = _chat(_LYRICS_PROMPT.format(artist=artist or "(모름)", title=title))
+    except Exception:
+        return []
+
+    lines = [line.strip() for line in raw.splitlines()]
+    lines = [line for line in lines if line]
+    if not lines or any(line.strip("`* ") == "MODR" for line in lines[:2]):
+        return []
+    # 거부 문구가 가사로 둔갑하지 않게 막는다. 모델은 시키는 형식을
+    # 지키지 않고 사과문을 적는 일이 잦다.
+    if _looks_like_refusal(lines):
+        return []
+    # 구조 표시가 섞여 오면 걷어낸다
+    lines = [line for line in lines if not re.fullmatch(r"[\[(].{0,20}[\])]", line)]
+    return lines[:200]
+
+
+_REFUSAL = (
+    "저작권", "제공할 수 없", "제공해 드릴 수 없", "도와드릴 수 없",
+    "죄송", "알려드릴 수 없", "copyright", "can't provide", "cannot provide",
+    "unable to provide", "sorry",
+)
+
+
+def _looks_like_refusal(lines: list[str]) -> bool:
+    """가사 대신 거부·사과문이 왔는가.
+
+    가사는 보통 여러 줄이고, 거부는 한두 줄이다. 앞 두 줄만 본다 —
+    실제 가사에 "죄송"이 나오는 곡도 있는데 그건 첫 줄부터 나오지 않는다.
+    """
+    head = " ".join(lines[:2]).lower()
+    return len(lines) <= 3 and any(word.lower() in head for word in _REFUSAL)
+
+
+_QUERIES_PROMPT = """다음 곡을 해외 가사 데이터베이스에서 찾으려 합니다.
+검색어 후보를 만들어 주세요.
+
+가수: {artist}
+곡명: {title}
+
+규칙:
+- 한 줄에 하나씩, 최대 6개.
+- 로마자 표기를 여러 방식으로(띄어쓰기·하이픈 차이 포함) 넣으세요.
+- 영어 번역 제목, 널리 쓰이는 다른 표기(예명·한자 표기)도 넣으세요.
+- 설명 없이 검색어만 출력하세요."""
+
+
+def more_queries(artist: str, title: str) -> list[str]:
+    """가사를 못 찾았을 때 던져 볼 검색어를 더 만든다.
+
+    한국 가요가 가사 데이터베이스에 어떤 표기로 올라 있는지는 곡마다
+    다르다. 로마자 하나로는 자주 빗나가서, 여러 표기를 받아 훑는다.
+    """
+    if not enabled() or not title:
+        return []
+    try:
+        raw = _chat(_QUERIES_PROMPT.format(artist=artist or "(모름)", title=title))
+    except Exception:
+        return []
+    out = []
+    for line in raw.splitlines():
+        text = line.strip().lstrip("-*0123456789. ").strip()
+        if text and len(text) < 80:
+            out.append(text)
+    return out[:6]
+
+
+def spread_lines(lines: list[str], duration: float) -> list[dict]:
+    """가사 줄을 노래 길이에 고르게 펴서 시각을 붙인다.
+
+    시각을 모르는 가사(AI가 준 것, 동기화 안 된 가사)를 악보에 올리려면
+    무엇이든 시각이 있어야 한다. 앞뒤로 전주·후주를 조금 비워 두고 나머지를
+    고르게 나눈다 — 맞을 리는 없지만, 아예 못 붙이는 것보다 낫다.
+    """
+    if not lines:
+        return []
+    span_start = duration * 0.08 if duration else 0.0
+    span_end = duration * 0.92 if duration else len(lines) * 4.0
+    step = max((span_end - span_start) / len(lines), 0.5)
+    out = []
+    for i, text in enumerate(lines):
+        start = round(span_start + i * step, 2)
+        out.append({"t": start, "end": round(start + step, 2), "text": text})
+    return out
