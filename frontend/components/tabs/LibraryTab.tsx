@@ -22,7 +22,6 @@ import {
   renameFolder,
 } from "@/lib/folders";
 import {
-  exportAllToFile,
   getLocal,
   listLocal,
   parseResultsText,
@@ -284,12 +283,28 @@ export function LibraryTab({
     }
   };
 
+  /**
+   * 곡마다 따로 한 파일씩 내보낸다. 묶음 한 파일이 아니다 —
+   * 드라이브 공유 폴더는 곡 단위 파일을 기대하므로, 묶음으로 내보내면
+   * 그대로 올릴 수 없어 다시 쪼개야 했다.
+   */
   const exportAll = async () => {
     setWorking("전체 내보내는 중");
     try {
-      const count = await exportAllToFile();
-      if (count === 0) setError("기기에 저장된 곡이 없습니다");
-      else flash(`${count}곡을 파일로 내보냈습니다.`);
+      const items = device ?? [];
+      if (items.length === 0) {
+        setError("기기에 저장된 곡이 없습니다");
+        return;
+      }
+      let count = 0;
+      for (const item of items) {
+        const result = (await getLocal(item.id)) ?? (await getResult(item.id));
+        downloadBundle(await makeBundle(result));
+        count += 1;
+        // 연속 다운로드를 너무 몰아치면 브라우저가 일부를 흘린다
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      flash(`${count}곡을 각각의 파일로 내보냈습니다.`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
