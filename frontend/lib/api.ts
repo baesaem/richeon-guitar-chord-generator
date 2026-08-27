@@ -243,6 +243,12 @@ export const tidyLyrics = (id: string) =>
     json<AnalysisResult>,
   );
 
+/** 붙어 있는 가사를 지운다. 수동 표식도 함께 걷힌다. */
+export const deleteLyrics = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/lyrics`, { method: "DELETE" }).then(
+    json<AnalysisResult>,
+  );
+
 /** 사용자가 넣은 가사를 서버 결과에 저장한다. */
 export const putLyrics = (id: string, lyrics: LyricLine[]) =>
   fetch(`${apiBase()}/api/results/${id}/lyrics`, {

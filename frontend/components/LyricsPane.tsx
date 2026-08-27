@@ -2,9 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { AskConfirm } from "@/components/Ask";
 import { Popup } from "@/components/Popup";
 import { Working } from "@/components/Working";
-import { alignLyrics, fetchLyrics, putLyrics, songPhrases } from "@/lib/api";
+import {
+  alignLyrics,
+  deleteLyrics,
+  fetchLyrics,
+  putLyrics,
+  songPhrases,
+} from "@/lib/api";
 import { placeOnPhrases, spreadEvenly } from "@/lib/placeLyrics";
 import { saveLocal } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
@@ -43,6 +50,8 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
   // 가사를 붙여넣는 창. 파일을 고르는 것보다 이쪽이 손에 익다 —
   // 가사는 대개 웹에서 긁어 오지 파일로 받지 않는다.
   const [pasting, setPasting] = useState(false);
+  // 가사 지우기 확인 창. 지우면 수동 표식도 걷혀 다음부터 자동으로 찾는다
+  const [confirmClear, setConfirmClear] = useState(false);
   const [draft, setDraft] = useState("");
 
   useEffect(() => {
@@ -160,6 +169,20 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
         />
       )}
 
+      {confirmClear && (
+        <AskConfirm
+          title="가사 지우기"
+          message="이 곡의 가사를 모두 지웁니다. 지운 뒤에는 다시 찾거나 붙여넣을 수 있습니다."
+          confirmLabel="지우기"
+          danger
+          onConfirm={async () => {
+            await apply([], false, false);
+            if (online) await deleteLyrics(result.id).catch(() => {});
+          }}
+          onClose={() => setConfirmClear(false)}
+        />
+      )}
+
       {pasting && (
         <Popup title="가사 붙여넣기" onClose={() => setPasting(false)}>
           <p className="mb-2 text-[11px] leading-snug text-gray-500">
@@ -263,6 +286,12 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
             <span>{groups.length}묶음 · {lines.length}줄</span>
             <button className="underline" onClick={() => setPasting(true)}>
               가사 바꾸기
+            </button>
+            <button
+              className="text-red-500 underline"
+              onClick={() => setConfirmClear(true)}
+            >
+              지우기
             </button>
             <button
               className="underline disabled:opacity-40"

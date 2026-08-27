@@ -616,6 +616,25 @@ async def align_pasted_lyrics(result_id: str, texts: list[str]) -> AnalysisResul
     return result
 
 
+@app.delete("/api/results/{result_id}/lyrics")
+async def delete_lyrics(result_id: str) -> AnalysisResult:
+    """붙어 있는 가사를 지운다. 수동 표식도 함께 걷는다.
+
+    잘못 붙여넣은 가사에서 벗어나는 길이다. 표식이 걷히므로 다음
+    재분석이나 「다시 찾기」는 다시 자동으로 찾는다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    result.lyrics = []
+    result.lyrics_approx = False
+    result.lyrics_manual = False
+    save_result(result)
+    return result
+
+
 @app.post("/api/results/{result_id}/lyrics/tidy")
 async def tidy_lyrics_endpoint(result_id: str) -> AnalysisResult:
     """붙어 있는 가사를 AI로 다듬는다.
