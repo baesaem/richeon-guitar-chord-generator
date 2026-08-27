@@ -17,6 +17,7 @@ from __future__ import annotations
 import html
 import re
 
+from . import llm
 from .config import settings
 from .schemas import LyricLine
 
@@ -294,12 +295,29 @@ def fetch_lyrics_blocking(
     query를 주면 제목 대신 그 검색어로 찾는다. 영상 제목이 곡명과 다를 때
     (라이브 실황·모음집) 사용자가 직접 "가수 곡명"을 넣어 다시 찾는 용도다.
     """
-    search = query or title
-    if search:
+    # 던져 볼 검색어를 순서대로 모은다.
+    if query:
+        # 사용자가 직접 준 검색어. 곡을 특정한 상황이므로 길이 필터를 푼다.
+        attempts = [(query, 0.0)]
+    else:
+        attempts = [(title, duration)] if title else []
+        # LLM이 제목에서 가수·곡명을 가려내고 로마자 표기를 만들어 준다.
+        # 한국 가요가 가사 데이터베이스에 영문으로 등록된 경우를 건진다
+        # ("조용필 단발머리" 0건 → "Cho Yong Pil" 20건).
+        info = llm.song_info(title) if title else None
+        if info:
+            attempts += [(q, duration) for q in info.queries()]
+            # 로마자로 찾을 때는 길이만 맞으면 받아들인다. 표기가 달라
+            # 후보가 적기 때문이다.
+            attempts += [(q, 0.0) for q in info.romanized]
+
+    seen: set[str] = set()
+    for search, want_duration in attempts:
+        if not search or search in seen:
+            continue
+        seen.add(search)
         try:
-            # 검색어를 직접 준 경우엔 길이 필터를 풀어 준다. 사용자가
-            # 곡을 특정한 상황이라 후보가 적고, 라이브는 길이가 다르다.
-            lines = fetch_lrclib(search, 0.0 if query else duration)
+            lines = fetch_lrclib(search, want_duration)
             if lines:
                 return lines
         except Exception:

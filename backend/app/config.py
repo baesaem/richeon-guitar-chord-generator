@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     # 여기 올려 둔 .rml 파일을 앱에서 바로 내려받아 기기에 저장한다.
     shared_folder_id: str = "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd"
 
+    # --- LLM (선택) ---
+    # 영상 제목에서 가수·곡명을 가려내고 로마자 표기를 만드는 데만 쓴다.
+    # 오디오 분석에는 쓰지 않는다(재 봤더니 조성·템포를 틀리게 답했다).
+    # 키를 비워 두면 이 기능만 조용히 꺼지고 나머지는 그대로 돈다.
+    # OpenAI 외에 호환 API(로컬 모델 포함)도 base_url만 바꾸면 된다.
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-5.4-mini"
+    llm_timeout: float = 20.0
+
     def ensure_dirs(self) -> None:
         self.audio_dir.mkdir(parents=True, exist_ok=True)
         self.result_dir.mkdir(parents=True, exist_ok=True)
