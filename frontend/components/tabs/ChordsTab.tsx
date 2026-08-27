@@ -5,7 +5,8 @@ import { useState } from "react";
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
 import { Copyright } from "@/components/Copyright";
-import { Fretboard } from "@/components/Fretboard";
+import { ArpeggioGuide } from "@/components/ArpeggioGuide";
+import { FretPrimer } from "@/components/FretPrimer";
 import { labelFor } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
 
@@ -45,12 +46,40 @@ const BOTH: Record<string, string> = {
 export function ChordsTab() {
   const [flats, setFlats] = useState(false);
   const [quality, setQuality] = useState("maj");
+  // 상단 탭. 코드표·지판·아르페지오는 서로 다른 공부라 한 두루마리에
+  // 쌓아 두면 아래 것은 있는 줄도 모른다.
+  const [page, setPage] = useState<"chords" | "fret" | "arp">("chords");
   const picked = QUALITIES.find((q) => q.value === quality) ?? QUALITIES[0];
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-bold">코드표</h2>
+      <h2 className="mb-2 text-lg font-bold">기타 기초</h2>
+      <div className="mb-3 flex gap-1.5">
+        {(
+          [
+            ["chords", "코드표"],
+            ["fret", "지판과 음정"],
+            ["arp", "아르페지오"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setPage(value)}
+            className={[
+              "flex-1 rounded py-2 text-sm",
+              page === value
+                ? "bg-black text-white dark:bg-white dark:text-black"
+                : "bg-gray-100 dark:bg-gray-800",
+            ].join(" ")}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {page === "chords" && (
+      <>
+      <div className="mb-3 flex items-center justify-end">
         <button
           className="rounded border px-2 py-1 text-xs"
           onClick={() => setFlats((f) => !f)}
@@ -107,17 +136,11 @@ export function ChordsTab() {
         ○는 개방현, ×는 소리 내지 않는 줄입니다. 오픈 코드는 표준 운지를 쓰고,
         나머지는 E폼·A폼 바레를 해당 프렛으로 옮겨 만듭니다.
       </p>
+      </>
+      )}
 
-      <h2 className="mb-1 mt-6 text-lg font-bold">지판표</h2>
-      <p className="mb-2 text-[11px] leading-snug text-gray-500">
-        어느 자리가 무슨 음인지. 코드 모양만 외우면 아는 코드 밖으로 못
-        나갑니다. 옆으로 밀어 15프렛까지 볼 수 있습니다.
-      </p>
-      <Fretboard />
-      <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
-        온음만 적었습니다. 반음(♯·♭)은 온음 사이의 한 칸입니다 — 예를 들어
-        C와 D 사이가 C♯(D♭)입니다. 흐린 칸은 실제 기타 지판의 점 위치입니다.
-      </p>
+      {page === "fret" && <FretPrimer />}
+      {page === "arp" && <ArpeggioGuide />}
 
       <Copyright />
     </div>
