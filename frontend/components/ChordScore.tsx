@@ -74,7 +74,7 @@ const PAD_X = 10;
 const STAFF_TOP = 34;      // 타브 첫 줄(1번줄)
 // 타브 여섯 줄. 프렛 숫자가 줄 위에 앉으므로 숫자가 서로 닿지 않을
 // 만큼 간격을 넉넉히 벌린다.
-const LINE_GAP = 6;
+const LINE_GAP = 7;
 const STAFF_H = LINE_GAP * 5;
 const CHORD_Y = 22;        // 코드 심볼 기준선
 // 오선 아래 여백. 가사를 적지 않으므로 마디 강조 사각형이 잘리지 않을
@@ -218,14 +218,14 @@ export function ChordScore({
                     {firstLine && i === 0 && (
                       <>
                         <text
-                          x={x0 + 8} y={STAFF_TOP + 8.8}
+                          x={x0 + 8} y={STAFF_TOP + 10.4}
                           textAnchor="middle" fontSize={9} fontWeight="700"
                           fill="currentColor"
                         >
                           {beatsPerBar}
                         </text>
                         <text
-                          x={x0 + 8} y={STAFF_TOP + 24.8}
+                          x={x0 + 8} y={STAFF_TOP + 29}
                           textAnchor="middle" fontSize={9} fontWeight="700"
                           fill="currentColor"
                         >
@@ -278,9 +278,9 @@ export function ChordScore({
                                   <text
                                     key={`${half}${f}`}
                                     x={sx}
-                                    y={STAFF_TOP + (str - 1) * LINE_GAP + 1.8}
+                                    y={STAFF_TOP + (str - 1) * LINE_GAP + 2.4}
                                     textAnchor="middle"
-                                    fontSize={6.2}
+                                    fontSize={7.2}
                                     fontWeight="700"
                                     fill={
                                       f === "p"
@@ -288,7 +288,7 @@ export function ChordScore({
                                         : "currentColor"
                                     }
                                     stroke="var(--background)"
-                                    strokeWidth={1.6}
+                                    strokeWidth={1.8}
                                     paintOrder="stroke"
                                   >
                                     {voicing.frets[6 - str]}
@@ -303,13 +303,13 @@ export function ChordScore({
                                   key={s}
                                   x={slot}
                                   // frets[0]이 6번줄(맨 아래 줄)이다
-                                  y={STAFF_TOP + (5 - s) * LINE_GAP + 1.6}
+                                  y={STAFF_TOP + (5 - s) * LINE_GAP + 2.4}
                                   textAnchor="middle"
-                                  fontSize={6.2}
+                                  fontSize={7.2}
                                   fontWeight="700"
                                   fill="currentColor"
                                   stroke="var(--background)"
-                                  strokeWidth={1.6}
+                                  strokeWidth={1.8}
                                   paintOrder="stroke"
                                 >
                                   {fret}
