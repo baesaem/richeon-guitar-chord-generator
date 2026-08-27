@@ -826,7 +826,11 @@ export default function Home() {
               )}
 
               {sheetTab === "web" && (
-                <SheetFinder resultId={result.id} online={!!health} />
+                <SheetFinder
+                  resultId={result.id}
+                  title={result.title}
+                  online={!!health}
+                />
               )}
 
               {sheetTab === "mine" && (

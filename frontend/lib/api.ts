@@ -117,11 +117,19 @@ export const putLlmSettings = (body: {
     body: JSON.stringify(body),
   }).then(json<LlmSettings>);
 
+export interface LlmProbe {
+  ok: boolean;
+  model_available: boolean;
+  message: string;
+  /** 쓸 수 있는 대화 모델. 새로 나온 것부터 */
+  models: string[];
+  /** 가사 정리에 알맞은 모델. 비어 있을 수 있다 */
+  recommended: string;
+}
+
 /** 저장된 키로 실제 호출해 보고, 쓸 수 있는 모델 목록을 받는다. */
 export const testLlmSettings = () =>
-  fetch(`${apiBase()}/api/settings/llm/test`, { method: "POST" }).then(
-    json<{ ok: boolean; model_available: boolean; message: string; models: string[] }>,
-  );
+  fetch(`${apiBase()}/api/settings/llm/test`, { method: "POST" }).then(json<LlmProbe>);
 
 export interface SheetHit {
   title: string;

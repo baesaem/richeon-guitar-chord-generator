@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import tempfile
 from pathlib import Path
 
@@ -191,8 +192,13 @@ async def test_llm_settings() -> dict:
         )
         with urllib.request.urlopen(req, timeout=settings.llm_timeout) as res:
             data = json.load(res)
-        names = sorted(m["id"] for m in data.get("data", []))
-        return {"count": len(names), "models": names}
+        # 새 것부터. created는 발표 시각(epoch)이라 최신 모델이 앞에 온다.
+        rows = sorted(
+            data.get("data", []),
+            key=lambda m: m.get("created", 0),
+            reverse=True,
+        )
+        return {"count": len(rows), "models": [m["id"] for m in rows]}
 
     try:
         found = await asyncio.to_thread(probe)
@@ -206,18 +212,27 @@ async def test_llm_settings() -> dict:
         if any(m.startswith(p) for p in ("gpt-", "o1", "o3", "o4", "claude", "gemini"))
         and not any(
             bad in m
-            for bad in ("embed", "tts", "whisper", "image", "realtime", "audio", "moderation")
+            for bad in (
+                "embed", "tts", "whisper", "image", "realtime", "audio",
+                "moderation", "transcribe", "search", "dall-e", "sora",
+            )
         )
     ]
+    # 가장 새 모델을 권한다. 다만 날짜가 붙은 스냅샷(gpt-5.5-2026-04-23)은
+    # 건너뛴다 — 같은 모델을 가리키면서 언젠가 사라지는 이름이라, 날짜 없는
+    # 쪽을 두면 새 판이 나와도 그대로 따라간다.
+    stable = [m for m in chat if not re.search(r"-(19|20)\d{2}-\d{2}-\d{2}$", m)]
+    recommended = (stable or chat or [""])[0]
     ok = cfg["model"] in found["models"]
     return {
         "ok": True,
         "model_available": ok,
         "message": (
             f"연결됨 · 모델 {found['count']}개"
-            + ("" if ok else f" · 주의: '{cfg['model']}'는 이 키로 쓸 수 없습니다")
+            + ("" if ok else f" · '{cfg['model']}'는 이 키로 쓸 수 없습니다")
         ),
         "models": chat[:40],
+        "recommended": recommended,
     }
 
 

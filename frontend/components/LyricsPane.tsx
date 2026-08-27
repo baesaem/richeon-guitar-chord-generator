@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from "react";
 
 import { fetchLyrics, putLyrics } from "@/lib/api";
 import { saveLocal } from "@/lib/library";
+import { hasLocalLlm } from "@/lib/llmClient";
 import { lyricIndexAt, parseLyricsText } from "@/lib/lrc";
+import { findLyrics } from "@/lib/lyricsClient";
 import type { AnalysisResult, LyricLine } from "@/lib/types";
 
 interface Props {
   result: AnalysisResult;
   time: number;
-  /** 서버가 붙어 있을 때만 「가사 찾기」를 보여준다 */
+  /** 서버가 붙어 있으면 서버가, 없으면 브라우저가 직접 가사를 찾는다 */
   online: boolean;
   /** 가사를 새로 받으면 재생 중인 결과에도 반영한다 */
   onLyrics: (lines: LyricLine[]) => void;
@@ -47,8 +49,16 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const updated = await fetchLyrics(result.id, q);
-      await apply(updated.lyrics ?? []);
+      if (online) {
+        const updated = await fetchLyrics(result.id, q);
+        await apply(updated.lyrics ?? []);
+      } else {
+        // 서버가 없으면 브라우저가 직접 찾는다. 가사 목록(LRCLIB)은
+        // 키 없이 열려 있어 이 기기에서 바로 부를 수 있다.
+        const lines = await findLyrics(result.title, result.duration, q);
+        if (!lines.length) throw new Error("이 곡의 가사를 찾지 못했습니다");
+        await apply(lines);
+      }
       setQuery("");
     } catch (e) {
       setError((e as Error).message);
@@ -95,36 +105,37 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
           <p className="text-xs text-gray-500">
             {busy ? "가사를 찾는 중…" : "이 곡의 가사가 아직 없습니다."}
           </p>
+          {!online && !hasLocalLlm() && (
+            <p className="text-[11px] leading-snug text-gray-400">
+              설정에서 가사 도우미 키를 넣으면 한국 가요도 잘 찾습니다.
+            </p>
+          )}
           <div className="flex w-full max-w-xs flex-col gap-1.5">
-            {online && (
-              <>
-                <button
-                  className="rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
-                  disabled={busy}
-                  onClick={() => search("")}
-                >
-                  가사 찾기
-                </button>
-                <div className="flex gap-1.5">
-                  <input
-                    className="min-w-0 flex-1 rounded border px-2 py-1.5 text-xs"
-                    placeholder="가수 곡명으로 직접 검색"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && query.trim()) search(query.trim());
-                    }}
-                  />
-                  <button
-                    className="shrink-0 rounded bg-gray-100 px-2 py-1.5 text-xs disabled:opacity-40 dark:bg-gray-800"
-                    disabled={busy || !query.trim()}
-                    onClick={() => search(query.trim())}
-                  >
-                    검색
-                  </button>
-                </div>
-              </>
-            )}
+            <button
+              className="rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
+              disabled={busy}
+              onClick={() => search("")}
+            >
+              가사 찾기
+            </button>
+            <div className="flex gap-1.5">
+              <input
+                className="min-w-0 flex-1 rounded border px-2 py-1.5 text-xs"
+                placeholder="가수 곡명으로 직접 검색"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && query.trim()) search(query.trim());
+                }}
+              />
+              <button
+                className="shrink-0 rounded bg-gray-100 px-2 py-1.5 text-xs disabled:opacity-40 dark:bg-gray-800"
+                disabled={busy || !query.trim()}
+                onClick={() => search(query.trim())}
+              >
+                검색
+              </button>
+            </div>
             <button
               className="rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
               onClick={() => fileRef.current?.click()}
@@ -157,15 +168,13 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
             <button className="underline" onClick={() => fileRef.current?.click()}>
               가사 바꾸기
             </button>
-            {online && (
-              <button
-                className="underline disabled:opacity-40"
-                disabled={busy}
-                onClick={() => search("")}
-              >
-                다시 찾기
-              </button>
-            )}
+            <button
+              className="underline disabled:opacity-40"
+              disabled={busy}
+              onClick={() => search("")}
+            >
+              다시 찾기
+            </button>
           </div>
         </>
       )}
