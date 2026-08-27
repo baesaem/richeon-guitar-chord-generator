@@ -240,7 +240,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       {/* 서버 관련 메뉴는 관리자만. 수강생은 서버 없이 공유 폴더로 곡을 받는다. */}
       {settings.adminMode && (
       <>
-      <LlmSettingsCard />
+      <LlmSettingsCard online={!!health} />
 
       <section className="mb-5">
         <div className="mb-1.5 text-sm font-medium">분석 서버 주소</div>

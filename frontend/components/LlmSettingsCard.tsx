@@ -21,7 +21,7 @@ const SUGGESTED = ["gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4", "gpt-5.5"];
  *
  * 키는 서버에만 저장되고, 화면에는 앞뒤만 남긴 형태로만 돌아온다.
  */
-export function LlmSettingsCard() {
+export function LlmSettingsCard({ online }: { online: boolean }) {
   const [cfg, setCfg] = useState<LlmSettings | null>(null);
   const [key, setKey] = useState("");
   const [model, setModel] = useState("");
@@ -31,6 +31,7 @@ export function LlmSettingsCard() {
   const [models, setModels] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!online) return;
     getLlmSettings()
       .then((c) => {
         setCfg(c);
@@ -38,7 +39,7 @@ export function LlmSettingsCard() {
         setBaseUrl(c.base_url);
       })
       .catch(() => {});
-  }, []);
+  }, [online]);
 
   const save = async (patch: { api_key?: string; base_url?: string; model?: string }) => {
     setBusy(true);
@@ -86,7 +87,12 @@ export function LlmSettingsCard() {
         코드 인식에는 쓰지 않습니다.
       </p>
 
-      {cfg?.configured ? (
+      {!online ? (
+        <p className="rounded bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800">
+          이 화면에서는 설정할 수 없습니다. 가사 도우미는 분석 서버가 하는
+          일이라, 집 안에서 서버에 연결한 뒤 설정해 주세요.
+        </p>
+      ) : cfg?.configured ? (
         <div className="mb-2 flex items-center gap-2 rounded bg-green-50 px-2 py-1.5 text-[11px] text-green-800">
           <span>키 저장됨 · {cfg.masked_key}</span>
           <button
@@ -103,6 +109,8 @@ export function LlmSettingsCard() {
         </p>
       )}
 
+      {online && (
+      <>
       <div className="flex gap-1.5">
         <input
           className={input}
@@ -182,6 +190,10 @@ export function LlmSettingsCard() {
         </p>
       )}
 
+      </>
+      )}
+
+      {online && (
       <details className="mt-1.5">
         <summary className="cursor-pointer text-[11px] text-gray-500">
           다른 서비스 쓰기 (OpenAI 호환 주소)
@@ -208,6 +220,7 @@ export function LlmSettingsCard() {
           바꾸면 쓸 수 있습니다.
         </p>
       </details>
+      )}
     </section>
   );
 }
