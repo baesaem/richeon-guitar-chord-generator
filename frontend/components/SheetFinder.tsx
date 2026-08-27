@@ -1,10 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { findSheets, type SheetHit } from "@/lib/api";
 import { hasLocalLlm, songInfo } from "@/lib/llmClient";
+import { openLink } from "@/lib/openLink";
+import { loadSheets, saveSheets } from "@/lib/sheetCache";
 import { SHEET_SOURCES, sheetQuery } from "@/lib/sheetSearch";
+
+/** 찾은 시각을 사람 말로. "방금" / "3시간 전" / "8월 27일" */
+function when(at: number): string {
+  const mins = Math.floor((Date.now() - at) / 60000);
+  if (mins < 1) return "방금";
+  if (mins < 60) return `${mins}분 전`;
+  if (mins < 60 * 24) return `${Math.floor(mins / 60)}시간 전`;
+  const d = new Date(at);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
 
 /**
  * 웹에 올라온 이 곡의 코드 악보 찾기.
@@ -25,28 +37,61 @@ export function SheetFinder({
   title: string;
   online: boolean;
 }) {
-  const [items, setItems] = useState<SheetHit[] | null>(null);
-  const [query, setQuery] = useState("");
+  // 저장해 둔 것이 있으면 그것으로 시작한다. 화면이 뜬 뒤에 넣으면
+  // 빈 화면이 한 번 깜빡인다.
+  const [saved] = useState(() => loadSheets(resultId));
+  const [items, setItems] = useState<SheetHit[] | null>(saved?.items ?? null);
+  const [query, setQuery] = useState(saved?.query ?? "");
+  const [foundAt, setFoundAt] = useState(saved?.at ?? 0);
+  // 저장해 둔 것이 없으면 열자마자 찾기 시작한다
+  const [busy, setBusy] = useState(!saved && online);
   const [error, setError] = useState<string | null>(null);
 
+  // 한 번 찾은 것은 그대로 둔다. 열 때마다 다시 찾으면 몇 초씩 기다려야
+  // 하고, 검색 결과가 그때그때 달라져 어제 눌렀던 링크가 사라지기도 한다.
+  /** 서버에 물어 목록을 새로 받는다. 받은 것은 곡에 저장해 둔다. */
+  const search = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await findSheets(resultId);
+      setItems(res.items);
+      setQuery(res.query);
+      setFoundAt(Date.now());
+      saveSheets(resultId, res.query, res.items);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }, [resultId]);
+
+  // 저장해 둔 것이 없을 때만 처음 한 번 찾는다.
+  // 상태는 응답이 온 뒤에만 바꾼다 — 효과 본문에서 바로 바꾸면 화면이
+  // 연달아 다시 그려진다.
   useEffect(() => {
-    if (!online) return;
+    if (saved || !online) return;
     let alive = true;
     findSheets(resultId)
       .then((res) => {
         if (!alive) return;
         setItems(res.items);
         setQuery(res.query);
+        setFoundAt(Date.now());
+        saveSheets(resultId, res.query, res.items);
       })
       .catch((e) => {
         if (alive) setError((e as Error).message);
+      })
+      .finally(() => {
+        if (alive) setBusy(false);
       });
     return () => {
       alive = false;
     };
-  }, [resultId, online]);
+  }, [resultId, saved, online]);
 
-  if (!online) return <OfflineSheets title={title} />;
+  if (!online && items === null) return <OfflineSheets title={title} />;
 
   if (items === null && !error) {
     return <p className="py-4 text-center text-xs text-gray-400">악보 찾는 중…</p>;
@@ -60,10 +105,21 @@ export function SheetFinder({
 
       {items && items.length > 0 && (
         <>
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
-            <span className="font-medium">{query}</span> 로 찾은 결과입니다. 누르면
-            그 사이트에서 악보를 봅니다.
-          </p>
+          <div className="mb-2 flex items-start gap-2">
+            <p className="min-w-0 flex-1 text-[11px] leading-snug text-gray-500">
+              <span className="font-medium">{query}</span> 로 찾은 결과입니다.
+              {foundAt > 0 && ` (${when(foundAt)})`}
+            </p>
+            {online && (
+              <button
+                className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] disabled:opacity-40 dark:bg-gray-800"
+                disabled={busy}
+                onClick={search}
+              >
+                {busy ? "찾는 중…" : "재검색"}
+              </button>
+            )}
+          </div>
           <ul className="mb-3 space-y-1">
             {items.map((hit) => (
               <li key={hit.url}>
@@ -72,6 +128,12 @@ export function SheetFinder({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
+                  onClick={(e) => {
+                    // 새 창이 막힌 환경에서는 눌러도 아무 일이 없다.
+                    // 우리가 직접 열고, 막히면 이 창에서 연다.
+                    e.preventDefault();
+                    openLink(hit.url);
+                  }}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-medium">
@@ -88,9 +150,20 @@ export function SheetFinder({
       )}
 
       {items && items.length === 0 && !error && (
-        <p className="mb-2 text-[11px] text-gray-500">
-          찾은 페이지가 없습니다. 아래에서 직접 찾아보세요.
-        </p>
+        <div className="mb-2 flex items-center gap-2">
+          <p className="min-w-0 flex-1 text-[11px] text-gray-500">
+            찾은 페이지가 없습니다. 아래에서 직접 찾아보세요.
+          </p>
+          {online && (
+            <button
+              className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] disabled:opacity-40 dark:bg-gray-800"
+              disabled={busy}
+              onClick={search}
+            >
+              {busy ? "찾는 중…" : "재검색"}
+            </button>
+          )}
+        </div>
       )}
 
       {/* 찾았든 못 찾았든 직접 찾아볼 곳은 늘 함께 둔다. 검색 결과가 늘
@@ -113,6 +186,10 @@ function SiteLinks({ query }: { query: string }) {
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
+              onClick={(e) => {
+                e.preventDefault();
+                openLink(src.url(query));
+              }}
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-xs font-medium">{src.name}</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { openLink } from "@/lib/openLink";
 import { deleteMySheet, mySheetUrl, uploadMySheet } from "@/lib/api";
 
 /**
@@ -161,7 +162,16 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
             >
               <div className="p-4 text-center text-xs text-gray-500">
                 여기서 열리지 않습니다.{" "}
-                <a href={url} target="_blank" rel="noopener noreferrer" className="underline">
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openLink(url);
+                  }}
+                >
                   새 창에서 열기 ↗
                 </a>
               </div>
@@ -182,6 +192,10 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
               target="_blank"
               rel="noopener noreferrer"
               className="ml-auto text-[11px] text-gray-500 underline"
+              onClick={(e) => {
+                e.preventDefault();
+                openLink(url);
+              }}
             >
               크게 보기 ↗
             </a>

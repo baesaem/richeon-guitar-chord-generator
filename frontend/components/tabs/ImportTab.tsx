@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
 import { Popup } from "@/components/Popup";
+import { openLink } from "@/lib/openLink";
 import { downloadShared, downloadSharedBlob, listShared, type SharedFile } from "@/lib/api";
 import {
   downloadDirectBlob,
@@ -326,6 +327,10 @@ export function ImportTab({
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded border"
               aria-label="YouTube 열기"
               title="YouTube 열기"
+              onClick={(e) => {
+                e.preventDefault();
+                openLink("https://www.youtube.com");
+              }}
             >
               <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
                 <rect x="1" y="5" width="22" height="14" rx="4" fill="#FF0000" />
@@ -409,6 +414,10 @@ export function ImportTab({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="shrink-0 text-[11px] text-gray-500 underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openLink(DRIVE_FOLDER_URL);
+                }}
               >
                 드라이브에서 열기
               </a>
