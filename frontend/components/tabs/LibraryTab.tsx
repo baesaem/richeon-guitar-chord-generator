@@ -492,9 +492,9 @@ export function LibraryTab({ onOpen, onReanalyze, active, adminMode }: Props) {
 
       {refetching && (
         <AskConfirm
-          title="음원부터 다시 받기"
+          title="음원교체"
           message="음원을 새로 받아 처음부터 분석합니다. 시간이 걸립니다."
-          confirmLabel="다시 받기"
+          confirmLabel="교체"
           onConfirm={() => onReanalyze?.(refetching, true)}
           onClose={() => setRefetching(null)}
         />
@@ -520,29 +520,21 @@ function ReanalyzeButtons({
 }: {
   item: ResultSummary;
   onReanalyze: (item: ResultSummary, refetch: boolean) => void;
-  /** 음원부터 다시 받기는 오래 걸린다. 묻고 나서 한다 */
+  /** 음원 교체는 오래 걸린다. 묻고 나서 한다 */
   onAskRefetch: (item: ResultSummary) => void;
 }) {
-  const cls =
-    "shrink-0 rounded border border-gray-200 px-2 py-1 text-[10px] " +
-    "text-gray-600 dark:border-gray-700 dark:text-gray-300";
   return (
     <>
-      <button
-        className={cls}
-        title="받아 둔 음원으로 분석만 다시 합니다"
+      <IconButton
+        label="분석만 (받아 둔 음원 그대로)"
         onClick={() => onReanalyze(item, false)}
       >
-        다시 분석
-      </button>
+        {RerunIcon}
+      </IconButton>
       {item.source === "youtube" && (
-        <button
-          className={cls}
-          title="음원을 새로 받아 처음부터 분석합니다"
-          onClick={() => onAskRefetch(item)}
-        >
-          음원부터
-        </button>
+        <IconButton label="음원교체 (새로 받아 분석)" onClick={() => onAskRefetch(item)}>
+          {ReplaceAudioIcon}
+        </IconButton>
       )}
     </>
   );
@@ -598,6 +590,23 @@ const SaveIcon = (
   <>
     <path d="M12 3v11M8 11l4 4 4-4" />
     <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+  </>
+);
+
+/** 분석만 다시 — 같은 음원을 한 바퀴 더 돌린다 */
+const RerunIcon = (
+  <>
+    <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+    <path d="M20 4v4h-4" />
+  </>
+);
+
+/** 음원교체 — 음원을 새 것으로 갈아 끼운다 */
+const ReplaceAudioIcon = (
+  <>
+    <path d="M9 17V7l9-2v10" />
+    <circle cx="6.5" cy="17.5" r="2.5" />
+    <path d="M3 5h6M6 2v6" />
   </>
 );
 
