@@ -17,10 +17,10 @@ from .analysis.separate import instrumental_path, separate, vocals_path
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
 from .lyrics import (
-    align_to_vocals,
     fetch_lyrics_blocking,
     fetch_youtube_captions,
     polish_captions,
+    sync_to_song,
 )
 from . import llm
 from .llm import pick_model, rank_models
@@ -539,13 +539,21 @@ async def fetch_lyrics(result_id: str, q: str = "") -> AnalysisResult:
         q,
     )
     if not lyrics:
+        # 웹에도 자막에도 없으면 노래에서 직접 받아 적는다(Whisper).
+        # 분리해 둔 보컬 트랙이 있어야 한다.
+        from .analysis.asr import lines_from_words, transcribe_words
+
+        words = await asyncio.to_thread(transcribe_words, result_id)
+        lyrics = lines_from_words(words) if words else []
+        approx = False
+    if not lyrics:
         raise HTTPException(404, "이 곡의 가사를 찾지 못했습니다")
 
-    # 자막이면 소절로 다듬고, 시각은 보컬 트랙에 맞춰 당긴다 —
+    # 자막이면 소절로 다듬고, 시각은 실제 부른 자리에 맞춘다 —
     # 분석 때와 같은 순서. 어디서 찾았든 결과가 같아야 한다.
     if source == "captions":
         lyrics = await asyncio.to_thread(polish_captions, lyrics)
-    result.lyrics = await asyncio.to_thread(align_to_vocals, lyrics, result_id)
+    result.lyrics = await asyncio.to_thread(sync_to_song, lyrics, result_id)
     result.lyrics_approx = approx
     # 「다시 찾기」는 새로 찾겠다는 뜻이다. 수동 표식을 지운다.
     result.lyrics_manual = False
@@ -587,6 +595,23 @@ async def align_pasted_lyrics(result_id: str, texts: list[str]) -> AnalysisResul
     rows = [line.strip() for line in texts if line.strip()]
     if not rows:
         raise HTTPException(400, "붙여넣은 가사가 없습니다")
+
+    # 첫째 자: 보컬을 받아 적은 단어 시각(Whisper). 붙여넣은 글을 실제
+    # 부른 자리에 문자 단위로 겹쳐 보는 것이라 자막보다 정확하고,
+    # AI 키도 자막도 필요 없다.
+    from .analysis.asr import align_with_asr, transcribe_words
+
+    words = await asyncio.to_thread(transcribe_words, result_id)
+    if words:
+        drafts = [LyricLine(t=0.0, end=0.0, text=row) for row in rows]
+        placed_lines = await asyncio.to_thread(align_with_asr, drafts, words)
+        if placed_lines:
+            result.lyrics = placed_lines
+            result.lyrics_approx = False
+            result.lyrics_manual = True
+            save_result(result)
+            return result
+
     if not llm.enabled():
         raise HTTPException(400, "가사 도우미(AI) 키가 없습니다")
     # 자로 쓸 글. 이 곡에 붙어 있는 가사가 먼저고, 없으면 영상 자막을
@@ -668,8 +693,8 @@ async def tidy_lyrics_endpoint(result_id: str) -> AnalysisResult:
         for i, row in enumerate(rows)
     ]
     # 다듬은 시각은 자막의 첫 조각 시각이라 어림이 아니다. 마지막으로
-    # 보컬 트랙에 맞춰 당긴다 — 분석 때와 같은 마무리.
-    result.lyrics = await asyncio.to_thread(align_to_vocals, lines, result_id)
+    # 실제 부른 자리에 맞춘다 — 분석 때와 같은 마무리.
+    result.lyrics = await asyncio.to_thread(sync_to_song, lines, result_id)
     result.lyrics_approx = False
     save_result(result)
     return result

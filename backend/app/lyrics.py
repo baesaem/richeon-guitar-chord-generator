@@ -468,6 +468,25 @@ def align_to_vocals(lines: list[LyricLine], audio_id: str) -> list[LyricLine]:
     return fixed
 
 
+def sync_to_song(lines: list[LyricLine], audio_id: str) -> list[LyricLine]:
+    """가사 시각을 실제 노래에 맞춘다 — 쓸 수 있는 가장 좋은 자로.
+
+    보컬을 받아 적은 단어 시각(Whisper)이 있으면 줄마다 실제로 부른 시각
+    위에 다시 재고, 받아 적지 못했으면 보컬 시작점 스냅으로 물러난다.
+    """
+    try:
+        from .analysis.asr import align_with_asr, transcribe_words
+
+        words = transcribe_words(audio_id)
+        if words:
+            fixed = align_with_asr(lines, words)
+            if fixed:
+                return fixed
+    except Exception:
+        pass
+    return align_to_vocals(lines, audio_id)
+
+
 def fetch_lyrics_blocking(
     video_id: str | None,
     title: str = "",

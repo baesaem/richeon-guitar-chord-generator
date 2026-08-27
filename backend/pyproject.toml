@@ -26,6 +26,9 @@ analysis = [
 gpu = [
     "demucs>=4.0.1",
     "beat-this",
+    # 보컬 트랙 가사 받아 적기(단어 시각). ctranslate2 계열(faster-whisper)은
+    # Blackwell(sm_120) 지원이 불확실해 torch 기반 공식 구현을 쓴다.
+    "openai-whisper>=20250625",
 ]
 
 [tool.uv]

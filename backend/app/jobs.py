@@ -13,7 +13,7 @@ from typing import AsyncIterator
 
 from .analysis.pipeline import PIPELINE_VERSION, analyze
 from .config import settings
-from .lyrics import align_to_vocals, fetch_lyrics_blocking, polish_captions
+from .lyrics import fetch_lyrics_blocking, polish_captions, sync_to_song
 from .schemas import AnalysisResult, JobStage, JobStatus, SourceKind
 from .sources.base import AudioSource
 
@@ -102,10 +102,24 @@ class JobManager:
                         result.lyrics = await asyncio.to_thread(
                             polish_captions, result.lyrics
                         )
-                # 시각을 보컬 트랙에 맞춰 당긴다.
+                    # 웹에도 자막에도 없으면 노래에서 직접 받아 적는다.
+                    # 분리해 둔 보컬 트랙이 있어야 한다(원곡 반주가 섞이면
+                    # 못 알아듣는다).
+                    if not result.lyrics and separate:
+                        from .analysis.asr import lines_from_words, transcribe_words
+
+                        await progress(JobStage.POSTPROCESS, 0.96, "가사 받아 적는 중")
+                        words = await asyncio.to_thread(transcribe_words, audio.id)
+                        if words:
+                            result.lyrics = lines_from_words(words)
+                            result.lyrics_approx = False
+                # 시각을 실제 부른 자리에 맞춘다(받아 적은 단어 시각 →
+                # 없으면 보컬 시작점 스냅).
+                # 수동 가사도 글자만 지키고 시각은 다시 잰다.
                 if result.lyrics and separate:
+                    await progress(JobStage.POSTPROCESS, 0.97, "가사 싱크 맞추는 중")
                     result.lyrics = await asyncio.to_thread(
-                        align_to_vocals, result.lyrics, audio.id
+                        sync_to_song, result.lyrics, audio.id
                     )
 
                 save_result(result)

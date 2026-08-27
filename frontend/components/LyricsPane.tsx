@@ -165,7 +165,7 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
       {busy && (
         <Working
           label={pasting ? "가사 맞추는 중" : "가사 찾는 중"}
-          note={pasting ? "영상 자막에 맞춰 시각을 붙입니다" : undefined}
+          note={pasting ? "노래에서 실제 부른 자리를 찾아 시각을 붙입니다" : undefined}
         />
       )}
 
@@ -187,8 +187,8 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
         <Popup title="가사 붙여넣기" onClose={() => setPasting(false)}>
           <p className="mb-2 text-[11px] leading-snug text-gray-500">
             가사를 붙여넣으세요. 시간이 적힌 가사(.lrc)나 자막 글이면 그 시각을
-            그대로 쓰고, 그냥 가사면 <b>분석 결과를 보고 노래가 시작하는 자리에</b>{" "}
-            놓습니다.
+            그대로 쓰고, 그냥 가사면 <b>노래에서 실제 부른 자리를 찾아</b> 줄마다
+            시각을 붙입니다.
           </p>
           <textarea
             className="h-48 w-full rounded border px-3 py-2 text-sm"
