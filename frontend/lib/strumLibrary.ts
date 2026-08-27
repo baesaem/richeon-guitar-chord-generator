@@ -15,6 +15,10 @@ import type { Strum } from "./types";
  *
  * 각 패턴은 한 마디를 8분음표 여덟 칸으로 적는다.
  * D=쓸어내림(↓), U=쓸어올림(↑), .=쉼
+ *
+ * accents 는 크게 긋는 칸(악센트)이다. 같은 화살표라도 어디를 세게
+ * 치는지에 따라 리듬이 완전히 달라진다 — 고고는 2·4박을 세게 쳐야
+ * 고고답게 들린다.
  */
 
 export interface StrumPattern {
@@ -24,6 +28,8 @@ export interface StrumPattern {
   /** 이 패턴이 어울리는 빠르기 범위(BPM) */
   bpm: [number, number];
   hint: string;
+  /** 크게 긋는 칸. 8칸 중 '>' 자리가 악센트 */
+  accents?: string;
 }
 
 export const PATTERNS: StrumPattern[] = [
@@ -32,48 +38,70 @@ export const PATTERNS: StrumPattern[] = [
     cells: "D.DUD.DU",
     bpm: [100, 160],
     hint: "가장 많이 쓰는 8비트. 밝고 경쾌한 곡에 두루 맞습니다.",
+    accents: "..>...>.",
   },
   {
     name: "슬로우 고고",
     cells: "D.DU.UDU",
     bpm: [60, 100],
     hint: "느린 곡의 기본. 2·4박을 비워 두어 여유가 생깁니다.",
+    accents: ">.....>.",
   },
   {
     name: "칼립소",
     cells: "D.DU.UDU",
     bpm: [90, 130],
     hint: "엇박을 살려 통통 튀는 느낌. 포크·동요에 잘 맞습니다.",
+    accents: ">..>....",
   },
   {
     name: "8비트 기본",
     cells: "DUDUDUDU",
     bpm: [70, 140],
     hint: "여덟 칸을 모두 칩니다. 리듬을 익히는 첫 연습에 좋습니다.",
+    accents: ">...>...",
   },
   {
     name: "4비트",
     cells: "D.D.D.D.",
     bpm: [50, 110],
     hint: "박마다 한 번씩만. 코드 바꾸기를 익힐 때 씁니다.",
+    accents: "..>...>.",
   },
   {
     name: "발라드",
     cells: "D..UD.DU",
     bpm: [55, 90],
     hint: "느린 발라드. 첫 박을 크게 긋고 사이를 가볍게 채웁니다.",
+    accents: ">.......",
   },
   {
     name: "셔플",
     cells: "D.UD.UD.",
     bpm: [80, 140],
     hint: "세 잇단 느낌으로 튕기듯. 블루스·로큰롤에 씁니다.",
+    accents: ">..>....",
   },
   {
     name: "왈츠",
     cells: "D.U.U.  ",
     bpm: [80, 180],
     hint: "3박자 곡. 첫 박을 내려긋고 나머지를 올려 긋습니다.",
+    accents: ">.......",
+  },
+  {
+    name: "트로트(폴카)",
+    cells: "D.U.D.U.",
+    bpm: [90, 170],
+    hint: "쿵짝 쿵짝 두 박 느낌. 트로트·폴카에 맞습니다.",
+    accents: ">...>...",
+  },
+  {
+    name: "오프비트(레게)",
+    cells: ".U.U.U.U",
+    bpm: [80, 140],
+    hint: "박 사이만 올려 긋습니다. 가볍게 흔들리는 느낌이 납니다.",
+    accents: ".>...>..",
   },
 ];
 

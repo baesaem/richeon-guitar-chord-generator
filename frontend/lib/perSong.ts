@@ -42,6 +42,11 @@ export interface SongSetup {
    * 실려 수강생 화면도 같은 패턴의 타브로 그려진다.
    */
   arp: number;
+  /**
+   * 직접 고른 스트로크 패턴 이름. 빈 문자열이면 자동 추천을 따른다.
+   * 아르페지오와 같은 대접 — 선생님이 정한 패턴이 곡에 붙어 다닌다.
+   */
+  strum: string;
 }
 
 export const DEFAULT_SETUP: SongSetup = {
@@ -51,6 +56,7 @@ export const DEFAULT_SETUP: SongSetup = {
   sync: 0,
   lyricSync: 0,
   arp: 0,
+  strum: "",
 };
 
 function readAll(): Record<string, SongSetup> {
@@ -83,7 +89,8 @@ export function saveSetup(songId: string, setup: SongSetup): void {
       setup.loop === null &&
       setup.sync === 0 &&
       setup.lyricSync === 0 &&
-      setup.arp === 0;
+      setup.arp === 0 &&
+      setup.strum === "";
     if (untouched) delete all[songId];
     else all[songId] = setup;
     localStorage.setItem(KEY, JSON.stringify(all));

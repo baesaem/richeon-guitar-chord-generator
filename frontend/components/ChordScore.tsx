@@ -9,7 +9,7 @@ import { arpPattern, arpString } from "@/lib/arpeggio";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, transposeRoot } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
-import { suggestStrum } from "@/lib/strumLibrary";
+import { PATTERNS, suggestStrum } from "@/lib/strumLibrary";
 import type { Chord, Strum } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
@@ -66,6 +66,8 @@ interface Props {
    * 슬래시 대신 8분음표 칸마다 뜯는 줄의 프렛 숫자를 찍는다.
    */
   arp?: number;
+  /** 직접 고른 스트로크 패턴 이름. 있으면 자동 추천 대신 쓴다 */
+  strumName?: string;
 }
 
 // 좌표계. width는 100%로 늘어나고 viewBox 비율대로 확대된다.
@@ -108,6 +110,7 @@ export function ChordScore({
   onSeek,
   onEditBar,
   arp = 0,
+  strumName = "",
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
   // 아르페지오 모드에서도 한 줄 4마디를 유지한다 — 줄바꿈이 악구와
@@ -121,12 +124,15 @@ export function ChordScore({
     activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [currentBar, follow, visibleLines]);
 
-  // 이 곡에 어울리는 스트로크 한 가지. 소리에서 그대로 뽑는 대신
-  // 표준 패턴 중 실제 연주에 가장 가까운 것을 고른다.
-  const strum = useMemo(
-    () => suggestStrum(bars, strums, bpm, timeSignature),
-    [bars, strums, bpm, timeSignature],
-  );
+  // 이 곡에 어울리는 스트로크 한 가지. 직접 고른 패턴이 있으면 그것을,
+  // 없으면 표준 패턴 중 실제 연주에 가장 가까운 것을 고른다.
+  const strum = useMemo(() => {
+    const manual = strumName
+      ? PATTERNS.find((p) => p.name === strumName)
+      : null;
+    if (manual) return { pattern: manual, why: "직접 고른 패턴" };
+    return suggestStrum(bars, strums, bpm, timeSignature);
+  }, [bars, strums, bpm, timeSignature, strumName]);
 
   const lines: Bar[][] = [];
   for (let i = 0; i < bars.length; i += per) {
@@ -207,11 +213,12 @@ export function ChordScore({
                       />
                     )}
 
-                    {/* 마디선 */}
+                    {/* 마디선. 타브 여섯 줄 사이에서도 마디 경계가 한눈에
+                        들어오게 굵게 긋는다 */}
                     <line
                       x1={x0} x2={x0}
                       y1={STAFF_TOP} y2={STAFF_TOP + STAFF_H}
-                      stroke="currentColor" strokeWidth={0.8} opacity={0.7}
+                      stroke="currentColor" strokeWidth={1.6} opacity={0.8}
                     />
 
                     {/* 박자표는 맨 처음에만 */}
@@ -366,7 +373,7 @@ export function ChordScore({
               <line
                 x1={VB_W - PAD_X} x2={VB_W - PAD_X}
                 y1={STAFF_TOP} y2={STAFF_TOP + STAFF_H}
-                stroke="currentColor" strokeWidth={0.8} opacity={0.7}
+                stroke="currentColor" strokeWidth={1.6} opacity={0.8}
               />
             </svg>
           </div>

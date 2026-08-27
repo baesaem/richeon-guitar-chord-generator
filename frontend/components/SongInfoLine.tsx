@@ -1,7 +1,8 @@
 "use client";
 
+import { StrumCells } from "@/components/StrumCells";
 import { spellKey } from "@/lib/notation";
-import { render, type StrumChoice } from "@/lib/strumLibrary";
+import type { StrumChoice } from "@/lib/strumLibrary";
 
 /**
  * 곡 안내줄 — 조성·박자·스트로크·연주설정.
@@ -51,7 +52,7 @@ export function SongInfoLine({
           onClick={onPickStrum}
           title={`${strum.why} · ${strum.pattern.hint}`}
         >
-          <span className="font-mono tracking-wide">{render(strum.pattern.cells)}</span>
+          <StrumCells pattern={strum.pattern} />
           <span className="ml-1 text-gray-400">{strum.pattern.name}</span>
         </button>
       )}

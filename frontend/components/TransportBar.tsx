@@ -4,8 +4,10 @@ import { useState } from "react";
 
 import { ArpPickModal } from "@/components/ArpPick";
 import { Popup } from "@/components/Popup";
+import { StrumPickModal } from "@/components/StrumPick";
 import { useSettings } from "@/lib/settings";
 import type { StemChoice } from "@/lib/sharedFiles";
+import type { StrumChoice } from "@/lib/strumLibrary";
 
 interface Props {
   duration: number;
@@ -31,6 +33,11 @@ interface Props {
   /** 아르페지오 패턴 추천에 쓴다 */
   timeSignature?: string;
   bpm?: number;
+  /** 직접 고른 스트로크 패턴 이름. 빈 문자열이면 자동 추천 */
+  strumName?: string;
+  onStrumName?: (name: string) => void;
+  /** 이 곡의 스트로크 자동 추천(이유 포함) */
+  strumRec?: StrumChoice;
   /** 음원 분리. 서버가 있거나 기기에 트랙이 있으면 된다 */
   stem?: StemChoice;
   onStem?: (next: StemChoice) => void;
@@ -89,8 +96,9 @@ export function SeekBar({
 export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle">) {
   const { duration, time, transpose, rate, loop, sync, lyricSync } = props;
   const [open, setOpen] = useState(false);
-  // 아르페지오 패턴 고르기 창
+  // 아르페지오·스트로크 패턴 고르기 창
   const [arpPick, setArpPick] = useState(false);
+  const [strumPick, setStrumPick] = useState(false);
   const [settings, setSettings] = useSettings();
 
   const pill = (active: boolean) =>
@@ -171,19 +179,24 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           {props.onArp && (
             <>
               <div className={sectionTitle}>
-                주법{arp > 0 && ` · 아르페지오 ${arp}`}
+                주법
+                {arp > 0
+                  ? ` · 아르페지오 ${arp}`
+                  : props.strumName
+                    ? ` · ${props.strumName}`
+                    : ""}
               </div>
               <div className="mb-1.5 grid grid-cols-2 gap-1">
-                <button className={pill(arp === 0)} onClick={() => props.onArp?.(0)}>
-                  스트로크
+                <button className={pill(arp === 0)} onClick={() => setStrumPick(true)}>
+                  스트로크{arp === 0 && props.strumName ? ` · ${props.strumName}` : ""}
                 </button>
                 <button className={pill(arp > 0)} onClick={() => setArpPick(true)}>
                   아르페지오{arp > 0 ? ` ${arp}` : ""}
                 </button>
               </div>
               <p className="mb-2 text-[11px] leading-snug text-gray-500">
-                아르페지오를 누르면 이 곡에 맞는 패턴을 추천하고 운지(타브)를
-                미리 보여줍니다. 고른 패턴대로 악보가 그려집니다.
+                누르면 이 곡에 맞는 패턴을 추천하고 미리 보여줍니다. 고른
+                패턴대로 악보가 그려집니다.
               </p>
               <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
               {arpPick && (
@@ -193,6 +206,18 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                   bpm={props.bpm ?? 0}
                   onPick={(no) => props.onArp?.(no)}
                   onClose={() => setArpPick(false)}
+                />
+              )}
+              {strumPick && props.strumRec && (
+                <StrumPickModal
+                  current={props.strumName ?? ""}
+                  rec={props.strumRec}
+                  onPick={(name) => {
+                    // 스트로크를 골랐다는 것은 스트로크로 치겠다는 뜻이다
+                    props.onArp?.(0);
+                    props.onStrumName?.(name);
+                  }}
+                  onClose={() => setStrumPick(false)}
                 />
               )}
             </>

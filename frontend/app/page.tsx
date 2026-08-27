@@ -26,6 +26,7 @@ import { clearChordAt, setChordAt } from "@/lib/editChords";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
+import { StrumPickModal } from "@/components/StrumPick";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
 import { ImportTab } from "@/components/tabs/ImportTab";
 import { LibraryTab } from "@/components/tabs/LibraryTab";
@@ -58,7 +59,7 @@ import {
 import { loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
-import { PATTERNS, render, suggestStrum } from "@/lib/strumLibrary";
+import { suggestStrum } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import {
   STAGE_LABEL,
@@ -96,6 +97,8 @@ export default function Home() {
   const [lyricSync, setLyricSync] = useState(0);
   // 주법. 0 = 스트로크, 1~ = 아르페지오 패턴 번호
   const [arp, setArp] = useState(0);
+  // 직접 고른 스트로크 패턴 이름. 빈 문자열이면 자동 추천
+  const [strumName, setStrumName] = useState("");
   // 가사 보기: 켜면 코드 박스와 곡 전체 코드 자리를 가사가 대신 쓴다
   const [showLyrics, setShowLyrics] = useState(false);
   // 곡 전체 악보 모달
@@ -187,6 +190,17 @@ export default function Home() {
   }, [result, settings.chordVocab]);
 
   const bars = useMemo(() => (result ? buildBars(result) : []), [result]);
+  // 이 곡의 스트로크 자동 추천. 고르기 창이 추천 근거로 보여준다
+  const strumRec = useMemo(
+    () =>
+      suggestStrum(
+        bars,
+        result?.strums,
+        result?.bpm ?? 0,
+        result?.time_signature ?? "4/4",
+      ),
+    [bars, result],
+  );
   // 코드악보와 같은 추천을 파형 안내줄에도 쓴다. 두 화면이 다른 패턴을
   // 권하면 어느 쪽을 믿어야 할지 알 수 없다.
   const waveStrum = useMemo(
@@ -257,6 +271,7 @@ export default function Home() {
     setSync(setup.sync);
     setLyricSync(setup.lyricSync);
     setArp(setup.arp);
+    setStrumName(setup.strum);
     addRecent(r.id, r.title || r.id);
   };
 
@@ -536,8 +551,10 @@ export default function Home() {
   // 바꾼 설정은 곧바로 그 곡에 적어 둔다
   useEffect(() => {
     if (!result) return;
-    saveSetup(result.id, { transpose, rate, loop, sync, lyricSync, arp });
-  }, [result?.id, transpose, rate, loop, sync, lyricSync, arp]); // eslint-disable-line react-hooks/exhaustive-deps
+    saveSetup(result.id, {
+      transpose, rate, loop, sync, lyricSync, arp, strum: strumName,
+    });
+  }, [result?.id, transpose, rate, loop, sync, lyricSync, arp, strumName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 연주설정에서 기본값과 달라진 것만 모은다. 악보 안내줄에 적어
   // "지금 무슨 설정으로 보고 있는지"를 늘 눈에 두게 한다.
@@ -694,6 +711,9 @@ export default function Home() {
                   onArp={setArp}
                   timeSignature={result.time_signature}
                   bpm={result.bpm}
+                  strumName={strumName}
+                  onStrumName={setStrumName}
+                  strumRec={strumRec ?? undefined}
                   stem={stem}
                   vocalBusy={vocalBusy}
                   vocalError={vocalError}
@@ -815,6 +835,7 @@ export default function Home() {
                     chords={shownChords}
                     strums={result.strums}
                     arp={arp}
+                    strumName={strumName}
                     playNotes={playNotes}
                     headerRight={
                       <button
@@ -1025,45 +1046,16 @@ export default function Home() {
       </div>
 
       {/* 스트로크 고르기. 추천이 마음에 안 들면 직접 고른다. */}
-      {showStrums && result && (
-        <Popup title="스트로크" onClose={() => setShowStrums(false)}>
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
-            {Math.round(result.bpm)} BPM · {result.time_signature} 곡입니다.
-            소리에서 그대로 딴 것이 아니라, 이 곡에 어울리는 표준 패턴을
-            권해 드립니다. 골라서 연습하세요.
-          </p>
-          <ul className="space-y-1">
-            {PATTERNS.map((p) => {
-              const fits = result.bpm >= p.bpm[0] && result.bpm <= p.bpm[1];
-              return (
-                <li
-                  key={p.name}
-                  className={[
-                    "rounded border px-2.5 py-1.5",
-                    fits
-                      ? "border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[color-mix(in_srgb,var(--accent)_7%,transparent)]"
-                      : "border-gray-200 dark:border-gray-700",
-                  ].join(" ")}
-                >
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-sm tracking-wide">
-                      {render(p.cells)}
-                    </span>
-                    <span className="text-xs font-medium">{p.name}</span>
-                    {fits && (
-                      <span className="ml-auto text-[10px] text-[var(--accent)]">
-                        이 곡에 맞음
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-0.5 text-[11px] leading-snug text-gray-500">
-                    {p.hint}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Popup>
+      {showStrums && result && strumRec && (
+        <StrumPickModal
+          current={strumName}
+          rec={strumRec}
+          onPick={(name) => {
+            setArp(0);
+            setStrumName(name);
+          }}
+          onClose={() => setShowStrums(false)}
+        />
       )}
 
       {/* 곡 전체 악보. 재생 화면은 좁으므로 볼 때만 크게 펼친다. */}
@@ -1156,6 +1148,7 @@ export default function Home() {
                   chords={shownChords}
                   strums={result.strums}
                   arp={arp}
+                  strumName={strumName}
                   playNotes={playNotes}
                   currentBar={barIdx}
                   flats={flats}
