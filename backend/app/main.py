@@ -536,6 +536,48 @@ async def song_phrases(result_id: str) -> dict:
     return {"starts": [round(t, 2) for t in starts]}
 
 
+@app.post("/api/results/{result_id}/lyrics/align")
+async def align_pasted_lyrics(result_id: str, texts: list[str]) -> AnalysisResult:
+    """붙여넣은 가사에 시각을 붙인다.
+
+    이 곡에 이미 시각이 붙은 글(자동 자막)이 있으면 그것을 자로 쓴다.
+    글자는 틀려도 언제 부르는지는 맞기 때문이다. 없으면 보컬이 시작하는
+    자리에 고르게 놓는다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    rows = [line.strip() for line in texts if line.strip()]
+    if not rows:
+        raise HTTPException(400, "붙여넣은 가사가 없습니다")
+    if not llm.enabled():
+        raise HTTPException(400, "가사 도우미(AI) 키가 없습니다")
+    if len(result.lyrics) < 2:
+        raise HTTPException(400, "이 곡에는 시각을 참고할 가사가 없습니다")
+
+    placed = await asyncio.to_thread(
+        llm.align_lyrics,
+        [{"t": line.t, "text": line.text} for line in result.lyrics],
+        rows,
+    )
+    if not placed:
+        raise HTTPException(502, "시각을 맞추지 못했습니다")
+
+    result.lyrics = [
+        LyricLine(
+            t=row["t"],
+            end=placed[i + 1]["t"] if i + 1 < len(placed) else result.duration,
+            text=row["text"],
+        )
+        for i, row in enumerate(placed)
+    ]
+    result.lyrics_approx = False
+    save_result(result)
+    return result
+
+
 @app.post("/api/results/{result_id}/lyrics/tidy")
 async def tidy_lyrics_endpoint(result_id: str) -> AnalysisResult:
     """붙어 있는 가사를 AI로 다듬는다.

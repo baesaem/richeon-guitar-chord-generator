@@ -203,6 +203,19 @@ export const fetchLyrics = (id: string, q = "") =>
   ).then(json<AnalysisResult>);
 
 /**
+ * 붙여넣은 가사에 AI가 시각을 붙인다.
+ *
+ * 이 곡에 이미 시각이 붙은 글(자동 자막)이 있으면 그것을 자로 쓴다.
+ * 글자는 틀려도 언제 부르는지는 맞기 때문이다.
+ */
+export const alignLyrics = (id: string, texts: string[]) =>
+  fetch(`${apiBase()}/api/results/${id}/lyrics/align`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(texts),
+  }).then(json<AnalysisResult>);
+
+/**
  * 이 곡에서 노래가 시작하는 자리들(초).
  *
  * 시간 표시가 없는 가사를 붙여넣었을 때 어디에 놓을지 정하는 데 쓴다.

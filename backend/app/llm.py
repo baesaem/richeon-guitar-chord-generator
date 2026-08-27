@@ -392,3 +392,81 @@ def tidy_lyrics(rows: list[dict]) -> list[dict]:
             out.append({"t": round(t, 2), "text": text})
     out.sort(key=lambda r: r["t"])
     return out
+
+
+# ── 붙여넣은 가사에 시각 붙이기 ────────────────────────────────────
+#
+# 사람이 웹에서 가사를 긁어 붙여넣으면 글자는 맞는데 시각이 없다. 노래
+# 자리에 고르게 나눠 놓아 봐야 소절마다 어긋난다.
+#
+# 하지만 이 곡에는 이미 시각이 붙은 글이 있다 — 자동 자막이다. 글자는
+# 틀려도 **언제 부르는지는 맞다**. 두 글을 나란히 놓고 "이 소절은 저
+# 조각들에서 부르는 말"을 맞추는 일은 LLM이 잘하는 종류의 일이다.
+
+_ALIGN_PROMPT = """아래 (가)는 이 노래의 자동 자막을 번호를 붙여 늘어놓은
+것입니다. 글자는 틀릴 수 있지만 **언제 부르는지는 맞습니다**. (나)는 사람이
+넣은 정확한 가사입니다.
+
+(나)의 각 줄이 (가)의 몇 번 조각에서 시작하는지 찾아 주세요.
+
+규칙:
+- (나)의 줄을 **하나도 빼지 말고, 순서 그대로** 출력하세요.
+- 번호는 (가)에 실제로 있는 번호만 씁니다. **새 숫자를 만들지 마세요.**
+- 번호는 커지는 순서여야 합니다. 같은 번호를 두 번 쓰지 마세요.
+- 자막의 글자가 틀려도 소리 나는 대로 읽어 맞춰 보세요
+  ("나연만이"는 "낙엽만이", "미은"은 "빛은"입니다).
+
+JSON 배열만 출력하세요. 줄 번호는 (나)의 순서, 값은 (가)의 조각 번호입니다:
+[조각번호, 조각번호, ...]
+
+(가) 자동 자막:
+{captions}
+
+(나) 정확한 가사:
+{lyrics}"""
+
+
+def align_lyrics(timed: list[dict], texts: list[str]) -> list[dict]:
+    """붙여넣은 가사에 시각을 붙인다. 실패하면 빈 목록.
+
+    timed는 [{"t": 초, "text": "..."}] (자막), texts는 정확한 가사 줄들.
+    """
+    if not enabled() or not texts or len(timed) < 2:
+        return []
+
+    captions = "\n".join(f"{i + 1}. {row['text']}" for i, row in enumerate(timed))
+    lyrics = "\n".join(f"{i + 1}. {line}" for i, line in enumerate(texts))
+    try:
+        raw = _chat(_ALIGN_PROMPT.format(captions=captions, lyrics=lyrics))
+    except Exception:
+        return []
+
+    start, end = raw.find("["), raw.rfind("]")
+    if start < 0 or end <= start:
+        return []
+    try:
+        picks = json.loads(raw[start : end + 1])
+    except ValueError:
+        return []
+    if not isinstance(picks, list) or len(picks) != len(texts):
+        return []
+
+    # 시각은 우리가 정한다. 모델은 어느 조각인지만 고른다 — 시각까지 맡기면
+    # 자막에 없는 숫자를 지어낸다(실측: 22.64, 29.74처럼 그럴듯하지만 자막
+    # 어디에도 없는 값을 만들어 냈다).
+    out: list[dict] = []
+    last = -1
+    for i, pick in enumerate(picks):
+        try:
+            idx = int(pick) - 1
+        except (TypeError, ValueError):
+            return []
+        if not 0 <= idx < len(timed):
+            return []
+        # 순서가 뒤집히면 앞 줄 바로 다음 조각으로 민다
+        idx = max(idx, last + 1)
+        if idx >= len(timed):
+            return []
+        last = idx
+        out.append({"t": round(float(timed[idx]["t"]), 2), "text": texts[i]})
+    return out
