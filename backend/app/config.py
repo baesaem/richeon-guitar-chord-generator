@@ -47,7 +47,9 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-5.4-mini"
-    llm_timeout: float = 20.0
+    # 20초는 짧았다. 코드 진행이나 검색어 목록처럼 답이 긴 요청에서
+    # 읽기 시간 초과가 났다. 가사·검색은 부가 기능이라 오래 걸려도 된다.
+    llm_timeout: float = 90.0
 
     def ensure_dirs(self) -> None:
         self.audio_dir.mkdir(parents=True, exist_ok=True)

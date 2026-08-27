@@ -12,6 +12,7 @@ import {
   listSharedDirect,
 } from "@/lib/driveDirect";
 import { localIds, parseResultsText, saveLocal, saveLocalAudio } from "@/lib/library";
+import { hasLocalLlm } from "@/lib/llmClient";
 import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
 import {
   audioBaseOf,
@@ -40,9 +41,11 @@ interface Props {
   autoOpen?: CardKind;
   onAnalyzeUrl: (url: string) => void;
   onAnalyzeFile: (file: File) => void;
+  /** 서버 없이 AI로 코드를 만든다. 서버가 없을 때만 쓴다 */
+  onAnalyzeWithAi: (url: string) => void;
 }
 
-type CardKind = "youtube" | "file" | "shared";
+type CardKind = "youtube" | "file" | "shared" | "ai";
 type SharedFilter = "unfetched" | "fetched" | "all";
 
 const SHARED_FILTERS: { value: SharedFilter; label: string }[] = [
@@ -93,6 +96,7 @@ export function ImportTab({
   autoOpen,
   onAnalyzeUrl,
   onAnalyzeFile,
+  onAnalyzeWithAi,
 }: Props) {
   const [url, setUrl] = useState("");
   const [open, setOpen] = useState<CardKind | null>(autoOpen ?? null);
@@ -238,6 +242,29 @@ export function ImportTab({
         onClick={() => setOpen("file")}
       />
 
+      {!health && hasLocalLlm() && (
+        <Card
+          icon={
+            <svg
+              viewBox="0 0 24 24"
+              className="h-6 w-6 text-gray-600 dark:text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+              <circle cx="12" cy="12" r="3.2" />
+            </svg>
+          }
+          title="AI로 코드 만들기"
+          description="서버 없이 씁니다. 되는 곡이 드물고 실제 녹음과 어긋납니다"
+          onClick={() => setOpen("ai")}
+        />
+      )}
+
       {health?.youtube_enabled && (
         <Card
           icon={
@@ -315,6 +342,36 @@ export function ImportTab({
             }}
           >
             분석
+          </button>
+        </Popup>
+      )}
+
+      {/* ---- AI로 코드 만들기 모달 ---- */}
+      {open === "ai" && (
+        <Popup title="AI로 코드 만들기" onClose={() => setOpen(null)}>
+          <p className="mb-2 rounded bg-amber-50 px-2 py-2 text-[11px] leading-snug text-amber-800">
+            분석 서버가 없을 때 쓰는 대체 수단입니다. AI가 <b>음원을 듣지
+            않고</b> 아는 코드를 적어 주는 것이라, 되는 곡이 드물고 되더라도
+            전주 길이나 반복 횟수가 실제 녹음과 어긋납니다. 강상기타반에서
+            받은 곡이 언제나 더 정확합니다.
+          </p>
+          <input
+            className="w-full rounded border px-3 py-3 text-base"
+            placeholder="https://www.youtube.com/watch?v=..."
+            inputMode="url"
+            autoFocus
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+          <button
+            className="mt-3 w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
+            disabled={!url || busy}
+            onClick={() => {
+              setOpen(null);
+              onAnalyzeWithAi(url);
+            }}
+          >
+            AI로 만들기
           </button>
         </Popup>
       )}

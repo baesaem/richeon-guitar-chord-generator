@@ -29,15 +29,36 @@ const DEFAULT_MODEL = "";
  * 코드로 부를 수 있다. 실제로 브라우저에서 불러 확인했다.
  */
 export const PROVIDERS = [
-  { id: "openai", name: "OpenAI (GPT)", base: "https://api.openai.com/v1" },
   {
     id: "gemini",
     name: "구글 제미나이",
     base: "https://generativelanguage.googleapis.com/v1beta/openai",
+    /** 브라우저에서 직접 부를 수 있는가 */
+    fromBrowser: true,
+  },
+  {
+    id: "openai",
+    name: "OpenAI (GPT)",
+    base: "https://api.openai.com/v1",
+    fromBrowser: false,
   },
 ] as const;
 
+/**
+ * 기기에서 직접 부를 때의 기본은 제미나이다.
+ *
+ * OpenAI는 브라우저에서 대화 요청을 막아 둔다. 실측: /v1/models는 401로
+ * 답이 오지만 /v1/chat/completions는 Access-Control-Allow-Origin이 없어
+ * 브라우저가 차단한다. 서버가 부를 때는 문제없다 — 브라우저만 막힌다.
+ */
 const DEFAULT_BASE: string = PROVIDERS[0].base;
+
+/** 이 주소를 브라우저에서 직접 부를 수 있는가 */
+export function callableFromBrowser(base: string): boolean {
+  const known = PROVIDERS.find((p) => p.base === base.replace(/\/+$/, ""));
+  // 모르는 주소는 막지 않는다. 직접 넣은 서버는 대개 CORS를 열어 둔다
+  return known ? known.fromBrowser : true;
+}
 
 export function localLlmBase(): string {
   try {
@@ -112,9 +133,18 @@ export const localLlmServerSnapshot = () => EMPTY;
 /** 이 기기에서 LLM을 쓸 수 있는가 */
 export const hasLocalLlm = () => localLlmKey().length > 0;
 
+/** 다른 모듈에서도 같은 경로로 부를 수 있게 열어 둔다 */
+export const chatOnce = (prompt: string) => chat(prompt);
+
 async function chat(prompt: string): Promise<string> {
   const model = localLlmModel();
   if (!model) throw new Error("모델이 정해지지 않았습니다. 연결 확인을 눌러 주세요.");
+  if (!callableFromBrowser(localLlmBase())) {
+    throw new Error(
+      "OpenAI는 브라우저에서 직접 부를 수 없게 막아 두었습니다. " +
+        "설정에서 구글 제미나이를 고르거나, 집 서버에 연결해 주세요.",
+    );
+  }
 
   const res = await fetch(`${localLlmBase()}/chat/completions`, {
     method: "POST",

@@ -14,6 +14,7 @@ import {
   localLlmKey,
   localLlmServerSnapshot,
   localLlmSnapshot,
+  callableFromBrowser,
   pickModel,
   providerOf,
   saveLocalLlm,
@@ -423,6 +424,14 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
           setNotice(null);
         }}
       />
+
+      {!callableFromBrowser(stored.base) && (
+        <p className="mb-2 rounded bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800">
+          OpenAI는 브라우저에서 직접 부를 수 없게 막아 두었습니다(제공사
+          정책). 서버 없이 쓰려면 <b>구글 제미나이</b>를 고르세요. 집 서버에
+          연결해서 쓸 때는 OpenAI도 그대로 됩니다.
+        </p>
+      )}
 
       {saved ? (
         <div className="mb-2 flex items-center gap-2 rounded bg-green-50 px-2 py-1.5 text-[11px] text-green-800">

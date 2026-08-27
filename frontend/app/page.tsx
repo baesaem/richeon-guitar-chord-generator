@@ -14,6 +14,7 @@ import { HomeDashboard } from "@/components/HomeDashboard";
 import { LyricsPane } from "@/components/LyricsPane";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
 import { MySheet } from "@/components/MySheet";
+import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
@@ -251,6 +252,42 @@ export default function Home() {
     }
   };
 
+  /**
+   * 서버 없이 AI로 코드를 만든다.
+   *
+   * 되는 곡이 드물다 — 실측에서 세 곡 모두 "모른다"고 답했다. 그래서
+   * 실패를 조용히 넘기지 않고 왜 안 됐는지 그대로 알려 준다.
+   */
+  const aiAnalyze = async (url: string) => {
+    setError(null);
+    const id = url.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1];
+    if (!id) {
+      setError("YouTube 주소에서 영상 번호를 찾지 못했습니다");
+      return;
+    }
+    setStatus({
+      job_id: "ai",
+      stage: "chords",
+      progress: 0.5,
+      message: "AI에게 코드를 물어보는 중",
+    } as JobStatus);
+    try {
+      const result = await analyzeWithAi(id, url, 0);
+      setStatus(null);
+      resetPlayback();
+      showSong(result);
+      setTab("home");
+      if (settings.autoSave) saveLocal(result).catch(() => {});
+    } catch (e) {
+      setStatus(null);
+      setError(
+        e instanceof NotKnown
+          ? `${e.message}. 강상기타반에서 받거나, 집 서버에 연결해 분석해 주세요.`
+          : (e as Error).message,
+      );
+    }
+  };
+
   const openSaved = async (id: string) => {
     setError(null);
     resetPlayback();
@@ -473,6 +510,14 @@ export default function Home() {
                 />
               ) : (
                 <div className="shrink-0 px-2 py-1">
+                  {/* AI가 아는 코드로 만든 초안은 반드시 밝힌다.
+                      음원을 들은 결과가 아니라 실제 녹음과 어긋난다 */}
+                  {result.meta?.chord_model === "ai-knowledge" && (
+                    <p className="mb-1 rounded bg-amber-50 px-2 py-1 text-[10px] leading-snug text-amber-800">
+                      AI가 아는 코드로 만든 초안입니다. 음원을 듣고 만든 것이
+                      아니라 전주 길이·반복 횟수가 실제 녹음과 어긋납니다.
+                    </p>
+                  )}
                   {/* 지금 줄과 다음 줄만. 현재 줄이 늘 위에 온다 */}
                   <ChordScore
                     bars={bars}
@@ -628,6 +673,7 @@ export default function Home() {
             adminMode={settings.adminMode}
             autoOpen={importCard}
             onAnalyzeUrl={(u) => run(() => analyzeUrl(u, settings.separate))}
+            onAnalyzeWithAi={aiAnalyze}
             onAnalyzeFile={(f) => run(() => analyzeUpload(f, settings.separate))}
           />
         )}
