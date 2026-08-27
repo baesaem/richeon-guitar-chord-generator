@@ -17,6 +17,7 @@ from .analysis.separate import instrumental_path, separate
 from .config import settings
 from .jobs import load_result, manager, result_path, save_result
 from .lyrics import fetch_lyrics_blocking
+from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
 from .sheets import clean_query, search as search_sheets
 from .schemas import (
@@ -183,7 +184,6 @@ async def test_llm_settings() -> dict:
         raise HTTPException(400, "API 키가 없습니다")
 
     def probe() -> dict:
-        import urllib.error
         import urllib.request
 
         req = urllib.request.Request(
@@ -192,38 +192,21 @@ async def test_llm_settings() -> dict:
         )
         with urllib.request.urlopen(req, timeout=settings.llm_timeout) as res:
             data = json.load(res)
-        # 새 것부터. created는 발표 시각(epoch)이라 최신 모델이 앞에 온다.
-        rows = sorted(
-            data.get("data", []),
-            key=lambda m: m.get("created", 0),
-            reverse=True,
-        )
-        return {"count": len(rows), "models": [m["id"] for m in rows]}
+        rows = data.get("data", [])
+        return {
+            "count": len(rows),
+            "models": rank_models(rows),
+            "all": [str(m.get("id", "")) for m in rows],
+        }
 
     try:
         found = await asyncio.to_thread(probe)
     except Exception as exc:
         raise HTTPException(502, f"연결하지 못했습니다: {exc}") from exc
 
-    # 대화용 모델만 추린다. 임베딩·음성·이미지 모델은 걸러 낸다.
-    chat = [
-        m
-        for m in found["models"]
-        if any(m.startswith(p) for p in ("gpt-", "o1", "o3", "o4", "claude", "gemini"))
-        and not any(
-            bad in m
-            for bad in (
-                "embed", "tts", "whisper", "image", "realtime", "audio",
-                "moderation", "transcribe", "search", "dall-e", "sora",
-            )
-        )
-    ]
-    # 가장 새 모델을 권한다. 다만 날짜가 붙은 스냅샷(gpt-5.5-2026-04-23)은
-    # 건너뛴다 — 같은 모델을 가리키면서 언젠가 사라지는 이름이라, 날짜 없는
-    # 쪽을 두면 새 판이 나와도 그대로 따라간다.
-    stable = [m for m in chat if not re.search(r"-(19|20)\d{2}-\d{2}-\d{2}$", m)]
-    recommended = (stable or chat or [""])[0]
-    ok = cfg["model"] in found["models"]
+    chat = found["models"]
+    recommended = pick_model(chat)
+    ok = cfg["model"] in found["all"]
     return {
         "ok": True,
         "model_available": ok,

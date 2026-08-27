@@ -13,7 +13,44 @@
 
 const KEY = "chordgen.llmKey";
 const MODEL_KEY = "chordgen.llmModel";
-const DEFAULT_MODEL = "gpt-5.4-mini";
+const BASE_KEY = "chordgen.llmBase";
+/**
+ * 저장된 모델이 없으면 비워 둔다.
+ *
+ * 서비스마다 모델 이름이 다르고 자주 바뀐다. 기본값을 박아 두면 제미나이를
+ * 골랐는데 gpt 이름이 남아 있는 꼴이 된다. 연결 확인 한 번이면 채워진다.
+ */
+const DEFAULT_MODEL = "";
+
+/**
+ * 쓸 수 있는 서비스.
+ *
+ * 제미나이는 OpenAI 호환 주소를 따로 열어 둬서, 주소만 바꾸면 같은
+ * 코드로 부를 수 있다. 실제로 브라우저에서 불러 확인했다.
+ */
+export const PROVIDERS = [
+  { id: "openai", name: "OpenAI (GPT)", base: "https://api.openai.com/v1" },
+  {
+    id: "gemini",
+    name: "구글 제미나이",
+    base: "https://generativelanguage.googleapis.com/v1beta/openai",
+  },
+] as const;
+
+const DEFAULT_BASE: string = PROVIDERS[0].base;
+
+export function localLlmBase(): string {
+  try {
+    return localStorage.getItem(BASE_KEY) || DEFAULT_BASE;
+  } catch {
+    return DEFAULT_BASE;
+  }
+}
+
+/** 지금 주소가 어느 서비스인지. 목록에 없으면 빈 문자열 */
+export function providerOf(base: string): string {
+  return PROVIDERS.find((p) => p.base === base.replace(/\/+$/, ""))?.id ?? "";
+}
 
 export function localLlmKey(): string {
   try {
@@ -25,7 +62,7 @@ export function localLlmKey(): string {
 
 export function localLlmModel(): string {
   try {
-    return localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL;
+    return localStorage.getItem(MODEL_KEY) ?? DEFAULT_MODEL;
   } catch {
     return DEFAULT_MODEL;
   }
@@ -34,17 +71,22 @@ export function localLlmModel(): string {
 /** 화면이 값 변화를 따라올 수 있게 하는 구독 목록 */
 const listeners = new Set<() => void>();
 /** useSyncExternalStore는 같은 값이면 같은 객체를 돌려줘야 한다 */
-let snapshot = { key: "", model: DEFAULT_MODEL };
+let snapshot = { key: "", model: DEFAULT_MODEL, base: DEFAULT_BASE };
 
-export function saveLocalLlm(key: string, model?: string): void {
+export function saveLocalLlm(key: string, model?: string, base?: string): void {
   try {
     if (key) localStorage.setItem(KEY, key);
     else localStorage.removeItem(KEY);
-    if (model) localStorage.setItem(MODEL_KEY, model);
+    // 빈 문자열은 "지우기". 서비스를 바꾸면 이전 모델 이름은 못 쓴다
+    if (model !== undefined) {
+      if (model) localStorage.setItem(MODEL_KEY, model);
+      else localStorage.removeItem(MODEL_KEY);
+    }
+    if (base) localStorage.setItem(BASE_KEY, base.replace(/\/+$/, ""));
   } catch {
     // 저장이 막혀도 이번 세션 동안은 쓸 수 있다
   }
-  snapshot = { key: localLlmKey(), model: localLlmModel() };
+  snapshot = { key: localLlmKey(), model: localLlmModel(), base: localLlmBase() };
   listeners.forEach((fn) => fn());
 }
 
@@ -57,25 +99,31 @@ export function subscribeLocalLlm(fn: () => void): () => void {
 export function localLlmSnapshot() {
   const key = localLlmKey();
   const model = localLlmModel();
-  if (key !== snapshot.key || model !== snapshot.model) snapshot = { key, model };
+  const base = localLlmBase();
+  if (key !== snapshot.key || model !== snapshot.model || base !== snapshot.base) {
+    snapshot = { key, model, base };
+  }
   return snapshot;
 }
 
-const EMPTY = { key: "", model: DEFAULT_MODEL };
+const EMPTY = { key: "", model: DEFAULT_MODEL, base: DEFAULT_BASE };
 export const localLlmServerSnapshot = () => EMPTY;
 
 /** 이 기기에서 LLM을 쓸 수 있는가 */
 export const hasLocalLlm = () => localLlmKey().length > 0;
 
 async function chat(prompt: string): Promise<string> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const model = localLlmModel();
+  if (!model) throw new Error("모델이 정해지지 않았습니다. 연결 확인을 눌러 주세요.");
+
+  const res = await fetch(`${localLlmBase()}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${localLlmKey()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: localLlmModel(),
+      model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0,
     }),
@@ -146,30 +194,32 @@ export function searchQueries(info: SongInfo | null, fallback: string): string[]
   return out.filter((q) => q && !seen.has(q) && seen.add(q));
 }
 
-/** 가사 정리에 쓸 만하지 않은 모델 */
-const NOT_CHAT = [
-  "embed",
-  "tts",
-  "whisper",
-  "image",
-  "realtime",
-  "audio",
-  "moderation",
-  "search",
-  "transcribe",
-  "dall-e",
-  "sora",
-];
-
 /**
- * 이 키로 쓸 수 있는 대화 모델. 새로 나온 것부터.
+ * 모델 목록 고르기 — 백엔드 llm.py와 같은 규칙.
  *
- * OpenAI가 주는 created는 그 모델이 나온 시각이라 그대로 정렬하면
- * 최신 모델이 앞에 온다. 목록을 손으로 관리하지 않아도 새 모델이 나오면
- * 저절로 맨 앞에 나타난다.
+ * OpenAI든 제미나이든 /models 응답 모양은 같다. 다만 제미나이는
+ * "models/gemini-2.5-flash" 꼴로 주고 created를 빼는 일이 있어, 그럴
+ * 때는 이름에 박힌 판번호로 새 것을 가린다.
  */
+const NOT_CHAT = [
+  "embed", "tts", "whisper", "image", "realtime", "audio", "moderation",
+  "transcribe", "search", "dall-e", "sora", "veo", "aqa", "computer-use",
+];
+const CHAT_PREFIX = /^(gpt-|o1|o3|o4|claude|gemini)/;
+/** gpt-5.5-2026-04-23 처럼 날짜가 붙은 스냅샷 */
+const SNAPSHOT = /-(19|20)\d{2}-\d{2}-\d{2}$/;
+
+/** 제미나이는 "models/…" 앞머리를 붙여 준다 */
+const bare = (id: string) => id.split("/").pop() ?? id;
+
+const version = (id: string) => Number(bare(id).match(/\d+(\.\d+)?/)?.[0] ?? 0);
+
+const isChatModel = (id: string) =>
+  CHAT_PREFIX.test(bare(id)) && !NOT_CHAT.some((bad) => bare(id).includes(bad));
+
+/** 이 키로 쓸 수 있는 대화 모델. 새로 나온 것부터. */
 export async function listLocalModels(): Promise<string[]> {
-  const res = await fetch("https://api.openai.com/v1/models", {
+  const res = await fetch(`${localLlmBase()}/models`, {
     headers: { Authorization: `Bearer ${localLlmKey()}` },
   });
   if (!res.ok) {
@@ -180,23 +230,23 @@ export async function listLocalModels(): Promise<string[]> {
   }
   const data = (await res.json()) as { data: { id: string; created?: number }[] };
   return data.data
+    .filter((m) => isChatModel(m.id))
     .slice()
-    .sort((a, b) => (b.created ?? 0) - (a.created ?? 0))
-    .map((m) => m.id)
-    .filter(
-      (id) =>
-        /^(gpt-|o1|o3|o4)/.test(id) && !NOT_CHAT.some((bad) => id.includes(bad)),
-    );
+    .sort(
+      (a, b) =>
+        (b.created ?? 0) - (a.created ?? 0) || version(b.id) - version(a.id),
+    )
+    .map((m) => m.id);
 }
 
 /**
- * 목록에서 쓸 모델 하나를 고른다 — 가장 새 것.
+ * 목록에서 쓸 모델 하나 — 가장 새 것.
  *
- * 날짜가 붙은 스냅샷(gpt-5.5-2026-04-23)은 건너뛴다. 같은 모델을 가리키면서
- * 언젠가 사라지는 이름이라, 날짜 없는 쪽을 두면 새 판이 나와도 따라간다.
+ * 날짜가 붙은 스냅샷은 건너뛴다. 같은 모델을 가리키면서 언젠가 사라지는
+ * 이름이라, 날짜 없는 쪽을 두면 새 판이 나와도 그대로 따라간다.
  */
 export function pickModel(models: string[]): string {
-  const stable = models.filter((m) => !/-(19|20)\d{2}-\d{2}-\d{2}$/.test(m));
+  const stable = models.filter((m) => !SNAPSHOT.test(bare(m)));
   return stable[0] ?? models[0] ?? DEFAULT_MODEL;
 }
 

@@ -9,15 +9,108 @@ import {
   type LlmSettings,
 } from "@/lib/api";
 import {
+  PROVIDERS,
   listLocalModels,
   localLlmKey,
   localLlmServerSnapshot,
   localLlmSnapshot,
   pickModel,
+  providerOf,
   saveLocalLlm,
   subscribeLocalLlm,
   testLocalLlm,
 } from "@/lib/llmClient";
+
+/** 서비스마다 키 모양이 달라 안내를 맞춰 준다 */
+function keyHint(base: string): string {
+  return providerOf(base) === "gemini"
+    ? "제미나이 API 키 (AIza…)"
+    : "API 키 (sk-…)";
+}
+
+/**
+ * 어느 서비스를 쓸지 고르는 줄.
+ *
+ * 제미나이도 OpenAI 호환 주소를 열어 둬서 주소만 바꾸면 같은 코드로
+ * 부를 수 있다. 서비스를 바꾸면 키도 모델도 그 서비스 것이라야 한다.
+ */
+function ProviderPicker({
+  base,
+  disabled,
+  onPick,
+}: {
+  base: string;
+  disabled: boolean;
+  onPick: (base: string) => void;
+}) {
+  const current = providerOf(base);
+
+  return (
+    <div className="mb-2 flex gap-1">
+      {PROVIDERS.map((p) => (
+        <button
+          key={p.id}
+          disabled={disabled}
+          className={[
+            "flex-1 rounded py-1.5 text-[11px] disabled:opacity-40",
+            current === p.id
+              ? "bg-[var(--accent)] text-white"
+              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+          ].join(" ")}
+          onClick={() => onPick(p.base)}
+        >
+          {p.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 모델 고르는 칸.
+ *
+ * 목록을 받아 왔으면 그중에서 고르게 한다. 아직 못 받아 왔으면 지금 값을
+ * 보여만 준다 — 빈 칸에 이름을 외워 적게 하지 않는다.
+ */
+function ModelPicker({
+  value,
+  models,
+  disabled,
+  onPick,
+}: {
+  value: string;
+  models: string[];
+  disabled: boolean;
+  onPick: (model: string) => void;
+}) {
+  // 지금 쓰는 모델이 목록에 없을 수도 있다(옛 이름을 저장해 둔 경우).
+  // 그래도 칸에는 보여야 하므로 앞에 끼워 넣는다.
+  const options = models.includes(value) || !value ? models : [value, ...models];
+
+  if (options.length === 0) {
+    return (
+      <div className="w-full rounded border px-3 py-2 text-xs text-gray-500">
+        {value || "연결 확인을 누르면 채워집니다"}
+      </div>
+    );
+  }
+
+  return (
+    <select
+      className="w-full rounded border px-2 py-2 text-xs"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onPick(e.target.value)}
+    >
+      {options.map((m, i) => (
+        <option key={m} value={m}>
+          {m}
+          {i === 0 && models[0] === m ? " (최신)" : ""}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 /**
  * 가사 도우미(AI) 설정.
@@ -37,15 +130,26 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
   const [baseUrl, setBaseUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+
   useEffect(() => {
     if (!online) return;
+    let alive = true;
     getLlmSettings()
-      .then((c) => {
+      .then(async (c) => {
+        if (!alive) return;
         setCfg(c);
         setModel(c.model);
         setBaseUrl(c.base_url);
+        // 키가 있으면 고를 목록을 미리 채워 둔다. 모델을 바꾸지는 않는다
+        if (!c.configured) return;
+        const probe = await testLlmSettings().catch(() => null);
+        if (alive && probe) setModels(probe.models);
       })
       .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, [online]);
 
   const save = async (patch: { api_key?: string; base_url?: string; model?: string }) => {
@@ -77,6 +181,7 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
     setNotice(null);
     try {
       const res = await testLlmSettings();
+      setModels(res.models);
       if (!res.recommended) {
         setNotice({ ok: false, text: "쓸 수 있는 모델이 없습니다." });
         return;
@@ -111,6 +216,22 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
         코드 인식에는 쓰지 않습니다.
       </p>
 
+      {online && cfg && (
+        <ProviderPicker
+          base={cfg.base_url}
+          disabled={busy}
+          onPick={async (next) => {
+            // 서비스가 바뀌면 이전 키·모델은 못 쓴다. 같이 비운다.
+            // 키를 지우는 일이니 저장된 게 있으면 먼저 물어본다
+            if (cfg.configured && !confirm("저장된 키가 지워집니다. 바꿀까요?")) {
+              return;
+            }
+            setModels([]);
+            await save({ base_url: next, api_key: "", model: "" });
+          }}
+        />
+      )}
+
       {!online ? (
         <LocalKeyForm input={input} btn={btn} />
       ) : cfg?.configured ? (
@@ -139,7 +260,7 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
           <input
             className={input}
             type="password"
-            placeholder="API 키 (sk-…)"
+            placeholder={keyHint(cfg?.base_url ?? "")}
             autoComplete="off"
             spellCheck={false}
             value={key}
@@ -160,21 +281,12 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
       )}
 
       <div className="flex gap-1.5 [&:not(:first-child)]:mt-1.5">
-        <input
-          className={input}
-          placeholder="모델 (연결 확인하면 자동으로 채워집니다)"
-          autoComplete="off"
-          spellCheck={false}
+        <ModelPicker
           value={model}
-          onChange={(e) => setModel(e.target.value)}
+          models={models}
+          disabled={busy}
+          onPick={(m) => save({ model: m })}
         />
-        <button
-          className={btn}
-          disabled={busy || !model.trim() || model === cfg?.model}
-          onClick={() => save({ model: model.trim() })}
-        >
-          적용
-        </button>
         <button className={btn} disabled={busy || !cfg?.configured} onClick={test}>
           연결 확인
         </button>
@@ -200,7 +312,7 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
       {online && (
       <details className="mt-1.5">
         <summary className="cursor-pointer text-[11px] text-gray-500">
-          다른 서비스 쓰기 (OpenAI 호환 주소)
+          주소 직접 넣기 (OpenAI 호환)
         </summary>
         <div className="mt-1.5 flex gap-1.5">
           <input
@@ -220,8 +332,8 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
           </button>
         </div>
         <p className="mt-1 text-[10px] leading-snug text-gray-400">
-          OpenAI 호환 API면 무엇이든 됩니다. 내 PC에서 돌리는 모델도 주소만
-          바꾸면 쓸 수 있습니다.
+          위 두 서비스 말고도 OpenAI 호환 API면 무엇이든 됩니다. 내 PC에서
+          돌리는 모델도 주소만 바꾸면 쓸 수 있습니다.
         </p>
       </details>
       )}
@@ -243,13 +355,24 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
   );
   const saved = stored.key;
 
-  // 입력 중인 모델 이름. 비어 있으면 저장된 값을 보여준다
-  const [draftModel, setDraftModel] = useState("");
-  const model = draftModel || stored.model;
-  const setModel = setDraftModel;
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+
+  // 키가 있으면 고를 목록을 미리 채워 둔다. 모델을 바꾸지는 않는다
+  useEffect(() => {
+    if (!stored.key) return;
+    let alive = true;
+    listLocalModels()
+      .then((found) => {
+        if (alive) setModels(found);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [stored.key, stored.base]);
   const store = (nextKey: string, nextModel?: string) => {
     saveLocalLlm(nextKey, nextModel);
     setKey("");
@@ -267,12 +390,10 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
     setNotice(null);
     try {
       const found = await listLocalModels();
+      setModels(found);
       if (!found.length) throw new Error("쓸 수 있는 모델이 없습니다");
       const best = pickModel(found);
-      if (best !== stored.model) {
-        saveLocalLlm(localLlmKey(), best);
-        setDraftModel("");
-      }
+      if (best !== stored.model) saveLocalLlm(localLlmKey(), best);
       // 목록만 보고 끝내지 않는다. 실제로 한 번 물어봐야 되는지 안다
       const res = await testLocalLlm();
       setNotice({
@@ -288,6 +409,21 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
 
   return (
     <div>
+      <ProviderPicker
+        base={stored.base}
+        disabled={busy}
+        onPick={(next) => {
+          // 서비스가 바뀌면 이전 키·모델은 못 쓴다. 같이 비운다.
+          // 키를 지우는 일이니 저장된 게 있으면 먼저 물어본다
+          if (saved && !confirm("이 기기에 저장된 키가 지워집니다. 바꿀까요?")) {
+            return;
+          }
+          setModels([]);
+          saveLocalLlm("", "", next);
+          setNotice(null);
+        }}
+      />
+
       {saved ? (
         <div className="mb-2 flex items-center gap-2 rounded bg-green-50 px-2 py-1.5 text-[11px] text-green-800">
           <span>이 기기에 저장됨 · {saved.slice(0, 6)}…{saved.slice(-4)}</span>
@@ -308,7 +444,7 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
           <input
             className={input}
             type="password"
-            placeholder="API 키 (sk-…)"
+            placeholder={keyHint(stored.base)}
             autoComplete="off"
             spellCheck={false}
             value={key}
@@ -328,24 +464,15 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
       )}
 
       <div className="flex gap-1.5 [&:not(:first-child)]:mt-1.5">
-        <input
-          className={input}
-          placeholder="모델 (연결 확인하면 자동으로 채워집니다)"
-          autoComplete="off"
-          spellCheck={false}
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-        />
-        <button
-          className={btn}
-          disabled={!model.trim()}
-          onClick={() => {
-            saveLocalLlm(localLlmKey(), model.trim());
-            setNotice({ ok: true, text: "모델을 바꿨습니다." });
+        <ModelPicker
+          value={stored.model}
+          models={models}
+          disabled={busy}
+          onPick={(m) => {
+            saveLocalLlm(localLlmKey(), m);
+            setNotice({ ok: true, text: `${m} 로 바꿨습니다.` });
           }}
-        >
-          적용
-        </button>
+        />
         <button className={btn} disabled={busy || !saved} onClick={test}>
           연결 확인
         </button>

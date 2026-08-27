@@ -23,6 +23,7 @@ LLM이 잘하는 것은 **글을 다루는 일**이다. 여기서는 두 가지�
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 
@@ -125,3 +126,59 @@ def song_info(video_title: str) -> SongInfo | None:
     except (urllib.error.URLError, urllib.error.HTTPError, ValueError, KeyError):
         # 가사는 부가 기능이다. LLM이 죽어도 분석은 그대로 간다.
         return None
+
+
+# ── 모델 목록 고르기 ──────────────────────────────────────────────
+#
+# OpenAI든 제미나이든 /models 응답 모양은 같다(제미나이는 OpenAI 호환
+# 주소를 제공한다). 다만 제미나이 쪽은 created를 주지 않는 일이 있어,
+# 그럴 때는 이름에 박힌 판번호로 새 것을 가린다.
+
+_NOT_CHAT = (
+    "embed", "tts", "whisper", "image", "realtime", "audio", "moderation",
+    "transcribe", "search", "dall-e", "sora", "veo", "aqa", "computer-use",
+)
+_CHAT_PREFIX = ("gpt-", "o1", "o3", "o4", "claude", "gemini")
+# gpt-5.5-2026-04-23 처럼 날짜가 붙은 스냅샷
+_SNAPSHOT = re.compile(r"-(19|20)\d{2}-\d{2}-\d{2}$")
+# gemini-2.5-flash → 2.5,  gpt-5.6-luna → 5.6
+_VERSION = re.compile(r"(\d+(?:\.\d+)?)")
+
+
+def _bare(model_id: str) -> str:
+    """제미나이는 'models/gemini-2.5-flash' 꼴로 준다. 앞머리를 뗀다."""
+    return model_id.split("/", 1)[-1]
+
+
+def _version(model_id: str) -> float:
+    found = _VERSION.search(_bare(model_id))
+    return float(found.group(1)) if found else 0.0
+
+
+def is_chat_model(model_id: str) -> bool:
+    """가사 정리에 쓸 수 있는 대화 모델인가."""
+    name = _bare(model_id)
+    return name.startswith(_CHAT_PREFIX) and not any(bad in name for bad in _NOT_CHAT)
+
+
+def rank_models(rows: list[dict]) -> list[str]:
+    """/models 응답 → 대화 모델만, 새것부터.
+
+    created(발표 시각)가 있으면 그걸 믿고, 없으면 판번호로 가린다.
+    """
+    picked = [r for r in rows if is_chat_model(str(r.get("id", "")))]
+    picked.sort(
+        key=lambda r: (r.get("created") or 0, _version(str(r.get("id", "")))),
+        reverse=True,
+    )
+    return [str(r["id"]) for r in picked]
+
+
+def pick_model(models: list[str]) -> str:
+    """목록에서 쓸 모델 하나 — 가장 새 것.
+
+    날짜가 붙은 스냅샷은 건너뛴다. 같은 모델을 가리키면서 언젠가 사라지는
+    이름이라, 날짜 없는 쪽을 두면 새 판이 나와도 그대로 따라간다.
+    """
+    stable = [m for m in models if not _SNAPSHOT.search(_bare(m))]
+    return (stable or models or [""])[0]
