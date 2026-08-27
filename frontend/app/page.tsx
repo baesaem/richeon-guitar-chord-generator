@@ -10,6 +10,7 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
+import { HelpButton } from "@/components/Help";
 import { HomeDashboard } from "@/components/HomeDashboard";
 import { LyricsPane } from "@/components/LyricsPane";
 import { PlayerPane, type Playback } from "@/components/PlayerPane";
@@ -604,6 +605,8 @@ export default function Home() {
             <br />
             기타반
           </span>
+          {/* 도움말 — 지금 보는 메뉴에 맞는 안내가 열린다 */}
+          <HelpButton tab={tab} playing={!!result} />
           <FullscreenButton />
         </div>
         {/* 강조색 헤어라인 */}
