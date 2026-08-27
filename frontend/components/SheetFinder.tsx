@@ -48,40 +48,77 @@ export function SheetFinder({
 
   if (!online) return <OfflineSheets title={title} />;
 
-  if (error) {
-    return <p className="rounded bg-red-50 p-2 text-xs text-red-700">{error}</p>;
-  }
-
-  if (items === null) {
+  if (items === null && !error) {
     return <p className="py-4 text-center text-xs text-gray-400">악보 찾는 중…</p>;
-  }
-
-  if (items.length === 0) {
-    return (
-      <p className="py-4 text-center text-xs text-gray-500">
-        찾지 못했습니다. 「추천 사이트」에서 직접 찾아보세요.
-      </p>
-    );
   }
 
   return (
     <>
-      <p className="mb-2 text-[11px] leading-snug text-gray-500">
-        <span className="font-medium">{query}</span> 로 찾은 결과입니다. 누르면
-        그 사이트에서 악보를 봅니다.
-      </p>
+      {error && (
+        <p className="mb-2 rounded bg-red-50 p-2 text-xs text-red-700">{error}</p>
+      )}
+
+      {items && items.length > 0 && (
+        <>
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            <span className="font-medium">{query}</span> 로 찾은 결과입니다. 누르면
+            그 사이트에서 악보를 봅니다.
+          </p>
+          <ul className="mb-3 space-y-1">
+            {items.map((hit) => (
+              <li key={hit.url}>
+                <a
+                  href={hit.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-medium">
+                      {hit.title}
+                    </span>
+                    <span className="block text-[11px] text-gray-500">{hit.site}</span>
+                  </span>
+                  <span className="shrink-0 text-gray-400">↗</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {items && items.length === 0 && !error && (
+        <p className="mb-2 text-[11px] text-gray-500">
+          찾은 페이지가 없습니다. 아래에서 직접 찾아보세요.
+        </p>
+      )}
+
+      {/* 찾았든 못 찾았든 직접 찾아볼 곳은 늘 함께 둔다. 검색 결과가 늘
+          맞는 것도 아니고, 곡에 따라 사이트마다 있고 없고가 갈린다. */}
+      <SiteLinks query={query || sheetQuery(title)} />
+    </>
+  );
+}
+
+/** 악보를 많이 올리는 곳들. 이 검색어로 각 사이트 검색 화면을 연다. */
+function SiteLinks({ query }: { query: string }) {
+  return (
+    <>
+      <p className="mb-1 text-[11px] font-medium text-gray-500">직접 찾아보기</p>
       <ul className="space-y-1 pb-2">
-        {items.map((hit) => (
-          <li key={hit.url}>
+        {SHEET_SOURCES.map((src) => (
+          <li key={src.name}>
             <a
-              href={hit.url}
+              href={src.url(query)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium">{hit.title}</span>
-                <span className="block text-[11px] text-gray-500">{hit.site}</span>
+                <span className="block text-xs font-medium">{src.name}</span>
+                <span className="block text-[11px] leading-snug text-gray-500">
+                  {src.note}
+                </span>
               </span>
               <span className="shrink-0 text-gray-400">↗</span>
             </a>
@@ -133,26 +170,7 @@ function OfflineSheets({ title }: { title: string }) {
         서버가 없어 결과 목록까지는 못 만듭니다. 아래를 누르면 그 사이트에서
         이 검색어로 바로 찾습니다.
       </p>
-      <ul className="space-y-1 pb-2">
-        {SHEET_SOURCES.map((src) => (
-          <li key={src.name}>
-            <a
-              href={src.url(query)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs font-medium">{src.name}</span>
-                <span className="block text-[11px] leading-snug text-gray-500">
-                  {src.note}
-                </span>
-              </span>
-              <span className="shrink-0 text-gray-400">↗</span>
-            </a>
-          </li>
-        ))}
-      </ul>
+      <SiteLinks query={query} />
     </>
   );
 }

@@ -46,7 +46,6 @@ import {
 import { loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
-import { SHEET_SOURCES, sheetQuery } from "@/lib/sheetSearch";
 import { PATTERNS, render, suggestStrum } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import { STAGE_LABEL, type AnalysisResult, type Health, type JobStatus } from "@/lib/types";
@@ -81,7 +80,7 @@ export default function Home() {
   const [showStrums, setShowStrums] = useState(false);
   // 악보보기 모달에서 무엇을 볼지
   const [sheetTab, setSheetTab] = useState<
-    "score" | "grid" | "lyrics" | "web" | "mine" | "sites"
+    "score" | "grid" | "lyrics" | "web" | "mine"
   >("score");
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   const [vocalOff, setVocalOff] = useState(false);
@@ -839,7 +838,6 @@ export default function Home() {
                   ["lyrics", "가사"],
                   ["web", "웹 악보"],
                   ["mine", "내 악보"],
-                  ["sites", "추천 사이트"],
                 ] as const
               ).map(([value, label]) => {
                 const disabled =
@@ -933,37 +931,6 @@ export default function Home() {
 
               {sheetTab === "mine" && (
                 <MySheet resultId={result.id} online={!!health} />
-              )}
-
-              {sheetTab === "sites" && (
-                <>
-                  <p className="mb-2 text-[11px] leading-snug text-gray-500">
-                    검색어{" "}
-                    <span className="font-medium">{sheetQuery(result.title)}</span>
-                    <br />
-                    악보를 많이 올리는 곳들입니다. 눌러 직접 찾아보세요.
-                  </p>
-                  <ul className="space-y-1 pb-2">
-                    {SHEET_SOURCES.map((src) => (
-                      <li key={src.name}>
-                        <a
-                          href={src.url(sheetQuery(result.title))}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
-                        >
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-xs font-medium">{src.name}</span>
-                            <span className="block text-[11px] leading-snug text-gray-500">
-                              {src.note}
-                            </span>
-                          </span>
-                          <span className="shrink-0 text-gray-400">↗</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </>
               )}
 
             </div>
