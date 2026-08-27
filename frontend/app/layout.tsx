@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "리천 기타 코드 자동 생성기",
+  title: "리천 기타 교실",
   description:
     "YouTube 영상이나 오디오 파일에서 비트·조성·기타 코드를 자동으로 뽑아 재생과 함께 보여줍니다.",
 };

@@ -595,7 +595,7 @@ export default function Home() {
             />
           </span>
           <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight">
-            <span className="text-[var(--accent)]">리천</span> 기타 코드 자동 생성기
+            <span className="text-[var(--accent)]">리천</span> 기타 교실
           </h1>
           {/* 이 앱을 누가 쓰는지. 수강생이 여러 앱을 오갈 때 여기서 알아본다.
               폭이 좁으면 앱 이름이 먼저 줄고 이 표시는 남는다 */}
