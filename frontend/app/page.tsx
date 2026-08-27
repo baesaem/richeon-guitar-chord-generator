@@ -18,6 +18,7 @@ import { EditTab } from "@/components/tabs/EditTab";
 import { ChordPicker } from "@/components/ChordPicker";
 import { LyricEditor, LyricRow } from "@/components/LyricEditor";
 import { SongInfoLine } from "@/components/SongInfoLine";
+import { Working } from "@/components/Working";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { measureOutputLatency } from "@/lib/latency";
 import { clearChordAt, setChordAt } from "@/lib/editChords";
@@ -43,7 +44,7 @@ import {
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, saveLocal } from "@/lib/library";
-import { groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
+import { LYRIC_LEAD, groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
 import { lyricIndexAt } from "@/lib/lrc";
 import {
   labelFor,
@@ -1200,7 +1201,7 @@ export default function Home() {
                           now={
                             lyricIndexAt(
                               result.lyrics ?? [],
-                              time + lyricSync - settings.latency,
+                              time + lyricSync - settings.latency + LYRIC_LEAD,
                             ) === i
                           }
                           onSeek={() => {
@@ -1276,34 +1277,20 @@ export default function Home() {
         />
       )}
 
-      {/* 분석 중 표시. 화면 한가운데 — 탭을 옮겨 다녀도 눈에 띈다.
-          닫는 버튼은 없다. 분석은 중간에 멈출 수 없고, 끝나면 저절로 사라진다. */}
+      {/* 몇 초 이상 걸리는 일은 모두 화면 한가운데에 알린다.
+          버튼 글자만 바꿔서는 눌렸는지 몰라 또 누르게 된다 */}
       {busy && status && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="w-full max-w-[220px] rounded-2xl bg-white p-5 text-center shadow-xl dark:bg-gray-900">
-            <span
-              className="mx-auto mb-3 block h-9 w-9 animate-spin rounded-full border-[3px] border-[var(--accent)] border-t-transparent"
-              aria-hidden="true"
-            />
-            <p className="text-sm font-medium">분석 중</p>
-            <p className="mt-0.5 truncate text-[11px] text-gray-500">
-              {status.message || STAGE_LABEL[status.stage]}
-            </p>
-            <div className="mt-3 h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
-              <div
-                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
-                style={{ width: `${Math.max(3, Math.round(status.progress * 100))}%` }}
-              />
-            </div>
-            <p className="mt-1.5 text-[11px] tabular-nums text-[var(--accent)]">
-              {Math.round(status.progress * 100)}%
-            </p>
-          </div>
-        </div>
+        <Working
+          label="분석 중"
+          note={status.message || STAGE_LABEL[status.stage]}
+          progress={status.progress}
+        />
+      )}
+      {vocalBusy && (
+        <Working label="반주 만드는 중" note="보컬을 걷어내고 있습니다" />
+      )}
+      {lyricBusy && (
+        <Working label="가사 다듬는 중" note="AI가 토막난 자막을 소절로 잇습니다" />
       )}
 
       <BottomNav tab={tab} onChange={setTab} />

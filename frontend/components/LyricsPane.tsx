@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Popup } from "@/components/Popup";
+import { Working } from "@/components/Working";
 import { alignLyrics, fetchLyrics, putLyrics, songPhrases } from "@/lib/api";
 import { placeOnPhrases, spreadEvenly } from "@/lib/placeLyrics";
 import { saveLocal } from "@/lib/library";
@@ -150,6 +151,15 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* 가사를 맞추는 데 몇 초 걸린다. 화면 한가운데에 알린다 —
+          버튼 글자만 바꿔서는 눌렸는지 몰라 또 누르게 된다 */}
+      {busy && (
+        <Working
+          label={pasting ? "가사 맞추는 중" : "가사 찾는 중"}
+          note={pasting ? "영상 자막에 맞춰 시각을 붙입니다" : undefined}
+        />
+      )}
+
       {pasting && (
         <Popup title="가사 붙여넣기" onClose={() => setPasting(false)}>
           <p className="mb-2 text-[11px] leading-snug text-gray-500">

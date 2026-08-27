@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Working } from "@/components/Working";
 import { openLink } from "@/lib/openLink";
 import { deleteMySheet, mySheetUrl, uploadMySheet } from "@/lib/api";
 import { getLocalSheet, removeLocalSheet } from "@/lib/library";
@@ -115,6 +116,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
 
   return (
     <>
+      {busy && <Working label="악보 올리는 중" />}
       <input
         ref={fileRef}
         type="file"

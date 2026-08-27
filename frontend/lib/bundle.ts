@@ -2,7 +2,7 @@
 
 import type { SheetHit } from "./api";
 import { saveLocal, saveLocalSheet } from "./library";
-import { loadSetup, saveSetup, type SongSetup } from "./perSong";
+import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { loadSheets, saveSheets } from "./sheetCache";
 import type { AnalysisResult } from "./types";
 
@@ -12,9 +12,9 @@ import type { AnalysisResult } from "./types";
  * 음원만 건네면 수강생 화면에는 코드도 가사도 없다. 결과 파일을 따로
  * 챙기게 하면 빠뜨린다. 그래서 한 곡에 관한 것을 전부 한 파일에 담는다.
  *
- *   - 분석 결과 (코드·비트·가사·파형)
+ *   - 분석 결과 (코드·비트·가사와 그 시각·파형)
  *   - 찾아 둔 웹 악보 목록
- *   - 곡별 연주설정 (카포·빠르기·반복)
+ *   - 곡별 연주설정 (카포·빠르기·반복·싱크 보정)
  *
  * 받는 쪽은 파일 하나만 가져오면 만든 사람과 같은 화면을 본다.
  *
@@ -61,11 +61,14 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
   const sheets = loadSheets(result.id);
   if (sheets) bundle.sheets = sheets;
 
-  // loadSetup은 늘 값을 준다. 손대지 않은 기본값까지 담을 이유는 없다
+  // loadSetup은 늘 값을 준다. 손대지 않은 기본값까지 담을 이유는 없다.
+  // 어느 값 하나라도 손댔으면 통째로 담는다 — 항목이 늘 때마다 여기를
+  // 고쳐야 하는 대신, 기본값과 다른지만 본다.
   const setup = loadSetup(result.id);
-  if (setup.transpose !== 0 || setup.rate !== 1 || setup.loop !== null) {
-    bundle.setup = setup;
-  }
+  const touched = (
+    Object.keys(DEFAULT_SETUP) as (keyof SongSetup)[]
+  ).some((key) => JSON.stringify(setup[key]) !== JSON.stringify(DEFAULT_SETUP[key]));
+  if (touched) bundle.setup = setup;
 
   return bundle;
 }

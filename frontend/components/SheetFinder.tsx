@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { Working } from "@/components/Working";
 import { findSheets, type SheetHit } from "@/lib/api";
 import { hasLocalLlm, songInfo } from "@/lib/llmClient";
 import { openLink } from "@/lib/openLink";
@@ -94,11 +95,17 @@ export function SheetFinder({
   if (!online && items === null) return <OfflineSheets title={title} />;
 
   if (items === null && !error) {
-    return <p className="py-4 text-center text-xs text-gray-400">악보 찾는 중…</p>;
+    return (
+      <>
+        <Working label="악보 찾는 중" note="웹에서 이 곡의 코드 악보를 찾습니다" />
+        <p className="py-4 text-center text-xs text-gray-400">악보 찾는 중…</p>
+      </>
+    );
   }
 
   return (
     <>
+      {busy && <Working label="악보 찾는 중" note="웹에서 이 곡의 코드 악보를 찾습니다" />}
       {error && (
         <p className="mb-2 rounded bg-red-50 p-2 text-xs text-red-700">{error}</p>
       )}

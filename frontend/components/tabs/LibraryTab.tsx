@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AskConfirm, AskText } from "@/components/Ask";
+import { Working } from "@/components/Working";
 import { Copyright } from "@/components/Copyright";
 import { apiBase, deleteResult, getResult, listResults } from "@/lib/api";
 import {
@@ -78,6 +79,8 @@ export function LibraryTab({
   adminMode,
 }: Props) {
   // 시스템 prompt()/confirm()을 쓰지 않는다. 폰 웹앱에서 막혀 있다.
+  // 몇 초 이상 걸리는 일. 화면 한가운데에 알린다
+  const [working, setWorking] = useState<string | null>(null);
   const [asking, setAsking] = useState<"folder" | "deleteFolder" | null>(null);
   const [refetching, setRefetching] = useState<ResultSummary | null>(null);
   const [device, setDevice] = useState<ResultSummary[] | null>(null);
@@ -153,6 +156,7 @@ export function LibraryTab({
       return;
     }
     let ok = 0;
+    setWorking(`${targets.length}곡 저장하는 중`);
     for (const item of targets) {
       try {
         await saveLocal(await getResult(item.id));
@@ -161,6 +165,7 @@ export function LibraryTab({
         // 한 곡이 실패해도 나머지는 계속 저장한다
       }
     }
+    setWorking(null);
     flash(`${ok}곡을 기기에 저장했습니다.`);
     reload();
   };
@@ -175,6 +180,7 @@ export function LibraryTab({
    * 결과 파일(.rml)에는 코드·비트·가사·파형이 모두 들어 있다.
    */
   const exportAudio = async (item: ResultSummary) => {
+    setWorking("음원 내보내는 중");
     try {
       // 곡 꾸러미부터. 음원이 없어도 코드는 넘길 수 있다
       const result = await getResult(item.id);
@@ -207,6 +213,8 @@ export function LibraryTab({
       );
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setWorking(null);
     }
   };
 
@@ -220,6 +228,7 @@ export function LibraryTab({
   };
 
   const importOne = async (file: File) => {
+    setWorking("곡 가져오는 중");
     try {
       const text = await file.text();
       const data = JSON.parse(text) as unknown;
@@ -242,16 +251,21 @@ export function LibraryTab({
       reload();
     } catch (e) {
       setError(`가져오기 실패: ${(e as Error).message}`);
+    } finally {
+      setWorking(null);
     }
   };
 
   const exportAll = async () => {
+    setWorking("전체 내보내는 중");
     try {
       const count = await exportAllToFile();
       if (count === 0) setError("기기에 저장된 곡이 없습니다");
       else flash(`${count}곡을 파일로 내보냈습니다.`);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setWorking(null);
     }
   };
 
@@ -501,6 +515,8 @@ export function LibraryTab({
       </p>
       </>
       )}
+
+      {working && <Working label={working} />}
 
       {asking === "folder" && (
         <AskText

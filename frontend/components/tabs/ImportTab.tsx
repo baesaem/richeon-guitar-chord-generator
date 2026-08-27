@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
 import { Popup } from "@/components/Popup";
+import { Working } from "@/components/Working";
 import { openLink } from "@/lib/openLink";
 import { downloadShared, downloadSharedBlob, listShared, type SharedFile } from "@/lib/api";
 import {
@@ -575,6 +576,16 @@ export function ImportTab({
           />
           <p className="mt-2 text-[11px] text-gray-500">mp3 · wav · m4a · flac · ogg</p>
         </Popup>
+      )}
+
+      {/* 여러 곡을 받으면 한참 걸린다. 어디까지 왔는지 알린다 */}
+      {fetching !== null && (
+        <Working
+          label="곡 받는 중"
+          note={songTitleOf(
+            (shared?.files ?? []).find((f) => f.id === fetching)?.name ?? "",
+          )}
+        />
       )}
 
       {/* ---- 바뀐 곡 덮어쓸지 묻기 ---- */}
