@@ -13,6 +13,7 @@ import {
   listLectures,
   removeLecture,
   siteOf,
+  updateLecture,
   thumbOf,
   videoIdOf,
   type Lecture,
@@ -45,12 +46,24 @@ export function LinkShelf({
     typeof window === "undefined" ? [] : listLectures(shelf),
   );
   const [adding, setAdding] = useState(false);
+  // 고치는 중인 자료(없으면 새로 담는 중이다)
+  const [editing, setEditing] = useState<Lecture | null>(null);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<Lecture | null>(null);
+
+  /** 담기·고치기 창을 연다. 고치기면 지금 값으로 채워 둔다 */
+  const openDialog = (item?: Lecture) => {
+    setError(null);
+    setEditing(item ?? null);
+    setUrl(item?.url ?? "");
+    setTitle(item ? item.title : "");
+    setNote(item?.note ?? "");
+    setAdding(true);
+  };
 
   const submit = async () => {
     const trimmed = url.trim();
@@ -64,18 +77,21 @@ export function LinkShelf({
     const site = siteOf(trimmed);
     // 제목을 적지 않았으면 영상에서 알아본다. 영상이 아니면 사이트 이름.
     const auto = title.trim() || (await fetchTitle(trimmed)) || site;
+    const next: Lecture = {
+      id: videoId ?? trimmed,
+      url: trimmed,
+      title: auto,
+      videoId,
+      site,
+      note: note.trim() || undefined,
+    };
+    // 고치는 중이면 자리를 지킨 채 갈아 끼운다
     setItems(
-      addLecture(shelf, {
-        id: videoId ?? trimmed,
-        url: trimmed,
-        title: auto,
-        videoId,
-        site,
-        note: note.trim() || undefined,
-      }),
+      editing ? updateLecture(shelf, editing.id, next) : addLecture(shelf, next),
     );
     setBusy(false);
     setAdding(false);
+    setEditing(null);
     setUrl("");
     setTitle("");
     setNote("");
@@ -90,10 +106,7 @@ export function LinkShelf({
       {canAdd && (
         <button
           className="mb-2.5 w-full rounded bg-gray-100 py-2.5 text-sm font-medium dark:bg-gray-800"
-          onClick={() => {
-            setError(null);
-            setAdding(true);
-          }}
+          onClick={() => openDialog()}
         >
           {addLabel}
         </button>
@@ -143,13 +156,22 @@ export function LinkShelf({
                 </span>
               </button>
               {canAdd && (
-                <button
-                  className="shrink-0 px-1 text-xs text-red-500"
-                  onClick={() => setConfirmDel(l)}
-                  aria-label="링크 삭제"
-                >
-                  삭제
-                </button>
+                <>
+                  <button
+                    className="shrink-0 px-1 text-xs text-gray-500"
+                    onClick={() => openDialog(l)}
+                    aria-label="링크 수정"
+                  >
+                    수정
+                  </button>
+                  <button
+                    className="shrink-0 px-1 text-xs text-red-500"
+                    onClick={() => setConfirmDel(l)}
+                    aria-label="링크 삭제"
+                  >
+                    삭제
+                  </button>
+                </>
               )}
             </li>
           ))}
@@ -157,7 +179,14 @@ export function LinkShelf({
       )}
 
       {adding && (
-        <Popup title="링크 추가" width="max-w-xs" onClose={() => setAdding(false)}>
+        <Popup
+          title={editing ? "링크 수정" : "링크 추가"}
+          width="max-w-xs"
+          onClose={() => {
+            setAdding(false);
+            setEditing(null);
+          }}
+        >
           <p className="mb-2 text-[11px] leading-snug text-gray-500">
             YouTube 강좌·밴드·블로그 등 주소를 붙여넣으세요. YouTube 영상은
             제목을 비워 두면 알아서 가져옵니다.
@@ -192,7 +221,7 @@ export function LinkShelf({
             disabled={!url.trim() || busy}
             onClick={submit}
           >
-            담기
+            {editing ? "고치기" : "담기"}
           </button>
         </Popup>
       )}

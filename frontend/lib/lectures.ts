@@ -129,6 +129,16 @@ export function addLecture(shelf: Shelf, item: Lecture): Lecture[] {
   return items;
 }
 
+/**
+ * 담아 둔 자료를 고친다. 자리는 그대로 둔다 — 고쳤다고 목록 맨 위로
+ * 올라오면 선생님이 정해 둔 차례가 흐트러진다.
+ */
+export function updateLecture(shelf: Shelf, id: string, next: Lecture): Lecture[] {
+  const items = listLectures(shelf).map((l) => (l.id === id ? next : l));
+  write(shelf, items);
+  return items;
+}
+
 export function removeLecture(shelf: Shelf, id: string): Lecture[] {
   const items = listLectures(shelf).filter((l) => l.id !== id);
   write(shelf, items);
