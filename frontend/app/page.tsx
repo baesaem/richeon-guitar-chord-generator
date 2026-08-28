@@ -607,8 +607,8 @@ export default function Home() {
       <div className="mx-auto flex h-dvh min-w-0 w-full max-w-2xl flex-col md:mx-0 md:max-w-none md:border-l md:border-gray-200 md:dark:border-gray-800">
       {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바. */}
       <header className="shrink-0 bg-[var(--bar-bg)]">
-        <div className="flex items-center gap-2.5 px-3 py-2 md:gap-3 md:px-5 md:py-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)] md:hidden">
+        <div className="flex items-center gap-2.5 px-3 py-2 roomy:gap-3 roomy:px-5 roomy:py-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)] roomy:hidden">
             <Image
               src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/guitar.png`}
               alt=""
@@ -618,12 +618,12 @@ export default function Home() {
               priority
             />
           </span>
-          <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight md:hidden">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight roomy:hidden">
             <span className="text-[var(--accent)]">리천</span> 기타 교실
           </h1>
           {/* 넓은 화면: 앱 이름은 사이드바에 있으니 여기는 메뉴 이름.
               앞에 그 메뉴의 아이콘을 세워 어디에 있는지 한눈에 보인다 */}
-          <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] md:flex">
+          <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] roomy:flex">
             <svg
               viewBox="0 0 24 24"
               className="h-[22px] w-[22px]"
@@ -637,12 +637,12 @@ export default function Home() {
               {NAV_ITEMS.find((i) => i.id === tab)?.icon}
             </svg>
           </span>
-          <h1 className="hidden min-w-0 flex-1 truncate text-[22px] font-bold tracking-tight md:block">
+          <h1 className="hidden min-w-0 flex-1 truncate text-[22px] font-bold tracking-tight roomy:block">
             {TAB_TITLE[tab]}
           </h1>
           {/* 이 앱을 누가 쓰는지. 수강생이 여러 앱을 오갈 때 여기서 알아본다.
               폭이 좁으면 앱 이름이 먼저 줄고 이 표시는 남는다 */}
-          <span className="shrink-0 whitespace-nowrap text-[11px] font-medium leading-tight text-[var(--accent)] opacity-80 md:hidden">
+          <span className="shrink-0 whitespace-nowrap text-[11px] font-medium leading-tight text-[var(--accent)] opacity-80 roomy:hidden">
             강상주민센터
             <br />
             기타반
@@ -682,7 +682,10 @@ export default function Home() {
                 영상은 참고용이라 자리를 조금만 쓰고, 눈이 오래 머무는
                 악보가 넓은 쪽을 갖는다. 폰은 지금처럼 위아래로 쌓인다 */}
             <div className="flex min-h-0 flex-1 flex-col md:flex-row md:gap-1">
-              <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 md:order-2 md:w-[280px] md:self-start lg:w-[340px]">
+              {/* 오른쪽 기둥 — 영상과 그 아래 가사. 넓은 화면에서는
+                  가사를 늘 펼쳐 둔다(노래를 보며 치는 자리라서) */}
+              <div className="flex flex-col md:order-2 md:min-h-0 md:w-[44%] md:shrink-0 roomy:w-[440px] lg:w-[520px] xl:w-[600px]">
+              <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
                 {/* 곡 이름. 영상 안에도 적혀 있지만 접으면 사라지고, 유튜브가
                     아닌 곡(업로드)에는 아예 없다. 지금 무슨 곡을 보고 있는지는
                     늘 보여야 한다. */}
@@ -721,6 +724,24 @@ export default function Home() {
                   stem={stem}
                 />
               </section>
+
+              {/* 넓은 화면 전용 가사 — 영상 아래를 채운다. 폰에서는
+                  자리가 없어 「가사」 단추로 악보와 자리를 바꿔 쓴다 */}
+              <section className="mx-2 mb-1.5 mt-1.5 hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900 roomy:flex">
+                <LyricsPane
+                  result={result}
+                  time={time + lyricSync - settings.latency}
+                  online={!!health}
+                  onLyrics={(lines) =>
+                    setResult((prev) => (prev ? { ...prev, lyrics: lines } : prev))
+                  }
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                />
+              </section>
+              </div>
 
               {/* 왼쪽 칸 — 악보/파형, 코드 박스, 가사. 넓은 화면에서는
                   이 칸만 따로 스크롤해 영상은 늘 제자리에 있다 */}
@@ -784,7 +805,7 @@ export default function Home() {
                 <button
                   onClick={() => setShowLyrics((v) => !v)}
                   className={[
-                    "flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-medium",
+                    "flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-medium roomy:hidden",
                     showLyrics
                       ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-[var(--accent)]"
                       : "bg-gray-200/70 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
@@ -956,8 +977,9 @@ export default function Home() {
               )}
               </section>
 
-              {/* 가사 보기: 코드 박스와 곡 전체 코드를 감추고 그 자리에 가사를 띄운다 */}
-              {showLyrics ? (
+              {/* 가사 보기: 코드 박스와 곡 전체 코드를 감추고 그 자리에 가사를 띄운다.
+                  넓은 화면에서는 오른쪽 기둥에 가사가 이미 있으므로 늘 악보 쪽이다 */}
+              {showLyrics && !wide ? (
                 <section className="mx-2 mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
                   <LyricsPane
                     result={result}

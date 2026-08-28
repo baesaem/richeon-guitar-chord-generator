@@ -26,5 +26,12 @@ export function useMediaQuery(query: string): boolean {
   );
 }
 
-/** 태블릿·PC 폭인가(사이드바가 서는 크기) */
-export const useWideScreen = () => useMediaQuery("(min-width: 768px)");
+/**
+ * 사이드바를 세우고 가사를 늘 펼칠 만큼 넉넉한 화면인가.
+ *
+ * 폭만 보면 폰을 가로로 눕힌 화면(844×390)까지 걸려 든다 — 높이가
+ * 모자라 사이드바가 악보 자리를 뺏는다. globals.css의 roomy 변형과
+ * 같은 조건을 쓴다.
+ */
+export const useWideScreen = () =>
+  useMediaQuery("(min-width: 768px) and (min-height: 600px)");

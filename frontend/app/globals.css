@@ -4,6 +4,11 @@
    미디어 쿼리 대신 클래스 기반이라 시스템/라이트/다크 3모드가 가능하다. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* 넉넉한 화면 — 사이드바를 세우고 가사를 늘 펼쳐 둘 만한 크기.
+   폭만 보면 폰을 가로로 눕힌 화면(844×390)까지 걸려 든다. 높이가
+   모자라면 사이드바가 악보 자리를 뺏으므로 폭과 높이를 함께 본다. */
+@custom-variant roomy (@media (min-width: 768px) and (min-height: 600px));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

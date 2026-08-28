@@ -89,7 +89,7 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
  *  대신하므로 숨는다(md 이상). */
 export function BottomNav({ tab, onChange }: Props) {
   return (
-    <nav className="shrink-0 bg-[var(--bar-bg)] shadow-[0_-4px_16px_rgba(0,0,0,0.07)] md:hidden">
+    <nav className="shrink-0 bg-[var(--bar-bg)] shadow-[0_-4px_16px_rgba(0,0,0,0.07)] roomy:hidden">
       {/* 강조색 헤어라인 */}
       <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_45%,transparent)] to-transparent" />
       <div className="flex">
