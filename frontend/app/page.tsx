@@ -868,7 +868,7 @@ export default function Home() {
                       onPickStrum={() => setShowStrums(true)}
                       right={
                         <button
-                          className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                          className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-2.5 roomy:py-1 roomy:text-[13px]"
                           onClick={() => {
                             setEditMode(false);
                             setShowSheet(true);
@@ -921,7 +921,7 @@ export default function Home() {
                     playNotes={playNotes}
                     headerRight={
                       <button
-                        className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                        className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-2.5 roomy:py-1 roomy:text-[13px]"
                         onClick={() => {
                           setEditMode(false);
                           setShowSheet(true);

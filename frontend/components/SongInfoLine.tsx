@@ -35,7 +35,7 @@ export function SongInfoLine({
     /* 곡 정보와 전체보기 버튼을 한 줄에 둔다. 두 줄로 접히면 그 아래
        악보가 통째로 밀려 내려가, 한 화면에 보이던 마디가 사라진다.
        버튼은 스크롤 밖에 고정 — 정보가 길면 정보만 옆으로 밀어 본다. */
-    <div className="flex items-center gap-x-1.5 text-[11px] text-gray-500">
+    <div className="flex items-center gap-x-1.5 text-[11px] text-gray-500 roomy:gap-x-2.5 roomy:text-[14px]">
       <div
         className="flex min-w-0 flex-1 items-center gap-x-2 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none" }}
