@@ -47,6 +47,7 @@ export function LinkShelf({
   const [adding, setAdding] = useState(false);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<Lecture | null>(null);
@@ -63,11 +64,21 @@ export function LinkShelf({
     const site = siteOf(trimmed);
     // 제목을 적지 않았으면 영상에서 알아본다. 영상이 아니면 사이트 이름.
     const auto = title.trim() || (await fetchTitle(trimmed)) || site;
-    setItems(addLecture(shelf, { id: videoId ?? trimmed, url: trimmed, title: auto, videoId, site }));
+    setItems(
+      addLecture(shelf, {
+        id: videoId ?? trimmed,
+        url: trimmed,
+        title: auto,
+        videoId,
+        site,
+        note: note.trim() || undefined,
+      }),
+    );
     setBusy(false);
     setAdding(false);
     setUrl("");
     setTitle("");
+    setNote("");
   };
 
   return (
@@ -121,6 +132,11 @@ export function LinkShelf({
                   <span className="block overflow-hidden text-[13px] leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                     {l.title}
                   </span>
+                  {l.note && (
+                    <span className="mt-0.5 block overflow-hidden text-[11px] leading-snug text-gray-500 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                      {l.note}
+                    </span>
+                  )}
                   <span className="mt-0.5 block truncate text-[10px] text-gray-400">
                     {l.site}
                   </span>
@@ -154,13 +170,17 @@ export function LinkShelf({
             onChange={(e) => setUrl(e.target.value)}
           />
           <input
-            className="w-full rounded border px-3 py-2.5 text-sm"
+            className="mb-1.5 w-full rounded border px-3 py-2.5 text-sm"
             placeholder="제목 (YouTube는 비워 두면 자동)"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && url.trim()) submit();
-            }}
+          />
+          {/* 안내글 — 제목만으로는 왜 보라는 것인지 알 수 없다 */}
+          <textarea
+            className="h-16 w-full rounded border px-3 py-2 text-sm"
+            placeholder="설명 (예: 3번 패턴 연습에 좋습니다)"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
           />
           {error && (
             <p className="mt-1.5 rounded bg-red-50 px-2 py-1 text-[11px] text-red-700">

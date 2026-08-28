@@ -42,6 +42,11 @@ export interface Lecture {
   videoId?: string;
   /** 사이트 이름 — YouTube · 밴드 · 블로그처럼 사람이 읽는 말 */
   site: string;
+  /**
+   * 이 자료에 대한 짧은 안내. 제목만으로는 왜 보라는 것인지 알 수 없다
+   * ("3번 패턴 연습에 좋습니다" 같은 한 줄).
+   */
+  note?: string;
 }
 
 /** URL에서 YouTube 영상 id를 꺼낸다. 영상이 아니면 null. */

@@ -91,6 +91,7 @@ export function mergeLessonFile(klass: GuitarClass, file: LessonFile): number {
       ...item,
       videoId: item.videoId ?? videoIdOf(item.url) ?? undefined,
       site: item.site ?? siteOf(item.url),
+      note: item.note,
     });
     have.add(item.id);
     added += 1;
