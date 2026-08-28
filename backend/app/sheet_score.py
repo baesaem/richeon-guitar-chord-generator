@@ -71,7 +71,12 @@ def times_from_score(align: dict, count: int) -> list[list[dict]] | None:
 
     out: list[list[dict]] = []
     for p in passes:
-        by_number = {b["number"]: b for b in (p.get("bars") or [])}
+        rows = p.get("bars") or []
+        # 도돌이표를 편 정렬은 같은 마디가 여러 번 나온다. 그림은 마디마다
+        # 자리가 하나뿐이라 그대로 얹을 수 없다 — 박 격자로 물러난다.
+        if len({b["number"] for b in rows}) != len(rows):
+            return None
+        by_number = {b["number"]: b for b in rows}
         # 그림의 n번째 마디는 악보의 n번째 마디다. 번호로 짚는다.
         bars = []
         for i in range(1, count + 1):

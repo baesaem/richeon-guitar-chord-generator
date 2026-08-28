@@ -101,6 +101,18 @@ def semitone_shift(score: Score, key: str) -> int:
     return diff - 12 if diff > 6 else diff
 
 
+def _played(score: Score) -> list:
+    """실제로 부르는 차례의 마디들. 도돌이표를 편 것이다.
+
+    악보는 되풀이를 접어 적는다. 접힌 채로 음원에 맞추면 곡의 절반부터
+    어긋난다 — 「하얀나비」는 57마디로 적혀 있지만 D.S. al Coda 때문에
+    102마디를 부르고, 음원도 101마디다.
+    """
+    if score.play:
+        return [score.bars[i] for i in score.play]
+    return list(score.bars)
+
+
 def _score_syllables(score: Score, verse: int = 0) -> list[tuple[str, float]]:
     """이 절의 가사를 (글자, 박) 줄로 편다.
 
@@ -109,7 +121,7 @@ def _score_syllables(score: Score, verse: int = 0) -> list[tuple[str, float]]:
     """
     out: list[tuple[str, float]] = []
     at = 0.0
-    for bar in score.bars:
+    for bar in _played(score):
         for n in bar.notes:
             # 절마다 다른 대목만 따로 적혀 있다. 같은 대목은 1절 것을
             # 그대로 부르므로, 없으면 1절로 되돌아간다.
@@ -190,8 +202,9 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
     checks: list[dict] = []
     at = 0
 
-    # 악보 한 바퀴가 몇 박인지. 되풀이가 이보다 짧으면 더 볼 것이 없다.
-    total = sum(b.beats for b in score.bars)
+    played = _played(score)
+    # 한 바퀴가 몇 박인지. 되풀이가 이보다 짧으면 더 볼 것이 없다.
+    total = sum(b.beats for b in played)
 
     while at < len(sung) and len(passes) < 8:
         # 이 바퀴가 몇 절인지 미리 알 수 없다(1절을 두 번 부르기도 한다).
@@ -217,7 +230,7 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
 
         bars = []
         beat = 0.0
-        for bar in score.bars:
+        for bar in played:
             start = grid.sec(beat + _delta_at(keep, beat))
             end = grid.sec(beat + bar.beats + _delta_at(keep, beat + bar.beats))
             bars.append({
@@ -238,7 +251,7 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
         # 어긋난 마디 — 낱말 첫 글자만 견준다(나머지는 자 자체가 어림이다)
         firm = [(c, s) for c, s, f in sung if f]
         beat = 0.0
-        for bar in score.bars:
+        for bar in played:
             offs = []
             for n in bar.notes:
                 if not n.syl:

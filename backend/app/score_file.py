@@ -80,6 +80,16 @@ class ScoreBar:
     chords: list[ScoreChord] = field(default_factory=list)
     #: 음표·쉼표로 실제 채워진 길이(박). beats와 다르면 읽다가 어긋난 것이다
     filled: float = 0.0
+    #: 되돌아 시작하는 자리(𝄆)
+    start_repeat: bool = False
+    #: 되돌아가라는 자리(𝄇). 몇 번 부르는지(2면 두 번)
+    end_repeat: int = 0
+    #: 1·2번 괄호. 몇 번째 바퀴에 부르는가와, 괄호가 덮는 마디 수
+    volta: tuple[tuple[int, ...], int] | None = None
+    #: 이 마디에 붙은 이정표(segno·coda·fine 따위)
+    markers: tuple[str, ...] = ()
+    #: 되돌아가라는 지시. (어디로, 어디까지, 그다음 어디로)
+    jump: tuple[str, str, str] | None = None
 
 
 @dataclass
@@ -92,6 +102,8 @@ class Score:
     bpm: float
     bars: list[ScoreBar]
     verses: int          # 가사 절 수
+    #: 실제로 부르는 차례(bars의 자리 번호). 도돌이표를 편 것이다.
+    play: list[int] = field(default_factory=list)
 
     @property
     def sung_bars(self) -> tuple[int, int]:
@@ -172,6 +184,29 @@ def parse(data: bytes | str) -> Score:
         number = int(m_el.get("number") or index)
         length = _fraction(m_el.get("len"))
         bar = ScoreBar(number=number, beats=length if length else bar_beats)
+        marks: list[str] = []
+        for mk in m_el.iter("Marker"):
+            label = (mk.findtext("label") or "").strip()
+            if label:
+                marks.append(label)
+        bar.markers = tuple(marks)
+        jmp = next(iter(m_el.iter("Jump")), None)
+        if jmp is not None:
+            bar.jump = (
+                (jmp.findtext("jumpTo") or "").strip(),
+                (jmp.findtext("playUntil") or "").strip(),
+                (jmp.findtext("continueAt") or "").strip(),
+            )
+        if m_el.find("startRepeat") is not None:
+            bar.start_repeat = True
+        # <endRepeat/>는 속이 빈 요소로 나오기도 한다(두 번 부르라는 뜻).
+        # findtext로 보면 None이라 없는 것으로 읽힌다 — find로 봐야 한다.
+        end_rep = m_el.find("endRepeat")
+        if end_rep is not None:
+            try:
+                bar.end_repeat = max(int((end_rep.text or "2").strip()), 2)
+            except ValueError:
+                bar.end_repeat = 2
 
         # 마디 안의 자리(박). 성부가 여럿이면 각 voice가 처음부터 다시 센다.
         for voice in m_el.findall("voice"):
@@ -210,6 +245,22 @@ def parse(data: bytes | str) -> Score:
                     continue
                 if tag == "endTuplet":
                     tuplet_ratio = 1.0
+                    continue
+                if tag == "Spanner" and el.get("type") == "Volta":
+                    v = el.find("Volta")
+                    span = 1
+                    nxt = el.find("next/location/measures")
+                    if nxt is not None and nxt.text:
+                        try:
+                            span = max(int(nxt.text), 1)
+                        except ValueError:
+                            span = 1
+                    endings: tuple[int, ...] = ()
+                    if v is not None:
+                        raw = (v.findtext("endings") or "").replace(" ", "")
+                        nums = [int(n) for n in raw.split(",") if n.isdigit()]
+                        endings = tuple(nums)
+                    bar.volta = (endings, span)
                     continue
                 if tag == "Harmony":
                     label = _chord_label(el)
@@ -291,7 +342,87 @@ def parse(data: bytes | str) -> Score:
         bpm=round(bpm, 2),
         bars=bars,
         verses=max(verses, 1),
+        play=expand(bars),
     )
+
+
+def expand(bars: list[ScoreBar]) -> list[int]:
+    """도돌이표를 펴서 **실제로 부르는 차례**를 만든다.
+
+    악보는 되풀이를 접어 적는다. 「하얀나비」는 57마디로 적혀 있지만
+    D.S. al Coda 때문에 실제로는 102마디를 부른다 — 접힌 채로 음원에
+    맞추면 곡의 절반부터 어긋난다.
+
+    다루는 것: 도돌이표(𝄆 𝄇), 1·2번 괄호, 다카포·달세뇨와 코다.
+    알아보지 못하는 지시는 그냥 지나친다 — 펴다가 멈추느니 적힌 차례
+    그대로 부르는 편이 낫다.
+    """
+    if not bars:
+        return []
+
+    marker_at: dict[str, int] = {}
+    for i, bar in enumerate(bars):
+        for label in bar.markers:
+            marker_at.setdefault(label, i)
+
+    play: list[int] = []
+    played: dict[int, int] = {}   # 되돌이 끝 마디 → 지나간 횟수
+    jumped: set[int] = set()
+    start = 0
+    until: str = ""
+    cont: str = ""
+    i = 0
+    guard = 0
+
+    while 0 <= i < len(bars) and guard < len(bars) * 12:
+        guard += 1
+        bar = bars[i]
+
+        # 「여기까지」에 닿으면 코다로 건너뛴다
+        if until and until in bar.markers:
+            if cont and cont in marker_at:
+                i = marker_at[cont]
+                until = cont = ""
+                continue
+            break
+
+        if bar.start_repeat:
+            start = i
+
+        # 1·2번 괄호: 이번 바퀴에 부르지 않는 괄호는 통째로 건너뛴다
+        if bar.volta:
+            endings, span = bar.volta
+            turn = played.get(_next_end(bars, i), 0) + 1
+            if endings and turn not in endings:
+                i += span
+                continue
+
+        play.append(i)
+
+        if bar.end_repeat and played.get(i, 0) + 1 < bar.end_repeat:
+            played[i] = played.get(i, 0) + 1
+            i = start
+            continue
+
+        if bar.jump and i not in jumped:
+            jumped.add(i)
+            target, until, cont = bar.jump
+            if target in marker_at:
+                i = marker_at[target]
+                continue
+            until = cont = ""
+
+        i += 1
+
+    return play
+
+
+def _next_end(bars: list[ScoreBar], i: int) -> int:
+    """이 자리 뒤에 오는 되돌이 끝 마디. 괄호가 몇 번째 바퀴인지 세는 데 쓴다."""
+    for j in range(i, len(bars)):
+        if bars[j].end_repeat:
+            return j
+    return i
 
 
 def _dot_factor(el: ET.Element) -> float:
@@ -304,6 +435,7 @@ def _dot_factor(el: ET.Element) -> float:
 def to_dict(score: Score) -> dict:
     """앱으로 넘길 모양. 마디마다 음표·코드를 박 자리로 담는다."""
     return {
+        "play": score.play,
         "title": score.title,
         "composer": score.composer,
         "source": score.source,

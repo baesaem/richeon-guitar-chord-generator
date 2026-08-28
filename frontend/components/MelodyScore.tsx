@@ -67,6 +67,8 @@ const SIG_W = 0.92;      // 조표 한 개
 const TIME_W = 2.4;      // 박자표
 /** 첫머리 여백 */
 const HEAD_PAD = 0.5;
+/** 음표·쉼표 글자를 표준보다 조금 작게. 칸에 꽉 차면 답답하다 */
+const NOTE_SCALE = 0.9;
 
 /** 음표 머리의 y. 맨 아랫줄이 미4다. */
 function noteY(dia: number): number {
@@ -487,7 +489,8 @@ function NoteHead({
   const up = dia < BOTTOM_LINE + 4;
   // 악보에 적힌 길이. 없으면(뽑아낸 멜로디) 4분음표 모양으로 그린다.
   const value = note.value ?? 1;
-  const size = fontSize(LINE_GAP);
+  // 음표는 표준 크기의 0.9배. 오선 칸에 꽉 차면 답답해 보인다.
+  const size = fontSize(LINE_GAP) * NOTE_SCALE;
   // 기둥은 머리의 가장자리에 붙는다. 머리 폭의 절반이 그 자리다.
   const half = (headWidth(value) * LINE_GAP) / 2;
   const stemX = x + (up ? half - 0.35 : -half + 0.35);
@@ -605,7 +608,7 @@ function Rest({ x, value }: { x: number; value: number; dots: number }) {
       x={x}
       y={STAFF_TOP + LINE_GAP * restLine(value)}
       textAnchor="middle"
-      fontSize={fontSize(LINE_GAP)}
+      fontSize={fontSize(LINE_GAP) * NOTE_SCALE}
       fontFamily={FONT_STACK}
       fill="currentColor"
       opacity={0.85}
