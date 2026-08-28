@@ -56,8 +56,8 @@ def flatten(pages: list[Page]) -> list[Placed]:
                 if si + 1 < len(systems)
                 else prev_gap
             )
-            view_top = max(system.top - prev_gap * 0.46, 0)
-            view_bottom = min(system.bottom + next_gap * 0.60, page.height - 1)
+            view_top = max(system.top - prev_gap * 0.34, 0)
+            view_bottom = min(system.bottom + next_gap * 0.58, page.height - 1)
             for x0, x1 in system.measures:
                 out.append(
                     Placed(
