@@ -72,7 +72,8 @@ export function LessonTab({
     else flash(`${count}개를 파일로 내보냈습니다. 이 반 강의실 폴더에 올리세요.`);
   };
 
-  // 탭 이름은 짧게 — 「강상주민센터 기타반(초급)」은 탭에 들어가지 않는다
+  // 탭 이름은 반 이름만 — 「강상주민센터 기타반(초급)」은 탭에 들어가지 않고,
+  // 어느 반 강의실인지는 아래 안내줄이 적어 준다
   const shortName = (name: string) =>
     name.match(/\(([^)]+)\)/)?.[1] ?? name;
 
@@ -83,7 +84,7 @@ export function LessonTab({
 
       <div className="mb-3 flex gap-1">
         {[
-          ...CLASSES.map((c) => [c.id, `강의실 · ${shortName(c.name)}`] as const),
+          ...CLASSES.map((c) => [c.id, shortName(c.name)] as const),
           ["mine", "내 강좌"] as const,
         ].map(([value, label]) => (
           <button
