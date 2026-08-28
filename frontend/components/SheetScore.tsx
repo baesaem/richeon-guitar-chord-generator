@@ -20,7 +20,14 @@ export interface SheetBar {
 }
 
 export interface SheetData {
-  pages: { index: number; width: number; height: number }[];
+  pages: {
+    index: number;
+    width: number;
+    height: number;
+    /** 쪽 여백을 뺀 가로 범위(0~1) */
+    left?: number;
+    right?: number;
+  }[];
   bars: SheetBar[];
   /** 되풀이마다 마디별 시작·끝 시각 */
   passes: { start: number; end: number }[][];
@@ -47,6 +54,7 @@ interface Props {
   chords?: { bar: number; at: number; label: string }[];
   showChords: boolean;
   onToggleChords: () => void;
+  onZoom?: (zoom: number) => void;
   musicKey: string;
   timeSignature: string;
   playNotes?: string[];
@@ -54,6 +62,8 @@ interface Props {
   onSeek?: (t: number) => void;
   /** 한 번에 보일 줄 수 */
   lines?: number;
+  /** 확대 배율. 1보다 크면 지금 마디를 가운데 두고 옆으로 따라간다 */
+  zoom?: number;
 }
 
 /**
@@ -74,12 +84,14 @@ export function SheetScore({
   chords,
   showChords,
   onToggleChords,
+  onZoom,
   musicKey,
   timeSignature,
   playNotes,
   headerRight,
   onSeek,
   lines = 2,
+  zoom = 1,
 }: Props) {
   const pass = passAt(sheet, time);
   const bars = sheet.passes[pass] ?? [];
@@ -130,6 +142,15 @@ export function SheetScore({
         >
           코드 바꿔 보기
         </button>
+        {onZoom && (
+          <button
+            className="ml-1.5 shrink-0 rounded px-1.5 py-0.5 text-gray-500 underline decoration-dotted underline-offset-2"
+            onClick={() => onZoom(zoom >= 2 ? 1 : zoom + 0.5)}
+            title="지금 마디를 가운데 두고 크게 봅니다"
+          >
+            {zoom > 1 ? `${zoom}배` : "확대"}
+          </button>
+        )}
         <span className="ml-2 shrink-0">
           {sheet.passes.length > 1 ? `${pass + 1}번째 · ` : ""}
           {from + 1}–{Math.min(from + lines, systems.length)} / {systems.length}줄
@@ -145,6 +166,7 @@ export function SheetScore({
           bars={bars}
           time={time}
           at={at}
+          zoom={zoom}
           chords={showChords ? chords : undefined}
           onSeek={onSeek}
         />
@@ -193,6 +215,7 @@ function SystemRow({
   bars,
   time,
   at,
+  zoom,
   chords,
   onSeek,
 }: {
@@ -202,6 +225,7 @@ function SystemRow({
   bars: { start: number; end: number }[];
   time: number;
   at: number;
+  zoom: number;
   chords?: { bar: number; at: number; label: string }[];
   onSeek?: (t: number) => void;
 }) {
@@ -212,16 +236,35 @@ function SystemRow({
   const top = first.viewTop ?? Math.max(first.top - 0.05, 0);
   const bottom = first.viewBottom ?? Math.min(first.bottom + 0.05, 1);
   const height = Math.max(bottom - top, 0.02);
-  // 창의 세로:가로 비율. 그림을 폭에 맞추면 높이가 이만큼 된다.
-  const ratio = (height * (page?.height ?? 1)) / (page?.width ?? 1);
 
   const live = row.bars.includes(at);
   const hereBar = sheet.bars[at];
   const span = bars[at] ? Math.max(bars[at].end - bars[at].start, 0.05) : 1;
   const progress = bars[at] ? (time - bars[at].start) / span : 0;
-  const cursorX = live && hereBar
-    ? hereBar.x0 + (hereBar.x1 - hereBar.x0) * Math.min(Math.max(progress, 0), 1)
-    : 0;
+
+  // 쪽 여백을 빼고, 배율만큼 좁게 잘라 본다. 배율이 1보다 크면 지금
+  // 마디를 한가운데 두고 옆으로 따라간다 — 어르신 화면에서 음표가
+  // 작으면 아무 소용이 없다.
+  const cropL = page?.left ?? 0;
+  const cropR = page?.right ?? 1;
+  const cropW = Math.max(cropR - cropL, 0.05);
+  const viewW = cropW / zoom;
+  const centre =
+    live && hereBar
+      ? hereBar.x0 + (hereBar.x1 - hereBar.x0) * Math.min(Math.max(progress, 0), 1)
+      : row.bars.length
+        ? sheet.bars[row.bars[0]].x0
+        : cropL;
+  const x0 = Math.min(
+    Math.max(centre - viewW / 2, cropL),
+    Math.max(cropR - viewW, cropL),
+  );
+  /** 쪽 가로 자리(0~1) → 창 안의 자리(0~1) */
+  const toX = (px: number) => (px - x0) / viewW;
+
+  // 창의 세로:가로 비율
+  const ratio = (height * (page?.height ?? 1)) / (viewW * (page?.width ?? 1));
+  const cursorX = toX(centre);
 
   return (
     <div
@@ -232,8 +275,12 @@ function SystemRow({
       <img
         src={src}
         alt=""
-        className="pointer-events-none absolute left-0 select-none"
-        style={{ width: "100%", top: `${(-top / height) * 100}%` }}
+        className="pointer-events-none absolute select-none"
+        style={{
+          width: `${(100 / viewW).toFixed(3)}%`,
+          left: `${(-x0 / viewW) * 100}%`,
+          top: `${(-top / height) * 100}%`,
+        }}
         draggable={false}
       />
 
@@ -242,8 +289,8 @@ function SystemRow({
         <div
           className="pointer-events-none absolute bg-[var(--accent)]/10"
           style={{
-            left: `${hereBar.x0 * 100}%`,
-            width: `${(hereBar.x1 - hereBar.x0) * 100}%`,
+            left: `${toX(hereBar.x0) * 100}%`,
+            width: `${((hereBar.x1 - hereBar.x0) / viewW) * 100}%`,
             top: 0,
             bottom: 0,
           }}
@@ -263,7 +310,7 @@ function SystemRow({
       {chords?.map((c, i) => {
         const b = sheet.bars[c.bar];
         if (!b || b.page !== row.page || b.system !== row.system) return null;
-        const x = b.x0 + (b.x1 - b.x0) * c.at;
+        const x = toX(b.x0 + (b.x1 - b.x0) * c.at);
         return (
           <span
             key={i}
@@ -289,8 +336,8 @@ function SystemRow({
               key={bi}
               className="absolute cursor-pointer"
               style={{
-                left: `${b.x0 * 100}%`,
-                width: `${(b.x1 - b.x0) * 100}%`,
+                left: `${toX(b.x0) * 100}%`,
+                width: `${((b.x1 - b.x0) / viewW) * 100}%`,
                 top: 0,
                 bottom: 0,
               }}

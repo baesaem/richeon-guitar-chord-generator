@@ -39,6 +39,8 @@ export interface Settings {
    * 원곡과 다를 수 있다.
    */
   sheetChords: boolean;
+  /** 악보 확대 배율. 지금 마디를 가운데 두고 옆으로 따라간다 */
+  sheetZoom: number;
   /**
    * 기기 지연 보정(초). 소리가 화면보다 늦게 나오는 만큼 화면을 늦춘다.
    *
@@ -69,6 +71,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   showGrid: true,
   sheetChords: false,
+  sheetZoom: 1,
   latency: 0,
   adminMode: false,
   adminKeep: true,

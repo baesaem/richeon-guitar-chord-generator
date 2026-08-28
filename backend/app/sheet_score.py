@@ -130,7 +130,14 @@ def build(
 
     return {
         "pages": [
-            {"index": p.index, "width": p.width, "height": p.height}
+            {
+                "index": p.index,
+                "width": p.width,
+                "height": p.height,
+                # 쪽 여백을 뺀 가로 범위(0~1). 화면은 이만큼만 보여 준다.
+                "left": round(p.crop_left / p.width, 5),
+                "right": round((p.crop_right or p.width) / p.width, 5),
+            }
             for p in pages
         ],
         "bars": [

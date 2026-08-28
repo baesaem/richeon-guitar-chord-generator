@@ -1009,6 +1009,8 @@ export default function Home() {
                       onToggleChords={() =>
                         setSettings({ ...settings, sheetChords: !settings.sheetChords })
                       }
+                      zoom={settings.sheetZoom}
+                      onZoom={(z) => setSettings({ ...settings, sheetZoom: z })}
                       musicKey={result.key}
                       timeSignature={result.time_signature}
                       playNotes={playNotes}

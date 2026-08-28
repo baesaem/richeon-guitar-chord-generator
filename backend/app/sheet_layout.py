@@ -23,9 +23,13 @@ _LINE_FILL = 0.45
 #: 세로선으로 치려면 오선 높이의 이만큼을 채워야 한다.
 #:
 #: 두 악보를 재어 보니 갈리는 자리가 뚜렷했다. 진짜 마디선은 오선을
-#: 빈틈없이(1.00) 꿰고, 음표 기둥과 타브의 이음줄은 0.89~0.93에서
+#: 빈틈없이(1.000) 꿰고, 음표 기둥과 타브의 이음줄은 0.89~0.97에서
 #: 멈춘다. 머리나 숫자에 한 번은 가리기 때문이다.
-_BAR_FILL = 0.97
+#:
+#: 0.97로 두었더니 200dpi에서 폭 1픽셀·채움 0.974짜리가 끼어들어 마디가
+#: 58개가 되었고, 악보 파일과 마디 수가 달라 정렬이 조용히 버려졌다.
+#: 빈틈이 하나도 없을 것을 요구한다.
+_BAR_FILL = 0.995
 
 
 @dataclass
@@ -54,6 +58,9 @@ class Page:
     width: int
     height: int
     systems: list[System] = field(default_factory=list)
+    #: 악보가 실제로 그려진 가로 범위. 쪽 여백을 잘라 내면 그만큼 크게 보인다.
+    crop_left: int = 0
+    crop_right: int = 0
 
 
 def _gray(img: Image.Image) -> np.ndarray:
@@ -243,6 +250,16 @@ def layout(image: Image.Image, index: int = 0) -> Page:
             system.bars.insert(0, start)
         page.systems.append(system)
     _view_bands(ink, page.systems)
+
+    # 쪽 여백은 잘라 낸다. 화면이 좁은 폰에서는 이 여백이 곧 글씨 크기다.
+    if page.systems:
+        pad = max(image.width // 100, 4)
+        left = min(s.bars[0] for s in page.systems)
+        right = max(s.bars[-1] for s in page.systems)
+        page.crop_left = max(left - pad * 3, 0)
+        page.crop_right = min(right + pad, image.width - 1)
+    else:
+        page.crop_right = image.width - 1
     return page
 
 
