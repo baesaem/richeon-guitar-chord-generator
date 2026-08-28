@@ -50,8 +50,8 @@ export function lessonFileName(className?: string): string {
   return `리천 강의실${tail}.rml`;
 }
 
-/** 이 반의 강의실을 파일로 내려받는다. 이 파일을 그 반 강의실 폴더에 올리면 끝이다. */
-export function downloadLessonFile(klass: GuitarClass): number {
+/** 이 반의 강의실을 파일 한 덩어리로 만든다. 내려받기·올리기가 같이 쓴다. */
+export function lessonBlob(klass: GuitarClass): { blob: Blob; count: number } {
   const items = listLectures(classroomShelf(klass.id));
   const file: LessonFile = {
     kind: KIND,
@@ -61,14 +61,22 @@ export function downloadLessonFile(klass: GuitarClass): number {
     items,
   };
   // application/json으로 주면 Chrome이 .rml 뒤에 .json을 덧붙인다
-  const blob = new Blob([JSON.stringify(file)], { type: "application/octet-stream" });
+  return {
+    blob: new Blob([JSON.stringify(file)], { type: "application/octet-stream" }),
+    count: items.length,
+  };
+}
+
+/** 이 반의 강의실을 파일로 내려받는다. 이 파일을 그 반 강의실 폴더에 올리면 끝이다. */
+export function downloadLessonFile(klass: GuitarClass): number {
+  const { blob, count } = lessonBlob(klass);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = lessonFileName(klass.name);
   a.click();
   URL.revokeObjectURL(url);
-  return items.length;
+  return count;
 }
 
 /** 받은 파일을 그 반 강의실에 붙인다. 이미 있는 링크는 건너뛴다. */

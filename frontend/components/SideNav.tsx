@@ -38,7 +38,7 @@ export function SideNav({
             <span className="text-[var(--accent)]">리천</span> 기타교실
           </span>
           <span className="block text-[12px] leading-tight text-[var(--accent)] opacity-75">
-            강상주민센터 기타반 · 종영민 강사님
+            강상주민센터 기타반 · 조영민 강사님
           </span>
         </span>
       </div>

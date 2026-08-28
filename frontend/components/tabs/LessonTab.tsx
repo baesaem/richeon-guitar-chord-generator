@@ -1,13 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
 import { LinkShelf } from "@/components/LinkShelf";
 import { Working } from "@/components/Working";
 import { CLASSES } from "@/lib/classes";
 import { classroomShelf } from "@/lib/lectures";
-import { downloadLessonFile, importLessonsFromDrive } from "@/lib/lessonShare";
+import {
+  downloadLessonFile,
+  importLessonsFromDrive,
+  lessonBlob,
+  lessonFileName,
+} from "@/lib/lessonShare";
+import {
+  driveConnect,
+  driveConnectWait,
+  driveStatus,
+  driveUpload,
+} from "@/lib/api";
+import { openLink } from "@/lib/openLink";
 
 /**
  * 공부방 — 밖에서 보며 배우는 것들.
@@ -37,6 +49,14 @@ export function LessonTab({
   const [error, setError] = useState<string | null>(null);
   // 받아 온 링크를 화면에 곧바로 비추려면 목록을 다시 읽어야 한다
   const [reloadKey, setReloadKey] = useState(0);
+  // 드라이브에 바로 올릴 수 있는가(관리자 PC에서 한 번 연결해 두면 계속)
+  const [driveReady, setDriveReady] = useState(false);
+  useEffect(() => {
+    if (!adminMode || !online) return;
+    driveStatus()
+      .then((s) => setDriveReady(s.connected))
+      .catch(() => setDriveReady(false));
+  }, [adminMode, online]);
 
   const klass = CLASSES.find((c) => c.id === page) ?? null;
 
@@ -57,6 +77,38 @@ export function LessonTab({
         flash(`강좌 ${added}개를 받았습니다.`);
         setReloadKey((k) => k + 1);
       }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  /**
+   * 드라이브에 곧장 올린다. 처음 한 번은 구글 동의를 받는다 —
+   * 서버가 연 주소를 열어 계정을 고르면, 그 뒤로는 누르면 끝이다.
+   */
+  const uploadToDrive = async () => {
+    if (!klass) return;
+    const { blob, count } = lessonBlob(klass);
+    if (count === 0) {
+      setError("이 반 강의실에 담긴 링크가 없습니다.");
+      return;
+    }
+    setError(null);
+    try {
+      if (!driveReady) {
+        setWorking("구글 계정 연결 중");
+        const { url } = await driveConnect();
+        openLink(url);
+        await driveConnectWait();
+        setDriveReady(true);
+      }
+      setWorking("드라이브에 올리는 중");
+      const res = await driveUpload(klass.lessonFolderId, lessonFileName(klass.name), blob);
+      flash(
+        `${count}개를 드라이브에 올렸습니다${res.replaced ? " (기존 파일 교체)" : ""}.`,
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -119,13 +171,22 @@ export function LessonTab({
             >
               새 강좌 가져오기
             </button>
+            {adminMode && online && (
+              <button
+                className="shrink-0 rounded bg-gray-900 px-3 py-2.5 text-sm font-medium text-white dark:bg-gray-100 dark:text-black"
+                onClick={uploadToDrive}
+                title="이 반 강의실을 드라이브 폴더에 곧장 올립니다"
+              >
+                {driveReady ? "드라이브에 올리기" : "드라이브 연결 후 올리기"}
+              </button>
+            )}
             {adminMode && (
               <button
                 className="shrink-0 rounded bg-gray-100 px-3 py-2.5 text-sm font-medium dark:bg-gray-800"
                 onClick={exportToFile}
-                title="이 반 강의실을 파일로 만들어 폴더에 올립니다"
+                title="파일로 내려받아 직접 올릴 때 씁니다"
               >
-                내보내기
+                파일로
               </button>
             )}
           </div>

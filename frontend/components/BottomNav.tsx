@@ -33,16 +33,6 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: "import",
-    label: "음원가져오기",
-    icon: (
-      <>
-        <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />
-        <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-      </>
-    ),
-  },
-  {
     id: "lesson",
     label: "공부방",
     icon: (
@@ -50,6 +40,16 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
         {/* 펼친 책 — 따로 듣는 강좌를 모아 두는 자리 */}
         <path d="M12 6.5C10.5 5 8.5 4.5 4 4.5v13c4.5 0 6.5.5 8 2 1.5-1.5 3.5-2 8-2v-13c-4.5 0-6.5.5-8 2z" />
         <path d="M12 6.5v13" />
+      </>
+    ),
+  },
+  {
+    id: "import",
+    label: "음원가져오기",
+    icon: (
+      <>
+        <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />
+        <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
       </>
     ),
   },

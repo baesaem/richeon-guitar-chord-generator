@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "리천 기타교실(종영민 강사님)",
+  title: "리천 기타교실(조영민 강사님)",
   description:
     "YouTube 영상이나 오디오 파일에서 비트·조성·기타 코드를 자동으로 뽑아 재생과 함께 보여줍니다.",
   // 홈 화면에 앱으로 설치할 수 있게 한다(PWA)

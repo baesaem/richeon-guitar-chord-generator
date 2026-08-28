@@ -129,6 +129,43 @@ export const renameResult = (id: string, title: string) =>
     body: JSON.stringify({ title }),
   }).then(json<AnalysisResult>);
 
+/**
+ * 구글 드라이브에 바로 올리기 (관리자 PC).
+ *
+ * 「내보내기 → 내려받기 → 드라이브 웹에서 올리기」 세 걸음을 한 번으로
+ * 줄인다. 서버가 선생님 계정으로 올리므로 파일 주인도 선생님이다.
+ */
+export const driveStatus = () =>
+  fetch(`${apiBase()}/api/drive/status`).then(json<{ connected: boolean }>);
+
+/** 동의 화면 주소를 받는다. 이 주소를 열면 구글이 계정을 묻는다. */
+export const driveConnect = () =>
+  fetch(`${apiBase()}/api/drive/connect`, { method: "POST" }).then(
+    json<{ url: string }>,
+  );
+
+/** 동의가 끝나기를 기다린다(최대 3분). */
+export const driveConnectWait = () =>
+  fetch(`${apiBase()}/api/drive/connect/wait`, { method: "POST" }).then(
+    json<{ connected: boolean }>,
+  );
+
+export const driveDisconnect = () =>
+  fetch(`${apiBase()}/api/drive/connect`, { method: "DELETE" }).then(
+    json<{ connected: boolean }>,
+  );
+
+/** 공유 폴더에 파일 하나를 올린다. 같은 이름이 있으면 갈아 끼운다. */
+export const driveUpload = (folder: string, name: string, blob: Blob) => {
+  const fd = new FormData();
+  fd.append("folder", folder);
+  fd.append("name", name);
+  fd.append("file", blob, name);
+  return fetch(`${apiBase()}/api/drive/upload`, { method: "POST", body: fd }).then(
+    json<{ id: string; name: string; replaced: boolean }>,
+  );
+};
+
 export interface LlmSettings {
   configured: boolean;
   /** 앞뒤만 남기고 가린 키. 저장된 값이 있는지 확인하는 용도 */

@@ -22,7 +22,7 @@ from .lyrics import (
     polish_captions,
     sync_to_song,
 )
-from . import llm
+from . import drive_upload, llm
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
 from .sheets import clean_query, search as search_sheets
@@ -123,6 +123,60 @@ async def job_events(job_id: str) -> EventSourceResponse:
             yield {"event": "status", "data": json.dumps(status.model_dump())}
 
     return EventSourceResponse(gen())
+
+
+# ---- 구글 드라이브에 바로 올리기 (관리자 PC에서만 쓴다) ----
+
+@app.get("/api/drive/status")
+async def drive_status() -> dict:
+    """드라이브에 연결돼 있는가. 화면이 「연결」과 「올리기」를 가른다."""
+    return {"connected": drive_upload.connected()}
+
+
+@app.post("/api/drive/connect")
+async def drive_connect() -> dict:
+    """동의 화면 주소를 만들어 준다. 앱이 이 주소를 열면 된다."""
+    try:
+        url = await asyncio.to_thread(drive_upload.start_consent)
+    except drive_upload.DriveError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"url": url}
+
+
+@app.post("/api/drive/connect/wait")
+async def drive_connect_wait() -> dict:
+    """동의가 끝나기를 기다렸다가 토큰을 저장한다."""
+    try:
+        await asyncio.to_thread(drive_upload.wait_consent)
+    except drive_upload.DriveError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"connected": True}
+
+
+@app.delete("/api/drive/connect")
+async def drive_disconnect() -> dict:
+    await asyncio.to_thread(drive_upload.disconnect)
+    return {"connected": False}
+
+
+@app.post("/api/drive/upload")
+async def drive_put(
+    folder: str = Form(...),
+    name: str = Form(...),
+    file: UploadFile = File(...),
+) -> dict:
+    """공유 폴더에 파일을 올린다. 같은 이름이 있으면 갈아 끼운다."""
+    data = await file.read()
+    try:
+        return await asyncio.to_thread(
+            drive_upload.upload,
+            folder,
+            name,
+            data,
+            file.content_type or "application/octet-stream",
+        )
+    except drive_upload.DriveError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @app.get("/api/results")

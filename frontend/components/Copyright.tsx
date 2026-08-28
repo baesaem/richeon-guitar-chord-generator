@@ -2,7 +2,7 @@
 export function Copyright() {
   return (
     <p className="py-4 text-center text-[10px] leading-relaxed text-gray-400">
-      © {COPYRIGHT_YEAR} 리천 기타교실(종영민 강사님) · 기타 코드 자동 생성
+      © {COPYRIGHT_YEAR} 리천 기타교실(조영민 강사님) · 기타 코드 자동 생성
       <br />
       개인 학습·연습용. 음원의 저작권은 각 권리자에게 있습니다.
     </p>

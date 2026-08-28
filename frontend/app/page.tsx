@@ -645,7 +645,7 @@ export default function Home() {
           <span className="shrink-0 whitespace-nowrap text-[11px] font-medium leading-tight text-[var(--accent)] opacity-80 roomy:hidden">
             강상주민센터 기타반
             <br />
-            종영민 강사님
+            조영민 강사님
           </span>
           {/* 도움말 — 지금 보는 메뉴에 맞는 안내가 열린다 */}
           <HelpButton tab={tab} playing={!!result} />
