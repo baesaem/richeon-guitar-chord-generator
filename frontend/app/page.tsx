@@ -732,6 +732,7 @@ export default function Home() {
                   result={result}
                   time={time + lyricSync - settings.latency}
                   online={!!health}
+                  canEdit={settings.adminMode}
                   onLyrics={(lines) =>
                     setResult((prev) => (prev ? { ...prev, lyrics: lines } : prev))
                   }
@@ -985,6 +986,7 @@ export default function Home() {
                     result={result}
                     time={time + lyricSync - settings.latency}
                     online={!!health}
+                    canEdit={settings.adminMode}
                     onLyrics={(lines) =>
                       setResult((prev) => (prev ? { ...prev, lyrics: lines } : prev))
                     }

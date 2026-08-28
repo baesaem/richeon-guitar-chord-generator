@@ -28,6 +28,13 @@ interface Props {
   /** 가사를 새로 받으면 재생 중인 결과에도 반영한다 */
   onLyrics: (lines: LyricLine[]) => void;
   onSeek: (t: number) => void;
+  /**
+   * 가사를 고칠 수 있는가(관리자).
+   *
+   * 수강생 화면에서는 찾기·바꾸기·지우기를 감춘다 — 받은 가사를
+   * 손댈 일이 없고, 잘못 눌러 지우면 곡을 다시 받아야 한다.
+   */
+  canEdit?: boolean;
 }
 
 /**
@@ -36,7 +43,14 @@ interface Props {
  * 코드 박스·곡 전체 코드가 있던 자리를 대신 차지한다. 현재 줄을 강조하고
  * 화면 가운데로 따라 올린다 — 노래방처럼 눈이 한 자리를 본다.
  */
-export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
+export function LyricsPane({
+  result,
+  time,
+  online,
+  onLyrics,
+  onSeek,
+  canEdit = true,
+}: Props) {
   const lines = useMemo(() => result.lyrics ?? [], [result.lyrics]);
   // 문장 단위로 끊는다. 자막에서 온 가사는 숨 쉬는 자리마다 토막나
   // 그대로 늘어놓으면 어디까지가 한 소절인지 알 수 없다.
@@ -218,11 +232,17 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
           <p className="text-xs text-gray-500">
             {busy ? "가사를 찾는 중…" : "이 곡의 가사가 아직 없습니다."}
           </p>
-          {!online && !hasLocalLlm() && (
+          {!canEdit && (
+            <p className="text-[11px] leading-snug text-gray-400">
+              이 곡에는 가사가 들어 있지 않습니다.
+            </p>
+          )}
+          {canEdit && !online && !hasLocalLlm() && (
             <p className="text-[11px] leading-snug text-gray-400">
               설정에서 가사 도우미 키를 넣으면 한국 가요도 잘 찾습니다.
             </p>
           )}
+          {canEdit && (
           <div className="flex w-full max-w-xs flex-col gap-1.5">
             <button
               className="rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
@@ -256,6 +276,7 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
               가사 붙여넣기
             </button>
           </div>
+          )}
         </div>
       ) : (
         <>
@@ -284,22 +305,26 @@ export function LyricsPane({ result, time, online, onLyrics, onSeek }: Props) {
           )}
           <div className="flex shrink-0 items-center justify-end gap-2 px-3 pb-1 text-[10px] text-gray-400">
             <span>{groups.length}묶음 · {lines.length}줄</span>
-            <button className="underline" onClick={() => setPasting(true)}>
-              가사 바꾸기
-            </button>
-            <button
-              className="text-red-500 underline"
-              onClick={() => setConfirmClear(true)}
-            >
-              지우기
-            </button>
-            <button
-              className="underline disabled:opacity-40"
-              disabled={busy}
-              onClick={() => search("")}
-            >
-              다시 찾기
-            </button>
+            {canEdit && (
+              <>
+                <button className="underline" onClick={() => setPasting(true)}>
+                  가사 바꾸기
+                </button>
+                <button
+                  className="text-red-500 underline"
+                  onClick={() => setConfirmClear(true)}
+                >
+                  지우기
+                </button>
+                <button
+                  className="underline disabled:opacity-40"
+                  disabled={busy}
+                  onClick={() => search("")}
+                >
+                  다시 찾기
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
