@@ -41,14 +41,14 @@ export function LinkShelf({
   /** 이 칸이 무엇인지 한 줄 설명 */
   blurb: string;
   addLabel?: string;
-  /** 링크를 담을 수 있는가. 강의실은 선생님만 담는다 */
+  /** 링크를 담을 수 있는가. 강의실은 강사님만 담는다 */
   canAdd?: boolean;
   /**
    * 여러 칸을 한 목록으로 합쳐 본다(초·중급 모두 보기). 주면 읽기만
    * 하는 화면이 된다 — 어느 반 것인지 딱지를 달아 구분한다.
    */
   merged?: { shelf: Shelf; label: string }[];
-  /** 골라 둔 자료가 바뀔 때. 선생님이 고른 것만 올리는 데 쓴다 */
+  /** 골라 둔 자료가 바뀔 때. 강사님이 고른 것만 올리는 데 쓴다 */
   onSelected?: (ids: string[]) => void;
 }) {
   const readOnly = !!merged || !canAdd;

@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>리천 기타교실 — 앱 소개</title>
+<meta name="description" content="강상주민센터 기타반 수업용 앱. 노래를 넣으면 코드와 가사가 붙은 악보가 나오고, 그 악보를 보며 함께 칩니다.">
+<link rel="icon" href="/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="리천 기타교실">
+<meta property="og:description" content="부르고 싶은 노래를 넣으면 코드와 가사가 붙은 악보가 나오고, 그 악보를 보며 함께 치는 수업용 앱입니다.">
+<meta property="og:image" content="https://gita.richeon.kr/icon-512.png">
+<meta property="og:url" content="https://gita.richeon.kr/intro/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  /* ── 팔레트: 흑단 지판, 자개 인레이, 놋쇠 줄 ───────────────────── */
+  :root {
+    --paper: #f5f3ee;        /* 스프루스 상판 */
+    --surface: #fffefb;
+    --ink: #1c1a16;          /* 흑단 */
+    --ink-soft: #625c51;     /* 따뜻한 쪽으로 기운 회색 */
+    --line: #ddd8cc;
+    --brass: #9a7526;        /* 놋쇠 줄 */
+    --brass-soft: #f0e6cf;
+    --pearl: #e9e3d6;        /* 자개 */
+    --shadow: 0 1px 2px rgba(28, 26, 22, .05), 0 8px 24px -16px rgba(28, 26, 22, .3);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14130f;
+      --surface: #1c1a15;
+      --ink: #ece7db;
+      --ink-soft: #9d968a;
+      --line: #34302a;
+      --brass: #d3ab5c;
+      --brass-soft: #2c261a;
+      --pearl: #3a352c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14130f;
+    --surface: #1c1a15;
+    --ink: #ece7db;
+    --ink-soft: #9d968a;
+    --line: #34302a;
+    --brass: #d3ab5c;
+    --brass-soft: #2c261a;
+    --pearl: #3a352c;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans KR", system-ui, -apple-system, "Malgun Gothic", sans-serif;
+    font-weight: 400;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: clamp(2.5rem, 6vw, 5rem) clamp(1.25rem, 5vw, 2rem) 5rem;
+  }
+
+  /* ── 여섯 줄: 지판 위 현을 흉내 낸 구분선 ───────────────────── */
+  .strings {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: clamp(2.5rem, 6vw, 3.5rem) 0;
+  }
+  .strings i {
+    display: block;
+    height: 1px;
+    background: var(--line);
+  }
+  .strings i:nth-child(1) { opacity: .45; }
+  .strings i:nth-child(2) { opacity: .55; }
+  .strings i:nth-child(3) { opacity: .65; }
+  .strings i:nth-child(4) { height: 1.5px; opacity: .7; }
+  .strings i:nth-child(5) { height: 2px; opacity: .8; }
+  .strings i:nth-child(6) { height: 2.5px; opacity: .9; }
+
+  /* ── 머리말 ─────────────────────────────────────────────── */
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .74rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-family: "Gowun Batang", "Nanum Myeongjo", serif;
+    font-weight: 700;
+    font-size: clamp(2.4rem, 8vw, 3.6rem);
+    line-height: 1.12;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+  h1 .light { color: var(--brass); }
+  .lede {
+    font-size: clamp(1.05rem, 2.4vw, 1.2rem);
+    color: var(--ink-soft);
+    max-width: 34ch;
+    margin: 0 0 2rem;
+    text-wrap: pretty;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem .75rem;
+    align-items: center;
+    font-size: .85rem;
+    color: var(--ink-soft);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .3rem .7rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+  }
+  .chip.addr {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--brass);
+    border-color: color-mix(in srgb, var(--brass) 35%, transparent);
+    background: var(--brass-soft);
+  }
+
+  h2 {
+    font-family: "Gowun Batang", "Nanum Myeongjo", serif;
+    font-weight: 700;
+    font-size: clamp(1.45rem, 3.6vw, 1.85rem);
+    line-height: 1.3;
+    letter-spacing: -.01em;
+    margin: 0 0 .35rem;
+  }
+  .section-note {
+    color: var(--ink-soft);
+    font-size: .95rem;
+    margin: 0 0 1.75rem;
+    max-width: 52ch;
+  }
+  p { margin: 0 0 1rem; }
+  strong { font-weight: 600; }
+
+  /* ── 쓰는 순서: 진짜 차례라 번호를 붙인다 ──────────────────── */
+  ol.steps {
+    list-style: none;
+    counter-reset: step;
+    display: grid;
+    gap: 1rem;
+    padding: 0;
+    margin: 0;
+  }
+  ol.steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+  ol.steps li::before {
+    content: counter(step);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .9rem;
+    font-weight: 500;
+    color: var(--brass);
+    background: var(--brass-soft);
+    border: 1px solid color-mix(in srgb, var(--brass) 30%, transparent);
+    border-radius: 50%;
+    width: 2.4rem;
+    height: 2.4rem;
+    display: grid;
+    place-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+  ol.steps b { display: block; font-weight: 600; }
+  ol.steps span { color: var(--ink-soft); font-size: .95rem; }
+
+  /* ── 특징 카드 ─────────────────────────────────────────── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1.25rem 1.35rem;
+    box-shadow: var(--shadow);
+  }
+  .card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 .4rem;
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+  }
+  .card h3::before {
+    content: "";
+    width: .5rem;
+    height: .5rem;
+    flex: none;
+    border-radius: 50%;
+    background: var(--pearl);
+    border: 1px solid color-mix(in srgb, var(--brass) 40%, transparent);
+  }
+  .card p {
+    margin: 0;
+    font-size: .92rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
+
+  /* ── 두 사람의 시선 ─────────────────────────────────────── */
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: clamp(1.5rem, 4vw, 2.5rem);
+  }
+  .columns h3 {
+    font-family: "Gowun Batang", "Nanum Myeongjo", serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0 0 .9rem;
+    padding-bottom: .6rem;
+    border-bottom: 2px solid var(--brass);
+    display: inline-block;
+  }
+  ul.plain {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: .7rem;
+  }
+  ul.plain li {
+    position: relative;
+    padding-left: 1.1rem;
+    font-size: .95rem;
+    color: var(--ink-soft);
+  }
+  ul.plain li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: .72em;
+    width: .45rem;
+    height: 1px;
+    background: var(--brass);
+  }
+  ul.plain b { color: var(--ink); font-weight: 600; }
+
+  /* ── 알아두기 ─────────────────────────────────────────── */
+  .notes {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--brass);
+    border-radius: 3px;
+    padding: 1.25rem 1.4rem;
+  }
+  .notes dl { margin: 0; display: grid; gap: .85rem; }
+  .notes dt {
+    font-size: .78rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: .06em;
+    color: var(--brass);
+    margin-bottom: .15rem;
+  }
+  .notes dd { margin: 0; font-size: .93rem; color: var(--ink-soft); }
+
+  footer {
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    font-size: .82rem;
+    color: var(--ink-soft);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.25rem;
+    justify-content: space-between;
+  }
+  footer .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+</style>
+<style>
+  /* 앱으로 건너가는 단추 — 소개를 읽고 바로 열어 볼 수 있게 */
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    margin-top: 1.75rem;
+    padding: .8rem 1.4rem;
+    border-radius: 3px;
+    background: var(--brass);
+    color: #fffdf7;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    box-shadow: var(--shadow);
+  }
+  .cta:hover { filter: brightness(1.08); }
+  .cta:focus-visible { outline: 3px solid var(--brass); outline-offset: 3px; }
+  .cta .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 400;
+    opacity: .85;
+    font-size: .85rem;
+  }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">강상주민센터 기타반 · 조영민 강사님</p>
+    <h1>리천 <span class="light">기타교실</span></h1>
+    <p class="lede">
+      부르고 싶은 노래를 넣으면 코드와 가사가 붙은 악보가 나오고,
+      그 악보를 보며 함께 치는 수업용 앱입니다.
+    </p>
+    <div class="meta">
+      <span class="chip addr">gita.richeon.kr</span>
+      <span class="chip">폰 · 태블릿 · PC</span>
+      <span class="chip">설치해서 쓰기</span>
+    </div>
+    <a class="cta" href="https://gita.richeon.kr/">
+      앱 열기 <span class="mono">gita.richeon.kr</span>
+    </a>
+  </header>
+
+  <div class="strings" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+
+  <section>
+    <h2>무엇을 하는 앱인가</h2>
+    <p class="section-note">
+      악보를 구하고, 코드를 받아 적고, 박자를 맞추는 일을 앱이 대신합니다.
+    </p>
+    <p>
+      강사님이 수업에 쓸 곡을 앱에 넣으면 <strong>박자·조성·코드</strong>를 스스로 알아내
+      악보로 그립니다. 가사도 찾아 붙이고, 노래에서 실제로 부른 자리에 맞춰 시각을
+      다시 잽니다. 수강생은 그 결과를 <strong>파일 하나로</strong> 받아 자기 기기에
+      담아 두고, 연습할 때마다 열면 됩니다.
+    </p>
+    <p>
+      코드는 기계가 들은 결과라 가끔 틀립니다. 그래서 강사님이 <strong>마디를 눌러
+      바로 고칠 수 있게</strong> 해 두었습니다. 고친 악보를 다시 올리면 수강생 화면도
+      함께 바뀝니다.
+    </p>
+  </section>
+
+  <div class="strings" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+
+  <section>
+    <h2>이렇게 씁니다</h2>
+    <p class="section-note">수강생이 하는 일은 세 걸음입니다.</p>
+    <ol class="steps">
+      <li>
+        <div>
+          <b>곡 받기</b>
+          <span>「음원가져오기」에서 자기 반(초급·중급) 카드를 열고 필요한 곡을 받습니다.
+            코드·가사·음원·반주·보컬이 한 파일에 들어 있습니다.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>곡 열기</b>
+          <span>「음원목록」에서 곡을 누르면 악보가 지금 소리 나는 자리를 따라갑니다.
+            서버가 꺼져 있어도, 인터넷이 약해도 열립니다.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>맞춰 연습하기</b>
+          <span>빠르기를 늦추고, 카포를 걸고, 어려운 대목만 반복하고,
+            노래를 지운 반주로 칩니다.</span>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <div class="strings" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+
+  <section>
+    <h2>특징</h2>
+    <p class="section-note">
+      기타 교실에서 실제로 하는 일들을 그대로 옮겼습니다.
+    </p>
+    <div class="cards">
+      <div class="card">
+        <h3>따라가는 악보</h3>
+        <p>여섯 줄 타브 악보에 코드가 바뀌는 마디마다 짚을 프렛 숫자가 찍힙니다.
+          코드표를 오가지 않고 악보만 보고 짚습니다.</p>
+      </div>
+      <div class="card">
+        <h3>노래방처럼 도는 가사</h3>
+        <p>지금 부르는 소절이 커지고, 줄을 누르면 그 자리로 건너뜁니다.
+          가사가 없는 곡은 노래를 받아 적어 채웁니다.</p>
+      </div>
+      <div class="card">
+        <h3>원음 · 반주 · 보컬</h3>
+        <p>노래를 지운 반주로 치고, 보컬만 남겨 따라 부릅니다.
+          기기에 담아 두면 인터넷 없이도 바뀝니다.</p>
+      </div>
+      <div class="card">
+        <h3>느리게, 낮게, 되풀이</h3>
+        <p>빠르기 0.5~1.5배, 카포 1~11프렛, 어려운 두 마디만 구간 반복.
+          곡마다 맞춰 두면 다음에 열 때 그대로입니다.</p>
+      </div>
+      <div class="card">
+        <h3>주법을 골라 보여줍니다</h3>
+        <p>곡의 박자와 빠르기를 보고 스트로크 패턴이나 아르페지오를 권하고,
+          고른 패턴대로 악보를 다시 그립니다.</p>
+      </div>
+      <div class="card">
+        <h3>기타 기초</h3>
+        <p>지판과 음정, 코드표, 스트로크, 아르페지오, 기타 상식.
+          수업 유인물의 패턴 번호와 곡 배정을 그대로 옮겼습니다.</p>
+      </div>
+      <div class="card">
+        <h3>공부방</h3>
+        <p>강사님이 올린 강좌·자료를 반별로 받아 봅니다.
+          새 자료가 올라오면 앱을 열 때 알려 줍니다.</p>
+      </div>
+      <div class="card">
+        <h3>어느 기기에서나</h3>
+        <p>폰은 아래 메뉴로, 태블릿·PC는 왼쪽 메뉴로 바뀝니다.
+          화면이 커지면 글자와 악보도 함께 커집니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="strings" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+
+  <section>
+    <h2>좋은 점</h2>
+    <p class="section-note">배우는 쪽과 가르치는 쪽이 각각 던 수고입니다.</p>
+    <div class="columns">
+      <div>
+        <h3>수강생</h3>
+        <ul class="plain">
+          <li><b>악보를 찾아 헤매지 않습니다.</b> 반 폴더에서 곡을 받으면 코드·가사·음원이 함께 옵니다.</li>
+          <li><b>집에서도 수업처럼.</b> 느리게 돌려 가며, 틀리는 두 마디만 되풀이해 연습합니다.</li>
+          <li><b>인터넷이 없어도.</b> 한 번 받아 두면 기기에서 그대로 열립니다.</li>
+          <li><b>눈이 편합니다.</b> 화면 크기에 맞춰 글자와 악보가 커지고, 테마를 고를 수 있습니다.</li>
+          <li><b>공짜이고 가볍습니다.</b> 홈 화면에 설치하면 앱처럼 아이콘으로 열립니다.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>강사님</h3>
+        <ul class="plain">
+          <li><b>악보 만드는 시간이 줍니다.</b> 유튜브 주소만 넣으면 코드·박자·가사가 나옵니다.</li>
+          <li><b>틀린 코드는 눌러 고칩니다.</b> 재생하면서 마디를 길게 눌러 바로 바꿉니다.</li>
+          <li><b>나눠 주기가 한 번입니다.</b> 「드라이브에 올리기」를 누르면 반 폴더로 곧장 올라갑니다.</li>
+          <li><b>반을 갈라 관리합니다.</b> 초급·중급이 각자의 곡과 강좌를 받습니다.</li>
+          <li><b>수업 자료 그대로.</b> 유인물의 아르페지오 패턴과 곡 배정을 앱이 같은 번호로 부릅니다.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="strings" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+
+  <section>
+    <h2>알아두기</h2>
+    <div class="notes">
+      <dl>
+        <div>
+          <dt>여는 곳</dt>
+          <dd>브라우저에서 <a href="https://gita.richeon.kr/" style="color:var(--brass)"><strong>gita.richeon.kr</strong></a>. 설정 맨 위 「홈 화면에 설치」를 누르면
+            아이콘으로 바로 열립니다.</dd>
+        </div>
+        <div>
+          <dt>받을 때</dt>
+          <dd>곡 하나가 10~30MB입니다. 와이파이에서 받으시고, 반주·보컬이 필요 없으면
+            체크를 꺼서 공간을 아끼세요.</dd>
+        </div>
+        <div>
+          <dt>코드가 틀릴 때</dt>
+          <dd>기계가 들은 결과라 완벽하지 않습니다. 이상한 마디는 강사님께 알려 주시면
+            고쳐서 다시 올립니다.</dd>
+        </div>
+        <div>
+          <dt>새 곡 · 새 강좌 분석</dt>
+          <dd>곡을 새로 분석하는 일은 강사님 PC가 켜져 있을 때만 됩니다.
+            받아 둔 곡을 여는 것은 언제나 됩니다.</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <footer>
+    <span>개인 학습·연습용. 음원의 저작권은 각 권리자에게 있습니다.</span>
+    <span class="mono">리천 기타교실 · 강상주민센터 기타반</span>
+  </footer>
+</div>
+
+</body>
+</html>

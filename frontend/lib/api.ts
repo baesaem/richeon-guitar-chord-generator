@@ -133,7 +133,7 @@ export const renameResult = (id: string, title: string) =>
  * 구글 드라이브에 바로 올리기 (관리자 PC).
  *
  * 「내보내기 → 내려받기 → 드라이브 웹에서 올리기」 세 걸음을 한 번으로
- * 줄인다. 서버가 선생님 계정으로 올리므로 파일 주인도 선생님이다.
+ * 줄인다. 서버가 강사님 계정으로 올리므로 파일 주인도 강사님이다.
  */
 export const driveStatus = () =>
   fetch(`${apiBase()}/api/drive/status`).then(json<{ connected: boolean }>);

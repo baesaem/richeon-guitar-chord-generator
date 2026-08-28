@@ -131,7 +131,7 @@ export function addLecture(shelf: Shelf, item: Lecture): Lecture[] {
 
 /**
  * 담아 둔 자료를 고친다. 자리는 그대로 둔다 — 고쳤다고 목록 맨 위로
- * 올라오면 선생님이 정해 둔 차례가 흐트러진다.
+ * 올라오면 강사님이 정해 둔 차례가 흐트러진다.
  */
 export function updateLecture(shelf: Shelf, id: string, next: Lecture): Lecture[] {
   const items = listLectures(shelf).map((l) => (l.id === id ? next : l));
@@ -141,7 +141,7 @@ export function updateLecture(shelf: Shelf, id: string, next: Lecture): Lecture[
 
 /**
  * 칸을 통째로 갈아 끼운다. 받아 오는 강의실이 쓴다 —
- * 선생님이 올린 파일이 정답이므로 고친 것·지운 것이 그대로 반영된다.
+ * 강사님이 올린 파일이 정답이므로 고친 것·지운 것이 그대로 반영된다.
  */
 export function replaceLectures(shelf: Shelf, items: Lecture[]): Lecture[] {
   write(shelf, items);

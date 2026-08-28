@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
+import { openLink } from "@/lib/openLink";
 import { LlmSettingsCard } from "@/components/LlmSettingsCard";
 import { Popup } from "@/components/Popup";
 import {
@@ -164,6 +165,13 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             onClick={install}
           >
             {installed ? "다시 설치하기" : "홈 화면에 설치"}
+          </button>
+          {/* 소개 페이지 — 앱을 남에게 설명할 때 링크로 건넨다 */}
+          <button
+            className="mt-1.5 w-full rounded border border-gray-200 py-2 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300"
+            onClick={() => openLink("/intro/")}
+          >
+            앱 소개 보기 (링크로 나눠 주기)
           </button>
           {installMsg && (
             <p className="mt-1.5 rounded bg-gray-100 px-2 py-1.5 text-[11px] leading-snug text-gray-600 dark:bg-gray-800 dark:text-gray-300">

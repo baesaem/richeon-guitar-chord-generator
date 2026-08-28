@@ -698,7 +698,7 @@ export default function Home() {
           }}
         >
           <p className="mb-2.5 text-[11px] leading-snug text-gray-500">
-            선생님이 공부방 강의실에 새 자료를 올렸습니다. 받으러 가시겠어요?
+            강사님이 공부방 강의실에 새 자료를 올렸습니다. 받으러 가시겠어요?
           </p>
           <div className="space-y-1.5">
             {newLessons.map((l) => (

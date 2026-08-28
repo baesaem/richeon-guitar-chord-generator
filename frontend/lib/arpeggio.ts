@@ -19,7 +19,7 @@ export interface ArpPattern {
   chords: string[];
   /** 한 마디(8분음표 8칸)의 손가락. 한 칸에 여러 손가락이면 함께 뜯는다 */
   seq: string[][];
-  /** 선생님 필기 — 이 패턴을 쓰는 곡 */
+  /** 강사님 필기 — 이 패턴을 쓰는 곡 */
   songs: string;
   note?: string;
   /** 유인물 밖에서 가져온 표준 패턴 */

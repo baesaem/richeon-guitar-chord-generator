@@ -784,7 +784,7 @@ export function ImportTab({
                 const hasAudio = audioBases.has(rmlBaseOf(file.name));
                 return (
                   <li key={file.id}>
-                    {/* 받은 곡도 다시 받을 수 있다. 선생님이 코드를 고쳐
+                    {/* 받은 곡도 다시 받을 수 있다. 강사님이 코드를 고쳐
                         올렸을 때 새 것으로 바꿔야 한다 */}
                     <button
                       className="flex w-full items-center gap-2 py-2.5 text-left disabled:opacity-50"
