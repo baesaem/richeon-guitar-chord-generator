@@ -187,16 +187,17 @@ export function LessonTab({
       {klass ? (
         <>
           {/* 받기·내보내기. 수강생은 받기만, 선생님은 둘 다 쓴다 */}
-          <div className="mb-2 flex gap-1.5">
+          {/* 자주 누르는 단추가 아니다. 크게 벌려 두면 목록이 밀린다 */}
+          <div className="mb-2 flex flex-wrap gap-1.5">
             <button
-              className="flex-1 rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
+              className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white"
               onClick={importFromDrive}
             >
               새 강좌 가져오기
             </button>
             {adminMode && online && (
               <button
-                className="shrink-0 rounded bg-gray-900 px-3 py-2.5 text-sm font-medium text-white dark:bg-gray-100 dark:text-black"
+                className="rounded bg-gray-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-gray-100 dark:text-black"
                 onClick={() => setAskFolder("upload")}
                 title="이 반 강의실을 드라이브 폴더에 곧장 올립니다"
               >
@@ -205,7 +206,7 @@ export function LessonTab({
             )}
             {adminMode && (
               <button
-                className="shrink-0 rounded bg-gray-100 px-3 py-2.5 text-sm font-medium dark:bg-gray-800"
+                className="rounded bg-gray-100 px-3 py-1.5 text-xs font-medium dark:bg-gray-800"
                 onClick={() => setAskFolder("file")}
                 title="파일로 내려받아 직접 올릴 때 씁니다"
               >

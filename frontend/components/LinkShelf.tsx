@@ -137,7 +137,7 @@ export function LinkShelf({
 
       {!readOnly && (
         <button
-          className="mb-2.5 w-full rounded bg-gray-100 py-2.5 text-sm font-medium dark:bg-gray-800"
+          className="mb-2 w-full rounded bg-gray-100 py-1.5 text-xs font-medium dark:bg-gray-800"
           onClick={() => openDialog()}
         >
           {addLabel}
