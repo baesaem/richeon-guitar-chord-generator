@@ -68,6 +68,28 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 화면이 커지면 앱 전체가 그만큼 커진다.
+   글자·아이콘·여백·영상까지 한꺼번에 — 화면마다 크기를 따로 손보면
+   어딘가는 늘 작게 남는다. 태블릿·PC는 멀찍이 두고 보는 자리라
+   폰과 같은 크기로는 눈에 들어오지 않는다.
+
+   zoom은 폭·높이도 함께 늘리므로 그만큼 나눠 되돌린다. */
+.app-scale {
+  --app-zoom: 1;
+  zoom: var(--app-zoom);
+  width: calc(100% / var(--app-zoom));
+  height: calc(100dvh / var(--app-zoom));
+}
+@media (min-width: 768px) and (min-height: 600px) {
+  .app-scale { --app-zoom: 1.12; }
+}
+@media (min-width: 1280px) and (min-height: 700px) {
+  .app-scale { --app-zoom: 1.2; }
+}
+@media (min-width: 1600px) and (min-height: 850px) {
+  .app-scale { --app-zoom: 1.28; }
+}
+
 /* 스크롤바는 감추고 스크롤은 그대로.
    손가락으로 밀어 보는 앱이라 막대가 자리를 먹을 이유가 없다. 기본
    스크롤바는 어느 테마에서나 회색 띠라 세피아·아쿠아처럼 물든 화면에

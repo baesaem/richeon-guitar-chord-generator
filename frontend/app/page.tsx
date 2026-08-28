@@ -601,10 +601,10 @@ export default function Home() {
        - 폰: 위에 앱 이름 띠, 아래에 탭 막대 (지금까지의 모습)
        - 태블릿·PC(md 이상): 왼쪽에 주메뉴 기둥(위에 앱 이름), 오른쪽 본문
          위에 지금 메뉴 이름 띠. 본문은 넓은 화면에서 가운데로 모은다 */
-    <div className="flex h-dvh w-full overflow-x-hidden">
+    <div className="app-scale flex overflow-x-hidden">
       <SideNav tab={tab} onChange={setTab} />
 
-      <div className="mx-auto flex h-dvh min-w-0 w-full max-w-2xl flex-col md:mx-0 md:max-w-none md:border-l md:border-gray-200 md:dark:border-gray-800">
+      <div className="mx-auto flex h-full min-w-0 w-full max-w-2xl flex-col md:mx-0 md:max-w-none md:border-l md:border-gray-200 md:dark:border-gray-800">
       {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바. */}
       <header className="shrink-0 bg-[var(--bar-bg)]">
         <div className="flex items-center gap-2.5 px-3 py-2 roomy:gap-3 roomy:px-5 roomy:py-4">
@@ -684,7 +684,7 @@ export default function Home() {
             <div className="flex min-h-0 flex-1 flex-col md:flex-row md:gap-1">
               {/* 오른쪽 기둥 — 영상과 그 아래 가사. 넓은 화면에서는
                   가사를 늘 펼쳐 둔다(노래를 보며 치는 자리라서) */}
-              <div className="flex flex-col md:order-2 md:min-h-0 md:w-[44%] md:shrink-0 roomy:w-[440px] lg:w-[520px] xl:w-[600px]">
+              <div className="flex flex-col md:order-2 md:min-h-0 md:w-[44%] md:shrink-0 roomy:w-[50%] lg:w-[54%] xl:w-[58%] 2xl:w-[62%]">
               <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
                 {/* 곡 이름. 영상 안에도 적혀 있지만 접으면 사라지고, 유튜브가
                     아닌 곡(업로드)에는 아예 없다. 지금 무슨 곡을 보고 있는지는
@@ -750,7 +750,7 @@ export default function Home() {
               <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
               {/* 코드악보/파형 세그먼트 + 연주설정·영상접기. 글자 크기를 통일한 한 줄.
                   코드악보를 왼쪽에 둔다 — 주로 보는 화면이라 손이 먼저 간다. */}
-              <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+              <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800 roomy:gap-2 roomy:px-3 roomy:py-2.5">
                 <div className="flex min-w-0 flex-1 rounded-lg bg-gray-200/70 p-0.5 dark:bg-gray-800">
                   {(
                     [
@@ -762,7 +762,7 @@ export default function Home() {
                       key={value}
                       onClick={() => setSettings({ ...settings, view: value })}
                       className={[
-                        "min-w-0 flex-1 truncate rounded-md py-1 text-[13px] font-medium transition-colors",
+                        "min-w-0 flex-1 truncate rounded-md py-1 text-[13px] font-medium transition-colors roomy:py-2.5 roomy:text-[16px]",
                         settings.view === value
                           ? "bg-white text-black shadow-sm dark:bg-black dark:text-white"
                           : "text-gray-500",
@@ -832,7 +832,7 @@ export default function Home() {
                   onClick={() =>
                     setSettings({ ...settings, videoCompact: !settings.videoCompact })
                   }
-                  className="flex shrink-0 items-center gap-1 rounded-lg bg-gray-200/70 px-2 py-1.5 text-[13px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                  className="flex shrink-0 items-center gap-1 rounded-lg bg-gray-200/70 px-2 py-1.5 text-[13px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300 roomy:gap-1.5 roomy:px-3 roomy:py-2.5 roomy:text-[16px]"
                   title="영상을 접어 코드에 자리를 넘깁니다"
                 >
                   <svg
@@ -868,7 +868,7 @@ export default function Home() {
                       onPickStrum={() => setShowStrums(true)}
                       right={
                         <button
-                          className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-2.5 roomy:py-1 roomy:text-[13px]"
+                          className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
                           onClick={() => {
                             setEditMode(false);
                             setShowSheet(true);
@@ -921,7 +921,7 @@ export default function Home() {
                     playNotes={playNotes}
                     headerRight={
                       <button
-                        className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-2.5 roomy:py-1 roomy:text-[13px]"
+                        className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
                         onClick={() => {
                           setEditMode(false);
                           setShowSheet(true);

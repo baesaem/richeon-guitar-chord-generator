@@ -127,14 +127,14 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
   return (
     <>
       <button
-        className="flex shrink-0 items-center gap-1 rounded-lg bg-gray-200/70 px-2 py-1.5 text-[13px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        className="flex shrink-0 items-center gap-1 rounded-lg bg-gray-200/70 px-2 py-1.5 text-[13px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300 roomy:gap-1.5 roomy:px-3 roomy:py-2.5 roomy:text-[16px]"
         onClick={() => setOpen(true)}
         title="음높이·빠르기·반복"
       >
         {/* 슬라이더(조절) 아이콘 */}
         <svg
           viewBox="0 0 24 24"
-          className="h-3.5 w-3.5"
+          className="h-3.5 w-3.5 roomy:h-4 roomy:w-4"
           fill="none"
           stroke="currentColor"
           strokeWidth={2}

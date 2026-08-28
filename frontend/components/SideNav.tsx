@@ -20,7 +20,7 @@ export function SideNav({
   onChange: (tab: Tab) => void;
 }) {
   return (
-    <nav className="hidden w-64 shrink-0 flex-col bg-[var(--bar-bg)] roomy:flex lg:w-72">
+    <nav className="hidden w-56 shrink-0 flex-col bg-[var(--bar-bg)] roomy:flex lg:w-60">
       {/* 앱 이름 — 사이드바 머리 */}
       <div className="flex items-center gap-3 px-4 py-5">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
