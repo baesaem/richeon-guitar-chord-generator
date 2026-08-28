@@ -1,19 +1,36 @@
 "use client";
 
 /**
- * 내 강좌 — 수강자가 개인적으로 듣는 YouTube 강좌 링크 모음.
+ * 레슨 링크 — 밖에서 보며 배우는 것들을 모아 둔다.
  *
- * 곡이 아니라 "배우는 영상"이라 재생목록과 섞지 않는다. 개인 취향이라
- * 공유 폴더에도 싣지 않는다 — 이 기기의 localStorage 에만 산다.
+ * 두 칸으로 나눈다.
+ *  - 강의실: 기타반이 함께 보는 강좌·자료
+ *  - 내 강좌: 각자 따로 듣는 것
+ * 둘은 성격만 다르고 다루는 방식은 같아서 저장 칸만 나눈다.
+ *
+ * YouTube가 중심이지만 밴드·블로그·카페처럼 영상이 아닌 자료도 담는다.
+ * 영상이면 섬네일과 제목을 앱이 알아서 가져오고, 아니면 사이트 이름을
+ * 붙여 둔다(브라우저에서 남의 사이트 제목을 읽을 수는 없다).
+ *
+ * 링크 몇 줄이라 localStorage로 충분하다 — 기기에만 남는다.
  */
 
-const KEY = "chordgen.lectures";
+export type Shelf = "classroom" | "mine";
+
+const KEY: Record<Shelf, string> = {
+  classroom: "chordgen.classroom",
+  mine: "chordgen.lectures",
+};
 
 export interface Lecture {
-  /** YouTube 영상 id. 목록의 키이자 섬네일 주소의 재료 */
+  /** 목록의 키. YouTube면 영상 id, 아니면 주소 자체 */
   id: string;
   url: string;
   title: string;
+  /** YouTube 영상 id. 있으면 섬네일을 그릴 수 있다 */
+  videoId?: string;
+  /** 사이트 이름 — YouTube · 밴드 · 블로그처럼 사람이 읽는 말 */
+  site: string;
 }
 
 /** URL에서 YouTube 영상 id를 꺼낸다. 영상이 아니면 null. */
@@ -24,15 +41,34 @@ export function videoIdOf(url: string): string | null {
   return m ? m[1] : null;
 }
 
-export function thumbOf(id: string): string {
-  return `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+export function thumbOf(videoId: string): string {
+  return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+}
+
+/** 사람이 읽는 사이트 이름. 수업에서 실제로 쓰는 곳을 먼저 알아본다. */
+export function siteOf(url: string): string {
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "링크";
+  }
+  if (/youtube\.com|youtu\.be/.test(host)) return "YouTube";
+  if (/band\.us/.test(host)) return "밴드";
+  if (/blog\.naver\.com|tistory\.com|brunch\.co\.kr/.test(host)) return "블로그";
+  if (/cafe\.naver\.com|cafe\.daum\.net/.test(host)) return "카페";
+  if (/instagram\.com/.test(host)) return "인스타그램";
+  if (/facebook\.com/.test(host)) return "페이스북";
+  if (/drive\.google\.com|docs\.google\.com/.test(host)) return "드라이브";
+  return host;
 }
 
 /**
- * 영상 제목을 YouTube oEmbed로 알아본다. 못 알아보면 null —
- * 부를 쪽이 사용자가 적은 제목이나 주소로 대신한다.
+ * YouTube 영상 제목을 알아본다. 영상이 아니거나 못 알아보면 null —
+ * 부를 쪽이 사용자가 적은 제목이나 사이트 이름으로 대신한다.
  */
 export async function fetchTitle(url: string): Promise<string | null> {
+  if (!videoIdOf(url)) return null;
   try {
     const res = await fetch(
       `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`,
@@ -45,34 +81,40 @@ export async function fetchTitle(url: string): Promise<string | null> {
   }
 }
 
-export function listLectures(): Lecture[] {
+export function listLectures(shelf: Shelf): Lecture[] {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY[shelf]);
     const data = raw ? (JSON.parse(raw) as Lecture[]) : [];
-    return Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) return [];
+    // 옛 기록(영상만 담던 시절)에는 site·videoId가 없다. 지금 규격으로 읽는다.
+    return data.map((l) => ({
+      ...l,
+      videoId: l.videoId ?? videoIdOf(l.url) ?? undefined,
+      site: l.site ?? siteOf(l.url),
+    }));
   } catch {
     return [];
   }
 }
 
-function write(items: Lecture[]): void {
+function write(shelf: Shelf, items: Lecture[]): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(items));
+    localStorage.setItem(KEY[shelf], JSON.stringify(items));
   } catch {
     // 저장이 막혀도 이번 화면에는 지장 없다
   }
 }
 
-/** 강좌를 담는다. 같은 영상이 이미 있으면 제목만 새로 쓴다. */
-export function addLecture(item: Lecture): Lecture[] {
-  const items = listLectures().filter((l) => l.id !== item.id);
+/** 링크를 담는다. 같은 것이 이미 있으면 제목만 새로 쓴다. */
+export function addLecture(shelf: Shelf, item: Lecture): Lecture[] {
+  const items = listLectures(shelf).filter((l) => l.id !== item.id);
   items.unshift(item);
-  write(items);
+  write(shelf, items);
   return items;
 }
 
-export function removeLecture(id: string): Lecture[] {
-  const items = listLectures().filter((l) => l.id !== id);
-  write(items);
+export function removeLecture(shelf: Shelf, id: string): Lecture[] {
+  const items = listLectures(shelf).filter((l) => l.id !== id);
+  write(shelf, items);
   return items;
 }

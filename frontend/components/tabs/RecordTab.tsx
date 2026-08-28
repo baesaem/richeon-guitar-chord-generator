@@ -9,6 +9,8 @@ interface Props {
   /** 녹음이 끝나면 파일로 넘겨 분석을 시작한다 */
   onRecorded: (file: File) => void;
   busy: boolean;
+  /** 모달 안에 놓였는가. 제목과 바깥 여백을 창이 대신 갖는다 */
+  embedded?: boolean;
 }
 
 /** 마이크가 쓸 수 있는 상태인지. HTTPS 또는 localhost가 아니면 브라우저가 막는다. */
@@ -23,7 +25,7 @@ function micAvailable(): boolean {
  * 스피커로 튼 곡이나 직접 친 연주를 녹음해 그대로 분석에 넘긴다.
  * 녹음물은 업로드 경로를 그대로 타므로 분석 파이프라인은 손댈 필요가 없다.
  */
-export function RecordTab({ onRecorded, busy }: Props) {
+export function RecordTab({ onRecorded, busy, embedded = false }: Props) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const [recording, setRecording] = useState(false);
@@ -90,8 +92,16 @@ export function RecordTab({ onRecorded, busy }: Props) {
   const ss = String(seconds % 60).padStart(2, "0");
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-3 py-3">
-      <h2 className="mb-1 text-lg font-bold md:hidden">마이크로 녹음</h2>
+    <div
+      className={
+        embedded
+          ? "flex flex-col"
+          : "flex h-full flex-col overflow-y-auto px-3 py-3"
+      }
+    >
+      {!embedded && (
+        <h2 className="mb-1 text-lg font-bold roomy:hidden">마이크로 녹음</h2>
+      )}
       <p className="text-xs text-gray-500">
         스피커로 튼 곡이나 직접 친 연주를 녹음해 코드를 뽑습니다.
       </p>
@@ -141,7 +151,7 @@ export function RecordTab({ onRecorded, busy }: Props) {
         )}
       </div>
 
-      <Copyright />
+      {!embedded && <Copyright />}
     </div>
   );
 }

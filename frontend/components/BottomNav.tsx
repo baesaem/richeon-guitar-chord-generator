@@ -4,7 +4,7 @@ export type Tab =
   | "home"
   | "library"
   | "import"
-  | "mic"
+  | "lesson"
   | "edit"
   | "chords"
   | "settings";
@@ -43,12 +43,13 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: "mic",
-    label: "마이크",
+    id: "lesson",
+    label: "레슨",
     icon: (
       <>
-        <rect x="9" y="2.5" width="6" height="11" rx="3" />
-        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" />
+        {/* 펼친 책 — 따로 듣는 강좌를 모아 두는 자리 */}
+        <path d="M12 6.5C10.5 5 8.5 4.5 4 4.5v13c4.5 0 6.5.5 8 2 1.5-1.5 3.5-2 8-2v-13c-4.5 0-6.5.5-8 2z" />
+        <path d="M12 6.5v13" />
       </>
     ),
   },

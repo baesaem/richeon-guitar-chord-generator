@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
+import { RecordTab } from "@/components/tabs/RecordTab";
 import { Popup } from "@/components/Popup";
 import { Working } from "@/components/Working";
 import { openLink } from "@/lib/openLink";
@@ -55,7 +56,7 @@ interface Props {
 }
 
 // 반은 CLASSES의 id를 그대로 카드 종류로 쓴다("beginner"·"intermediate")
-type CardKind = "youtube" | "file" | "ai" | (string & {});
+type CardKind = "youtube" | "file" | "ai" | "mic" | (string & {});
 type SharedFilter = "unfetched" | "fetched" | "all";
 
 const SHARED_FILTERS: { value: SharedFilter; label: string }[] = [
@@ -475,6 +476,28 @@ export function ImportTab({
         />
       )}
 
+      {/* 마이크 녹음 — 음원을 들여오는 또 하나의 길이라 여기에 둔다.
+          하단 메뉴 한 자리를 차지할 만큼 자주 쓰지는 않는다 */}
+      <Card
+        icon={
+          <svg
+            viewBox="0 0 24 24"
+            className="h-7 w-7 text-[var(--accent)]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <rect x="9" y="2.5" width="6" height="11" rx="3" />
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" />
+          </svg>
+        }
+        title="마이크로 녹음"
+        description="스피커로 튼 곡이나 직접 친 연주를 녹음해 분석합니다"
+        onClick={() => setOpen("mic")}
+      />
+
       <p className="text-xs text-gray-500">
         음원 분리 {separate ? "사용" : "안 함"} · 설정 탭에서 바꿀 수 있습니다.
       </p>
@@ -501,6 +524,20 @@ export function ImportTab({
       {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       <Copyright />
+
+      {/* ---- 마이크 녹음 모달 ---- */}
+      {open === "mic" && (
+        <Popup title="마이크로 녹음" onClose={() => setOpen(null)}>
+          <RecordTab
+            busy={busy}
+            embedded
+            onRecorded={(file) => {
+              setOpen(null);
+              onAnalyzeFile(file);
+            }}
+          />
+        </Popup>
+      )}
 
       {/* ---- YouTube 모달 ---- */}
       {open === "youtube" && (

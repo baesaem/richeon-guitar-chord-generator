@@ -8,7 +8,6 @@ import { Copyright } from "@/components/Copyright";
 import { ArpeggioGuide } from "@/components/ArpeggioGuide";
 import { FretPrimer } from "@/components/FretPrimer";
 import { GuitarLore } from "@/components/GuitarLore";
-import { MyLectures } from "@/components/MyLectures";
 import { StrumGuide } from "@/components/StrumGuide";
 import { labelFor } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
@@ -52,7 +51,7 @@ export function ChordsTab() {
   // 상단 탭. 코드표·지판·아르페지오는 서로 다른 공부라 한 두루마리에
   // 쌓아 두면 아래 것은 있는 줄도 모른다.
   const [page, setPage] = useState<
-    "lore" | "fret" | "chords" | "strum" | "arp" | "lect"
+    "lore" | "fret" | "chords" | "strum" | "arp"
   >("lore");
   const picked = QUALITIES.find((q) => q.value === quality) ?? QUALITIES[0];
 
@@ -69,7 +68,6 @@ export function ChordsTab() {
             ["chords", "코드표"],
             ["strum", "스트로크"],
             ["arp", "아르페지오"],
-            ["lect", "내 강좌"],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -155,7 +153,6 @@ export function ChordsTab() {
       {page === "fret" && <FretPrimer />}
       {page === "strum" && <StrumGuide />}
       {page === "arp" && <ArpeggioGuide />}
-      {page === "lect" && <MyLectures />}
 
       <Copyright />
     </div>

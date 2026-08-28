@@ -31,8 +31,8 @@ import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { StrumPickModal } from "@/components/StrumPick";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
 import { ImportTab } from "@/components/tabs/ImportTab";
+import { LessonTab } from "@/components/tabs/LessonTab";
 import { LibraryTab } from "@/components/tabs/LibraryTab";
-import { RecordTab } from "@/components/tabs/RecordTab";
 import { SettingsTab } from "@/components/tabs/SettingsTab";
 import {
   analyzeUpload,
@@ -590,7 +590,7 @@ export default function Home() {
     home: result ? result.title || "재생" : "홈",
     library: "재생목록",
     import: "음원 가져오기",
-    mic: "마이크로 녹음",
+    lesson: "레슨",
     edit: "코드수정",
     chords: "기타 기초",
     settings: "설정",
@@ -1120,12 +1120,7 @@ export default function Home() {
           />
         )}
 
-        {tab === "mic" && (
-          <RecordTab
-            busy={busy}
-            onRecorded={(file) => run(() => analyzeUpload(file, settings.separate))}
-          />
-        )}
+        {tab === "lesson" && <LessonTab />}
 
         {tab === "chords" && <ChordsTab />}
 

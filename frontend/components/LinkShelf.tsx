@@ -12,21 +12,34 @@ import {
   fetchTitle,
   listLectures,
   removeLecture,
+  siteOf,
   thumbOf,
   videoIdOf,
   type Lecture,
+  type Shelf,
 } from "@/lib/lectures";
 import { openLink } from "@/lib/openLink";
 
 /**
- * 내 강좌 — 수강자가 개인적으로 듣는 YouTube 강좌 링크 모음.
+ * 링크로 배우는 칸 — 강의실과 내 강좌가 같은 모습을 쓴다.
  *
- * 주소를 붙여넣으면 제목은 앱이 알아서 알아본다(YouTube oEmbed).
- * 못 알아볼 때만 적은 제목·주소를 쓴다. 누르면 YouTube로 열린다.
+ * YouTube 주소를 넣으면 제목과 섬네일을 앱이 알아서 가져온다. 밴드·
+ * 블로그·카페처럼 영상이 아닌 자료도 담을 수 있다 — 그때는 사이트
+ * 이름이 섬네일 자리를 대신한다(남의 사이트 제목은 브라우저가 읽지
+ * 못하므로 제목은 직접 적거나 사이트 이름으로 남는다).
  */
-export function MyLectures() {
+export function LinkShelf({
+  shelf,
+  blurb,
+  addLabel = "+ 링크 추가",
+}: {
+  shelf: Shelf;
+  /** 이 칸이 무엇인지 한 줄 설명 */
+  blurb: string;
+  addLabel?: string;
+}) {
   const [items, setItems] = useState<Lecture[]>(() =>
-    typeof window === "undefined" ? [] : listLectures(),
+    typeof window === "undefined" ? [] : listLectures(shelf),
   );
   const [adding, setAdding] = useState(false);
   const [url, setUrl] = useState("");
@@ -37,16 +50,17 @@ export function MyLectures() {
 
   const submit = async () => {
     const trimmed = url.trim();
-    const id = videoIdOf(trimmed);
-    if (!id) {
-      setError("YouTube 영상 주소가 아닙니다. 영상 링크를 붙여넣어 주세요.");
+    if (!/^https?:\/\//i.test(trimmed)) {
+      setError("주소를 http:// 또는 https:// 로 시작하게 붙여넣어 주세요.");
       return;
     }
     setBusy(true);
     setError(null);
-    // 제목을 적지 않았으면 영상에서 알아본다
-    const auto = title.trim() || (await fetchTitle(trimmed)) || trimmed;
-    setItems(addLecture({ id, url: trimmed, title: auto }));
+    const videoId = videoIdOf(trimmed) ?? undefined;
+    const site = siteOf(trimmed);
+    // 제목을 적지 않았으면 영상에서 알아본다. 영상이 아니면 사이트 이름.
+    const auto = title.trim() || (await fetchTitle(trimmed)) || site;
+    setItems(addLecture(shelf, { id: videoId ?? trimmed, url: trimmed, title: auto, videoId, site }));
     setBusy(false);
     setAdding(false);
     setUrl("");
@@ -55,12 +69,9 @@ export function MyLectures() {
 
   return (
     <div>
-      {busy && <Working label="강좌 담는 중" note="영상 제목을 알아봅니다" />}
+      {busy && <Working label="링크 담는 중" note="영상이면 제목을 알아봅니다" />}
 
-      <p className="mb-2 text-[11px] leading-snug text-gray-500">
-        따로 보고 있는 YouTube 기타 강좌를 담아 두는 곳입니다. 이 기기에만
-        저장되고, 누르면 영상이 열립니다.
-      </p>
+      <p className="mb-2 text-[11px] leading-snug text-gray-500">{blurb}</p>
 
       <button
         className="mb-2.5 w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
@@ -69,12 +80,13 @@ export function MyLectures() {
           setAdding(true);
         }}
       >
-        + 강좌 추가
+        {addLabel}
       </button>
 
       {items.length === 0 ? (
         <p className="py-6 text-center text-xs text-gray-400">
-          아직 담은 강좌가 없습니다. YouTube 강좌 링크를 붙여넣어 보세요.
+          아직 담은 링크가 없습니다. YouTube 강좌나 밴드·블로그 주소를
+          붙여넣어 보세요.
         </p>
       ) : (
         <ul className="space-y-2">
@@ -87,20 +99,31 @@ export function MyLectures() {
                 className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                 onClick={() => openLink(l.url)}
               >
-                <img
-                  src={thumbOf(l.id)}
-                  alt=""
-                  className="h-12 w-20 shrink-0 rounded object-cover bg-gray-200 dark:bg-gray-800"
-                  loading="lazy"
-                />
-                <span className="min-w-0 flex-1 text-[13px] leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
-                  {l.title}
+                {l.videoId ? (
+                  <img
+                    src={thumbOf(l.videoId)}
+                    alt=""
+                    className="h-12 w-20 shrink-0 rounded bg-gray-200 object-cover dark:bg-gray-800"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="flex h-12 w-20 shrink-0 items-center justify-center rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1 text-center text-[11px] font-semibold leading-tight text-[var(--accent)]">
+                    {l.site}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block overflow-hidden text-[13px] leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                    {l.title}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[10px] text-gray-400">
+                    {l.site}
+                  </span>
                 </span>
               </button>
               <button
                 className="shrink-0 px-1 text-xs text-red-500"
                 onClick={() => setConfirmDel(l)}
-                aria-label="강좌 삭제"
+                aria-label="링크 삭제"
               >
                 삭제
               </button>
@@ -110,21 +133,21 @@ export function MyLectures() {
       )}
 
       {adding && (
-        <Popup title="강좌 추가" width="max-w-xs" onClose={() => setAdding(false)}>
+        <Popup title="링크 추가" width="max-w-xs" onClose={() => setAdding(false)}>
           <p className="mb-2 text-[11px] leading-snug text-gray-500">
-            YouTube 강좌 주소를 붙여넣으세요. 제목은 비워 두면 영상에서
-            알아서 가져옵니다.
+            YouTube 강좌·밴드·블로그 등 주소를 붙여넣으세요. YouTube 영상은
+            제목을 비워 두면 알아서 가져옵니다.
           </p>
           <input
             className="mb-1.5 w-full rounded border px-3 py-2.5 text-sm"
-            placeholder="https://youtube.com/..."
+            placeholder="https://..."
             autoFocus
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
           <input
             className="w-full rounded border px-3 py-2.5 text-sm"
-            placeholder="제목 (비워 두면 자동)"
+            placeholder="제목 (YouTube는 비워 두면 자동)"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
@@ -148,11 +171,11 @@ export function MyLectures() {
 
       {confirmDel && (
         <AskConfirm
-          title="강좌 삭제"
+          title="링크 삭제"
           message={`「${confirmDel.title}」를 목록에서 뺍니다.`}
           confirmLabel="삭제"
           danger
-          onConfirm={() => setItems(removeLecture(confirmDel.id))}
+          onConfirm={() => setItems(removeLecture(shelf, confirmDel.id))}
           onClose={() => setConfirmDel(null)}
         />
       )}
