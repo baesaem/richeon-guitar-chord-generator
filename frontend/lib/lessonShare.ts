@@ -200,3 +200,73 @@ export async function importLessonsFromDrive(
 }
 
 export { CLASSES };
+
+// ------------------------------------------------------- 새 강좌 있는지 살피기
+
+const SEEN_KEY = "chordgen.lessonSeen";
+
+function seenIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** 알림을 닫으면 그 자료들은 다시 알리지 않는다 */
+export function markLessonsSeen(ids: string[]): void {
+  try {
+    const all = [...seenIds(), ...ids];
+    localStorage.setItem(SEEN_KEY, JSON.stringify(all.slice(-500)));
+  } catch {
+    // 저장이 막혀도 이번 화면에는 지장 없다
+  }
+}
+
+export interface NewLessons {
+  klass: GuitarClass;
+  /** 아직 받지 않은(그리고 아직 알리지 않은) 자료 */
+  ids: string[];
+}
+
+/**
+ * 반마다 새 강좌가 올라왔는지 살핀다.
+ *
+ * 앱을 열 때 조용히 돌아본다 — 선생님이 올려 둔 것을 수강생이 「새 강좌
+ * 가져오기」를 눌러 볼 생각을 못 하면 영영 못 받는다. 이미 받은 것과
+ * 한 번 닫은 것은 세지 않는다.
+ */
+export async function findNewLessons(online: boolean): Promise<NewLessons[]> {
+  if (!online && !hasDriveKey()) return [];
+  const seen = seenIds();
+  const out: NewLessons[] = [];
+
+  for (const klass of CLASSES) {
+    const shelf = classroomShelf(klass.id);
+    const mineKeys = new Set(listLectures(shelf).map((l) => sameLink(l)));
+    const list = await (online
+      ? listShared(klass.lessonFolderId)
+      : listSharedDirect(klass.lessonFolderId)
+    ).catch(() => []);
+
+    const ids: string[] = [];
+    for (const f of list) {
+      try {
+        const text = await (online ? downloadShared(f.id) : downloadDirectText(f.id));
+        const data = JSON.parse(text) as unknown;
+        if (!isLessonFile(data)) continue;
+        for (const item of data.items) {
+          if (!item?.url) continue;
+          if (mineKeys.has(sameLink(item))) continue;
+          if (seen.has(item.id)) continue;
+          ids.push(item.id);
+        }
+      } catch {
+        // 한 파일이 깨져도 나머지는 본다
+      }
+    }
+    if (ids.length) out.push({ klass, ids });
+  }
+  return out;
+}

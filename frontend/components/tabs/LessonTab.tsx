@@ -37,14 +37,17 @@ import { openLink } from "@/lib/openLink";
 export function LessonTab({
   adminMode,
   online,
+  openClass,
 }: {
+  /** 열자마자 펼칠 반. 새 강좌 알림이 넘겨준다 */
+  openClass?: string;
   /** 관리자만 강의실을 파일로 내보낸다 */
   adminMode: boolean;
   /** 분석 서버가 붙어 있는가. 없으면 드라이브에서 직접 받는다 */
   online: boolean;
 }) {
   // 탭: 반별 강의실 + 내 강좌
-  const [page, setPage] = useState<string>(CLASSES[0].id);
+  const [page, setPage] = useState<string>(openClass ?? CLASSES[0].id);
   const [working, setWorking] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

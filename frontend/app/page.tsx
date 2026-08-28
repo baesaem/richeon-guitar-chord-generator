@@ -58,6 +58,7 @@ import {
   spellKey,
   transposeRoot,
 } from "@/lib/notation";
+import { findNewLessons, markLessonsSeen, type NewLessons } from "@/lib/lessonShare";
 import { loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
@@ -141,6 +142,28 @@ export default function Home() {
   const [vocalError, setVocalError] = useState<string | null>(null);
 
   const [backendDown, setBackendDown] = useState(false);
+  /**
+   * 올라온 새 강좌. 앱을 열 때 한 번 살펴 띠로 알린다 — 수강생이
+   * 「새 강좌 가져오기」를 눌러 볼 생각을 못 하면 영영 못 받는다.
+   */
+  const [newLessons, setNewLessons] = useState<NewLessons[]>([]);
+  // 공부방을 열 때 펼칠 반(알림에서 건너온 경우)
+  const [lessonClass, setLessonClass] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    // 서버 확인이 끝난 뒤에 조용히 살핀다. 실패하면 그냥 넘어간다.
+    let alive = true;
+    const timer = setTimeout(() => {
+      findNewLessons(!!health)
+        .then((found) => {
+          if (alive) setNewLessons(found);
+        })
+        .catch(() => {});
+    }, 1500);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [health]);
 
   // 설정에서 서버 주소를 바꾸면 다시 확인한다.
   // 기타반 곡은 자동으로 담지 않는다 - 수강생이 음원 가져오기의
@@ -664,6 +687,48 @@ export default function Home() {
         </p>
       )}
 
+      {/* 새 강좌 알림 — 앱을 열 때 한 번. 띠로 두면 못 보고 지나친다 */}
+      {newLessons.length > 0 && (
+        <Popup
+          title="새 강좌가 올라왔습니다"
+          width="max-w-xs"
+          onClose={() => {
+            markLessonsSeen(newLessons.flatMap((l) => l.ids));
+            setNewLessons([]);
+          }}
+        >
+          <p className="mb-2.5 text-[11px] leading-snug text-gray-500">
+            선생님이 공부방 강의실에 새 자료를 올렸습니다. 받으러 가시겠어요?
+          </p>
+          <div className="space-y-1.5">
+            {newLessons.map((l) => (
+              <button
+                key={l.klass.id}
+                className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
+                onClick={() => {
+                  setLessonClass(l.klass.id);
+                  setTab("lesson");
+                  markLessonsSeen(newLessons.flatMap((x) => x.ids));
+                  setNewLessons([]);
+                }}
+              >
+                {l.klass.name.match(/\(([^)]+)\)/)?.[1] ?? l.klass.name} {l.ids.length}개
+                받으러 가기
+              </button>
+            ))}
+            <button
+              className="w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
+              onClick={() => {
+                markLessonsSeen(newLessons.flatMap((l) => l.ids));
+                setNewLessons([]);
+              }}
+            >
+              나중에
+            </button>
+          </div>
+        </Popup>
+      )}
+
       {/* 뷰는 화면 폭을 그대로 쓴다. 넓어진 만큼 각 화면의 격자가
           칸을 늘려 채운다(코드표·홈 카드·그리드 악보) */}
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -1122,7 +1187,13 @@ export default function Home() {
           />
         )}
 
-        {tab === "lesson" && <LessonTab adminMode={settings.adminMode} online={!!health} />}
+        {tab === "lesson" && (
+          <LessonTab
+            adminMode={settings.adminMode}
+            online={!!health}
+            openClass={lessonClass}
+          />
+        )}
 
         {tab === "chords" && <ChordsTab />}
 
