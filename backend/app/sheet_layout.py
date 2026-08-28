@@ -38,6 +38,9 @@ class System:
     lines: int
     #: 마디선의 x 자리(왼쪽부터)
     bars: list[int] = field(default_factory=list)
+    #: 화면에 잘라 보일 띠. 이 줄에 딸린 코드와 가사까지 담는다.
+    view_top: int = 0
+    view_bottom: int = 0
 
     @property
     def measures(self) -> list[tuple[int, int]]:
@@ -175,6 +178,56 @@ def _open_start(ink: np.ndarray, system: System) -> int | None:
     return None
 
 
+def _content_rows(ink: np.ndarray, system: System) -> np.ndarray:
+    """오선 줄 자체를 뺀 잉크의 가로 분포. 가사·코드가 어디 있는지 보인다."""
+    counts = ink.sum(axis=1)
+    return counts
+
+
+def _split(ink: np.ndarray, lo: int, hi: int) -> int:
+    """두 줄 사이에서 **가장 넓게 빈 띠**의 한가운데.
+
+    빈 자리를 비율로 나누면 곡마다 어긋난다 — 가사가 두 줄인 곳도
+    있고 없는 곳도 있다. 실제로 비어 있는 자리를 찾아 거기서 자르면
+    아래 줄의 가사도 안 잘리고 위 줄의 가사도 안 딸려 온다.
+    """
+    if hi <= lo + 2:
+        return (lo + hi) // 2
+    rows = ink[lo:hi].sum(axis=1)
+    # 몇 픽셀 튀는 것은 잉크로 치지 않는다(글자 획의 끝, 점 따위)
+    blank = rows <= max(int(ink.shape[1] * 0.004), 1)
+    best, run, start = None, 0, 0
+    for i, b in enumerate(list(blank) + [False]):
+        if b:
+            if run == 0:
+                start = i
+            run += 1
+        else:
+            if run and (best is None or run > best[1] - best[0]):
+                best = (start, i)
+            run = 0
+    if best is None:
+        return (lo + hi) // 2
+    return lo + (best[0] + best[1]) // 2
+
+
+def _view_bands(ink: np.ndarray, systems: list[System]) -> None:
+    """줄마다 잘라 보일 띠를 정한다."""
+    for i, s in enumerate(systems):
+        staff = max(s.bottom - s.top, 1)
+        if i == 0:
+            s.view_top = max(s.top - staff, 0)
+        else:
+            s.view_top = _split(ink, systems[i - 1].bottom + 1, s.top)
+        if i + 1 < len(systems):
+            s.view_bottom = _split(ink, s.bottom + 1, systems[i + 1].top)
+        else:
+            s.view_bottom = min(s.bottom + staff * 2, ink.shape[0] - 1)
+        # 오선에 너무 바싹 붙지 않게 최소 여유는 둔다
+        s.view_top = min(s.view_top, s.top - int(staff * 0.35))
+        s.view_bottom = max(s.view_bottom, s.bottom + int(staff * 0.35))
+
+
 def layout(image: Image.Image, index: int = 0) -> Page:
     ink = _ink(_gray(image))
     page = Page(index=index, width=image.width, height=image.height)
@@ -189,10 +242,11 @@ def layout(image: Image.Image, index: int = 0) -> Page:
         if start is not None and system.bars[0] - start > (system.bottom - system.top):
             system.bars.insert(0, start)
         page.systems.append(system)
+    _view_bands(ink, page.systems)
     return page
 
 
-def from_pdf(data: bytes, dpi: int = 150, max_pages: int = 20) -> tuple[list[Page], list[bytes]]:
+def from_pdf(data: bytes, dpi: int = 200, max_pages: int = 20) -> tuple[list[Page], list[bytes]]:
     """PDF를 쪽마다 그림으로 펴고 배치를 잰다. (배치, PNG 바이트)"""
     import pymupdf
 

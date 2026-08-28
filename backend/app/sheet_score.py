@@ -38,34 +38,11 @@ class Placed:
 def flatten(pages: list[Page]) -> list[Placed]:
     """읽는 차례대로 마디를 편다 — 쪽·줄·왼쪽부터.
 
-    잘라 보일 띠도 함께 정한다. 오선만 잘라내면 위의 코드와 아래의
-    가사가 날아가고, 넉넉히 잘라내면 옆 줄이 딸려 들어온다. 줄 사이
-    빈 자리를 나눠 갖되 **아래쪽에 더 준다** — 가사가 아래에 있다.
+    잘라 보일 띠는 sheet_layout이 **실제로 빈 자리**를 찾아 정해 두었다.
     """
     out: list[Placed] = []
     for page in pages:
-        systems = page.systems
-        for si, system in enumerate(systems):
-            prev_gap = (
-                system.top - systems[si - 1].bottom
-                if si > 0
-                else (systems[1].top - systems[0].bottom if len(systems) > 1 else 40)
-            )
-            next_gap = (
-                systems[si + 1].top - system.bottom
-                if si + 1 < len(systems)
-                else prev_gap
-            )
-            # 빈 자리의 비율만으로 정하면 줄 사이가 벌어진 곳에서 앞 줄의
-            # 가사까지 딸려 들어온다. 실제로 필요한 만큼은 **오선 크기**에
-            # 매여 있다 — 코드는 오선 높이의 0.8배쯤 위에, 가사 두 줄은
-            # 1.9배쯤 아래에 있다. 둘 중 작은 쪽을 쓴다.
-            staff = max(system.bottom - system.top, 1)
-            view_top = max(system.top - min(prev_gap * 0.34, staff * 0.85), 0)
-            view_bottom = min(
-                system.bottom + min(next_gap * 0.58, staff * 1.95),
-                page.height - 1,
-            )
+        for si, system in enumerate(page.systems):
             for x0, x1 in system.measures:
                 out.append(
                     Placed(
@@ -75,8 +52,8 @@ def flatten(pages: list[Page]) -> list[Placed]:
                         x1=x1 / page.width,
                         top=system.top / page.height,
                         bottom=system.bottom / page.height,
-                        view_top=view_top / page.height,
-                        view_bottom=view_bottom / page.height,
+                        view_top=system.view_top / page.height,
+                        view_bottom=system.view_bottom / page.height,
                     )
                 )
     return out
