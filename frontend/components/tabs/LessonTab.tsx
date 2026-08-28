@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Copyright } from "@/components/Copyright";
 import { LinkShelf } from "@/components/LinkShelf";
 import { Working } from "@/components/Working";
+import { CLASSES } from "@/lib/classes";
+import { classroomShelf } from "@/lib/lectures";
 import { downloadLessonFile, importLessonsFromDrive } from "@/lib/lessonShare";
 
 /**
@@ -16,7 +18,8 @@ import { downloadLessonFile, importLessonsFromDrive } from "@/lib/lessonShare";
  * 영상이 아닌 자료도 담긴다.
  *
  * 강의실은 곡과 같은 길로 오간다. 선생님이 링크를 모아 파일로
- * 내보내 공유 폴더에 올리면, 수강생이 「새 강좌 가져오기」로 받는다.
+ * 내보내 그 반 강의실 폴더에 올리면, 수강생이 「새 강좌 가져오기」로
+ * 받는다. 반(초급·중급)마다 폴더도 목록도 따로다.
  */
 export function LessonTab({
   adminMode,
@@ -27,12 +30,15 @@ export function LessonTab({
   /** 분석 서버가 붙어 있는가. 없으면 드라이브에서 직접 받는다 */
   online: boolean;
 }) {
-  const [page, setPage] = useState<"classroom" | "mine">("classroom");
+  // 탭: 반별 강의실 + 내 강좌
+  const [page, setPage] = useState<string>(CLASSES[0].id);
   const [working, setWorking] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // 받아 온 링크를 화면에 곧바로 비추려면 목록을 다시 읽어야 한다
   const [reloadKey, setReloadKey] = useState(0);
+
+  const klass = CLASSES.find((c) => c.id === page) ?? null;
 
   const flash = (message: string) => {
     setNotice(message);
@@ -40,11 +46,12 @@ export function LessonTab({
   };
 
   const importFromDrive = async () => {
+    if (!klass) return;
     setWorking("새 강좌 찾는 중");
     setError(null);
     try {
-      const { added, files } = await importLessonsFromDrive(online);
-      if (files === 0) flash("공유 폴더에 올라온 강의실 자료가 아직 없습니다.");
+      const { added, files } = await importLessonsFromDrive(klass, online);
+      if (files === 0) flash("이 반의 강의실에 올라온 자료가 아직 없습니다.");
       else if (added === 0) flash("이미 받은 것과 같습니다. 그대로 두었습니다.");
       else {
         flash(`강좌 ${added}개를 받았습니다.`);
@@ -58,11 +65,16 @@ export function LessonTab({
   };
 
   const exportToFile = () => {
+    if (!klass) return;
     setError(null);
-    const count = downloadLessonFile();
-    if (count === 0) setError("강의실에 담긴 링크가 없습니다.");
-    else flash(`${count}개를 파일로 내보냈습니다. 공유 폴더에 올리세요.`);
+    const count = downloadLessonFile(klass);
+    if (count === 0) setError("이 반 강의실에 담긴 링크가 없습니다.");
+    else flash(`${count}개를 파일로 내보냈습니다. 이 반 강의실 폴더에 올리세요.`);
   };
+
+  // 탭 이름은 짧게 — 「강상주민센터 기타반(초급)」은 탭에 들어가지 않는다
+  const shortName = (name: string) =>
+    name.match(/\(([^)]+)\)/)?.[1] ?? name;
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
@@ -70,12 +82,10 @@ export function LessonTab({
       <h2 className="mb-2 text-lg font-bold roomy:hidden">공부방</h2>
 
       <div className="mb-3 flex gap-1">
-        {(
-          [
-            ["classroom", "강의실"],
-            ["mine", "내 강좌"],
-          ] as const
-        ).map(([value, label]) => (
+        {[
+          ...CLASSES.map((c) => [c.id, `강의실 · ${shortName(c.name)}`] as const),
+          ["mine", "내 강좌"] as const,
+        ].map(([value, label]) => (
           <button
             key={value}
             onClick={() => setPage(value)}
@@ -98,7 +108,7 @@ export function LessonTab({
         <p className="mb-2 rounded bg-red-50 p-2 text-xs text-red-700">{error}</p>
       )}
 
-      {page === "classroom" ? (
+      {klass ? (
         <>
           {/* 받기·내보내기. 수강생은 받기만, 선생님은 둘 다 쓴다 */}
           <div className="mb-2 flex gap-1.5">
@@ -112,21 +122,21 @@ export function LessonTab({
               <button
                 className="shrink-0 rounded bg-gray-100 px-3 py-2.5 text-sm font-medium dark:bg-gray-800"
                 onClick={exportToFile}
-                title="강의실을 파일로 만들어 공유 폴더에 올립니다"
+                title="이 반 강의실을 파일로 만들어 폴더에 올립니다"
               >
                 내보내기
               </button>
             )}
           </div>
           <LinkShelf
-            key={reloadKey}
-            shelf="classroom"
+            key={`${klass.id}-${reloadKey}`}
+            shelf={classroomShelf(klass.id)}
             addLabel="+ 강의실 링크 추가"
             canAdd={adminMode}
             blurb={
               adminMode
-                ? "선생님이 올리는 강좌·자료입니다. 링크를 담고 「내보내기」로 파일을 만들어 반 공유 폴더에 올리면, 수강생이 「새 강좌 가져오기」로 받아 갑니다."
-                : "선생님이 올린 강좌와 자료입니다. 「새 강좌 가져오기」를 누르면 기타반 공유 폴더에서 새 자료를 받아 옵니다."
+                ? `${klass.name}이(가) 함께 보는 자료입니다. 링크를 담고 「내보내기」로 파일을 만들어 이 반 강의실 폴더에 올리면, 수강생이 받아 갑니다.`
+                : `${klass.name}의 강좌와 자료입니다. 「새 강좌 가져오기」를 누르면 새 자료를 받아 옵니다.`
             }
           />
         </>

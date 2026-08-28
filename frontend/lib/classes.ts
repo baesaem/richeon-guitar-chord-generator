@@ -14,7 +14,10 @@
 export interface GuitarClass {
   id: string;
   name: string;
+  /** 곡(음원·코드) 공유 폴더 */
   folderId: string;
+  /** 강의실 자료 공유 폴더. 곡과 섞이지 않게 따로 둔다 */
+  lessonFolderId: string;
 }
 
 export const CLASSES: GuitarClass[] = [
@@ -22,11 +25,13 @@ export const CLASSES: GuitarClass[] = [
     id: "beginner",
     name: "강상주민센터 기타반(초급)",
     folderId: "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd",
+    lessonFolderId: "1EWHUax-B5WGnAr7y3gYEFpaE9v5Q7Ouj",
   },
   {
     id: "intermediate",
     name: "강상주민센터 기타반(중급)",
     folderId: "14DkfLqbYBapOD3rlrTxpqpLNEmX90CzL",
+    lessonFolderId: "1xjOfkBsy7_XOiuZ90w_jikBwtIgbZjUJ",
   },
 ];
 
@@ -35,4 +40,4 @@ export const folderUrl = (folderId: string) =>
 
 /** 알고 있는 반의 폴더인가. 서버에 넘길 값을 걸러 내는 데 쓴다. */
 export const knownFolder = (folderId: string) =>
-  CLASSES.some((c) => c.folderId === folderId);
+  CLASSES.some((c) => c.folderId === folderId || c.lessonFolderId === folderId);

@@ -42,8 +42,10 @@ class Settings(BaseSettings):
     # 열어 줄 공유 폴더들. 여기 없는 폴더는 거절한다 — 이 서버를 아무
     # 드라이브 폴더나 읽어 주는 대리인으로 쓰이게 두지 않는다.
     shared_folder_ids: tuple[str, ...] = (
-        "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd",  # 초급
-        "14DkfLqbYBapOD3rlrTxpqpLNEmX90CzL",  # 중급
+        "1hEKM-s_pNLuw7W2e2YsPNveE6qoQq-Nd",  # 초급 곡
+        "14DkfLqbYBapOD3rlrTxpqpLNEmX90CzL",  # 중급 곡
+        "1EWHUax-B5WGnAr7y3gYEFpaE9v5Q7Ouj",  # 초급 강의실
+        "1xjOfkBsy7_XOiuZ90w_jikBwtIgbZjUJ",  # 중급 강의실
     )
 
     # --- LLM (선택) ---

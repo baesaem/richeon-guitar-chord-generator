@@ -15,12 +15,23 @@
  * 링크 몇 줄이라 localStorage로 충분하다 — 기기에만 남는다.
  */
 
-export type Shelf = "classroom" | "mine";
+/**
+ * 칸 이름. 강의실은 반마다 따로 둔다 — 초급과 중급은 나가는 자료가
+ * 다르고, 한 칸에 섞으면 자기 반 것을 골라내야 한다.
+ */
+export type Shelf = "classroom:beginner" | "classroom:intermediate" | "mine";
 
 const KEY: Record<Shelf, string> = {
-  classroom: "chordgen.classroom",
+  "classroom:beginner": "chordgen.classroom.beginner",
+  "classroom:intermediate": "chordgen.classroom.intermediate",
   mine: "chordgen.lectures",
 };
+
+/** 반 id로 그 반의 강의실 칸 이름을 만든다 */
+export const classroomShelf = (classId: string): Shelf =>
+  (classId === "beginner"
+    ? "classroom:beginner"
+    : "classroom:intermediate") as Shelf;
 
 export interface Lecture {
   /** 목록의 키. YouTube면 영상 id, 아니면 주소 자체 */
