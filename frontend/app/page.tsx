@@ -8,6 +8,7 @@ import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
+import { MelodyScore } from "@/components/MelodyScore";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { HelpButton } from "@/components/Help";
@@ -603,6 +604,13 @@ export default function Home() {
   // 세로도 폭만큼 남으므로 두 줄만 띄우면 화면이 텅 빈다.
   const wide = useWideScreen();
 
+  // 멜로디는 음원 분리를 쓴 곡에만 있다. 없는 곡에 「멜로디」 칸을 두면
+  // 눌러도 빈 오선만 나온다 — 있을 때만 칸을 만든다.
+  const hasMelody = (result?.melody?.length ?? 0) > 8;
+  // 멜로디가 없는 곡을 열었는데 지난 곡에서 고른 「멜로디」가 남아 있으면
+  // 코드악보로 되돌린다.
+  const boardView = settings.view === "melody" && !hasMelody ? "sheet" : settings.view;
+
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
   const noteShift = -transpose;
@@ -820,16 +828,17 @@ export default function Home() {
                 <div className="flex min-w-0 flex-1 rounded-lg bg-gray-200/70 p-0.5 dark:bg-gray-800">
                   {(
                     [
-                      ["sheet", "코드악보"],
-                      ["wave", "파형"],
-                    ] as const
+                      ["sheet", "코드악보"] as const,
+                      ...(hasMelody ? [["melody", "멜로디"] as const] : []),
+                      ["wave", "파형"] as const,
+                    ]
                   ).map(([value, label]) => (
                     <button
                       key={value}
                       onClick={() => setSettings({ ...settings, view: value })}
                       className={[
                         "min-w-0 flex-1 truncate rounded-md py-1 text-[13px] font-medium transition-colors roomy:py-2.5 roomy:text-[16px]",
-                        settings.view === value
+                        boardView === value
                           ? "bg-white text-black shadow-sm dark:bg-black dark:text-white"
                           : "text-gray-500",
                       ].join(" ")}
@@ -921,8 +930,8 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* 파형과 코드악보는 같은 자리(영상 바로 아래)를 쓴다 */}
-              {settings.view === "wave" ? (
+              {/* 파형·코드악보·멜로디는 같은 자리(영상 바로 아래)를 쓴다 */}
+              {boardView === "wave" ? (
                 <>
                   {/* 파형에서도 곡의 성격은 같은 자리에 있어야 한다 */}
                   <div className="shrink-0 px-2 pb-0.5">
@@ -967,6 +976,51 @@ export default function Home() {
                     onSeek={(t) => playback?.seek(t)}
                   />
                 </>
+              ) : boardView === "melody" ? (
+                <div className="shrink-0 px-2 py-1">
+                  {/* 오선 위 음표 + 그 아래 가사. 코드악보와 같은 마디 배치라
+                      두 화면을 오가도 보던 자리를 잃지 않는다 */}
+                  <MelodyScore
+                    bars={bars}
+                    chords={shownChords}
+                    melody={result.melody ?? []}
+                    lyrics={result.lyrics}
+                    time={time + lyricSync - settings.latency}
+                    playNotes={playNotes}
+                    headerRight={
+                      <button
+                        className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
+                        onClick={() => {
+                          setEditMode(false);
+                          setShowSheet(true);
+                        }}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.9}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <rect x="3" y="4" width="18" height="16" rx="2" />
+                          <path d="M3 9h18M8 4v16" />
+                        </svg>
+                        전체보기
+                      </button>
+                    }
+                    currentBar={barIdx}
+                    flats={flats}
+                    transpose={noteShift}
+                    timeSignature={result.time_signature}
+                    musicKey={result.key}
+                    onSeek={(t) => playback?.seek(t)}
+                    visibleLines={wide ? 4 : 2}
+                    follow
+                  />
+                </div>
               ) : (
                 <div className="shrink-0 px-2 py-1">
                   {/* AI가 아는 코드로 만든 초안은 반드시 밝힌다.

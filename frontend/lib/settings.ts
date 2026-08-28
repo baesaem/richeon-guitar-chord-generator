@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
 export type Notation = "auto" | "sharp" | "flat";
 
 /** 재생 화면 본문에 무엇을 띄울지 */
-export type View = "wave" | "sheet";
+export type View = "wave" | "sheet" | "melody";
 
 /** 화면 테마. system은 기기 설정을 따른다 */
 export type Theme = "system" | "light" | "dark" | "sepia" | "aqua" | "royal" | "naver";
@@ -17,7 +17,7 @@ export interface Settings {
   pixelsPerSecond: number;
   /** 코드 표기법. auto면 조표를 보고 정한다 */
   notation: Notation;
-  /** 파형 / 코드악보 중 어느 쪽을 볼지 */
+  /** 코드악보 / 멜로디 / 파형 중 어느 쪽을 볼지 */
   view: View;
   /** 영상을 접어 코드 표시에 자리를 넘길지 */
   videoCompact: boolean;
