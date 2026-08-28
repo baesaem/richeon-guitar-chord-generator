@@ -86,8 +86,6 @@ export function SettingsTab({ settings, onChange, health }: Props) {
   const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
-  // 로그인 유지: 끄면 브라우저를 닫을 때 관리자 모드가 자동으로 풀린다
-  const [keepLogin, setKeepLogin] = useState(true);
 
   const submitPin = () => {
     if (pin === ADMIN_PIN) {
@@ -95,7 +93,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       setPin("");
       setPinError(false);
       markAdminSession();
-      onChange({ ...settings, adminMode: true, adminKeep: keepLogin });
+      onChange({ ...settings, adminMode: true, adminKeep: true });
     } else {
       setPinError(true);
       setPin("");
@@ -221,7 +219,6 @@ export function SettingsTab({ settings, onChange, health }: Props) {
               if (e.target.checked) {
                 setPin("");
                 setPinError(false);
-                setKeepLogin(settings.adminKeep);
                 setPinOpen(true);
               } else {
                 set("adminMode", false);
@@ -460,20 +457,9 @@ export function SettingsTab({ settings, onChange, health }: Props) {
               비밀번호가 맞지 않습니다.
             </p>
           )}
-          <label className="mt-3 flex items-start gap-2">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={keepLogin}
-              onChange={(e) => setKeepLogin(e.target.checked)}
-            />
-            <span>
-              <span className="text-sm">로그인 유지</span>
-              <span className="block text-[11px] text-gray-500">
-                끄면 브라우저를 닫을 때 관리자 모드가 자동으로 꺼집니다.
-              </span>
-            </span>
-          </label>
+          <p className="mt-3 text-[11px] leading-snug text-gray-500">
+            한 번 켜면 이 기기에서는 끌 때까지 유지됩니다.
+          </p>
           <button
             className="mt-3 w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
             disabled={!pin}

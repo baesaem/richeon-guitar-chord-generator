@@ -96,10 +96,13 @@ function read(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) value = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-    // 로그인 유지를 끈 관리자는 브라우저를 닫으면(세션 표식이 사라지면) 풀린다
-    if (value.adminMode && !value.adminKeep && !sessionStorage.getItem(ADMIN_SESSION_KEY)) {
-      value = { ...value, adminMode: false };
-    }
+    // 관리자 모드는 스스로 끄기 전까지 유지된다.
+    //
+    // 예전에는 「로그인 유지」를 끄면 브라우저를 닫을 때 풀리게 했는데,
+    // 설치한 앱·미리보기 창은 세션이 자주 갈려 곡을 올리려 할 때마다
+    // 비밀번호를 다시 묻는 꼴이 됐다. 이 앱은 선생님 기기에서만 관리자
+    // 모드를 켜므로, 켠 상태를 그대로 두는 편이 맞다.
+    if (value.adminMode) value = { ...value, adminKeep: true };
   } catch {
     // 저장값이 깨졌거나 접근이 막혔으면 기본값으로 간다
   }
