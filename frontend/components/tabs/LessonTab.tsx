@@ -188,7 +188,7 @@ export function LessonTab({
         <>
           {/* 받기·내보내기. 수강생은 받기만, 선생님은 둘 다 쓴다 */}
           {/* 자주 누르는 단추가 아니다. 크게 벌려 두면 목록이 밀린다 */}
-          <div className="mb-2 flex flex-wrap gap-1.5">
+          <div className="mb-2 flex flex-wrap justify-end gap-1.5">
             <button
               className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white"
               onClick={importFromDrive}
@@ -218,7 +218,7 @@ export function LessonTab({
             key={`${klass.id}-${reloadKey}`}
             shelf={classroomShelf(klass.id)}
             onSelected={setPicked}
-            addLabel="+ 강의실 링크 추가"
+            addLabel="+ 강좌 추가"
             canAdd={adminMode}
             blurb={
               adminMode

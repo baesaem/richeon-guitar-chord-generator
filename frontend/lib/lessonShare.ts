@@ -24,6 +24,13 @@ import {
 
 const KIND = "richeon-lesson-links";
 
+/** 같은 링크인지 보는 열쇠. 영상은 영상 id, 아니면 주소를 다듬어 쓴다 */
+function sameLink(item: Lecture): string {
+  const videoId = item.videoId ?? videoIdOf(item.url);
+  if (videoId) return `yt:${videoId}`;
+  return item.url.replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase();
+}
+
 export interface LessonFile {
   kind: typeof KIND;
   version: 1;
@@ -117,14 +124,26 @@ export function applyLessonFiles(
     }
   }
 
+  /**
+   * 같은 자료인지 보는 법: 먼저 id, 그다음 주소.
+   *
+   * 같은 영상이라도 youtu.be/… 와 youtube.com/watch?v=… 는 적힌 모양이
+   * 달라 id가 갈릴 수 있다. 주소까지 맞춰 보면 한 자료를 둘로 늘리지
+   * 않는다.
+   */
+  const byUrl = new Map<string, Lecture>();
+  for (const item of incoming.values()) byUrl.set(sameLink(item), item);
+
+  const used = new Set<string>();
   let changed = 0;
   let kept = 0;
   const next: Lecture[] = before.map((old) => {
-    const fresh = incoming.get(old.id);
+    const fresh = incoming.get(old.id) ?? byUrl.get(sameLink(old));
     if (!fresh) {
       kept += 1;
       return old;
     }
+    used.add(fresh.id);
     if (
       old.title !== fresh.title ||
       old.note !== fresh.note ||
@@ -135,10 +154,9 @@ export function applyLessonFiles(
     return fresh;
   });
 
-  const have = new Set(before.map((l) => l.id));
   let added = 0;
   for (const [id, item] of incoming) {
-    if (have.has(id)) continue;
+    if (used.has(id)) continue;
     next.push(item);
     added += 1;
   }
