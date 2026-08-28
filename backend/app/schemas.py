@@ -129,6 +129,11 @@ class AnalysisResult(BaseModel):
     melody: list[Note] = []
     # 스트로크(스트럼) 패턴. 음원 분리를 쓴 경우에만 채워진다.
     strums: list[Strum] = []
+    # 강사님이 올린 정식 악보(뮤즈스코어 파일에서 읽은 것)와, 그것을
+    # 이 음원의 시각에 이어 둔 표. 뽑아낸 melody와 달리 음표가 하나도
+    # 빠지지 않는다 — 있으면 화면은 이쪽을 그린다.
+    score: dict | None = None
+    score_align: dict | None = None
 
     # 타임라인에 그릴 파형 포락선. 0~1로 정규화된 값이 초당 peaks_per_second개.
     peaks: list[float] = []

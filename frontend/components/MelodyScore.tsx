@@ -3,12 +3,10 @@
 import { useEffect, useMemo, useRef } from "react";
 
 import { SongInfoLine } from "@/components/SongInfoLine";
-import { chordIndexAt, type Bar } from "@/lib/bars";
-import { labelFor, transposeRoot } from "@/lib/notation";
+import { type Bar } from "@/lib/bars";
 import {
   BOTTOM_LINE,
   diatonic,
-  fitLyrics,
   keySignature,
   pickOctave,
   SIG_OCTAVE,
@@ -16,6 +14,14 @@ import {
   spellMidi,
   type StaffNote,
 } from "@/lib/staff";
+import {
+  passAt,
+  viewFromMelody,
+  viewFromScore,
+  type ScoreAlign,
+  type ScoreData,
+  type ViewBar,
+} from "@/lib/scoreStaff";
 import type { Chord, LyricLine, Note } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자로 올린다. dy는 누적이라 복귀시켜야 한다. */
@@ -43,27 +49,27 @@ const STAFF_BOT = STAFF_TOP + STAFF_H;
 const SOL_Y = STAFF_BOT + 14;   // 계이름
 const LYR_Y = STAFF_BOT + 25;   // 가사
 const ROW_H = LYR_Y + 6;
+/** 자리표·조표가 차지하는 폭 */
+const CLEF_W = 25;
 
 /** 음표 머리의 y. 맨 아랫줄이 미4다. */
 function noteY(dia: number): number {
   return STAFF_BOT - STEP * (dia - BOTTOM_LINE);
 }
 
-/** 자리표·조표가 차지하는 폭 */
-const CLEF_W = 25;
-
 interface Props {
+  /** 음원에서 뽑은 마디. 악보가 없을 때 쓴다 */
   bars: Bar[];
   chords: Chord[];
-  /** 보컬에서 딴 멜로디 */
+  /** 보컬에서 딴 멜로디. 악보가 없을 때 쓴다 */
   melody: Note[];
-  /** 시간 동기화된 가사. 없으면 음표만 그린다 */
   lyrics?: LyricLine[];
-  /** 지금 재생 위치(초). 있으면 그 자리에 세로선을 긋는다 */
+  /** 강사님이 올린 정식 악보. 있으면 이쪽을 그린다 */
+  score?: ScoreData | null;
+  align?: ScoreAlign | null;
+  /** 지금 재생 위치(초) */
   time?: number;
-  /** 안내줄에 함께 보일 연주설정(카포·빠르기 등) */
   playNotes?: string[];
-  /** 안내줄 오른쪽 끝에 놓을 것 */
   headerRight?: React.ReactNode;
   currentBar: number;
   flats: boolean;
@@ -74,6 +80,8 @@ interface Props {
   perLine?: number;
   visibleLines?: number;
   onSeek?: (t: number) => void;
+  /** 관리자에게만 「손볼 마디」 표시를 보인다 */
+  showChecks?: boolean;
 }
 
 /**
@@ -83,15 +91,17 @@ interface Props {
  * 지나가고, 음표 아래에 그 음에 붙는 글자가 놓인다. 코드악보(타브)와
  * 같은 마디 배치를 쓰므로 두 화면을 오가도 자리를 잃지 않는다.
  *
- * 음표 자리는 마디 안에서 실제 부른 시각에 비례한다. 박에 맞춰 8분음표·
- * 4분음표로 반올림하지 않는다 — 기계가 듣고 받아 적은 것이라 반올림하면
- * 틀린 자리가 더 도드라진다.
+ * 그릴 것이 두 갈래다. 강사님이 올린 **정식 악보**가 있으면 그것을
+ * 그린다 — 음표가 하나도 빠지지 않는다. 없으면 보컬에서 **뽑아낸
+ * 멜로디**를 그리는데, 부른 음의 15~30%밖에 잡히지 않아 뼈대만 남는다.
  */
 export function MelodyScore({
   bars,
   chords,
   melody,
   lyrics,
+  score,
+  align,
   time,
   playNotes,
   headerRight,
@@ -104,23 +114,44 @@ export function MelodyScore({
   perLine = 4,
   visibleLines,
   onSeek,
+  showChecks = false,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
   const per = perLine;
 
+  const usingScore = !!(score && align && align.passes.length > 0);
+  // 되풀이하는 곡은 악보 한 벌을 여러 번 쓴다. 지금이 몇 바퀴째인지.
+  const pass = usingScore ? passAt(align!, time ?? 0) : 0;
+
+  const view = useMemo(
+    () =>
+      usingScore
+        ? viewFromScore(score!, align!, pass, transpose, flats)
+        : viewFromMelody(bars, chords, melody, lyrics, transpose, flats),
+    [usingScore, score, align, pass, bars, chords, melody, lyrics, transpose, flats],
+  );
+
+  // 지금 마디. 시각을 알면 그것으로 찾는다 — 악보를 쓰면 마디 번호가
+  // 음원 마디와 달라, 바깥에서 받은 번호를 그대로 쓸 수 없다.
+  const barIndex = useMemo(() => {
+    if (time === undefined) return currentBar;
+    const i = view.bars.findIndex((b) => time >= b.start && time < b.end);
+    if (i >= 0) return i;
+    if (view.bars.length && time >= view.bars[view.bars.length - 1].end)
+      return view.bars.length - 1;
+    return 0;
+  }, [time, currentBar, view.bars]);
+
   useEffect(() => {
     if (!follow || visibleLines) return;
     activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [currentBar, follow, visibleLines]);
+  }, [barIndex, follow, visibleLines]);
 
-  // 가사를 음표에 얹는 일은 곡을 열 때 한 번이면 된다
-  const notes = useMemo(() => fitLyrics(melody, lyrics), [melody, lyrics]);
-  // 덧줄이 가장 적은 옥타브. 남자 목소리는 대개 한 옥타브 올려 적는다.
-  const octave = useMemo(() => pickOctave(melody), [melody]);
-  const sig = useMemo(
-    () => keySignature(musicKey, transpose),
-    [musicKey, transpose],
+  const octave = useMemo(
+    () => pickOctave(view.notes.map((n) => ({ t: n.t, end: n.end, midi: n.midi }))),
+    [view.notes],
   );
+  const sig = useMemo(() => keySignature(musicKey, transpose), [musicKey, transpose]);
   // 조표에 든 음은 음표마다 ♭·♯을 다시 붙이지 않는다
   const sigSet = useMemo(
     () =>
@@ -134,10 +165,11 @@ export function MelodyScore({
   // 어긋난 임시표가 붙는다 — 조표에 ♭이 있는데 음표에 ♯을 다는 식이다.
   const useFlats = sig.useFlats;
 
-  const lines: Bar[][] = [];
-  for (let i = 0; i < bars.length; i += per) lines.push(bars.slice(i, i + per));
+  const lines: ViewBar[][] = [];
+  for (let i = 0; i < view.bars.length; i += per)
+    lines.push(view.bars.slice(i, i + per));
 
-  const from = visibleLines ? Math.floor(currentBar / per) : 0;
+  const from = visibleLines ? Math.floor(barIndex / per) : 0;
   const shown = visibleLines
     ? lines.slice(from, from + visibleLines).map((line, i) => [from + i, line] as const)
     : lines.map((line, i) => [i, line] as const);
@@ -149,12 +181,12 @@ export function MelodyScore({
   // 음이 잘린다. 코드 이름은 그 위에 얹는다.
   const topY = useMemo(() => {
     let min = STAFF_TOP;
-    for (const n of notes) {
+    for (const n of view.notes) {
       const y = noteY(diatonic(spellMidi(n.midi + transpose + octave, useFlats)));
       if (y < min) min = y;
     }
     return min - 4;
-  }, [notes, transpose, octave, useFlats]);
+  }, [view.notes, transpose, octave, useFlats]);
   const chordY = topY - 2;
   // 마디 번호는 코드 이름 위에 따로 한 줄 — 겹치면 「Cm7」의 7과 마디
   // 번호가 붙어 읽히지 않는다.
@@ -169,6 +201,11 @@ export function MelodyScore({
         right={headerRight}
       >
         {[
+          usingScore
+            ? align!.passes.length > 1
+              ? `악보 ${pass + 1}절`
+              : "악보"
+            : "",
           octave > 0 ? "한 옥타브 올려 적음" : octave < 0 ? "한 옥타브 내려 적음" : "",
           visibleLines && lines.length > visibleLines
             ? `${from + 1}–${Math.min(from + visibleLines, lines.length)} / ${lines.length}줄`
@@ -179,7 +216,7 @@ export function MelodyScore({
       </SongInfoLine>
 
       {shown.map(([lineIndex, line]) => {
-        const hasActive = line.some((_, i) => lineIndex * per + i === currentBar);
+        const hasActive = line.some((_, i) => lineIndex * per + i === barIndex);
         const measureW = (VB_W - PAD_X * 2) / per;
         const chordFont = Math.max(6, Math.min(11, measureW * 0.17));
 
@@ -189,7 +226,7 @@ export function MelodyScore({
               viewBox={`0 ${vbTop} ${VB_W} ${ROW_H - vbTop}`}
               className="w-full text-gray-900 dark:text-gray-100"
               role="img"
-              aria-label={`${lineIndex * per + 1}마디부터`}
+              aria-label={`${line[0]?.number ?? 1}마디부터`}
             >
               {/* 오선 다섯 줄 */}
               {Array.from({ length: 5 }, (_, i) => (
@@ -243,18 +280,21 @@ export function MelodyScore({
 
               {line.map((bar, i) => {
                 const index = lineIndex * per + i;
-                const active = index === currentBar;
+                const active = index === barIndex;
                 const x0 = PAD_X + i * measureW;
-                // 첫 마디는 자리표·조표만큼 안쪽에서 시작한다
-                const inset = i === 0 ? CLEF_W + (sig.flats.length + sig.sharps.length) * 3.6 : 2;
+                const inset =
+                  i === 0
+                    ? CLEF_W + (sig.flats.length + sig.sharps.length) * 3.6
+                    : 2;
                 const contentX = x0 + inset;
                 const contentW = x0 + measureW - contentX - 2;
                 const span = Math.max(bar.end - bar.start, 0.01);
                 const at = (t: number) =>
-                  contentX + (contentW * Math.min(Math.max(t - bar.start, 0), span)) / span;
+                  contentX +
+                  (contentW * Math.min(Math.max(t - bar.start, 0), span)) / span;
 
                 return (
-                  <g key={bar.number}>
+                  <g key={`${bar.number}-${i}`}>
                     {active && (
                       <rect
                         x={x0} y={vbTop}
@@ -288,36 +328,21 @@ export function MelodyScore({
                       </>
                     )}
 
-                    {/* 코드 — 이 마디에서 바뀌는 자리마다 */}
-                    {bar.chords.map((chord, c) => {
-                      const start = Math.max(chord.start, bar.start);
-                      // 앞 마디에서 이어지는 코드는 마디 첫머리에 한 번만 적는다
-                      const prev = chordIndexAt(chords, start - 0.001);
-                      const here = chordIndexAt(chords, start + 0.001);
-                      const opensView = lineIndex === from && i === 0 && c === 0;
-                      if (prev === here && !opensView && chord.start < bar.start) return null;
-                      return (
-                        <text
-                          key={c}
-                          x={at(start)} y={chordY}
-                          textAnchor="start" fontSize={chordFont} fontWeight="700"
-                          fill="currentColor"
-                        >
-                          {svgLabel(
-                            labelFor(
-                              transposeRoot(chord.root, transpose),
-                              chord.quality,
-                              flats,
-                            ),
-                          )}
-                        </text>
-                      );
-                    })}
+                    {/* 코드 */}
+                    {bar.chords.map((c, k) => (
+                      <text
+                        key={k}
+                        x={at(c.t)} y={chordY}
+                        textAnchor="start" fontSize={chordFont} fontWeight="700"
+                        fill="currentColor"
+                      >
+                        {svgLabel(c.label)}
+                      </text>
+                    ))}
 
                     {/* 멜로디 음표 + 그 아래 계이름·가사 */}
-                    {notes
-                      .filter((n) => n.t >= bar.start && n.t < bar.end)
-                      .map((n, k) => (
+                    {view.notes.map((n, k) =>
+                      n.t >= bar.start && n.t < bar.end ? (
                         <NoteHead
                           key={k}
                           note={n}
@@ -328,7 +353,8 @@ export function MelodyScore({
                           sigSet={sigSet}
                           now={time !== undefined && time >= n.t && time < n.end}
                         />
-                      ))}
+                      ) : null,
+                    )}
 
                     {/* 지금 자리 */}
                     {time !== undefined && time >= bar.start && time < bar.end && (
@@ -345,6 +371,16 @@ export function MelodyScore({
                     >
                       {bar.number}
                     </text>
+
+                    {/* 가사가 어긋난 마디. 손볼 자리를 강사님에게만 알린다 */}
+                    {showChecks && bar.off !== undefined && (
+                      <circle
+                        cx={x0 + measureW - 3} cy={vbTop + 3.5} r={1.6}
+                        fill="#d97706"
+                      >
+                        <title>{`가사가 ${bar.off > 0 ? "+" : ""}${bar.off}초 어긋납니다`}</title>
+                      </circle>
+                    )}
 
                     <rect
                       x={x0} y={vbTop}
@@ -385,7 +421,7 @@ function NoteHead({
   sigSet,
   now,
 }: {
-  note: StaffNote;
+  note: StaffNote & { tie?: boolean };
   x: number;
   x2: number;
   midi: number;
@@ -397,6 +433,19 @@ function NoteHead({
   const dia = diatonic(sp);
   const y = noteY(dia);
   const color = now ? "var(--accent)" : "currentColor";
+
+  // 앞 마디에서 이어진 음은 꼬리만 그린다. 머리를 다시 그리면 같은
+  // 음을 두 번 치라는 뜻이 된다.
+  if (note.tie) {
+    return (
+      <rect
+        x={x} y={y - 0.8}
+        width={Math.max(x2 - x, 1)} height={1.6} rx={0.8}
+        fill="var(--accent)" opacity={now ? 0.55 : 0.28}
+      />
+    );
+  }
+
   const ledgers: number[] = [];
   for (let d = BOTTOM_LINE - 2; d >= dia; d -= 2) ledgers.push(noteY(d));
   for (let d = BOTTOM_LINE + 10; d <= dia; d += 2) ledgers.push(noteY(d));

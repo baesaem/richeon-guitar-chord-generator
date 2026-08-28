@@ -22,7 +22,7 @@ from .lyrics import (
     polish_captions,
     sync_to_song,
 )
-from . import drive_upload, llm
+from . import drive_upload, llm, score_align, score_file
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
 from .sheets import clean_query, search as search_sheets
@@ -782,6 +782,64 @@ async def put_lyrics(result_id: str, lyrics: list[LyricLine]) -> AnalysisResult:
     # 사용자가 직접 넣은 가사는 어림이 아니다. 시각이 파일에 들어 있다
     result.lyrics_approx = False
     result.lyrics_manual = True
+    save_result(result)
+    return result
+
+
+@app.post("/api/results/{result_id}/score")
+async def put_score(result_id: str, file: UploadFile = File(...)) -> AnalysisResult:
+    """정식 악보(뮤즈스코어 .mscz/.mscx)를 이 곡에 붙인다.
+
+    보컬에서 딴 멜로디는 부른 음의 15~30%밖에 잡히지 않는다. 강사님이
+    악보를 올려 주시면 그쪽을 그린다 — 음표가 하나도 빠지지 않는다.
+
+    올리는 즉시 음원의 시각에 이어 두고, 가사가 어긋나는 마디를 함께
+    돌려준다. 그 마디만 보고 손보면 된다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "빈 파일입니다")
+    try:
+        parsed = score_file.parse(data)
+    except Exception as exc:
+        raise HTTPException(400, f"악보를 읽지 못했습니다: {exc}") from exc
+    if not parsed.bars:
+        raise HTTPException(400, "마디가 없는 악보입니다")
+
+    from .analysis.asr import transcribe_words
+
+    words = [
+        {"text": w.text, "start": w.start, "end": w.end}
+        for w in transcribe_words(result_id)
+    ]
+    payload = result.model_dump()
+    try:
+        alignment = score_align.align(parsed, payload, words)
+    except Exception as exc:
+        raise HTTPException(400, f"악보를 음원에 맞추지 못했습니다: {exc}") from exc
+
+    result.score = score_file.to_dict(parsed)
+    result.score_align = alignment
+    save_result(result)
+    return result
+
+
+@app.delete("/api/results/{result_id}/score")
+async def drop_score(result_id: str) -> AnalysisResult:
+    """붙여 둔 악보를 뗀다. 화면은 다시 뽑아낸 멜로디로 돌아간다."""
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    result.score = None
+    result.score_align = None
     save_result(result)
     return result
 

@@ -9,6 +9,7 @@ import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { MelodyScore } from "@/components/MelodyScore";
+import { ScoreAttach } from "@/components/ScoreAttach";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { HelpButton } from "@/components/Help";
@@ -606,7 +607,8 @@ export default function Home() {
 
   // 멜로디는 음원 분리를 쓴 곡에만 있다. 없는 곡에 「멜로디」 칸을 두면
   // 눌러도 빈 오선만 나온다 — 있을 때만 칸을 만든다.
-  const hasMelody = (result?.melody?.length ?? 0) > 8;
+  const hasScore = !!(result as { score?: unknown } | null)?.score;
+  const hasMelody = hasScore || (result?.melody?.length ?? 0) > 8;
   // 멜로디가 없는 곡을 열었는데 지난 곡에서 고른 「멜로디」가 남아 있으면
   // 코드악보로 되돌린다.
   const boardView = settings.view === "melody" && !hasMelody ? "sheet" : settings.view;
@@ -985,6 +987,9 @@ export default function Home() {
                     chords={shownChords}
                     melody={result.melody ?? []}
                     lyrics={result.lyrics}
+                    score={(result.score ?? null) as never}
+                    align={(result.score_align ?? null) as never}
+                    showChecks={settings.adminMode}
                     time={time + lyricSync - settings.latency}
                     playNotes={playNotes}
                     headerRight={
@@ -1020,6 +1025,15 @@ export default function Home() {
                     visibleLines={wide ? 4 : 2}
                     follow
                   />
+                  {/* 강사님만 보이는 줄. 악보를 붙이면 뽑아낸 멜로디 대신
+                      악보를 그린다 — 음표가 하나도 빠지지 않는다. */}
+                  {settings.adminMode && (
+                    <ScoreAttach
+                      result={result}
+                      onResult={setResult}
+                      online={!!health}
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="shrink-0 px-2 py-1">

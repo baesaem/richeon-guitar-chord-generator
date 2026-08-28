@@ -104,6 +104,15 @@ export interface AnalysisResult {
   melody?: Note[];
   /** 스트로크(스트럼) 패턴. 음원 분리를 쓴 곡만 채워진다 */
   strums?: Strum[];
+  /**
+   * 강사님이 올린 정식 악보와, 그것을 이 음원의 시각에 이어 둔 표.
+   *
+   * 뽑아낸 melody는 부른 음의 15~30%밖에 잡히지 않는다. 악보가 붙어
+   * 있으면 멜로디 화면은 이쪽을 그린다 — 음표가 하나도 빠지지 않는다.
+   * 모양은 lib/scoreStaff.ts의 ScoreData·ScoreAlign을 따른다.
+   */
+  score?: unknown;
+  score_align?: unknown;
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;

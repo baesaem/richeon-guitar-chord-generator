@@ -130,6 +130,27 @@ export const renameResult = (id: string, title: string) =>
   }).then(json<AnalysisResult>);
 
 /**
+ * 정식 악보 붙이기 (뮤즈스코어 .mscz/.mscx).
+ *
+ * 보컬에서 딴 멜로디는 부른 음의 15~30%밖에 잡히지 않는다. 강사님이
+ * 악보를 올리면 서버가 음표·가사·코드를 읽어 이 음원의 시각에 이어
+ * 두고, 가사가 어긋나는 마디를 함께 돌려준다.
+ */
+export const putScore = (id: string, file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return fetch(`${apiBase()}/api/results/${id}/score`, {
+    method: "POST",
+    body: form,
+  }).then(json<AnalysisResult>);
+};
+
+export const dropScore = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/score`, { method: "DELETE" }).then(
+    json<AnalysisResult>,
+  );
+
+/**
  * 구글 드라이브에 바로 올리기 (관리자 PC).
  *
  * 「내보내기 → 내려받기 → 드라이브 웹에서 올리기」 세 걸음을 한 번으로
