@@ -75,11 +75,20 @@ export function LessonTab({
     setWorking("새 강좌 찾는 중");
     setError(null);
     try {
-      const { added, files } = await importLessonsFromDrive(klass, online);
-      if (files === 0) flash("이 반의 강의실에 올라온 자료가 아직 없습니다.");
-      else if (added === 0) flash("이미 받은 것과 같습니다. 그대로 두었습니다.");
-      else {
-        flash(`강좌 ${added}개를 받았습니다.`);
+      const { added, changed, removed, files } = await importLessonsFromDrive(
+        klass,
+        online,
+      );
+      if (files === 0) {
+        flash("이 반의 강의실에 올라온 자료가 아직 없습니다.");
+      } else if (added + changed + removed === 0) {
+        flash("이미 받은 것과 같습니다. 그대로 두었습니다.");
+      } else {
+        const parts = [];
+        if (added) parts.push(`새 강좌 ${added}개`);
+        if (changed) parts.push(`고쳐진 것 ${changed}개`);
+        if (removed) parts.push(`빠진 것 ${removed}개`);
+        flash(`${parts.join(" · ")}를 반영했습니다.`);
         setReloadKey((k) => k + 1);
       }
     } catch (e) {
@@ -95,7 +104,10 @@ export function LessonTab({
    */
   const uploadToDrive = async (target: GuitarClass) => {
     setAskFolder(null);
-    const { blob, count } = lessonBlob(target, picked);
+    // 담는 자료는 지금 보고 있는 반의 것, 올라가는 곳은 고른 반이다 —
+    // 초급에서 정리한 자료를 중급에도 그대로 올릴 수 있다
+    const source = klass ?? target;
+    const { blob, count } = lessonBlob(source, picked);
     if (count === 0) {
       setError("이 반 강의실에 담긴 링크가 없습니다.");
       return;
@@ -129,7 +141,7 @@ export function LessonTab({
   const exportToFile = (target: GuitarClass) => {
     setAskFolder(null);
     setError(null);
-    const count = downloadLessonFile(target, picked);
+    const count = downloadLessonFile(klass ?? target, picked, target.name);
     if (count === 0) setError("올릴 자료가 없습니다.");
     else
       flash(

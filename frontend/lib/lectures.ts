@@ -139,6 +139,15 @@ export function updateLecture(shelf: Shelf, id: string, next: Lecture): Lecture[
   return items;
 }
 
+/**
+ * 칸을 통째로 갈아 끼운다. 받아 오는 강의실이 쓴다 —
+ * 선생님이 올린 파일이 정답이므로 고친 것·지운 것이 그대로 반영된다.
+ */
+export function replaceLectures(shelf: Shelf, items: Lecture[]): Lecture[] {
+  write(shelf, items);
+  return items;
+}
+
 export function removeLecture(shelf: Shelf, id: string): Lecture[] {
   const items = listLectures(shelf).filter((l) => l.id !== id);
   write(shelf, items);

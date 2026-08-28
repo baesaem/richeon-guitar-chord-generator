@@ -14,9 +14,9 @@ import { downloadShared, listShared } from "./api";
 import { CLASSES, type GuitarClass } from "./classes";
 import { downloadDirectText, hasDriveKey, listSharedDirect } from "./driveDirect";
 import {
-  addLecture,
   classroomShelf,
   listLectures,
+  replaceLectures,
   siteOf,
   videoIdOf,
   type Lecture,
@@ -74,35 +74,63 @@ export function lessonBlob(
 }
 
 /** 이 반의 강의실을 파일로 내려받는다. 이 파일을 그 반 강의실 폴더에 올리면 끝이다. */
-export function downloadLessonFile(klass: GuitarClass, onlyIds?: string[]): number {
+export function downloadLessonFile(
+  klass: GuitarClass,
+  onlyIds?: string[],
+  /** 파일 이름에 적을 반. 다른 반에 올릴 때 쓴다 */
+  asName?: string,
+): number {
   const { blob, count } = lessonBlob(klass, onlyIds);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = lessonFileName(klass.name);
+  a.download = lessonFileName(asName ?? klass.name);
   a.click();
   URL.revokeObjectURL(url);
   return count;
 }
 
-/** 받은 파일을 그 반 강의실에 붙인다. 이미 있는 링크는 건너뛴다. */
-export function mergeLessonFile(klass: GuitarClass, file: LessonFile): number {
+/**
+ * 받은 자료로 그 반 강의실을 맞춘다.
+ *
+ * 새것만 더하면 선생님이 고친 제목·설명이 영영 전해지지 않고, 뺀
+ * 자료도 수강생 화면에 남는다. 선생님이 올린 파일이 정답이므로 그대로
+ * 맞춘다. 무엇이 달라졌는지 세어 돌려준다.
+ */
+export function applyLessonFiles(
+  klass: GuitarClass,
+  files: LessonFile[],
+): { added: number; changed: number; removed: number } {
   const shelf = classroomShelf(klass.id);
-  const have = new Set(listLectures(shelf).map((l) => l.id));
-  let added = 0;
-  // 파일에 적힌 순서를 지키려면 뒤에서부터 넣는다(addLecture는 맨 앞에 꽂는다)
-  for (const item of [...file.items].reverse()) {
-    if (!item?.url || have.has(item.id)) continue;
-    addLecture(shelf, {
-      ...item,
-      videoId: item.videoId ?? videoIdOf(item.url) ?? undefined,
-      site: item.site ?? siteOf(item.url),
-      note: item.note,
-    });
-    have.add(item.id);
-    added += 1;
+  const before = listLectures(shelf);
+  const beforeById = new Map(before.map((l) => [l.id, l]));
+
+  const next: Lecture[] = [];
+  const seen = new Set<string>();
+  for (const file of files) {
+    for (const item of file.items) {
+      if (!item?.url || seen.has(item.id)) continue;
+      seen.add(item.id);
+      next.push({
+        ...item,
+        videoId: item.videoId ?? videoIdOf(item.url) ?? undefined,
+        site: item.site ?? siteOf(item.url),
+      });
+    }
   }
-  return added;
+
+  replaceLectures(shelf, next);
+
+  let added = 0;
+  let changed = 0;
+  for (const item of next) {
+    const old = beforeById.get(item.id);
+    if (!old) added += 1;
+    else if (old.title !== item.title || old.note !== item.note || old.url !== item.url)
+      changed += 1;
+  }
+  const removed = before.filter((l) => !seen.has(l.id)).length;
+  return { added, changed, removed };
 }
 
 /**
@@ -114,12 +142,11 @@ export function mergeLessonFile(klass: GuitarClass, file: LessonFile): number {
 export async function importLessonsFromDrive(
   klass: GuitarClass,
   online: boolean,
-): Promise<{ added: number; files: number }> {
+): Promise<{ added: number; changed: number; removed: number; files: number }> {
   if (!online && !hasDriveKey()) {
     throw new Error("공유 폴더를 읽을 수 없습니다. 설정에서 서버 주소를 확인해 주세요.");
   }
-  let added = 0;
-  let files = 0;
+  const found: LessonFile[] = [];
   const list = await (online
     ? listShared(klass.lessonFolderId)
     : listSharedDirect(klass.lessonFolderId)
@@ -131,13 +158,13 @@ export async function importLessonsFromDrive(
       const text = await (online ? downloadShared(f.id) : downloadDirectText(f.id));
       const data = JSON.parse(text) as unknown;
       if (!isLessonFile(data)) continue;
-      added += mergeLessonFile(klass, data);
-      files += 1;
+      found.push(data);
     } catch {
       // 한 파일이 깨져도 나머지는 받는다
     }
   }
-  return { added, files };
+  if (found.length === 0) return { added: 0, changed: 0, removed: 0, files: 0 };
+  return { ...applyLessonFiles(klass, found), files: found.length };
 }
 
 export { CLASSES };
