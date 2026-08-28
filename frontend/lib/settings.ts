@@ -33,6 +33,13 @@ export interface Settings {
   /** 곡 전체 코드 그리드를 펼쳐 둘지 */
   showGrid: boolean;
   /**
+   * 악보 그림 위에 이 음원의 코드를 덮어쓸지.
+   *
+   * 기타 악보는 짚기 쉬운 조로 옮겨 적는 일이 흔해, 인쇄된 코드가
+   * 원곡과 다를 수 있다.
+   */
+  sheetChords: boolean;
+  /**
    * 기기 지연 보정(초). 소리가 화면보다 늦게 나오는 만큼 화면을 늦춘다.
    *
    * 브라우저가 알려 주는 출력 지연을 그대로 쓴다. 곡이 아니라 기기의
@@ -61,6 +68,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSave: true,
   theme: "system",
   showGrid: true,
+  sheetChords: false,
   latency: 0,
   adminMode: false,
   adminKeep: true,

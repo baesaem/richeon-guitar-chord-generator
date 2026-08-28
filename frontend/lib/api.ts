@@ -145,6 +145,33 @@ export const putScore = (id: string, file: File) => {
   }).then(json<AnalysisResult>);
 };
 
+/**
+ * 악보 그림(PDF·사진) 붙이기.
+ *
+ * 우리가 그린 음표보다 인쇄된 악보가 낫다. 그림은 그대로 두고 서버가
+ * 마디선만 찾아, 그 위로 커서를 지나가게 한다.
+ */
+export const putSheetImage = (id: string, file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return fetch(`${apiBase()}/api/results/${id}/sheet`, {
+    method: "POST",
+    body: form,
+  }).then(json<AnalysisResult>);
+};
+
+export const moveSheetImage = (id: string, offset: number, repeats: number) =>
+  fetch(`${apiBase()}/api/results/${id}/sheet`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ offset, repeats }),
+  }).then(json<AnalysisResult>);
+
+export const dropSheetImage = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/sheet`, { method: "DELETE" }).then(
+    json<AnalysisResult>,
+  );
+
 export const dropScore = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}/score`, { method: "DELETE" }).then(
     json<AnalysisResult>,

@@ -10,6 +10,8 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { MelodyScore } from "@/components/MelodyScore";
 import { ScoreAttach } from "@/components/ScoreAttach";
+import { SheetScore, type SheetData } from "@/components/SheetScore";
+import { sheetChords } from "@/lib/sheetChords";
 import { ChordSheet } from "@/components/ChordSheet";
 import { Copyright } from "@/components/Copyright";
 import { HelpButton } from "@/components/Help";
@@ -608,7 +610,11 @@ export default function Home() {
   // 멜로디는 음원 분리를 쓴 곡에만 있다. 없는 곡에 「멜로디」 칸을 두면
   // 눌러도 빈 오선만 나온다 — 있을 때만 칸을 만든다.
   const hasScore = !!(result as { score?: unknown } | null)?.score;
-  const hasMelody = hasScore || (result?.melody?.length ?? 0) > 8;
+  // 강사님이 올린 악보 그림. 있으면 우리가 그리지 않고 이것을 띄운다.
+  const sheetImg = (result?.sheet ?? null) as SheetData | null;
+  const hasMelody = hasScore || !!sheetImg || (result?.melody?.length ?? 0) > 8;
+
+
   // 멜로디가 없는 곡을 열었는데 지난 곡에서 고른 「멜로디」가 남아 있으면
   // 코드악보로 되돌린다.
   const boardView = settings.view === "melody" && !hasMelody ? "sheet" : settings.view;
@@ -616,6 +622,16 @@ export default function Home() {
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
   const noteShift = -transpose;
+
+  // 악보 그림 위에 덮어쓸 코드. 지금 바퀴의 마디 시각에 맞춘다.
+  const sheetChordList = useMemo(() => {
+    if (!sheetImg?.passes?.length) return [];
+    let pass = 0;
+    sheetImg.passes.forEach((bars, i) => {
+      if (bars.length && time >= bars[0].start) pass = i;
+    });
+    return sheetChords(sheetImg.passes[pass] ?? [], shownChords, noteShift, flats);
+  }, [sheetImg, shownChords, time, flats, transpose]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 지금 보고 있는 메뉴의 이름. 넓은 화면에서는 사이드바가 앱 이름을
   // 맡고, 위쪽 띠는 "여기가 어디인지"를 맡는다.
@@ -831,7 +847,9 @@ export default function Home() {
                   {(
                     [
                       ["sheet", "코드악보"] as const,
-                      ...(hasMelody ? [["melody", "멜로디"] as const] : []),
+                      ...(hasMelody
+                        ? [["melody", sheetImg ? "악보" : "멜로디"] as const]
+                        : []),
                       ["wave", "파형"] as const,
                     ]
                   ).map(([value, label]) => (
@@ -980,8 +998,37 @@ export default function Home() {
                 </>
               ) : boardView === "melody" ? (
                 <div className="shrink-0 px-2 py-1">
-                  {/* 오선 위 음표 + 그 아래 가사. 코드악보와 같은 마디 배치라
-                      두 화면을 오가도 보던 자리를 잃지 않는다 */}
+                  {sheetImg ? (
+                    /* 인쇄된 악보 그대로. 마디선만 찾아 그 위로 커서가 간다 */
+                    <SheetScore
+                      resultId={result.id}
+                      sheet={sheetImg}
+                      time={time + lyricSync - settings.latency}
+                      chords={sheetChordList}
+                      showChords={settings.sheetChords}
+                      onToggleChords={() =>
+                        setSettings({ ...settings, sheetChords: !settings.sheetChords })
+                      }
+                      musicKey={result.key}
+                      timeSignature={result.time_signature}
+                      playNotes={playNotes}
+                      onSeek={(t) => playback?.seek(t)}
+                      lines={wide ? 3 : 2}
+                      headerRight={
+                        <button
+                          className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
+                          onClick={() => {
+                            setEditMode(false);
+                            setShowSheet(true);
+                          }}
+                        >
+                          전체보기
+                        </button>
+                      }
+                    />
+                  ) : (
+                  /* 오선 위 음표 + 그 아래 가사. 코드악보와 같은 마디 배치라
+                     두 화면을 오가도 보던 자리를 잃지 않는다 */
                   <MelodyScore
                     bars={bars}
                     chords={shownChords}
@@ -1025,6 +1072,7 @@ export default function Home() {
                     visibleLines={wide ? 4 : 2}
                     follow
                   />
+                  )}
                   {/* 강사님만 보이는 줄. 악보를 붙이면 뽑아낸 멜로디 대신
                       악보를 그린다 — 음표가 하나도 빠지지 않는다. */}
                   {settings.adminMode && (

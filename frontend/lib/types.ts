@@ -113,6 +113,11 @@ export interface AnalysisResult {
    */
   score?: unknown;
   score_align?: unknown;
+  /**
+   * 강사님이 올린 **악보 그림**의 배치와 마디별 시각.
+   * 모양은 components/SheetScore.tsx의 SheetData를 따른다.
+   */
+  sheet?: unknown;
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;

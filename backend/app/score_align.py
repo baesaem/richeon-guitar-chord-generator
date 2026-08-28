@@ -258,13 +258,11 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
         if total <= 0:
             break
 
-    # 되풀이끼리 겹치는 대목을 잘라 낸다. 악보의 후주와 다음 바퀴의
-    # 전주는 음원에서 같은 자리(간주)라 겹치는 것이 당연하지만, 화면은
-    # 한 번에 한 바퀴만 보여야 하므로 경계를 정해 준다.
+    # 되풀이끼리 겹치는 대목이 생긴다 — 악보의 후주와 다음 바퀴의 전주는
+    # 음원에서 같은 자리(간주)이기 때문이다. 마디를 잘라내지는 않는다.
+    # 잘라내면 「그림의 n번째 마디 = 악보의 n번째 마디」가 깨진다.
+    # 대신 다음 바퀴가 시작하는 시각을 적어 두고, 화면이 그것으로 고른다.
     for a, b in zip(passes, passes[1:]):
-        cut = b["start"]
-        a["bars"] = [x for x in a["bars"] if x["start"] < cut]
-        if a["bars"]:
-            a["end"] = a["bars"][-1]["end"]
+        a["next"] = b["start"]
 
     return {"shift": shift, "passes": passes, "checks": checks}

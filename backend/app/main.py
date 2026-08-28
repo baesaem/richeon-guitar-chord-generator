@@ -22,7 +22,7 @@ from .lyrics import (
     polish_captions,
     sync_to_song,
 )
-from . import drive_upload, llm, score_align, score_file
+from . import drive_upload, llm, score_align, score_file, sheet_layout, sheet_score
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
 from .sheets import clean_query, search as search_sheets
@@ -826,6 +826,119 @@ async def put_score(result_id: str, file: UploadFile = File(...)) -> AnalysisRes
 
     result.score = score_file.to_dict(parsed)
     result.score_align = alignment
+    save_result(result)
+    return result
+
+
+def _page_path(result_id: str, index: int) -> Path:
+    return _sheet_dir() / f"{result_id}__p{index}.png"
+
+
+@app.get("/api/sheets/{result_id}/page/{index}")
+async def get_sheet_page(result_id: str, index: int) -> Response:
+    """악보 그림 한 쪽. PDF는 미리 그림으로 펴 두었다."""
+    _guard_id(result_id)
+    path = _page_path(result_id, index)
+    if not path.exists():
+        raise HTTPException(404, "그 쪽이 없습니다")
+    return FileResponse(path, media_type="image/png")
+
+
+@app.post("/api/results/{result_id}/sheet")
+async def put_sheet(
+    result_id: str,
+    file: UploadFile = File(...),
+    offset: float = Form(0.0),
+    repeats: int = Form(1),
+) -> AnalysisResult:
+    """악보 그림(PDF·사진)을 곡에 붙인다.
+
+    음표를 읽어내려는 것이 아니다. **마디선만** 찾아 인쇄된 악보 위로
+    커서를 지나가게 한다 — 우리가 그린 음표보다 인쇄된 악보가 낫다.
+
+    마디마다 시각은 두 길로 얻는다. 뮤즈스코어 파일이 이미 붙어 있으면
+    그 정렬을 그대로 쓰고(가장 정확하다), 없으면 음원의 박 격자에 고르게
+    얹는다. 후자는 강사님이 시작 마디를 한 번 짚어 주어야 한다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+
+    suffix = _SHEET_TYPES.get(file.content_type or "")
+    if suffix is None:
+        raise HTTPException(400, "이미지(PNG·JPG·WEBP)나 PDF만 올릴 수 있습니다")
+    data = await file.read(_SHEET_MAX_BYTES + 1)
+    if len(data) > _SHEET_MAX_BYTES:
+        raise HTTPException(413, "파일이 너무 큽니다 (20MB까지)")
+
+    try:
+        if suffix == ".pdf":
+            pages, images = sheet_layout.from_pdf(data)
+        else:
+            pages, images = sheet_layout.from_image(data)
+    except Exception as exc:
+        raise HTTPException(400, f"악보를 읽지 못했습니다: {exc}") from exc
+
+    total = sum(len(s.measures) for p in pages for s in p.systems)
+    if total < 2:
+        raise HTTPException(
+            400,
+            "마디선을 찾지 못했습니다. 사진보다 뮤즈스코어에서 뽑은 PDF가 잘 잡힙니다.",
+        )
+
+    for old in _sheet_dir().glob(f"{result_id}__p*.png"):
+        old.unlink(missing_ok=True)
+    for i, png in enumerate(images):
+        _page_path(result_id, i).write_bytes(png)
+    # 원본도 남긴다 — 「내 악보」에서 그대로 펼쳐 볼 수 있게
+    for old in _sheet_dir().glob(f"{result_id}.*"):
+        old.unlink(missing_ok=True)
+    (_sheet_dir() / f"{result_id}{suffix}").write_bytes(data)
+
+    result.sheet = sheet_score.build(
+        pages, result.model_dump(), result.score_align, offset, repeats
+    )
+    save_result(result)
+    return result
+
+
+@app.put("/api/results/{result_id}/sheet")
+async def move_sheet(result_id: str, body: dict) -> AnalysisResult:
+    """악보 그림을 음원 위에서 앞뒤로 민다(시작 마디·되풀이 횟수)."""
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None or not result.sheet:
+        raise HTTPException(404, "붙여 둔 악보가 없습니다")
+
+    sheet = dict(result.sheet)
+    count = len(sheet.get("bars") or [])
+    offset = float(body.get("offset", sheet.get("offset", 0.0)))
+    repeats = int(body.get("repeats", sheet.get("repeats", 1)))
+    sheet["passes"] = sheet_score.times_from_grid(
+        result.model_dump(), count, offset, repeats
+    )
+    sheet["source"] = "grid"
+    sheet["offset"] = offset
+    sheet["repeats"] = repeats
+    result.sheet = sheet
+    save_result(result)
+    return result
+
+
+@app.delete("/api/results/{result_id}/sheet")
+async def drop_sheet(result_id: str) -> AnalysisResult:
+    """붙여 둔 악보 그림을 뗀다."""
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    for old in _sheet_dir().glob(f"{result_id}__p*.png"):
+        old.unlink(missing_ok=True)
+    result.sheet = None
     save_result(result)
     return result
 

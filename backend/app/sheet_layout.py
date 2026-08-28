@@ -1,0 +1,235 @@
+"""악보 그림에서 오선 묶음과 마디선을 찾는다.
+
+음표를 읽어내려는 것이 아니다(그건 정확도가 낮다). **줄과 세로선만**
+찾는다 — 인쇄된 악보는 선이 곧고 검어서 이것만은 잘 잡힌다.
+
+찾아 두면 진짜 악보 그림 위로 커서를 지나가게 할 수 있다. 우리가 그린
+음표보다 인쇄된 악보가 낫다는 것이 이 방식의 요지다.
+"""
+
+from __future__ import annotations
+
+import io
+from dataclasses import dataclass, field
+
+import numpy as np
+from PIL import Image
+
+#: 잉크로 볼 밝기의 후보. 악보마다 선의 짙기가 다르다 —
+#: 뮤즈스코어는 새까맣고, 인쇄용으로 만든 타브 악보는 옅은 회색이다.
+_INK_STEPS = (120, 150, 175, 195, 210)
+#: 가로줄로 치려면 이 정도는 폭을 채워야 한다
+_LINE_FILL = 0.45
+#: 세로선으로 치려면 오선 높이의 이만큼을 채워야 한다.
+#:
+#: 두 악보를 재어 보니 갈리는 자리가 뚜렷했다. 진짜 마디선은 오선을
+#: 빈틈없이(1.00) 꿰고, 음표 기둥과 타브의 이음줄은 0.89~0.93에서
+#: 멈춘다. 머리나 숫자에 한 번은 가리기 때문이다.
+_BAR_FILL = 0.97
+
+
+@dataclass
+class System:
+    """오선(또는 타브) 한 묶음. 악보 한 줄이다."""
+
+    top: int
+    bottom: int
+    #: 줄 개수. 5면 오선, 6이면 타브
+    lines: int
+    #: 마디선의 x 자리(왼쪽부터)
+    bars: list[int] = field(default_factory=list)
+
+    @property
+    def measures(self) -> list[tuple[int, int]]:
+        """마디의 (왼쪽, 오른쪽). 세로선 사이가 한 마디다."""
+        return list(zip(self.bars, self.bars[1:]))
+
+
+@dataclass
+class Page:
+    index: int
+    width: int
+    height: int
+    systems: list[System] = field(default_factory=list)
+
+
+def _gray(img: Image.Image) -> np.ndarray:
+    """회색조 판. 색·투명도는 흰 바탕에 얹어 없앤다."""
+    if img.mode in ("RGBA", "LA", "P"):
+        flat = Image.new("RGB", img.size, "white")
+        flat.paste(img, mask=img.convert("RGBA").split()[-1])
+        img = flat
+    return np.asarray(img.convert("L"), dtype=np.uint8)
+
+
+def _ink(gray: np.ndarray) -> np.ndarray:
+    """잉크면 True인 판.
+
+    짙기를 하나로 못 박을 수 없다. 뮤즈스코어 악보는 선이 새까맣지만,
+    인쇄용으로 만든 타브 악보는 옅은 회색이라 같은 잣대로는 한 줄도
+    못 찾는다. 가로줄이 가장 잘 잡히는 짙기를 골라 쓴다.
+    """
+    best, score = None, -1.0
+    for thr in _INK_STEPS:
+        ink = gray < thr
+        # 온통 검어지는 짙기는 버린다
+        if ink.mean() > 0.25:
+            continue
+        rows = ink.sum(axis=1) / float(ink.shape[1])
+        found = int((rows > _LINE_FILL).sum())
+        if found > score:
+            best, score = ink, found
+    return best if best is not None else (gray < _INK_STEPS[0])
+
+
+def _runs(flags: np.ndarray, gap: int = 2) -> list[tuple[int, int]]:
+    """True가 이어지는 구간. gap만큼 끊긴 것은 이어 붙인다."""
+    idx = np.flatnonzero(flags)
+    if idx.size == 0:
+        return []
+    out: list[list[int]] = [[int(idx[0]), int(idx[0])]]
+    for i in idx[1:]:
+        if i - out[-1][1] <= gap:
+            out[-1][1] = int(i)
+        else:
+            out.append([int(i), int(i)])
+    return [(a, b) for a, b in out]
+
+
+def find_systems(ink: np.ndarray) -> list[System]:
+    """가로줄을 찾아 묶음으로 나눈다."""
+    h, w = ink.shape
+    rows = ink.sum(axis=1) / float(w)
+    lines = _runs(rows > _LINE_FILL, gap=1)
+    if not lines:
+        return []
+
+    # 줄 사이 간격을 재어, 그보다 훨씬 벌어지면 다른 묶음으로 본다
+    mids = [(a + b) / 2 for a, b in lines]
+    gaps = sorted(b - a for a, b in zip(mids, mids[1:])) or [0]
+    step = gaps[len(gaps) // 2] or 1
+
+    groups: list[list[tuple[int, int]]] = [[lines[0]]]
+    for prev, cur in zip(lines, lines[1:]):
+        if (cur[0] + cur[1]) / 2 - (prev[0] + prev[1]) / 2 > step * 2.2:
+            groups.append([cur])
+        else:
+            groups[-1].append(cur)
+
+    out: list[System] = []
+    for g in groups:
+        # 줄이 넷 미만이면 오선이 아니다(표 테두리·밑줄 따위)
+        if len(g) < 4:
+            continue
+        out.append(System(top=g[0][0], bottom=g[-1][1], lines=len(g)))
+    return out
+
+
+def find_bars(ink: np.ndarray, system: System) -> list[int]:
+    """묶음 안에서 세로줄(마디선)을 찾는다."""
+    band = ink[system.top : system.bottom + 1, :]
+    height = max(band.shape[0], 1)
+    cols = band.sum(axis=0) / float(height)
+    # 맨 윗줄과 맨 아랫줄에 모두 닿아야 마디선이다. 음표 기둥은 오선
+    # 한가운데를 지날 뿐 위아래를 꿰지 않는다.
+    edge = max(height // 12, 1)
+    touches = band[:edge, :].any(axis=0) & band[-edge:, :].any(axis=0)
+    hits = _runs((cols > _BAR_FILL) & touches, gap=2)
+    if not hits:
+        return []
+
+    # 겹줄(겹세로줄·되돌이표)은 하나로 본다
+    bars: list[int] = []
+    for a, b in hits:
+        x = (a + b) // 2
+        if bars and x - bars[-1] < height * 0.35:
+            continue
+        bars.append(x)
+    return bars
+
+
+def _open_start(ink: np.ndarray, system: System) -> int | None:
+    """줄 첫머리에 마디선이 없을 때, 첫 마디가 시작하는 자리.
+
+    악보는 줄이 바뀔 때마다 세로줄을 다시 긋지 않는다. 자리표와 조표만
+    적고 곧바로 음표가 나온다. 그래서 그 사이의 **빈 칸**을 찾아 첫
+    마디의 왼쪽 끝으로 삼는다.
+    """
+    band = ink[system.top : system.bottom + 1, :]
+    # 오선 줄 자체는 왼쪽 끝부터 오른쪽 끝까지 이어져 있다. 그것만 있는
+    # 칸을 「빈 칸」으로 봐야 한다 — 그러지 않으면 빈 칸이 하나도 없다.
+    counts = band.sum(axis=0)
+    inked = counts[counts > 0]
+    base = float(np.median(inked)) if inked.size else 0.0
+    used = counts > base + 3
+    left = int(np.argmax(used)) if used.any() else 0
+    # 자리표·조표를 지나 처음 나오는 빈 칸(3픽셀 이상)
+    blank = 0
+    for x in range(left + 6, band.shape[1]):
+        if used[x]:
+            blank = 0
+            continue
+        blank += 1
+        if blank >= 3:
+            return x - blank // 2
+    return None
+
+
+def layout(image: Image.Image, index: int = 0) -> Page:
+    ink = _ink(_gray(image))
+    page = Page(index=index, width=image.width, height=image.height)
+    for system in find_systems(ink):
+        system.bars = find_bars(ink, system)
+        if len(system.bars) < 2:
+            # 마디선이 둘도 없으면 악보 줄이 아니라고 본다
+            continue
+        # 첫 마디선이 줄 첫머리에서 한참 떨어져 있으면, 그 줄은 세로줄
+        # 없이 시작한 것이다. 자리표 뒤 빈 칸을 첫 경계로 넣어 준다.
+        start = _open_start(ink, system)
+        if start is not None and system.bars[0] - start > (system.bottom - system.top):
+            system.bars.insert(0, start)
+        page.systems.append(system)
+    return page
+
+
+def from_pdf(data: bytes, dpi: int = 150, max_pages: int = 20) -> tuple[list[Page], list[bytes]]:
+    """PDF를 쪽마다 그림으로 펴고 배치를 잰다. (배치, PNG 바이트)"""
+    import pymupdf
+
+    doc = pymupdf.open(stream=data, filetype="pdf")
+    pages: list[Page] = []
+    images: list[bytes] = []
+    for i, page in enumerate(doc):
+        if i >= max_pages:
+            break
+        pix = page.get_pixmap(dpi=dpi)
+        png = pix.tobytes("png")
+        images.append(png)
+        pages.append(layout(Image.open(io.BytesIO(png)), i))
+    return pages, images
+
+
+def from_image(data: bytes) -> tuple[list[Page], list[bytes]]:
+    img = Image.open(io.BytesIO(data))
+    return [layout(img, 0)], [data]
+
+
+def to_dict(pages: list[Page]) -> dict:
+    """앱으로 넘길 모양. 자리는 0~1 비율로 — 화면 크기와 무관하게 쓴다."""
+    out = []
+    for p in pages:
+        out.append({
+            "index": p.index,
+            "width": p.width,
+            "height": p.height,
+            "systems": [
+                {
+                    "top": round(s.top / p.height, 5),
+                    "bottom": round(s.bottom / p.height, 5),
+                    "lines": s.lines,
+                    "bars": [round(x / p.width, 5) for x in s.bars],
+                }
+                for s in p.systems
+            ],
+        })
+    return {"pages": out}
