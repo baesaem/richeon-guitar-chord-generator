@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { Copyright } from "@/components/Copyright";
 import { LinkShelf } from "@/components/LinkShelf";
 import { Working } from "@/components/Working";
-import { CLASSES } from "@/lib/classes";
+import { CLASSES, type GuitarClass } from "@/lib/classes";
+import { Popup } from "@/components/Popup";
 import { classroomShelf } from "@/lib/lectures";
 import {
   downloadLessonFile,
@@ -49,6 +50,10 @@ export function LessonTab({
   const [error, setError] = useState<string | null>(null);
   // 받아 온 링크를 화면에 곧바로 비추려면 목록을 다시 읽어야 한다
   const [reloadKey, setReloadKey] = useState(0);
+  // 관리자가 고른 자료. 고른 것이 있으면 그것만 올린다
+  const [picked, setPicked] = useState<string[]>([]);
+  // 올릴 반을 묻는 창(고른 것을 다른 반에도 올릴 수 있게)
+  const [askFolder, setAskFolder] = useState<"upload" | "file" | null>(null);
   // 드라이브에 바로 올릴 수 있는가(관리자 PC에서 한 번 연결해 두면 계속)
   const [driveReady, setDriveReady] = useState(false);
   useEffect(() => {
@@ -88,9 +93,9 @@ export function LessonTab({
    * 드라이브에 곧장 올린다. 처음 한 번은 구글 동의를 받는다 —
    * 서버가 연 주소를 열어 계정을 고르면, 그 뒤로는 누르면 끝이다.
    */
-  const uploadToDrive = async () => {
-    if (!klass) return;
-    const { blob, count } = lessonBlob(klass);
+  const uploadToDrive = async (target: GuitarClass) => {
+    setAskFolder(null);
+    const { blob, count } = lessonBlob(target, picked);
     if (count === 0) {
       setError("이 반 강의실에 담긴 링크가 없습니다.");
       return;
@@ -105,9 +110,14 @@ export function LessonTab({
         setDriveReady(true);
       }
       setWorking("드라이브에 올리는 중");
-      const res = await driveUpload(klass.lessonFolderId, lessonFileName(klass.name), blob);
+      const res = await driveUpload(
+        target.lessonFolderId,
+        lessonFileName(target.name),
+        blob,
+      );
       flash(
-        `${count}개를 드라이브에 올렸습니다${res.replaced ? " (기존 파일 교체)" : ""}.`,
+        `${count}개를 ${shortName(target.name)} 강의실에 올렸습니다` +
+          `${res.replaced ? " (기존 파일 교체)" : ""}.`,
       );
     } catch (e) {
       setError((e as Error).message);
@@ -116,12 +126,15 @@ export function LessonTab({
     }
   };
 
-  const exportToFile = () => {
-    if (!klass) return;
+  const exportToFile = (target: GuitarClass) => {
+    setAskFolder(null);
     setError(null);
-    const count = downloadLessonFile(klass);
-    if (count === 0) setError("이 반 강의실에 담긴 링크가 없습니다.");
-    else flash(`${count}개를 파일로 내보냈습니다. 이 반 강의실 폴더에 올리세요.`);
+    const count = downloadLessonFile(target, picked);
+    if (count === 0) setError("올릴 자료가 없습니다.");
+    else
+      flash(
+        `${count}개를 파일로 내보냈습니다. ${shortName(target.name)} 강의실 폴더에 올리세요.`,
+      );
   };
 
   // 탭 이름은 반 이름만 — 「강상주민센터 기타반(초급)」은 탭에 들어가지 않고,
@@ -137,6 +150,7 @@ export function LessonTab({
       <div className="mb-3 flex gap-1">
         {[
           ...CLASSES.map((c) => [c.id, shortName(c.name)] as const),
+          ["all", "모두(초급,중급)"] as const,
           ["mine", "내 강좌"] as const,
         ].map(([value, label]) => (
           <button
@@ -174,16 +188,16 @@ export function LessonTab({
             {adminMode && online && (
               <button
                 className="shrink-0 rounded bg-gray-900 px-3 py-2.5 text-sm font-medium text-white dark:bg-gray-100 dark:text-black"
-                onClick={uploadToDrive}
+                onClick={() => setAskFolder("upload")}
                 title="이 반 강의실을 드라이브 폴더에 곧장 올립니다"
               >
-                {driveReady ? "드라이브에 올리기" : "드라이브 연결 후 올리기"}
+                {picked.length > 0 ? `고른 ${picked.length}개 올리기` : "드라이브에 올리기"}
               </button>
             )}
             {adminMode && (
               <button
                 className="shrink-0 rounded bg-gray-100 px-3 py-2.5 text-sm font-medium dark:bg-gray-800"
-                onClick={exportToFile}
+                onClick={() => setAskFolder("file")}
                 title="파일로 내려받아 직접 올릴 때 씁니다"
               >
                 파일로
@@ -193,6 +207,7 @@ export function LessonTab({
           <LinkShelf
             key={`${klass.id}-${reloadKey}`}
             shelf={classroomShelf(klass.id)}
+            onSelected={setPicked}
             addLabel="+ 강의실 링크 추가"
             canAdd={adminMode}
             blurb={
@@ -202,12 +217,51 @@ export function LessonTab({
             }
           />
         </>
+      ) : page === "all" ? (
+        <LinkShelf
+          key={`all-${reloadKey}`}
+          shelf={classroomShelf(CLASSES[0].id)}
+          merged={CLASSES.map((c) => ({
+            shelf: classroomShelf(c.id),
+            label: shortName(c.name),
+          }))}
+          blurb="초급·중급 강의실을 한 목록으로 봅니다. 어느 반 자료인지 아래에 적혀 있습니다."
+        />
       ) : (
         <LinkShelf
           shelf="mine"
           addLabel="+ 내 강좌 추가"
           blurb="따로 듣고 있는 강좌를 담아 두는 곳입니다. 이 기기에만 저장되고, 누르면 그 자리로 열립니다."
         />
+      )}
+
+      {/* 올릴 반 고르기 — 초급에서 만든 자료를 중급에도 올릴 수 있다 */}
+      {askFolder && (
+        <Popup
+          title={askFolder === "upload" ? "어느 반에 올릴까요" : "어느 반 파일로 만들까요"}
+          width="max-w-xs"
+          onClose={() => setAskFolder(null)}
+        >
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            {picked.length > 0
+              ? `고른 ${picked.length}개를 담습니다.`
+              : "이 반 강의실 전체를 담습니다."}{" "}
+            같은 이름 파일이 있으면 갈아 끼웁니다.
+          </p>
+          <div className="space-y-1.5">
+            {CLASSES.map((c) => (
+              <button
+                key={c.id}
+                className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
+                onClick={() =>
+                  askFolder === "upload" ? uploadToDrive(c) : exportToFile(c)
+                }
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </Popup>
       )}
 
       <Copyright />

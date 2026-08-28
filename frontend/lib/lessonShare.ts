@@ -51,8 +51,14 @@ export function lessonFileName(className?: string): string {
 }
 
 /** 이 반의 강의실을 파일 한 덩어리로 만든다. 내려받기·올리기가 같이 쓴다. */
-export function lessonBlob(klass: GuitarClass): { blob: Blob; count: number } {
-  const items = listLectures(classroomShelf(klass.id));
+export function lessonBlob(
+  klass: GuitarClass,
+  /** 고른 것만 담는다. 비어 있으면 그 반 강의실 전부 */
+  onlyIds?: string[],
+): { blob: Blob; count: number } {
+  const all = listLectures(classroomShelf(klass.id));
+  const items =
+    onlyIds && onlyIds.length > 0 ? all.filter((l) => onlyIds.includes(l.id)) : all;
   const file: LessonFile = {
     kind: KIND,
     version: 1,
@@ -68,8 +74,8 @@ export function lessonBlob(klass: GuitarClass): { blob: Blob; count: number } {
 }
 
 /** 이 반의 강의실을 파일로 내려받는다. 이 파일을 그 반 강의실 폴더에 올리면 끝이다. */
-export function downloadLessonFile(klass: GuitarClass): number {
-  const { blob, count } = lessonBlob(klass);
+export function downloadLessonFile(klass: GuitarClass, onlyIds?: string[]): number {
+  const { blob, count } = lessonBlob(klass, onlyIds);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

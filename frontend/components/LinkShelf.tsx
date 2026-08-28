@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AskConfirm } from "@/components/Ask";
 import { Popup } from "@/components/Popup";
@@ -34,6 +34,8 @@ export function LinkShelf({
   blurb,
   addLabel = "+ 링크 추가",
   canAdd = true,
+  merged,
+  onSelected,
 }: {
   shelf: Shelf;
   /** 이 칸이 무엇인지 한 줄 설명 */
@@ -41,10 +43,39 @@ export function LinkShelf({
   addLabel?: string;
   /** 링크를 담을 수 있는가. 강의실은 선생님만 담는다 */
   canAdd?: boolean;
+  /**
+   * 여러 칸을 한 목록으로 합쳐 본다(초·중급 모두 보기). 주면 읽기만
+   * 하는 화면이 된다 — 어느 반 것인지 딱지를 달아 구분한다.
+   */
+  merged?: { shelf: Shelf; label: string }[];
+  /** 골라 둔 자료가 바뀔 때. 선생님이 고른 것만 올리는 데 쓴다 */
+  onSelected?: (ids: string[]) => void;
 }) {
-  const [items, setItems] = useState<Lecture[]>(() =>
-    typeof window === "undefined" ? [] : listLectures(shelf),
-  );
+  const readOnly = !!merged || !canAdd;
+  const [items, setItems] = useState<Lecture[]>(() => {
+    if (typeof window === "undefined") return [];
+    if (!merged) return listLectures(shelf);
+    // 합쳐 보기: 반 딱지를 달아 이어 붙인다
+    return merged.flatMap((m) =>
+      listLectures(m.shelf).map((l) => ({ ...l, id: `${m.shelf}:${l.id}`, klass: m.label })),
+    ) as Lecture[];
+  });
+  // 고른 자료(관리자). 고른 것만 올리거나 지운다
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const togglePick = (id: string) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  // 부모에게 알리는 일은 그리기가 끝난 뒤에 한다
+  const notify = useRef(onSelected);
+  notify.current = onSelected;
+  useEffect(() => {
+    notify.current?.([...picked]);
+  }, [picked]);
   const [adding, setAdding] = useState(false);
   // 고치는 중인 자료(없으면 새로 담는 중이다)
   const [editing, setEditing] = useState<Lecture | null>(null);
@@ -54,6 +85,7 @@ export function LinkShelf({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<Lecture | null>(null);
+  const [confirmBulk, setConfirmBulk] = useState(false);
 
   /** 담기·고치기 창을 연다. 고치기면 지금 값으로 채워 둔다 */
   const openDialog = (item?: Lecture) => {
@@ -103,7 +135,7 @@ export function LinkShelf({
 
       <p className="mb-2 text-[11px] leading-snug text-gray-500">{blurb}</p>
 
-      {canAdd && (
+      {!readOnly && (
         <button
           className="mb-2.5 w-full rounded bg-gray-100 py-2.5 text-sm font-medium dark:bg-gray-800"
           onClick={() => openDialog()}
@@ -112,11 +144,31 @@ export function LinkShelf({
         </button>
       )}
 
+      {!readOnly && picked.size > 0 && (
+        <div className="mb-2 flex items-center gap-2 rounded bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2 py-1.5 text-[11px]">
+          <span className="font-medium text-[var(--accent)]">
+            {picked.size}개 골랐습니다
+          </span>
+          <button
+            className="ml-auto underline"
+            onClick={() => setPicked(new Set())}
+          >
+            고르기 해제
+          </button>
+          <button
+            className="text-red-500 underline"
+            onClick={() => setConfirmBulk(true)}
+          >
+            고른 것 삭제
+          </button>
+        </div>
+      )}
+
       {items.length === 0 ? (
         <p className="py-6 text-center text-xs text-gray-400">
-          {canAdd
-            ? "아직 담은 링크가 없습니다. YouTube 강좌나 밴드·블로그 주소를 붙여넣어 보세요."
-            : "아직 받은 자료가 없습니다. 위 「새 강좌 가져오기」를 눌러 보세요."}
+          {readOnly
+            ? "아직 받은 자료가 없습니다. 위 「새 강좌 가져오기」를 눌러 보세요."
+            : "아직 담은 링크가 없습니다. YouTube 강좌나 밴드·블로그 주소를 붙여넣어 보세요."}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -125,6 +177,15 @@ export function LinkShelf({
               key={l.id}
               className="flex items-center gap-2.5 rounded-lg border border-gray-200 p-2 dark:border-gray-700"
             >
+              {!readOnly && (
+                <input
+                  type="checkbox"
+                  className="ml-0.5 shrink-0"
+                  checked={picked.has(l.id)}
+                  onChange={() => togglePick(l.id)}
+                  aria-label="이 자료 고르기"
+                />
+              )}
               <button
                 className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                 onClick={() => openLink(l.url)}
@@ -135,6 +196,11 @@ export function LinkShelf({
                     alt=""
                     className="h-12 w-20 shrink-0 rounded bg-gray-200 object-cover dark:bg-gray-800"
                     loading="lazy"
+                    /* 지워졌거나 비공개가 된 영상은 그림이 없다.
+                       깨진 그림 대신 빈 칸으로 둔다 */
+                    onError={(e) => {
+                      e.currentTarget.style.visibility = "hidden";
+                    }}
                   />
                 ) : (
                   <span className="flex h-12 w-20 shrink-0 items-center justify-center rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1 text-center text-[11px] font-semibold leading-tight text-[var(--accent)]">
@@ -151,11 +217,13 @@ export function LinkShelf({
                     </span>
                   )}
                   <span className="mt-0.5 block truncate text-[10px] text-gray-400">
-                    {l.site}
+                    {(l as Lecture & { klass?: string }).klass
+                      ? `${(l as Lecture & { klass?: string }).klass} · ${l.site}`
+                      : l.site}
                   </span>
                 </span>
               </button>
-              {canAdd && (
+              {!readOnly && (
                 <>
                   <button
                     className="shrink-0 px-1 text-xs text-gray-500"
@@ -224,6 +292,22 @@ export function LinkShelf({
             {editing ? "고치기" : "담기"}
           </button>
         </Popup>
+      )}
+
+      {confirmBulk && (
+        <AskConfirm
+          title="고른 자료 삭제"
+          message={`고른 ${picked.size}개를 목록에서 뺍니다.`}
+          confirmLabel="삭제"
+          danger
+          onConfirm={() => {
+            let left = items;
+            for (const id of picked) left = removeLecture(shelf, id);
+            setItems(left);
+            setPicked(new Set());
+          }}
+          onClose={() => setConfirmBulk(false)}
+        />
       )}
 
       {confirmDel && (
