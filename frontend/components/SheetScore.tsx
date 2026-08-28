@@ -230,7 +230,8 @@ function SystemRow({
         />
       )}
 
-      {/* 코드 덮어쓰기 */}
+      {/* 코드 덮어쓰기. 인쇄된 코드가 있는 자리(오선 바로 위)에 얹는다 —
+          줄 맨 위에 찍으면 앞 줄 가사 위에 뜬다. */}
       {chords?.map((c, i) => {
         const b = sheet.bars[c.bar];
         if (!b || b.page !== row.page || b.system !== row.system) return null;
@@ -238,8 +239,11 @@ function SystemRow({
         return (
           <span
             key={i}
-            className="pointer-events-none absolute top-0 rounded bg-white px-1 text-[11px] font-bold leading-tight text-[var(--accent)] roomy:text-[15px]"
-            style={{ left: `${x * 100}%` }}
+            className="pointer-events-none absolute rounded-sm bg-white px-0.5 text-[10px] font-bold leading-none text-[var(--accent)] roomy:text-[13px]"
+            style={{
+              left: `${x * 100}%`,
+              bottom: `${(1 - (first.top - top) / height) * 100}%`,
+            }}
           >
             {c.label}
           </span>

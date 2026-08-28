@@ -33,11 +33,14 @@ export function sheetChords(
     const span = Math.max(bar.end - bar.start, 0.05);
     for (const c of chords) {
       if (c.end <= bar.start || c.start >= bar.end) continue;
+      // 스치듯 지나가는 오인식은 적지 않는다 — 악보를 덮어 가리기만 한다
+      if (c.end - c.start < 0.35) continue;
       const label = labelFor(transposeRoot(c.root, transpose), c.quality, flats);
-      // 앞 마디에서 이어지는 코드는 다시 적지 않는다 — 바뀌는 자리만
-      // 눈에 들어와야 짚을 때가 보인다.
-      if (label === last && c.start < bar.start) continue;
-      const at = Math.min(Math.max((c.start - bar.start) / span, 0), 0.92);
+      if (!label || label.startsWith("N")) continue;
+      // 바뀌는 자리만 적는다. 이어지는 코드를 마디마다 다시 적으면
+      // 언제 손을 옮기는지가 오히려 안 보인다.
+      if (label === last) continue;
+      const at = Math.min(Math.max((c.start - bar.start) / span, 0), 0.9);
       out.push({ bar: i, at, label });
       last = label;
     }

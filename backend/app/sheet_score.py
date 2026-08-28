@@ -56,8 +56,16 @@ def flatten(pages: list[Page]) -> list[Placed]:
                 if si + 1 < len(systems)
                 else prev_gap
             )
-            view_top = max(system.top - prev_gap * 0.34, 0)
-            view_bottom = min(system.bottom + next_gap * 0.58, page.height - 1)
+            # 빈 자리의 비율만으로 정하면 줄 사이가 벌어진 곳에서 앞 줄의
+            # 가사까지 딸려 들어온다. 실제로 필요한 만큼은 **오선 크기**에
+            # 매여 있다 — 코드는 오선 높이의 0.8배쯤 위에, 가사 두 줄은
+            # 1.9배쯤 아래에 있다. 둘 중 작은 쪽을 쓴다.
+            staff = max(system.bottom - system.top, 1)
+            view_top = max(system.top - min(prev_gap * 0.34, staff * 0.85), 0)
+            view_bottom = min(
+                system.bottom + min(next_gap * 0.58, staff * 1.95),
+                page.height - 1,
+            )
             for x0, x1 in system.measures:
                 out.append(
                     Placed(
