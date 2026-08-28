@@ -44,7 +44,7 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: "lesson",
-    label: "레슨",
+    label: "공부방",
     icon: (
       <>
         {/* 펼친 책 — 따로 듣는 강좌를 모아 두는 자리 */}

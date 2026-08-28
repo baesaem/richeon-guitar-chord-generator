@@ -590,7 +590,7 @@ export default function Home() {
     home: result ? result.title || "재생" : "홈",
     library: "재생목록",
     import: "음원 가져오기",
-    lesson: "레슨",
+    lesson: "공부방",
     edit: "코드수정",
     chords: "기타 기초",
     settings: "설정",
@@ -1120,7 +1120,7 @@ export default function Home() {
           />
         )}
 
-        {tab === "lesson" && <LessonTab />}
+        {tab === "lesson" && <LessonTab adminMode={settings.adminMode} online={!!health} />}
 
         {tab === "chords" && <ChordsTab />}
 

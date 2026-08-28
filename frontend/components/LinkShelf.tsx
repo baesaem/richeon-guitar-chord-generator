@@ -32,11 +32,14 @@ export function LinkShelf({
   shelf,
   blurb,
   addLabel = "+ 링크 추가",
+  canAdd = true,
 }: {
   shelf: Shelf;
   /** 이 칸이 무엇인지 한 줄 설명 */
   blurb: string;
   addLabel?: string;
+  /** 링크를 담을 수 있는가. 강의실은 선생님만 담는다 */
+  canAdd?: boolean;
 }) {
   const [items, setItems] = useState<Lecture[]>(() =>
     typeof window === "undefined" ? [] : listLectures(shelf),
@@ -73,20 +76,23 @@ export function LinkShelf({
 
       <p className="mb-2 text-[11px] leading-snug text-gray-500">{blurb}</p>
 
-      <button
-        className="mb-2.5 w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
-        onClick={() => {
-          setError(null);
-          setAdding(true);
-        }}
-      >
-        {addLabel}
-      </button>
+      {canAdd && (
+        <button
+          className="mb-2.5 w-full rounded bg-gray-100 py-2.5 text-sm font-medium dark:bg-gray-800"
+          onClick={() => {
+            setError(null);
+            setAdding(true);
+          }}
+        >
+          {addLabel}
+        </button>
+      )}
 
       {items.length === 0 ? (
         <p className="py-6 text-center text-xs text-gray-400">
-          아직 담은 링크가 없습니다. YouTube 강좌나 밴드·블로그 주소를
-          붙여넣어 보세요.
+          {canAdd
+            ? "아직 담은 링크가 없습니다. YouTube 강좌나 밴드·블로그 주소를 붙여넣어 보세요."
+            : "아직 받은 자료가 없습니다. 위 「새 강좌 가져오기」를 눌러 보세요."}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -120,13 +126,15 @@ export function LinkShelf({
                   </span>
                 </span>
               </button>
-              <button
-                className="shrink-0 px-1 text-xs text-red-500"
-                onClick={() => setConfirmDel(l)}
-                aria-label="링크 삭제"
-              >
-                삭제
-              </button>
+              {canAdd && (
+                <button
+                  className="shrink-0 px-1 text-xs text-red-500"
+                  onClick={() => setConfirmDel(l)}
+                  aria-label="링크 삭제"
+                >
+                  삭제
+                </button>
+              )}
             </li>
           ))}
         </ul>
