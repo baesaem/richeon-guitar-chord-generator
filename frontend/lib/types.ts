@@ -111,7 +111,7 @@ export interface AnalysisResult {
   meta: AnalysisMeta;
 }
 
-/** 재생목록용 요약. 전체 결과는 파형 때문에 무거워 목록에는 쓰지 않는다. */
+/** 음원목록용 요약. 전체 결과는 파형 때문에 무거워 목록에는 쓰지 않는다. */
 export interface ResultSummary {
   id: string;
   source: SourceKind;

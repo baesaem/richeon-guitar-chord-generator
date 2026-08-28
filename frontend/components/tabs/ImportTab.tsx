@@ -117,7 +117,7 @@ export function ImportTab({
   // 지금 열어 둔 반. 카드마다 폴더가 다르다
   const klass = CLASSES.find((c) => c.id === open) ?? null;
 
-  // 기타반 공유 재생목록 (구글드라이브, 서버가 프록시)
+  // 기타반 공유 음원목록 (구글드라이브, 서버가 프록시)
   const [shared, setShared] = useState<{
     folderId: string;
     files: SharedFile[];
@@ -248,8 +248,8 @@ export function ImportTab({
     const suffix = withAudio > 0 ? " (음원 포함)" : "";
     setSharedNotice(
       results.length === 1
-        ? `재생목록에 담았습니다: ${results[0].title || results[0].id}${suffix}`
-        : `${results.length}곡을 재생목록에 담았습니다.${suffix}`,
+        ? `음원목록에 담았습니다: ${results[0].title || results[0].id}${suffix}`
+        : `${results.length}곡을 음원목록에 담았습니다.${suffix}`,
     );
   };
 
@@ -352,7 +352,7 @@ export function ImportTab({
           }
           await refreshFetched();
           const audioNote = audio + moreAudio > 0 ? ` (음원 ${audio + moreAudio}곡 포함)` : "";
-          setSharedNotice(`${songs + more}곡을 재생목록에 담았습니다.${audioNote}${tail}`);
+          setSharedNotice(`${songs + more}곡을 음원목록에 담았습니다.${audioNote}${tail}`);
         },
       });
       return;
@@ -364,7 +364,7 @@ export function ImportTab({
     }
     const suffix = audio > 0 ? ` (음원 ${audio}곡 포함)` : "";
     setSharedNotice(
-      (songs > 0 ? `${songs}곡을 재생목록에 담았습니다.` : "새로 받을 것이 없습니다.") +
+      (songs > 0 ? `${songs}곡을 음원목록에 담았습니다.` : "새로 받을 것이 없습니다.") +
         suffix +
         tail,
     );
@@ -412,7 +412,7 @@ export function ImportTab({
             </svg>
           }
           title={c.name}
-          description="곡 목록에서 필요한 곡을 골라 재생목록에 담습니다"
+          description="곡 목록에서 필요한 곡을 골라 음원목록에 담습니다"
           onClick={() => setOpen(c.id)}
         />
       ))}
@@ -688,7 +688,7 @@ export function ImportTab({
       {klass && (
         <Popup title={klass.name} onClose={() => setOpen(null)}>
           <p className="mb-1.5 text-[11px] leading-snug text-gray-500">
-            필요한 곡을 골라 「받기」를 누르세요. 재생목록(기기 저장)에 담깁니다.
+            필요한 곡을 골라 「받기」를 누르세요. 음원목록(기기 저장)에 담깁니다.
           </p>
           {/* 분리 트랙은 곡당 4~5MB씩 — 받을지 수강자가 고른다 */}
           <div className="mb-2 space-y-1">
@@ -736,7 +736,7 @@ export function ImportTab({
                 title={`${klass.name} 공유 폴더`}
               />
               <p className="mt-2 text-[11px] leading-snug text-gray-500">
-                파일을 누르면 드라이브에서 내려받아집니다. 받은 파일은 재생목록의
+                파일을 누르면 드라이브에서 내려받아집니다. 받은 파일은 음원목록의
                 「파일 가져오기」로 담으세요.
               </p>
             </>

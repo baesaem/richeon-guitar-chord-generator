@@ -23,7 +23,7 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: "library",
-    label: "재생목록",
+    label: "음원목록",
     icon: (
       <>
         <path d="M3 6h12M3 11h12M3 16h7" />

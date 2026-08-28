@@ -3,7 +3,7 @@
 import type { AnalysisResult, ResultSummary } from "./types";
 
 /**
- * 기기(브라우저) 저장 재생목록.
+ * 기기(브라우저) 저장 음원목록.
  *
  * 분석 결과를 IndexedDB에 통째로 저장한다. 서버(PC)가 꺼져도 목록이 남고,
  * YouTube 곡은 IFrame 재생이라 코드 화면까지 그대로 동작한다.
@@ -215,7 +215,7 @@ function today(): string {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-/** 기기 저장 재생목록 전체를 한 파일로 내려받는다. 저장된 곡 수를 돌려준다. */
+/** 기기 저장 음원목록 전체를 한 파일로 내려받는다. 저장된 곡 수를 돌려준다. */
 export async function exportAllToFile(): Promise<number> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readonly");

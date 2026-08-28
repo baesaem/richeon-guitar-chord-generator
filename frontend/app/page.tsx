@@ -588,7 +588,7 @@ export default function Home() {
   // 맡고, 위쪽 띠는 "여기가 어디인지"를 맡는다.
   const TAB_TITLE: Record<Tab, string> = {
     home: result ? result.title || "재생" : "홈",
-    library: "재생목록",
+    library: "음원목록",
     import: "음원 가져오기",
     lesson: "공부방",
     edit: "코드수정",
@@ -658,7 +658,7 @@ export default function Home() {
       {/* 서버 관련 안내는 관리자에게만. 수강생 화면은 서버 개념을 모른다. */}
       {backendDown && settings.adminMode && (
         <p className="shrink-0 bg-amber-50 px-3 py-1.5 text-[11px] leading-snug text-amber-800">
-          분석 서버에 연결되지 않았습니다. 새 분석은 안 되지만, 재생목록의
+          분석 서버에 연결되지 않았습니다. 새 분석은 안 되지만, 음원목록의
           기기 저장 곡과 기타 기초는 그대로 쓸 수 있습니다. 서버 주소는 설정
           탭에서 지정합니다.
         </p>

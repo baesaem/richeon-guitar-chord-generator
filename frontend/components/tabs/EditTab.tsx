@@ -78,7 +78,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
       ) : shown.length === 0 ? (
         <p className="py-2 text-xs text-gray-400">
           {current === "all"
-            ? "기기에 저장된 곡이 없습니다. 재생목록에서 먼저 곡을 담으세요."
+            ? "기기에 저장된 곡이 없습니다. 음원목록에서 먼저 곡을 담으세요."
             : `「${current}」 폴더에 곡이 없습니다.`}
         </p>
       ) : (

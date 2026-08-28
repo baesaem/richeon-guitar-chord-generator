@@ -77,7 +77,7 @@ function when(unixSeconds: number): string {
 }
 
 /**
- * 재생목록.
+ * 음원목록.
  *
  * 두 저장소를 함께 보여준다.
  *  - 기기 저장: 브라우저(IndexedDB)에 담긴 결과. 서버(PC)가 꺼져도 남는다
@@ -375,7 +375,7 @@ export function LibraryTab({
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-lg font-bold md:hidden">재생목록</h2>
+        <h2 className="text-lg font-bold md:hidden">음원목록</h2>
         <div className="flex items-center gap-2">
           <button
             className="text-xs text-gray-500 underline"
@@ -667,11 +667,11 @@ export function LibraryTab({
 
       {confirmDelete && (
         <AskConfirm
-          title={confirmDelete.server ? "서버에서 삭제" : "재생목록에서 삭제"}
+          title={confirmDelete.server ? "서버에서 삭제" : "음원목록에서 삭제"}
           message={
             confirmDelete.server
               ? `「${confirmDelete.item.title || confirmDelete.item.id}」의 분석 결과를 서버에서 지웁니다. 기기에 저장된 곡은 남습니다.`
-              : `「${confirmDelete.item.title || confirmDelete.item.id}」을(를) 재생목록(기기 저장)에서 지웁니다.`
+              : `「${confirmDelete.item.title || confirmDelete.item.id}」을(를) 음원목록(기기 저장)에서 지웁니다.`
           }
           confirmLabel="삭제"
           danger

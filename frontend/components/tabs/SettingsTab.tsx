@@ -204,7 +204,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             <span className="text-sm font-medium">분석 결과를 기기에 자동 저장</span>
             <span className="block text-[11px] text-gray-500">
               분석이 끝나면 이 기기(브라우저)에도 저장해, 서버(PC)가 꺼져 있어도
-              재생목록에서 열 수 있게 합니다.
+              음원목록에서 열 수 있게 합니다.
             </span>
           </span>
         </label>

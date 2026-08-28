@@ -150,7 +150,7 @@ export function HomeDashboard({ onOpen, onImport, onLibrary, onShared, onChords 
           onImport,
         )}
         {quick(
-          "재생목록",
+          "음원목록",
           icon(
             <>
               <path d="M3 6h12M3 11h12M3 16h7" />
