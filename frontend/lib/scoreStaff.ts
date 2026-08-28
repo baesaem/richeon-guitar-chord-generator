@@ -110,6 +110,8 @@ export type ViewNote = StaffNote & {
   value?: number;
   dots?: number;
   triplet?: boolean;
+  /** 마디 안의 박 자리. 이음보를 박 단위로 끊는 데 쓴다 */
+  beat?: number;
 };
 
 export interface StaffView {
@@ -213,6 +215,7 @@ export function viewFromScore(
         syl: n.syls?.[verse] || n.syl,
         tie: n.tie,
         ...notated(n.head, n.tuplet),
+        beat: n.beat,
         // 「3」은 묶음마다 하나만. 음표마다 붙이면 숫자가 악보를 덮는다.
         triplet: tuplet && !inTuplet,
       });

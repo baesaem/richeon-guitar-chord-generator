@@ -67,8 +67,13 @@ const SIG_W = 0.92;      // 조표 한 개
 const TIME_W = 2.4;      // 박자표
 /** 첫머리 여백 */
 const HEAD_PAD = 0.5;
-/** 음표·쉼표 글자를 표준보다 조금 작게. 칸에 꽉 차면 답답하다 */
-const NOTE_SCALE = 0.9;
+/**
+ * 음표·쉼표 글자를 표준보다 작게.
+ *
+ * 자리는 부른 시각을 따르므로 짧은 음끼리는 원래 가깝다. 표준 크기로
+ * 그리면 머리가 서로 닿는다 — 자리를 흔드는 대신 글자를 줄인다.
+ */
+const NOTE_SCALE = 0.76;
 
 /** 음표 머리의 y. 맨 아랫줄이 미4다. */
 function noteY(dia: number): number {
@@ -365,20 +370,17 @@ export function MelodyScore({
                     ))}
 
                     {/* 멜로디 음표 + 그 아래 계이름·가사 */}
-                    {view.notes.map((n, k) =>
-                      n.t >= bar.start && n.t < bar.end ? (
-                        <NoteHead
-                          key={k}
-                          note={n}
-                          x={at(n.t)}
-                          x2={at(Math.min(n.end, bar.end))}
-                          midi={n.midi + transpose + octave}
-                          useFlats={useFlats}
-                          sigSet={sigSet}
-                          now={time !== undefined && time >= n.t && time < n.end}
-                        />
-                      ) : null,
-                    )}
+                    <BarNotes
+                      notes={view.notes.filter(
+                        (n) => n.t >= bar.start && n.t < bar.end,
+                      )}
+                      at={at}
+                      barEnd={bar.end}
+                      shift={transpose + octave}
+                      useFlats={useFlats}
+                      sigSet={sigSet}
+                      time={time}
+                    />
 
                     {/* 지금 자리 */}
                     {time !== undefined && time >= bar.start && time < bar.end && (
@@ -431,6 +433,161 @@ export function MelodyScore({
 }
 
 /**
+ * 한 마디의 음표들.
+ *
+ * 8분음표보다 짧은 음이 한 박 안에 이어 나오면 꼬리를 떼고 **이음보**로
+ * 묶는다. 인쇄된 악보가 그렇게 하고, 그래야 어디가 한 박인지 눈에
+ * 들어온다. 기둥 방향은 묶음 전체가 같아야 하므로 묶음의 평균 높이로
+ * 한 번에 정한다.
+ */
+function BarNotes({
+  notes,
+  at,
+  barEnd,
+  shift,
+  useFlats,
+  sigSet,
+  time,
+}: {
+  notes: ViewNote[];
+  at: (t: number) => number;
+  barEnd: number;
+  shift: number;
+  useFlats: boolean;
+  sigSet: Set<string>;
+  time?: number;
+}) {
+  const raw = notes.map((n) => {
+    const sp = spellMidi(n.midi + shift, useFlats);
+    const dia = diatonic(sp);
+    return {
+      note: n,
+      sp,
+      dia,
+      x: at(n.t),
+      x2: at(Math.min(n.end, barEnd)),
+      y: noteY(dia),
+      value: n.value ?? 1,
+      now: time !== undefined && time >= n.t && time < n.end,
+    };
+  });
+
+  // 음표를 부른 시각 그대로 놓으면 짧은 음끼리 머리가 붙는다. 인쇄 악보는
+  // 짧은 음에도 최소한의 자리를 준다. 뒤로 밀어 띄우고, 마디를 넘치면
+  // 마디 안에서 통째로 눌러 담는다 — 마디 경계는 커서가 딛는 자리라
+  // 어긋나면 안 된다.
+  const minGap = LINE_GAP * 1.95;
+  const xs = raw.map((p) => p.x);
+  for (let i = 1; i < xs.length; i++) {
+    xs[i] = Math.max(xs[i], xs[i - 1] + minGap);
+  }
+  const right = at(barEnd) - LINE_GAP * 0.8;
+  const last = xs.length - 1;
+  if (last >= 1 && xs[last] > right) {
+    const span = xs[last] - xs[0] || 1;
+    const scale = Math.max((right - xs[0]) / span, 0.25);
+    for (let i = 1; i <= last; i++) xs[i] = xs[0] + (xs[i] - xs[0]) * scale;
+  }
+  const placed = raw.map((p, i) => ({
+    ...p,
+    x: xs[i],
+    x2: Math.max(p.x2, xs[i]),
+  }));
+
+  // 한 박 안에서 이어지는 짧은 음들을 묶는다. 이어진 음(tie)은 머리가
+  // 없으므로 묶음을 끊는다.
+  const groups: number[][] = [];
+  let run: number[] = [];
+  const flush = () => {
+    if (run.length > 1) groups.push(run);
+    run = [];
+  };
+  placed.forEach((p, i) => {
+    // 8분음표보다 짧고, 앞 음에서 이어진 것이 아니어야 묶는다
+    const short = p.value <= 0.5 && !p.note.tie && p.note.beat !== undefined;
+    if (!short) {
+      flush();
+      return;
+    }
+    // 박이 바뀌면 끊는다 — 그래야 어디가 한 박인지 눈에 들어온다
+    const sameBeat =
+      run.length > 0 &&
+      Math.floor(placed[run[0]].note.beat ?? 0) === Math.floor(p.note.beat ?? 0);
+    if (run.length && !sameBeat) flush();
+    run.push(i);
+  });
+  flush();
+
+  const inBeam = new Set(groups.flat());
+
+  return (
+    <g>
+      {groups.map((g, gi) => {
+        const first = placed[g[0]];
+        const last = placed[g[g.length - 1]];
+        // 묶음의 기둥 방향은 하나로. 평균이 가운뎃줄보다 아래면 위로 세운다.
+        const mean = g.reduce((sum, i) => sum + placed[i].dia, 0) / g.length;
+        const up = mean < BOTTOM_LINE + 4;
+        const tips = g.map((i) => {
+          const p = placed[i];
+          return p.y + (up ? -LINE_GAP * 3.2 : LINE_GAP * 3.2);
+        });
+        const y0 = up ? Math.min(...tips) : Math.max(...tips);
+        const y1 = y0;
+        const beams = Math.max(
+          ...g.map((i) => Math.round(Math.log2(0.5 / placed[i].value)) + 1),
+        );
+        const half = (headWidth(1) * LINE_GAP) / 2 - 0.35;
+        const bx0 = first.x + (up ? half : -half);
+        const bx1 = last.x + (up ? half : -half);
+
+        return (
+          <g key={`b${gi}`}>
+            {g.map((i) => {
+              const p = placed[i];
+              const sx = p.x + (up ? half : -half);
+              return (
+                <line
+                  key={i}
+                  x1={sx} x2={sx} y1={p.y} y2={y0}
+                  stroke={p.now ? "var(--accent)" : "currentColor"}
+                  strokeWidth={LINE_GAP * 0.16}
+                />
+              );
+            })}
+            {Array.from({ length: beams }, (_, b) => (
+              <line
+                key={b}
+                x1={bx0} x2={bx1}
+                y1={y0 + (up ? 1 : -1) * b * LINE_GAP * 0.62}
+                y2={y1 + (up ? 1 : -1) * b * LINE_GAP * 0.62}
+                stroke="currentColor"
+                strokeWidth={LINE_GAP * 0.5}
+                strokeLinecap="butt"
+              />
+            ))}
+          </g>
+        );
+      })}
+
+      {placed.map((p, i) => (
+        <NoteHead
+          key={i}
+          note={p.note}
+          x={p.x}
+          x2={p.x2}
+          midi={p.note.midi + shift}
+          useFlats={useFlats}
+          sigSet={sigSet}
+          now={p.now}
+          beamed={inBeam.has(i)}
+        />
+      ))}
+    </g>
+  );
+}
+
+/**
  * 음표 하나 — 덧줄, 임시표, 머리, 기둥, 끈 길이, 계이름, 가사.
  *
  * 계이름을 늘 적는다. 오선을 처음 보는 분에게는 음표의 높낮이보다
@@ -444,6 +601,7 @@ function NoteHead({
   useFlats,
   sigSet,
   now,
+  beamed = false,
 }: {
   note: ViewNote;
   x: number;
@@ -452,6 +610,8 @@ function NoteHead({
   useFlats: boolean;
   sigSet: Set<string>;
   now: boolean;
+  /** 이음보로 묶인 음표인가. 기둥과 꼬리는 묶음이 그린다 */
+  beamed?: boolean;
 }) {
   const sp = spellMidi(midi, useFlats);
   const dia = diatonic(sp);
@@ -529,14 +689,14 @@ function NoteHead({
         </text>
       )}
 
-      {/* 온음표에는 기둥이 없다 */}
-      {value < 4 && (
+      {/* 온음표에는 기둥이 없다. 묶인 음표는 묶음이 기둥을 그린다 */}
+      {value < 4 && !beamed && (
         <line
           x1={stemX} x2={stemX} y1={y} y2={stemY}
           stroke={color} strokeWidth={LINE_GAP * 0.16}
         />
       )}
-      {flag && (
+      {flag && !beamed && (
         <text
           x={stemX} y={stemY}
           fontSize={size} fontFamily={FONT_STACK} fill={color}
