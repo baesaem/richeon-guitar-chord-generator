@@ -5,8 +5,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AskConfirm, AskText } from "@/components/Ask";
 import { Working } from "@/components/Working";
 import { Copyright } from "@/components/Copyright";
-import { deleteResult, getResult, listResults, renameResult } from "@/lib/api";
+import { Popup } from "@/components/Popup";
 import {
+  deleteResult,
+  driveUpload,
+  getResult,
+  listResults,
+  renameResult,
+} from "@/lib/api";
+import {
+  bundleFileName,
   downloadBundle,
   isBundle,
   makeBundle,
@@ -30,6 +38,8 @@ import {
   removeLocal,
   saveLocal,
 } from "@/lib/library";
+import { CLASSES, type GuitarClass } from "@/lib/classes";
+import { ensureDriveReady } from "@/lib/driveReady";
 import { spellKey } from "@/lib/notation";
 import type { ResultSummary } from "@/lib/types";
 
@@ -94,6 +104,13 @@ export function LibraryTab({
   } | null>(null);
   // 이름 바꾸는 중인 곡
   const [renaming, setRenaming] = useState<ResultSummary | null>(null);
+  /**
+   * 드라이브에 올릴 대상. 어느 반 폴더에 넣을지 물어야 해서 반 고르기
+   * 창을 띄운다 — 곡이 초급 것인지 중급 것인지는 앱이 알 수 없다.
+   */
+  const [uploading, setUploading] = useState<
+    { ids: string[]; label: string } | null
+  >(null);
   const [device, setDevice] = useState<ResultSummary[] | null>(null);
   const [server, setServer] = useState<ResultSummary[] | null>(null);
   const [serverDown, setServerDown] = useState(false);
@@ -207,6 +224,37 @@ export function LibraryTab({
         `곡 파일 하나(${bundleParts(bundle).join(" · ")})로 내려받았습니다. ` +
           "드라이브 공유 폴더에 이 파일만 올리면 됩니다.",
       );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  /**
+   * 곡을 드라이브 공유 폴더에 곧장 올린다.
+   *
+   * 「내보내기 → 드라이브 웹에서 올리기」 두 걸음을 없앤다. 같은 이름
+   * 파일이 있으면 서버가 갈아 끼우므로, 곡을 고쳐 다시 올려도 폴더에
+   * 사본이 쌓이지 않는다.
+   */
+  const uploadToDrive = async (klass: GuitarClass, ids: string[]) => {
+    setUploading(null);
+    setError(null);
+    try {
+      await ensureDriveReady(setWorking);
+      let done = 0;
+      for (const id of ids) {
+        setWorking(`드라이브에 올리는 중 (${done + 1}/${ids.length})`);
+        const result = (await getLocal(id)) ?? (await getResult(id));
+        const bundle = await makeBundle(result);
+        const blob = new Blob([JSON.stringify(bundle)], {
+          type: "application/octet-stream",
+        });
+        await driveUpload(klass.folderId, bundleFileName(bundle), blob);
+        done += 1;
+      }
+      flash(`${done}곡을 ${klass.name} 폴더에 올렸습니다.`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -366,9 +414,24 @@ export function LibraryTab({
           {adminMode ? "기기 저장 · 서버가 꺼져도 유지" : "내 곡"}
         </h3>
         {device !== null && device.length > 0 && (
-          <button className="text-[11px] text-gray-500 underline" onClick={exportAll}>
-            전체 내보내기
-          </button>
+          <span className="flex items-center gap-2">
+            {adminMode && (
+              <button
+                className="text-[11px] text-[var(--accent)] underline"
+                onClick={() =>
+                  setUploading({
+                    ids: device.map((d) => d.id),
+                    label: `${device.length}곡`,
+                  })
+                }
+              >
+                전체 올리기
+              </button>
+            )}
+            <button className="text-[11px] text-gray-500 underline" onClick={exportAll}>
+              전체 내보내기
+            </button>
+          </span>
         )}
       </div>
 
@@ -456,6 +519,16 @@ export function LibraryTab({
                       analyzing={analyzing}
                     />
                   )}
+                  {adminMode && (
+                    <IconButton
+                      label="드라이브에 올리기"
+                      onClick={() =>
+                        setUploading({ ids: [item.id], label: item.title || item.id })
+                      }
+                    >
+                      {CloudIcon}
+                    </IconButton>
+                  )}
                   <IconButton label="이름 바꾸기" onClick={() => setRenaming(item)}>
                     {EditIcon}
                   </IconButton>
@@ -510,9 +583,19 @@ export function LibraryTab({
               item,
               <>
                 {adminMode && (
-                  <button className={actionBtn} onClick={() => exportAudio(item)}>
-                    음원
-                  </button>
+                  <>
+                    <button className={actionBtn} onClick={() => exportAudio(item)}>
+                      음원
+                    </button>
+                    <button
+                      className={actionBtn}
+                      onClick={() =>
+                        setUploading({ ids: [item.id], label: item.title || item.id })
+                      }
+                    >
+                      올리기
+                    </button>
+                  </>
                 )}
                 {onReanalyze && (
                   <ReanalyzeButtons
@@ -603,6 +686,30 @@ export function LibraryTab({
           }}
           onClose={() => setConfirmDelete(null)}
         />
+      )}
+
+      {uploading && (
+        <Popup
+          title="어느 반에 올릴까요"
+          width="max-w-xs"
+          onClose={() => setUploading(null)}
+        >
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            「{uploading.label}」을(를) 드라이브 공유 폴더에 올립니다. 같은
+            이름 파일이 있으면 갈아 끼웁니다.
+          </p>
+          <div className="space-y-1.5">
+            {CLASSES.map((c) => (
+              <button
+                key={c.id}
+                className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
+                onClick={() => uploadToDrive(c, uploading.ids)}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </Popup>
       )}
 
       {renaming && (
@@ -759,6 +866,22 @@ const SaveIcon = (
 );
 
 /** 분석만 다시 — 같은 음원을 한 바퀴 더 돌린다 */
+const CloudIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M7 18a4 4 0 0 1 .6-7.96 5.5 5.5 0 0 1 10.6 1.2A3.5 3.5 0 0 1 17.5 18H7z" />
+    <path d="M12 21v-7M9.5 16.5 12 14l2.5 2.5" />
+  </svg>
+);
+
 const EditIcon = (
   <svg
     viewBox="0 0 24 24"
