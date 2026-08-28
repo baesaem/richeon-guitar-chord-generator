@@ -91,27 +91,25 @@ export function downloadLessonFile(
 }
 
 /**
- * 받은 자료로 그 반 강의실을 맞춘다.
+ * 받은 자료를 그 반 강의실에 반영한다.
  *
- * 새것만 더하면 선생님이 고친 제목·설명이 영영 전해지지 않고, 뺀
- * 자료도 수강생 화면에 남는다. 선생님이 올린 파일이 정답이므로 그대로
- * 맞춘다. 무엇이 달라졌는지 세어 돌려준다.
+ * 같은 자료(id)는 받은 것으로 갈아 끼운다 — 선생님이 고친 제목·설명이
+ * 전해져야 한다. **파일에 없는 자료는 그대로 둔다** — 이 기기에서 따로
+ * 담아 둔 것을 받기 한 번에 잃으면 안 된다. 자리도 지킨다.
  */
 export function applyLessonFiles(
   klass: GuitarClass,
   files: LessonFile[],
-): { added: number; changed: number; removed: number } {
+): { added: number; changed: number; kept: number } {
   const shelf = classroomShelf(klass.id);
   const before = listLectures(shelf);
-  const beforeById = new Map(before.map((l) => [l.id, l]));
 
-  const next: Lecture[] = [];
-  const seen = new Set<string>();
+  // 받은 파일들을 id로 모은다(같은 id가 여러 파일에 있으면 앞선 것)
+  const incoming = new Map<string, Lecture>();
   for (const file of files) {
     for (const item of file.items) {
-      if (!item?.url || seen.has(item.id)) continue;
-      seen.add(item.id);
-      next.push({
+      if (!item?.url || incoming.has(item.id)) continue;
+      incoming.set(item.id, {
         ...item,
         videoId: item.videoId ?? videoIdOf(item.url) ?? undefined,
         site: item.site ?? siteOf(item.url),
@@ -119,18 +117,34 @@ export function applyLessonFiles(
     }
   }
 
-  replaceLectures(shelf, next);
-
-  let added = 0;
   let changed = 0;
-  for (const item of next) {
-    const old = beforeById.get(item.id);
-    if (!old) added += 1;
-    else if (old.title !== item.title || old.note !== item.note || old.url !== item.url)
+  let kept = 0;
+  const next: Lecture[] = before.map((old) => {
+    const fresh = incoming.get(old.id);
+    if (!fresh) {
+      kept += 1;
+      return old;
+    }
+    if (
+      old.title !== fresh.title ||
+      old.note !== fresh.note ||
+      old.url !== fresh.url
+    ) {
       changed += 1;
+    }
+    return fresh;
+  });
+
+  const have = new Set(before.map((l) => l.id));
+  let added = 0;
+  for (const [id, item] of incoming) {
+    if (have.has(id)) continue;
+    next.push(item);
+    added += 1;
   }
-  const removed = before.filter((l) => !seen.has(l.id)).length;
-  return { added, changed, removed };
+
+  replaceLectures(shelf, next);
+  return { added, changed, kept };
 }
 
 /**
@@ -142,7 +156,7 @@ export function applyLessonFiles(
 export async function importLessonsFromDrive(
   klass: GuitarClass,
   online: boolean,
-): Promise<{ added: number; changed: number; removed: number; files: number }> {
+): Promise<{ added: number; changed: number; kept: number; files: number }> {
   if (!online && !hasDriveKey()) {
     throw new Error("공유 폴더를 읽을 수 없습니다. 설정에서 서버 주소를 확인해 주세요.");
   }
@@ -163,7 +177,7 @@ export async function importLessonsFromDrive(
       // 한 파일이 깨져도 나머지는 받는다
     }
   }
-  if (found.length === 0) return { added: 0, changed: 0, removed: 0, files: 0 };
+  if (found.length === 0) return { added: 0, changed: 0, kept: 0, files: 0 };
   return { ...applyLessonFiles(klass, found), files: found.length };
 }
 

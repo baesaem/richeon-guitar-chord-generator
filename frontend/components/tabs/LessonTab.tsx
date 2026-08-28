@@ -75,19 +75,16 @@ export function LessonTab({
     setWorking("새 강좌 찾는 중");
     setError(null);
     try {
-      const { added, changed, removed, files } = await importLessonsFromDrive(
-        klass,
-        online,
-      );
+      const { added, changed, files } = await importLessonsFromDrive(klass, online);
       if (files === 0) {
         flash("이 반의 강의실에 올라온 자료가 아직 없습니다.");
-      } else if (added + changed + removed === 0) {
+      } else if (added + changed === 0) {
         flash("이미 받은 것과 같습니다. 그대로 두었습니다.");
       } else {
         const parts = [];
         if (added) parts.push(`새 강좌 ${added}개`);
         if (changed) parts.push(`고쳐진 것 ${changed}개`);
-        if (removed) parts.push(`빠진 것 ${removed}개`);
+
         flash(`${parts.join(" · ")}를 반영했습니다.`);
         setReloadKey((k) => k + 1);
       }
