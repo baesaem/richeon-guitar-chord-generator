@@ -58,13 +58,13 @@ const LINE_GAP = 7;        // 줄 사이
 const STEP = LINE_GAP / 2; // 한 음(도→레) 높이
 const STAFF_H = LINE_GAP * 4;
 const STAFF_BOT = STAFF_TOP + STAFF_H;
-const SOL_Y = STAFF_BOT + 14;   // 계이름
-const LYR_Y = STAFF_BOT + 25;   // 가사
-const ROW_H = LYR_Y + 6;
+const SOL_Y = STAFF_BOT + 9.5;  // 계이름
+const LYR_Y = STAFF_BOT + 18;   // 가사
+const ROW_H = LYR_Y + 3.5;
 // 첫머리에 놓이는 것들의 폭(오선 칸 단위). Bravura 글자의 실제 크기다.
-const CLEF_W = 2.9;      // 높은음자리표
-const SIG_W = 0.92;      // 조표 한 개
-const TIME_W = 2.4;      // 박자표
+const CLEF_W = 1.9;      // 높은음자리표
+const SIG_W = 0.7;      // 조표 한 개
+const TIME_W = 1.8;      // 박자표
 /** 첫머리 여백 */
 const HEAD_PAD = 0.5;
 /**
@@ -73,7 +73,15 @@ const HEAD_PAD = 0.5;
  * 자리는 부른 시각을 따르므로 짧은 음끼리는 원래 가깝다. 표준 크기로
  * 그리면 머리가 서로 닿는다 — 자리를 흔드는 대신 글자를 줄인다.
  */
-const NOTE_SCALE = 0.76;
+const NOTE_SCALE = 0.95;
+/**
+ * 자리표·조표·박자표의 크기.
+ *
+ * 표준대로 그리면 자리표가 오선을 위아래로 크게 넘친다. 원본 악보를
+ * 재어 보니 자리표가 오선 높이의 1.4배쯤이었다 — 낱장 리드시트는
+ * 자리표를 작게 쓴다.
+ */
+const HEAD_SCALE = 0.62;
 
 /** 음표 머리의 y. 맨 아랫줄이 미4다. */
 function noteY(dia: number): number {
@@ -213,7 +221,7 @@ export function MelodyScore({
   const chordY = topY - 2;
   // 마디 번호는 코드 이름 위에 따로 한 줄 — 겹치면 「Cm7」의 7과 마디
   // 번호가 붙어 읽히지 않는다.
-  const vbTop = chordY - 13;
+  const vbTop = chordY - 9.5;
 
   return (
     <div className="space-y-0.5">
@@ -241,7 +249,7 @@ export function MelodyScore({
       {shown.map(([lineIndex, line]) => {
         const hasActive = line.some((_, i) => lineIndex * per + i === barIndex);
         const measureW = (VB_W - PAD_X * 2) / per;
-        const chordFont = Math.max(6, Math.min(11, measureW * 0.17));
+        const chordFont = Math.max(5.2, Math.min(9, measureW * 0.145));
 
         return (
           <div key={lineIndex} ref={hasActive ? activeRef : undefined}>
@@ -265,7 +273,7 @@ export function MelodyScore({
                   글자의 기준선이 「솔」 줄(아래에서 둘째)에 놓인다. */}
               <text
                 x={PAD_X + HEAD_PAD * LINE_GAP} y={STAFF_TOP + LINE_GAP * 3}
-                fontSize={fontSize(LINE_GAP)} fontFamily={FONT_STACK}
+                fontSize={fontSize(LINE_GAP) * HEAD_SCALE} fontFamily={FONT_STACK}
                 fill="currentColor"
               >
                 {octave !== 0 ? GLYPH.clefG8vb : GLYPH.clefG}
@@ -277,7 +285,7 @@ export function MelodyScore({
                   key={`f${letter}`}
                   x={PAD_X + (HEAD_PAD + CLEF_W + i * SIG_W) * LINE_GAP}
                   y={noteY(diatonic({ letter, acc: "b", octave: SIG_OCTAVE.flat[letter] }))}
-                  fontSize={fontSize(LINE_GAP)} fontFamily={FONT_STACK}
+                  fontSize={fontSize(LINE_GAP) * HEAD_SCALE} fontFamily={FONT_STACK}
                   fill="currentColor"
                 >
                   {GLYPH.flat}
@@ -288,7 +296,7 @@ export function MelodyScore({
                   key={`s${letter}`}
                   x={PAD_X + (HEAD_PAD + CLEF_W + i * SIG_W) * LINE_GAP}
                   y={noteY(diatonic({ letter, acc: "#", octave: SIG_OCTAVE.sharp[letter] }))}
-                  fontSize={fontSize(LINE_GAP)} fontFamily={FONT_STACK}
+                  fontSize={fontSize(LINE_GAP) * HEAD_SCALE} fontFamily={FONT_STACK}
                   fill="currentColor"
                 >
                   {GLYPH.sharp}
@@ -305,7 +313,8 @@ export function MelodyScore({
                   i === 0
                     ? (HEAD_PAD * 2 + CLEF_W + accs * SIG_W +
                        (lineIndex === 0 ? TIME_W : 0.4)) * LINE_GAP
-                    : 2;
+                    // 마디선에 음표 머리가 닿지 않게 한 칸쯤 띄운다
+                    : LINE_GAP * 1.15;
                 const contentX = x0 + inset;
                 const contentW = x0 + measureW - contentX - 2;
                 const span = Math.max(bar.end - bar.start, 0.01);
@@ -335,14 +344,14 @@ export function MelodyScore({
                       <>
                         <text
                           x={contentX - LINE_GAP * 1.3} y={STAFF_TOP + LINE_GAP}
-                          textAnchor="middle" fontSize={fontSize(LINE_GAP)}
+                          textAnchor="middle" fontSize={fontSize(LINE_GAP) * HEAD_SCALE}
                           fontFamily={FONT_STACK} fill="currentColor"
                         >
                           {[...beatsPerBar].map((d) => timeSigDigit(Number(d))).join("")}
                         </text>
                         <text
                           x={contentX - LINE_GAP * 1.3} y={STAFF_TOP + LINE_GAP * 3}
-                          textAnchor="middle" fontSize={fontSize(LINE_GAP)}
+                          textAnchor="middle" fontSize={fontSize(LINE_GAP) * HEAD_SCALE}
                           fontFamily={FONT_STACK} fill="currentColor"
                         >
                           {[...(timeSignature.split("/")[1] ?? "4")]
@@ -376,6 +385,9 @@ export function MelodyScore({
                       )}
                       at={at}
                       barEnd={bar.end}
+                      contentX={contentX}
+                      contentW={contentW}
+                      barBeats={bar.beats}
                       shift={transpose + octave}
                       useFlats={useFlats}
                       sigSet={sigSet}
@@ -392,8 +404,8 @@ export function MelodyScore({
                     )}
 
                     <text
-                      x={x0 + 1.5} y={vbTop + 5}
-                      fontSize={5} fill="currentColor" opacity={0.4}
+                      x={x0 + 1.5} y={vbTop + 4}
+                      fontSize={4.2} fill="currentColor" opacity={0.4}
                     >
                       {bar.number}
                     </text>
@@ -444,6 +456,9 @@ function BarNotes({
   notes,
   at,
   barEnd,
+  contentX,
+  contentW,
+  barBeats,
   shift,
   useFlats,
   sigSet,
@@ -452,6 +467,9 @@ function BarNotes({
   notes: ViewNote[];
   at: (t: number) => number;
   barEnd: number;
+  contentX: number;
+  contentW: number;
+  barBeats?: number;
   shift: number;
   useFlats: boolean;
   sigSet: Set<string>;
@@ -472,22 +490,36 @@ function BarNotes({
     };
   });
 
-  // 음표를 부른 시각 그대로 놓으면 짧은 음끼리 머리가 붙는다. 인쇄 악보는
-  // 짧은 음에도 최소한의 자리를 준다. 뒤로 밀어 띄우고, 마디를 넘치면
-  // 마디 안에서 통째로 눌러 담는다 — 마디 경계는 커서가 딛는 자리라
-  // 어긋나면 안 된다.
-  const minGap = LINE_GAP * 1.95;
-  const xs = raw.map((p) => p.x);
-  for (let i = 1; i < xs.length; i++) {
-    xs[i] = Math.max(xs[i], xs[i - 1] + minGap);
+  // 인쇄 악보는 자리를 길이에 **정비례**로 나누지 않는다. 그러면 16분음표
+  // 넷이 4분음표 하나만큼만 차지해 머리가 겹친다. 길이의 0.55제곱으로
+  // 나누는 것이 오래된 규칙이다 — 짧은 음이 제 몫보다 넉넉히 받는다.
+  //
+  // 마디 안에서만 나눈다. 마디 경계는 커서가 딛는 자리라 어긋나면 안 된다.
+  const xs: number[] = [];
+  const beats = barBeats ?? 4;
+  const known = raw.length > 0 && raw.every((p) => p.note.beat !== undefined);
+  if (known) {
+    const spans = raw.map((p, i) => {
+      const b = p.note.beat ?? 0;
+      const next = i + 1 < raw.length ? (raw[i + 1].note.beat ?? beats) : beats;
+      return Math.max(next - b, 0.05);
+    });
+    const w = spans.map((v) => Math.pow(v, 0.55));
+    const total = w.reduce((a, b) => a + b, 0) || 1;
+    // 첫 음표가 마디선에 닿지 않게 왼쪽을 조금 비운다
+    let acc = 0;
+    for (let i = 0; i < raw.length; i++) {
+      xs.push(contentX + (contentW * acc) / total);
+      acc += w[i];
+    }
+  } else {
+    raw.forEach((p) => xs.push(p.x));
+    const minGap = LINE_GAP * 1.4;
+    for (let i = 1; i < xs.length; i++) {
+      xs[i] = Math.max(xs[i], xs[i - 1] + minGap);
+    }
   }
-  const right = at(barEnd) - LINE_GAP * 0.8;
-  const last = xs.length - 1;
-  if (last >= 1 && xs[last] > right) {
-    const span = xs[last] - xs[0] || 1;
-    const scale = Math.max((right - xs[0]) / span, 0.25);
-    for (let i = 1; i <= last; i++) xs[i] = xs[0] + (xs[i] - xs[0]) * scale;
-  }
+
   const placed = raw.map((p, i) => ({
     ...p,
     x: xs[i],
@@ -530,7 +562,7 @@ function BarNotes({
         const up = mean < BOTTOM_LINE + 4;
         const tips = g.map((i) => {
           const p = placed[i];
-          return p.y + (up ? -LINE_GAP * 3.2 : LINE_GAP * 3.2);
+          return p.y + (up ? -LINE_GAP * 3.3 : LINE_GAP * 3.3);
         });
         const y0 = up ? Math.min(...tips) : Math.max(...tips);
         const y1 = y0;
@@ -654,9 +686,10 @@ function NoteHead({
   // 기둥은 머리의 가장자리에 붙는다. 머리 폭의 절반이 그 자리다.
   const half = (headWidth(value) * LINE_GAP) / 2;
   const stemX = x + (up ? half - 0.35 : -half + 0.35);
-  // 기둥은 3.2칸. 오선 밖의 음은 가운뎃줄까지는 닿게 늘인다 — 악보의 약속이다.
+  // 기둥은 3.3칸 — 인쇄 악보의 표준(3.5칸)에 가깝게. 표준은 3.5칸이지만 여기는 오선이 작고 줄이 촘촘해
+  // 길면 위아래로 답답해 보인다. 오선 밖의 음은 가운뎃줄까지 닿게 한다.
   const middle = noteY(BOTTOM_LINE + 4);
-  const plain = y + (up ? -LINE_GAP * 3.2 : LINE_GAP * 3.2);
+  const plain = y + (up ? -LINE_GAP * 3.3 : LINE_GAP * 3.3);
   const stemY = up ? Math.min(plain, middle) : Math.max(plain, middle);
   const flag = flagGlyph(value, up);
 
@@ -670,12 +703,17 @@ function NoteHead({
         />
       ))}
 
-      {/* 실제로 끈 길이. 적힌 음표 값과 다를 수 있다(붙임줄) */}
-      {x2 > x + 2.5 && (
-        <rect
-          x={x + half} y={y - 0.8}
-          width={x2 - x - half} height={1.6} rx={0.8}
-          fill="var(--accent)" opacity={now ? 0.5 : 0.2}
+      {/* 끈 길이는 **악보가 없을 때만** 그린다. 악보에서 온 음표는 값
+          자체가 길이를 말하므로(온음표·점2분음표…) 또 그리면 군더더기다. */}
+      {note.value === undefined && x2 > x + LINE_GAP && (
+        <path
+          d={`M ${x + half} ${y + (up ? 2 : -2)} Q ${(x + x2) / 2} ${
+            y + (up ? LINE_GAP * 0.9 : -LINE_GAP * 0.9)
+          } ${x2} ${y + (up ? 2 : -2)}`}
+          fill="none"
+          stroke={now ? "var(--accent)" : "currentColor"}
+          strokeWidth={0.7}
+          opacity={now ? 0.8 : 0.35}
         />
       )}
 
@@ -724,21 +762,21 @@ function NoteHead({
         </text>
       ))}
 
-      {/* 잇단음표 표시는 늘 오선 위에. 아래에 두면 계이름·가사와 겹친다. */}
+      {/* 잇단음표는 괄호와 숫자로. 원본이 그렇게 적고, 숫자만 있으면
+          어디까지가 한 묶음인지 보이지 않는다. 늘 오선 위에 둔다 —
+          아래에 두면 계이름·가사와 겹친다. */}
       {note.triplet && (
-        <text
+        <Tuplet
           x={x}
-          y={Math.min(STAFF_TOP - LINE_GAP * 0.5, y - LINE_GAP * 1.2, stemY - LINE_GAP * 0.4)}
-          textAnchor="middle" fontSize={size * 0.6} fontFamily={FONT_STACK}
-          fill="currentColor" opacity={0.7}
-        >
-          {GLYPH.tuplet3}
-        </text>
+          width={(note.tupletBeats ?? 1) * LINE_GAP * 3.2}
+          y={Math.min(STAFF_TOP - LINE_GAP * 0.7, y - LINE_GAP * 1.4, stemY - LINE_GAP * 0.5)}
+          size={size}
+        />
       )}
 
       <text
         x={x} y={SOL_Y}
-        textAnchor="middle" fontSize={4.6}
+        textAnchor="middle" fontSize={3.9}
         fill="var(--accent)" opacity={now ? 1 : 0.7}
       >
         {SOLFEGE[sp.letter]}
@@ -746,7 +784,7 @@ function NoteHead({
       {note.syl && (
         <text
           x={x} y={LYR_Y}
-          textAnchor="middle" fontSize={6.6} fontWeight="500"
+          textAnchor="middle" fontSize={5.6} fontWeight="500"
           fill={color}
         >
           {note.syl}
@@ -775,5 +813,37 @@ function Rest({ x, value }: { x: number; value: number; dots: number }) {
     >
       {restGlyph(value)}
     </text>
+  );
+}
+
+/** 잇단음표 괄호 — ⌐3¬ */
+function Tuplet({
+  x,
+  width,
+  y,
+  size,
+}: {
+  x: number;
+  width: number;
+  y: number;
+  size: number;
+}) {
+  const half = Math.max(width, LINE_GAP * 2) / 2;
+  const drop = LINE_GAP * 0.45;
+  return (
+    <g opacity={0.7}>
+      <path
+        d={`M ${x - half} ${y + drop} L ${x - half} ${y} L ${x - LINE_GAP * 0.55} ${y}
+            M ${x + LINE_GAP * 0.55} ${y} L ${x + half} ${y} L ${x + half} ${y + drop}`}
+        fill="none" stroke="currentColor" strokeWidth={0.5}
+      />
+      <text
+        x={x} y={y + LINE_GAP * 0.42}
+        textAnchor="middle" fontSize={size * 0.55} fontFamily={FONT_STACK}
+        fill="currentColor"
+      >
+        {GLYPH.tuplet3}
+      </text>
+    </g>
   );
 }

@@ -74,6 +74,8 @@ export interface ViewBar {
   number: number;
   start: number;
   end: number;
+  /** 이 마디의 길이(박). 인쇄 악보처럼 자리를 나누는 데 쓴다 */
+  beats?: number;
   chords: { t: number; label: string }[];
   /** 쉼표. 어디서 쉬는지 보이지 않으면 리듬을 읽을 수 없다 */
   rests: { t: number; end: number; value: number; dots: number }[];
@@ -110,6 +112,8 @@ export type ViewNote = StaffNote & {
   value?: number;
   dots?: number;
   triplet?: boolean;
+  /** 잇단 묶음이 몇 박을 덮는가. 괄호 폭을 정하는 데 쓴다 */
+  tupletBeats?: number;
   /** 마디 안의 박 자리. 이음보를 박 단위로 끊는 데 쓴다 */
   beat?: number;
 };
@@ -193,6 +197,7 @@ export function viewFromScore(
       number: slot.number,
       start: slot.start,
       end: slot.end,
+      beats: src.beats,
       chords: src.chords.map((c) => ({
         t: at(c.beat),
         label: transposeLabel(c.label, shift, flats),
@@ -205,8 +210,28 @@ export function viewFromScore(
       off: off.get(slot.number),
     });
 
+    // 잇단 묶음이 몇 박을 덮는지 미리 재어 둔다 — 괄호를 그리려면 필요하다
+    const tupletSpan = new Map<number, number>();
+    {
+      let head = -1;
+      let span = 0;
+      src.notes.forEach((n, i) => {
+        const isT = (n.tuplet ?? 1) !== 1;
+        if (!isT) {
+          if (head >= 0) tupletSpan.set(head, span);
+          head = -1;
+          span = 0;
+          return;
+        }
+        if (head < 0) head = i;
+        span += n.head;
+      });
+      if (head >= 0) tupletSpan.set(head, span);
+    }
+
     let inTuplet = false;
-    for (const n of src.notes) {
+    for (let ni = 0; ni < src.notes.length; ni++) {
+      const n = src.notes[ni];
       const tuplet = (n.tuplet ?? 1) !== 1;
       notes.push({
         t: at(n.beat),
@@ -218,6 +243,7 @@ export function viewFromScore(
         beat: n.beat,
         // 「3」은 묶음마다 하나만. 음표마다 붙이면 숫자가 악보를 덮는다.
         triplet: tuplet && !inTuplet,
+        tupletBeats: tupletSpan.get(ni),
       });
       inTuplet = tuplet;
     }
