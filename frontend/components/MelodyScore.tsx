@@ -21,6 +21,7 @@ import {
   type ScoreAlign,
   type ScoreData,
   type ViewBar,
+  type ViewNote,
 } from "@/lib/scoreStaff";
 import type { Chord, LyricLine, Note } from "@/lib/types";
 
@@ -203,7 +204,7 @@ export function MelodyScore({
         {[
           usingScore
             ? align!.passes.length > 1
-              ? `악보 ${pass + 1}절`
+              ? `악보 ${(align!.passes[pass]?.verse ?? pass) + 1}절`
               : "악보"
             : "",
           octave > 0 ? "한 옥타브 올려 적음" : octave < 0 ? "한 옥타브 내려 적음" : "",
@@ -340,6 +341,11 @@ export function MelodyScore({
                       </text>
                     ))}
 
+                    {/* 쉼표. 어디서 쉬는지 보이지 않으면 리듬을 읽을 수 없다 */}
+                    {bar.rests.map((r, k) => (
+                      <Rest key={`r${k}`} x={at(r.t)} value={r.value} dots={r.dots} />
+                    ))}
+
                     {/* 멜로디 음표 + 그 아래 계이름·가사 */}
                     {view.notes.map((n, k) =>
                       n.t >= bar.start && n.t < bar.end ? (
@@ -421,7 +427,7 @@ function NoteHead({
   sigSet,
   now,
 }: {
-  note: StaffNote & { tie?: boolean };
+  note: ViewNote;
   x: number;
   x2: number;
   midi: number;
@@ -463,6 +469,14 @@ function NoteHead({
 
   // 오선 가운데(시4)보다 아래면 기둥을 위로 세운다
   const up = dia < BOTTOM_LINE + 4;
+  // 악보에 적힌 길이. 없으면(뽑아낸 멜로디) 4분음표 모양으로 그린다.
+  const value = note.value ?? 1;
+  const hollow = value >= 2;          // 온음표·2분음표는 속을 비운다
+  const stem = value < 4;             // 온음표에는 기둥이 없다
+  const flags = value <= 0.5 ? Math.round(Math.log2(0.5 / value)) + 1 : 0;
+  const rx = value >= 4 ? 3.2 : 2.7;
+  const sx = x + (up ? rx - 0.4 : -(rx - 0.4));
+  const sy = y + (up ? -10 - flags * 1.2 : 10 + flags * 1.2);
 
   return (
     <g>
@@ -474,7 +488,7 @@ function NoteHead({
         />
       ))}
 
-      {/* 끈 길이 */}
+      {/* 실제로 끈 길이. 적힌 음표 값과 다를 수 있다(붙임줄) */}
       {x2 > x + 2.5 && (
         <rect
           x={x + 2.2} y={y - 0.8}
@@ -492,16 +506,46 @@ function NoteHead({
         </text>
       )}
 
-      <line
-        x1={x + (up ? 2.3 : -2.3)} x2={x + (up ? 2.3 : -2.3)}
-        y1={y} y2={y + (up ? -10 : 10)}
-        stroke={color} strokeWidth={0.7}
-      />
+      {stem && (
+        <line
+          x1={sx} x2={sx} y1={y} y2={sy}
+          stroke={color} strokeWidth={0.7}
+        />
+      )}
+      {/* 8분·16분음표의 꼬리 */}
+      {Array.from({ length: flags }, (_, i) => (
+        <path
+          key={i}
+          d={`M ${sx} ${sy + i * 2.2 * (up ? 1 : -1)} q 2.6 1.6 2.2 ${(up ? 4.4 : -4.4)}`}
+          fill="none" stroke={color} strokeWidth={0.7}
+        />
+      ))}
       <ellipse
-        cx={x} cy={y} rx={2.7} ry={2.1}
-        fill={color}
+        cx={x} cy={y} rx={rx} ry={2.1}
+        fill={hollow ? "none" : color}
+        stroke={hollow ? color : "none"}
+        strokeWidth={hollow ? 0.8 : 0}
         transform={`rotate(-20 ${x} ${y})`}
       />
+      {/* 점음표 */}
+      {Array.from({ length: note.dots ?? 0 }, (_, i) => (
+        <circle
+          key={i}
+          cx={x + rx + 1.6 + i * 1.8}
+          // 줄 위에 놓인 음은 점을 한 칸 올려 찍는다
+          cy={(dia - BOTTOM_LINE) % 2 === 0 ? y - STEP : y}
+          r={0.6} fill={color}
+        />
+      ))}
+      {note.triplet && (
+        <text
+          x={x} y={up ? sy - 1.2 : sy + 4}
+          textAnchor="middle" fontSize={3.6} fontStyle="italic"
+          fill="currentColor" opacity={0.55}
+        >
+          3
+        </text>
+      )}
 
       <text
         x={x} y={SOL_Y}
@@ -519,6 +563,51 @@ function NoteHead({
           {note.syl}
         </text>
       )}
+    </g>
+  );
+}
+
+/**
+ * 쉼표.
+ *
+ * 온·2분쉼표는 줄에 걸린 네모, 4분쉼표는 지그재그, 8분 이하는 갈고리다.
+ * 유니코드 음악 기호는 기기마다 없는 글꼴이 있어 직접 그린다.
+ */
+function Rest({ x, value, dots }: { x: number; value: number; dots: number }) {
+  const mid = STAFF_TOP + LINE_GAP * 2;
+  const color = "currentColor";
+
+  if (value >= 4 || value === 2) {
+    // 온쉼표는 둘째 줄 아래에 매달고, 2분쉼표는 가운뎃줄 위에 얹는다
+    const y = value >= 4 ? STAFF_TOP + LINE_GAP : mid - 1.4;
+    return (
+      <g opacity={0.7}>
+        <rect x={x - 1.8} y={y} width={3.6} height={1.4} fill={color} />
+      </g>
+    );
+  }
+
+  if (value === 1) {
+    return (
+      <path
+        d={`M ${x - 1.1} ${mid - 5} L ${x + 1.1} ${mid - 2.2}
+            L ${x - 1.1} ${mid + 0.6} L ${x + 1.4} ${mid + 3.8}`}
+        fill="none" stroke={color} strokeWidth={1} opacity={0.7}
+        strokeLinecap="round" strokeLinejoin="round"
+      />
+    );
+  }
+
+  const hooks = Math.max(1, Math.round(Math.log2(0.5 / value)) + 1);
+  return (
+    <g opacity={0.7}>
+      <line
+        x1={x + 1.1} y1={mid - 3.4} x2={x - 0.9} y2={mid + 3.4}
+        stroke={color} strokeWidth={0.7}
+      />
+      {Array.from({ length: hooks }, (_, i) => (
+        <circle key={i} cx={x - 0.4} cy={mid - 3 + i * 2.4} r={0.8} fill={color} />
+      ))}
     </g>
   );
 }

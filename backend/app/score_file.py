@@ -42,10 +42,18 @@ class ScoreNote:
     """악보의 음표 하나. 시각이 아니라 마디 안의 박 자리로 적는다."""
 
     beat: float          # 마디 첫머리부터 몇 박째(4분음표 단위)
-    dur: float           # 몇 박(붙임줄로 이어진 만큼 합쳐 둔다)
+    dur: float           # 몇 박 울리는가(붙임줄로 이어진 만큼 합쳐 둔다)
     midi: int
-    syl: str = ""        # 이 음에 붙는 가사 한 음절. 없으면 빈 문자열
+    syl: str = ""        # 1절 가사 한 음절. 없으면 빈 문자열
+    #: 절마다의 가사. syls[0]이 1절이다. 2절을 부를 때 1절 글자가 뜨면
+    #: 화면과 노래가 딴소리를 한다.
+    syls: list[str] = field(default_factory=list)
     tied: bool = False   # 앞 음에서 이어진 음인가(가사를 새로 얹지 않는다)
+    #: 악보에 **적힌** 길이(박). dur과 다를 수 있다 — 붙임줄로 이어지면
+    #: 울리는 길이는 늘어나지만 그리는 음표 모양은 첫 마디의 것이다.
+    head: float = 1.0
+    #: 잇단음표 비율(셋잇단이면 2/3). 모양을 정할 때 이 값으로 되돌린다.
+    tuplet: float = 1.0
 
 
 @dataclass
@@ -55,10 +63,20 @@ class ScoreChord:
 
 
 @dataclass
+class ScoreRest:
+    """쉼표. 그리지 않으면 어디서 쉬는지 알 수 없다."""
+
+    beat: float
+    dur: float
+    tuplet: float = 1.0
+
+
+@dataclass
 class ScoreBar:
     number: int
     beats: float                                  # 이 마디의 길이(박). 못갖춘마디는 짧다
     notes: list[ScoreNote] = field(default_factory=list)
+    rests: list[ScoreRest] = field(default_factory=list)
     chords: list[ScoreChord] = field(default_factory=list)
     #: 음표·쉼표로 실제 채워진 길이(박). beats와 다르면 읽다가 어긋난 것이다
     filled: float = 0.0
@@ -202,9 +220,14 @@ def parse(data: bytes | str) -> Score:
                 if tag == "Rest":
                     dt = _text(el, "durationType", "quarter")
                     if dt == "measure":
+                        bar.rests.append(ScoreRest(beat=at, dur=bar.beats))
                         at = bar.beats
                     else:
-                        at += _DUR.get(dt, 1.0) * tuplet_ratio * _dot_factor(el)
+                        d = _DUR.get(dt, 1.0) * tuplet_ratio * _dot_factor(el)
+                        bar.rests.append(
+                            ScoreRest(beat=at, dur=d, tuplet=tuplet_ratio)
+                        )
+                        at += d
                     continue
 
                 if tag != "Chord":
@@ -228,27 +251,34 @@ def parse(data: bytes | str) -> Score:
                     for sp in note.findall("Spanner")
                 )
 
-                syl = ""
+                syls: dict[int, str] = {}
                 for ly in el.findall("Lyrics"):
                     no = int(_text(ly, "no", "0") or 0)
                     verses = max(verses, no + 1)
-                    if no == 0:
-                        syl = (ly.findtext("text") or "").strip()
+                    text = (ly.findtext("text") or "").strip()
+                    if text:
+                        syls[no] = text
+                syl = syls.get(0, "")
 
-                if tied and bar.notes and not syl:
+                if tied and bar.notes and not syls:
                     # 앞 음에서 이어진 음. 새 음표를 만들지 않고 길이만 늘인다.
                     bar.notes[-1].dur += dur
                     at += dur
                     continue
 
                 bar.notes.append(
-                    ScoreNote(beat=at, dur=dur, midi=midi, syl=syl, tied=tied)
+                    ScoreNote(
+                        beat=at, dur=dur, midi=midi, syl=syl, tied=tied,
+                        head=dur, tuplet=tuplet_ratio,
+                        syls=[syls.get(v, "") for v in range(max(syls, default=-1) + 1)],
+                    )
                 )
                 at += dur
 
             bar.filled = max(bar.filled, at)
 
         bar.notes.sort(key=lambda n: n.beat)
+        bar.rests.sort(key=lambda r: r.beat)
         bar.chords.sort(key=lambda c: c.beat)
         bars.append(bar)
 
@@ -286,12 +316,23 @@ def to_dict(score: Score) -> dict:
                 "number": b.number,
                 "beats": round(b.beats, 4),
                 "chords": [{"beat": round(c.beat, 4), "label": c.label} for c in b.chords],
+                "rests": [
+                    {
+                        "beat": round(r.beat, 4),
+                        "dur": round(r.dur, 4),
+                        "tuplet": round(r.tuplet, 4),
+                    }
+                    for r in b.rests
+                ],
                 "notes": [
                     {
                         "beat": round(n.beat, 4),
                         "dur": round(n.dur, 4),
                         "midi": n.midi,
                         "syl": n.syl,
+                        "syls": n.syls,
+                        "head": round(n.head, 4),
+                        "tuplet": round(n.tuplet, 4),
                         # 앞 마디에서 이어진 음. 머리를 다시 그리지 않는다 —
                         # 새로 친 음처럼 보이면 같은 음을 두 번 치게 된다.
                         "tie": n.tied,

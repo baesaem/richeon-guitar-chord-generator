@@ -10,7 +10,10 @@
    부분열 DTW는 길을 싸게 만들려고 마디를 뭉개 버린다.
 2. 음정 줄 맞추기 — 뽑아낸 멜로디가 성기고(부른 음의 15~30%) 흔들려
    50곳 중 9곳만 살아남았다. 게다가 2절에 가서 붙었다.
-3. **박 격자 + 가사 앵커** — 이것을 쓴다.
+3. 코드 진행으로 앵커 보태기 — 앵커는 37개에서 69개로 늘었지만 오차는
+   0.21초에서 0.65초로 나빠졌다. 코드가 바뀌는 자리를 음원 쪽이 한 박쯤
+   이르게 잡아, 전체를 앞으로 끌어당겼다. 되돌렸다.
+4. **박 격자 + 가사 앵커** — 이것을 쓴다.
 
 음원에서 이미 뽑아 둔 박 격자는 고르고 음악적으로 맞다. 그러니
 「간격」은 격자에 맡기고, 「악보를 격자의 어디에 얹을지」만 가사로
@@ -98,15 +101,22 @@ def semitone_shift(score: Score, key: str) -> int:
     return diff - 12 if diff > 6 else diff
 
 
-def _score_syllables(score: Score) -> list[tuple[str, float]]:
+def _score_syllables(score: Score, verse: int = 0) -> list[tuple[str, float]]:
+    """이 절의 가사를 (글자, 박) 줄로 편다.
+
+    절마다 글자가 다르다. 2절을 1절 가사로 맞추려 들면 앵커가 반으로
+    줄고, 화면에도 딴 글자가 뜬다.
+    """
     out: list[tuple[str, float]] = []
     at = 0.0
     for bar in score.bars:
         for n in bar.notes:
-            if n.syl:
-                for ch in n.syl:
-                    if ch not in _SKIP:
-                        out.append((ch, at + n.beat))
+            # 절마다 다른 대목만 따로 적혀 있다. 같은 대목은 1절 것을
+            # 그대로 부르므로, 없으면 1절로 되돌아간다.
+            syl = n.syls[verse] if verse < len(n.syls) and n.syls[verse] else n.syl
+            for ch in syl:
+                if ch not in _SKIP:
+                    out.append((ch, at + n.beat))
         at += bar.beats
     return out
 
@@ -172,7 +182,8 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
     """
     grid = Grid.of(result["beats"])
     shift = semitone_shift(score, result.get("key", ""))
-    score_syls = _score_syllables(score)
+    verses = [_score_syllables(score, v) for v in range(max(score.verses, 1))]
+    verses = [v for v in verses if len(v) >= 8] or [_score_syllables(score, 0)]
     sung = _sung_syllables(words)
 
     passes: list[dict] = []
@@ -183,10 +194,26 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
     total = sum(b.beats for b in score.bars)
 
     while at < len(sung) and len(passes) < 8:
-        pairs, at = _anchors(score_syls, sung, at)
-        keep = _keep(pairs, grid)
+        # 이 바퀴가 몇 절인지 미리 알 수 없다(1절을 두 번 부르기도 한다).
+        # 절마다 맞춰 보고 가장 잘 붙는 것을 고른다.
+        best: tuple[int, list[tuple[float, float]], int] | None = None
+        for vi, syls in enumerate(verses):
+            pairs, end = _anchors(syls, sung, at)
+            keep = _keep(pairs, grid)
+            # 앵커가 한 군데 몰려 있으면 한 바퀴를 덮은 것이 아니다.
+            # 개수만 보면 그런 토막이 이겨 버린다.
+            spread = (keep[-1][0] - keep[0][0]) if len(keep) > 1 else 0.0
+            if spread < total * 0.35:
+                continue
+            if best is None or len(keep) > len(best[1]):
+                best = (vi, keep, end)
+        if best is None:
+            break
+        verse, keep, at = best
+        score_syls = verses[verse]
         if len(keep) < 8:
             break
+
 
         bars = []
         beat = 0.0
@@ -201,6 +228,7 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
             beat += bar.beats
 
         passes.append({
+            "verse": verse,
             "anchors": len(keep),
             "start": bars[0]["start"],
             "end": bars[-1]["end"],

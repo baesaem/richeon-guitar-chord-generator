@@ -16,16 +16,31 @@ import { fitLyrics } from "./staff";
 
 export interface ScoreNote {
   beat: number;
+  /** 몇 박 울리는가(붙임줄로 이어진 만큼 합쳐져 있다) */
   dur: number;
   midi: number;
+  /** 1절 가사 한 음절 */
   syl: string;
+  /** 절마다의 가사. 절마다 다른 대목만 채워져 있다 */
+  syls?: string[];
   tie: boolean;
+  /** 악보에 적힌 길이(박). 음표 모양은 이것으로 정한다 */
+  head: number;
+  /** 잇단음표 비율(셋잇단이면 2/3) */
+  tuplet: number;
+}
+
+export interface ScoreRest {
+  beat: number;
+  dur: number;
+  tuplet: number;
 }
 
 export interface ScoreBar {
   number: number;
   beats: number;
   notes: ScoreNote[];
+  rests: ScoreRest[];
   chords: { beat: number; label: string }[];
 }
 
@@ -44,6 +59,8 @@ export interface ScoreAlign {
   /** 악보를 몇 반음 올려야 음원과 같은 소리인가 */
   shift: number;
   passes: {
+    /** 이 바퀴가 몇 절인가(0=1절) */
+    verse: number;
     anchors: number;
     start: number;
     end: number;
@@ -58,13 +75,46 @@ export interface ViewBar {
   start: number;
   end: number;
   chords: { t: number; label: string }[];
+  /** 쉼표. 어디서 쉬는지 보이지 않으면 리듬을 읽을 수 없다 */
+  rests: { t: number; end: number; value: number; dots: number }[];
   /** 서버가 「가사가 어긋난다」고 표시한 마디인가 */
   off?: number;
 }
 
+/**
+ * 「몇 박」을 악보에 적히는 음표 값으로 되돌린다.
+ *
+ * 셋잇단은 눌린 길이라 비율로 먼저 되돌린 뒤 잰다 — 셋잇단8분음표는
+ * 0.333박이지만 그리기는 8분음표(0.5)로 그린다.
+ */
+export function notated(beats: number, tuplet = 1): { value: number; dots: number } {
+  const base = tuplet > 0 ? beats / tuplet : beats;
+  let best = { value: 1, dots: 0 };
+  let gap = Infinity;
+  for (const value of [4, 2, 1, 0.5, 0.25, 0.125]) {
+    for (const dots of [0, 1, 2]) {
+      const d = Math.abs(base - value * (2 - 0.5 ** dots));
+      if (d < gap) {
+        gap = d;
+        best = { value, dots };
+      }
+    }
+  }
+  return best;
+}
+
+/** 화면이 그리는 음표 하나 */
+export type ViewNote = StaffNote & {
+  tie?: boolean;
+  /** 음표 값(4=온음표, 1=4분음표, 0.5=8분음표…). 없으면 4분음표 모양 */
+  value?: number;
+  dots?: number;
+  triplet?: boolean;
+};
+
 export interface StaffView {
   bars: ViewBar[];
-  notes: (StaffNote & { tie?: boolean })[];
+  notes: ViewNote[];
   /** 악보에서 온 것인가(아니면 뽑아낸 멜로디) */
   fromScore: boolean;
 }
@@ -123,9 +173,12 @@ export function viewFromScore(
     align.checks.filter((c) => c.pass === pass).map((c) => [c.bar, c.off]),
   );
   const shift = align.shift + transpose;
+  // 2절을 부르는데 1절 글자가 뜨면 화면과 노래가 딴소리를 한다.
+  // 절마다 다른 대목만 따로 적혀 있으므로, 없으면 1절로 되돌아간다.
+  const verse = p.verse ?? 0;
 
   const bars: ViewBar[] = [];
-  const notes: (StaffNote & { tie?: boolean })[] = [];
+  const notes: ViewNote[] = [];
   const byNumber = new Map(score.bars.map((b) => [b.number, b]));
 
   for (const slot of p.bars) {
@@ -142,17 +195,28 @@ export function viewFromScore(
         t: at(c.beat),
         label: transposeLabel(c.label, shift, flats),
       })),
+      rests: (src.rests ?? []).map((r) => ({
+        t: at(r.beat),
+        end: at(Math.min(r.beat + r.dur, src.beats)),
+        ...notated(r.dur, r.tuplet),
+      })),
       off: off.get(slot.number),
     });
 
+    let inTuplet = false;
     for (const n of src.notes) {
+      const tuplet = (n.tuplet ?? 1) !== 1;
       notes.push({
         t: at(n.beat),
         end: at(Math.min(n.beat + n.dur, src.beats)),
         midi: n.midi + align.shift,
-        syl: n.syl,
+        syl: n.syls?.[verse] || n.syl,
         tie: n.tie,
+        ...notated(n.head, n.tuplet),
+        // 「3」은 묶음마다 하나만. 음표마다 붙이면 숫자가 악보를 덮는다.
+        triplet: tuplet && !inTuplet,
       });
+      inTuplet = tuplet;
     }
   }
 
@@ -184,6 +248,7 @@ export function viewFromMelody(
           t: Math.max(c.start, bar.start),
           label: labelFor(transposeRoot(c.root, transpose), c.quality, flats),
         })),
+      rests: [],
     })),
     notes: fitLyrics(melody, lyrics),
     fromScore: false,
