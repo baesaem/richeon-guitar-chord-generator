@@ -2,7 +2,13 @@
 
 import { useRef, useState } from "react";
 
-import { dropScore, dropSheetImage, putScore, putSheetImage } from "@/lib/api";
+import {
+  dropScore,
+  dropSheetImage,
+  moveSheetImage,
+  putScore,
+  putSheetImage,
+} from "@/lib/api";
 import type { ScoreAlign, ScoreData } from "@/lib/scoreStaff";
 import type { AnalysisResult } from "@/lib/types";
 
@@ -34,9 +40,28 @@ export function ScoreAttach({
   const score = result.score as ScoreData | null | undefined;
   const align = result.score_align as ScoreAlign | null | undefined;
   const sheet = result.sheet as
-    | { bars: unknown[]; source: string; repeats: number }
+    | { bars: unknown[]; source: string; repeats: number; offset: number }
     | null
     | undefined;
+
+  /**
+   * 악보 그림을 음원 위에서 앞뒤로 민다.
+   *
+   * 뮤즈스코어 파일이 함께 붙어 있으면 마디 시각이 이미 정확하므로
+   * 밀 일이 없다. 그림만 있는 곡은 음원의 박 격자에 고르게 얹은 것이라,
+   * 「악보 1마디가 음원의 몇 마디째인가」를 사람이 한 번 짚어 줘야 한다.
+   */
+  const move = async (offset: number, repeats: number) => {
+    setBusy(true);
+    setError(null);
+    try {
+      onResult(await moveSheetImage(result.id, offset, repeats));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "옮기지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const attach = async (file: File) => {
     setBusy(true);
@@ -114,9 +139,47 @@ export function ScoreAttach({
       )}
 
       {sheet && (
-        <span className="text-gray-700 dark:text-gray-300">
+        <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
           · 그림 {sheet.bars.length}마디
-          {sheet.source === "score" ? " (악보 파일에 맞춤)" : " (박자에 고르게)"}
+          {sheet.source === "score" ? (
+            " (악보 파일에 맞춤)"
+          ) : (
+            <>
+              <span className="text-gray-500">
+                · 시작 {sheet.offset > 0 ? "+" : ""}
+                {sheet.offset}마디
+              </span>
+              <button
+                className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+                disabled={busy || !online}
+                onClick={() => void move(sheet.offset - 1, sheet.repeats)}
+                title="악보를 한 마디 앞으로"
+              >
+                ◀
+              </button>
+              <button
+                className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+                disabled={busy || !online}
+                onClick={() => void move(sheet.offset + 1, sheet.repeats)}
+                title="악보를 한 마디 뒤로"
+              >
+                ▶
+              </button>
+              <select
+                className="rounded bg-gray-200/70 px-1 py-0.5 dark:bg-gray-700"
+                value={sheet.repeats}
+                disabled={busy || !online}
+                onChange={(e) => void move(sheet.offset, Number(e.target.value))}
+                title="악보 한 벌을 몇 번 되풀이해 부르는가"
+              >
+                {[1, 2, 3, 4].map((n) => (
+                  <option key={n} value={n}>
+                    {n}번 되풀이
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </span>
       )}
 

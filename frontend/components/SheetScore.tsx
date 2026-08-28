@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { apiBase } from "@/lib/api";
+import { getSheetPage } from "@/lib/library";
 
 /** 그림 위 마디 하나. 자리는 0~1 비율이라 화면 크기와 무관하다 */
 export interface SheetBar {
@@ -153,6 +154,32 @@ export function SheetScore({
 }
 
 /**
+ * 쪽 그림의 주소.
+ *
+ * 기기에 받아 둔 것을 먼저 본다 — 수강생 화면에는 분석 서버가 없다.
+ * 곡 파일로 받은 악보는 기기에 들어 있으므로, 서버 없이도 펼쳐진다.
+ */
+function usePageUrl(resultId: string, index: number): string {
+  const [local, setLocal] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    let made = "";
+    getSheetPage(resultId, index)
+      .then((blob) => {
+        if (!alive || !blob) return;
+        made = URL.createObjectURL(blob);
+        setLocal(made);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [resultId, index]);
+  return local ?? `${apiBase()}/api/sheets/${resultId}/page/${index}`;
+}
+
+/**
  * 악보 한 줄.
  *
  * 쪽 그림을 통째로 넣고 그 줄만 보이게 창을 씌운다. 잘라낸 그림을
@@ -180,6 +207,7 @@ function SystemRow({
 }) {
   const page = sheet.pages[row.page];
   const first = sheet.bars[row.bars[0]];
+  const src = usePageUrl(resultId, row.page);
   // 잘라 보일 띠는 서버가 줄 사이 간격을 재어 정해 두었다
   const top = first.viewTop ?? Math.max(first.top - 0.05, 0);
   const bottom = first.viewBottom ?? Math.min(first.bottom + 0.05, 1);
@@ -202,7 +230,7 @@ function SystemRow({
     >
       {/* 쪽 그림. 이 줄이 창에 꽉 차도록 위로 끌어올린다 */}
       <img
-        src={`${apiBase()}/api/sheets/${resultId}/page/${row.page}`}
+        src={src}
         alt=""
         className="pointer-events-none absolute left-0 select-none"
         style={{ width: "100%", top: `${(-top / height) * 100}%` }}

@@ -5,6 +5,7 @@ import { getLocalAudio, saveLocal, saveLocalAudio, saveLocalSheet } from "./libr
 import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { instKey, stemKey } from "./sharedFiles";
 import { loadSheets, saveSheets } from "./sheetCache";
+import { getSheetPage, saveSheetPage } from "./library";
 import type { AnalysisResult } from "./types";
 
 /**
@@ -41,6 +42,13 @@ export interface SongBundle {
   vocals?: { dataUrl: string };
   /** 내 악보. data URI로 담는다 — JSON 한 덩어리로 주고받기 위해 */
   mySheet?: { kind: "image" | "pdf"; dataUrl: string };
+  /**
+   * 「악보」 화면이 띄우는 쪽 그림(서버가 PDF를 펴 둔 것).
+   *
+   * 수강생 화면에는 분석 서버가 없다. 여기 실어 보내지 않으면 코드와
+   * 가사는 오는데 악보만 빈 칸이 된다.
+   */
+  sheetPages?: string[];
 }
 
 export function isBundle(data: unknown): data is SongBundle {
@@ -124,6 +132,26 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
   const sheets = loadSheets(result.id);
   if (sheets) bundle.sheets = sheets;
 
+  // 악보 그림의 쪽들. 기기에 있으면 그것을, 없으면 서버에서 가져온다.
+  const pages = (result.sheet as { pages?: unknown[] } | null)?.pages;
+  if (pages?.length) {
+    const got: string[] = [];
+    for (let i = 0; i < pages.length; i++) {
+      try {
+        const local = await getSheetPage(result.id, i);
+        if (local) {
+          got.push(await toDataUrl(local));
+          continue;
+        }
+        const res = await fetch(`${apiBase()}/api/sheets/${result.id}/page/${i}`);
+        if (res.ok) got.push(await toDataUrl(await res.blob()));
+      } catch {
+        // 한 쪽이 빠져도 나머지는 담는다
+      }
+    }
+    if (got.length) bundle.sheetPages = got;
+  }
+
   // loadSetup은 늘 값을 준다. 손대지 않은 기본값까지 담을 이유는 없다.
   // 어느 값 하나라도 손댔으면 통째로 담는다 — 항목이 늘 때마다 여기를
   // 고쳐야 하는 대신, 기본값과 다른지만 본다.
@@ -192,6 +220,21 @@ export async function openBundle(
       got.push("보컬");
     } catch {
       /* 무시 */
+    }
+  }
+
+  if (bundle.sheetPages?.length) {
+    try {
+      for (let i = 0; i < bundle.sheetPages.length; i++) {
+        await saveSheetPage(
+          bundle.result.id,
+          i,
+          await fromDataUrl(bundle.sheetPages[i]),
+        );
+      }
+      got.push(`악보 ${bundle.sheetPages.length}쪽`);
+    } catch {
+      // 악보가 안 들어가도 코드·가사는 들어간다
     }
   }
 

@@ -161,6 +161,34 @@ export async function getLocalSheet(
   return record ? { blob: record.blob, kind: record.kind } : null;
 }
 
+/**
+ * 악보 그림의 쪽. 서버가 PDF를 펴 둔 것을 기기에도 담는다.
+ *
+ * 수강생 화면에는 분석 서버가 없다. 곡 파일에 실어 보내 두지 않으면
+ * 「악보」 화면이 빈 칸이 된다 — 코드와 가사는 오는데 악보만 안 온다.
+ * 쪽마다 따로 담는다(id__p0, id__p1 …).
+ */
+export const sheetPageKey = (id: string, index: number) => `${id}__p${index}`;
+
+export async function saveSheetPage(
+  id: string,
+  index: number,
+  blob: Blob,
+): Promise<void> {
+  await saveLocalSheet(sheetPageKey(id, index), blob, "image");
+}
+
+export async function getSheetPage(id: string, index: number): Promise<Blob | null> {
+  const got = await getLocalSheet(sheetPageKey(id, index));
+  return got?.blob ?? null;
+}
+
+export async function removeSheetPages(id: string, count: number): Promise<void> {
+  for (let i = 0; i < count; i++) {
+    await removeLocalSheet(sheetPageKey(id, i));
+  }
+}
+
 export async function removeLocalSheet(id: string): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(SHEET_STORE, "readwrite");
