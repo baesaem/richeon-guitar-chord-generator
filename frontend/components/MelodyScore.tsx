@@ -23,6 +23,17 @@ import {
   type ViewBar,
   type ViewNote,
 } from "@/lib/scoreStaff";
+import {
+  FONT_STACK,
+  GLYPH,
+  fontSize,
+  flagGlyph,
+  headGlyph,
+  headWidth,
+  restGlyph,
+  restLine,
+  timeSigDigit,
+} from "@/lib/smufl";
 import type { Chord, LyricLine, Note } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자로 올린다. dy는 누적이라 복귀시켜야 한다. */
@@ -50,8 +61,12 @@ const STAFF_BOT = STAFF_TOP + STAFF_H;
 const SOL_Y = STAFF_BOT + 14;   // 계이름
 const LYR_Y = STAFF_BOT + 25;   // 가사
 const ROW_H = LYR_Y + 6;
-/** 자리표·조표가 차지하는 폭 */
-const CLEF_W = 25;
+// 첫머리에 놓이는 것들의 폭(오선 칸 단위). Bravura 글자의 실제 크기다.
+const CLEF_W = 2.9;      // 높은음자리표
+const SIG_W = 0.92;      // 조표 한 개
+const TIME_W = 2.4;      // 박자표
+/** 첫머리 여백 */
+const HEAD_PAD = 0.5;
 
 /** 음표 머리의 y. 맨 아랫줄이 미4다. */
 function noteY(dia: number): number {
@@ -239,43 +254,37 @@ export function MelodyScore({
                 />
               ))}
 
-              {/* 높은음자리표. 한 옥타브 올려 적었으면 기타 악보처럼 아래에 8 */}
+              {/* 높은음자리표. 한 옥타브 올려 적었으면 기타 악보처럼 8을 단다.
+                  글자의 기준선이 「솔」 줄(아래에서 둘째)에 놓인다. */}
               <text
-                x={PAD_X + 1} y={STAFF_BOT + 1.5}
-                fontSize={LINE_GAP * 4.4}
-                fontFamily='"Segoe UI Symbol","Apple Symbols","Noto Music","Noto Sans Symbols 2",serif'
-                fill="currentColor" opacity={0.75}
+                x={PAD_X + HEAD_PAD * LINE_GAP} y={STAFF_TOP + LINE_GAP * 3}
+                fontSize={fontSize(LINE_GAP)} fontFamily={FONT_STACK}
+                fill="currentColor"
               >
-                &#119070;
+                {octave !== 0 ? GLYPH.clefG8vb : GLYPH.clefG}
               </text>
-              {octave !== 0 && (
-                <text
-                  x={PAD_X + 6.5} y={STAFF_BOT + 11}
-                  textAnchor="middle" fontSize={5} fill="currentColor" opacity={0.6}
-                >
-                  8
-                </text>
-              )}
 
               {/* 조표 */}
               {sig.flats.map((letter, i) => (
                 <text
                   key={`f${letter}`}
-                  x={PAD_X + 15 + i * 3.6}
-                  y={noteY(diatonic({ letter, acc: "b", octave: SIG_OCTAVE.flat[letter] })) + 2.4}
-                  fontSize={7.5} fill="currentColor" opacity={0.75}
+                  x={PAD_X + (HEAD_PAD + CLEF_W + i * SIG_W) * LINE_GAP}
+                  y={noteY(diatonic({ letter, acc: "b", octave: SIG_OCTAVE.flat[letter] }))}
+                  fontSize={fontSize(LINE_GAP)} fontFamily={FONT_STACK}
+                  fill="currentColor"
                 >
-                  &#9837;
+                  {GLYPH.flat}
                 </text>
               ))}
               {sig.sharps.map((letter, i) => (
                 <text
                   key={`s${letter}`}
-                  x={PAD_X + 15 + i * 3.6}
-                  y={noteY(diatonic({ letter, acc: "#", octave: SIG_OCTAVE.sharp[letter] })) + 2.4}
-                  fontSize={7.5} fill="currentColor" opacity={0.75}
+                  x={PAD_X + (HEAD_PAD + CLEF_W + i * SIG_W) * LINE_GAP}
+                  y={noteY(diatonic({ letter, acc: "#", octave: SIG_OCTAVE.sharp[letter] }))}
+                  fontSize={fontSize(LINE_GAP)} fontFamily={FONT_STACK}
+                  fill="currentColor"
                 >
-                  &#9839;
+                  {GLYPH.sharp}
                 </text>
               ))}
 
@@ -283,9 +292,12 @@ export function MelodyScore({
                 const index = lineIndex * per + i;
                 const active = index === barIndex;
                 const x0 = PAD_X + i * measureW;
+                // 줄 첫머리에는 자리표·조표가, 곡의 첫 마디에는 박자표까지 선다
+                const accs = sig.flats.length + sig.sharps.length;
                 const inset =
                   i === 0
-                    ? CLEF_W + (sig.flats.length + sig.sharps.length) * 3.6
+                    ? (HEAD_PAD * 2 + CLEF_W + accs * SIG_W +
+                       (lineIndex === 0 ? TIME_W : 0.4)) * LINE_GAP
                     : 2;
                 const contentX = x0 + inset;
                 const contentW = x0 + measureW - contentX - 2;
@@ -315,16 +327,20 @@ export function MelodyScore({
                     {lineIndex === 0 && i === 0 && (
                       <>
                         <text
-                          x={contentX - 4} y={STAFF_TOP + LINE_GAP * 1.6}
-                          textAnchor="middle" fontSize={7.5} fontWeight="700" fill="currentColor"
+                          x={contentX - LINE_GAP * 1.3} y={STAFF_TOP + LINE_GAP}
+                          textAnchor="middle" fontSize={fontSize(LINE_GAP)}
+                          fontFamily={FONT_STACK} fill="currentColor"
                         >
-                          {beatsPerBar}
+                          {[...beatsPerBar].map((d) => timeSigDigit(Number(d))).join("")}
                         </text>
                         <text
-                          x={contentX - 4} y={STAFF_TOP + LINE_GAP * 3.6}
-                          textAnchor="middle" fontSize={7.5} fontWeight="700" fill="currentColor"
+                          x={contentX - LINE_GAP * 1.3} y={STAFF_TOP + LINE_GAP * 3}
+                          textAnchor="middle" fontSize={fontSize(LINE_GAP)}
+                          fontFamily={FONT_STACK} fill="currentColor"
                         >
-                          4
+                          {[...(timeSignature.split("/")[1] ?? "4")]
+                            .map((d) => timeSigDigit(Number(d)))
+                            .join("")}
                         </text>
                       </>
                     )}
@@ -461,29 +477,32 @@ function NoteHead({
     ? sigSet.has(key)
       ? ""
       : sp.acc === "b"
-        ? "♭"
-        : "♯"
+        ? GLYPH.flat
+        : GLYPH.sharp
     : sigSet.has(`${sp.letter}b`) || sigSet.has(`${sp.letter}#`)
-      ? "♮"
+      ? GLYPH.natural
       : "";
 
   // 오선 가운데(시4)보다 아래면 기둥을 위로 세운다
   const up = dia < BOTTOM_LINE + 4;
   // 악보에 적힌 길이. 없으면(뽑아낸 멜로디) 4분음표 모양으로 그린다.
   const value = note.value ?? 1;
-  const hollow = value >= 2;          // 온음표·2분음표는 속을 비운다
-  const stem = value < 4;             // 온음표에는 기둥이 없다
-  const flags = value <= 0.5 ? Math.round(Math.log2(0.5 / value)) + 1 : 0;
-  const rx = value >= 4 ? 3.2 : 2.7;
-  const sx = x + (up ? rx - 0.4 : -(rx - 0.4));
-  const sy = y + (up ? -10 - flags * 1.2 : 10 + flags * 1.2);
+  const size = fontSize(LINE_GAP);
+  // 기둥은 머리의 가장자리에 붙는다. 머리 폭의 절반이 그 자리다.
+  const half = (headWidth(value) * LINE_GAP) / 2;
+  const stemX = x + (up ? half - 0.35 : -half + 0.35);
+  // 기둥은 3.2칸. 오선 밖의 음은 가운뎃줄까지는 닿게 늘인다 — 악보의 약속이다.
+  const middle = noteY(BOTTOM_LINE + 4);
+  const plain = y + (up ? -LINE_GAP * 3.2 : LINE_GAP * 3.2);
+  const stemY = up ? Math.min(plain, middle) : Math.max(plain, middle);
+  const flag = flagGlyph(value, up);
 
   return (
     <g>
       {ledgers.map((ly, i) => (
         <line
           key={i}
-          x1={x - 3.6} x2={x + 3.6} y1={ly} y2={ly}
+          x1={x - LINE_GAP * 0.9} x2={x + LINE_GAP * 0.9} y1={ly} y2={ly}
           stroke="currentColor" strokeWidth={0.6} opacity={0.5}
         />
       ))}
@@ -491,59 +510,66 @@ function NoteHead({
       {/* 실제로 끈 길이. 적힌 음표 값과 다를 수 있다(붙임줄) */}
       {x2 > x + 2.5 && (
         <rect
-          x={x + 2.2} y={y - 0.8}
-          width={x2 - x - 2.2} height={1.6} rx={0.8}
-          fill="var(--accent)" opacity={now ? 0.5 : 0.22}
+          x={x + half} y={y - 0.8}
+          width={x2 - x - half} height={1.6} rx={0.8}
+          fill="var(--accent)" opacity={now ? 0.5 : 0.2}
         />
       )}
 
       {accidental && (
         <text
-          x={x - 5.4} y={y + 2.2}
-          fontSize={6} fill="currentColor" opacity={0.8}
+          x={x - half - LINE_GAP * 0.35} y={y}
+          textAnchor="end" fontSize={size} fontFamily={FONT_STACK}
+          fill="currentColor"
         >
           {accidental}
         </text>
       )}
 
-      {stem && (
+      {/* 온음표에는 기둥이 없다 */}
+      {value < 4 && (
         <line
-          x1={sx} x2={sx} y1={y} y2={sy}
-          stroke={color} strokeWidth={0.7}
+          x1={stemX} x2={stemX} y1={y} y2={stemY}
+          stroke={color} strokeWidth={LINE_GAP * 0.16}
         />
       )}
-      {/* 8분·16분음표의 꼬리 */}
-      {Array.from({ length: flags }, (_, i) => (
-        <path
-          key={i}
-          d={`M ${sx} ${sy + i * 2.2 * (up ? 1 : -1)} q 2.6 1.6 2.2 ${(up ? 4.4 : -4.4)}`}
-          fill="none" stroke={color} strokeWidth={0.7}
-        />
-      ))}
-      <ellipse
-        cx={x} cy={y} rx={rx} ry={2.1}
-        fill={hollow ? "none" : color}
-        stroke={hollow ? color : "none"}
-        strokeWidth={hollow ? 0.8 : 0}
-        transform={`rotate(-20 ${x} ${y})`}
-      />
-      {/* 점음표 */}
+      {flag && (
+        <text
+          x={stemX} y={stemY}
+          fontSize={size} fontFamily={FONT_STACK} fill={color}
+        >
+          {flag}
+        </text>
+      )}
+
+      <text
+        x={x} y={y}
+        textAnchor="middle" fontSize={size} fontFamily={FONT_STACK} fill={color}
+      >
+        {headGlyph(value)}
+      </text>
+
+      {/* 점음표. 줄 위에 앉은 음은 점을 한 칸 올려 찍는다 */}
       {Array.from({ length: note.dots ?? 0 }, (_, i) => (
-        <circle
+        <text
           key={i}
-          cx={x + rx + 1.6 + i * 1.8}
-          // 줄 위에 놓인 음은 점을 한 칸 올려 찍는다
-          cy={(dia - BOTTOM_LINE) % 2 === 0 ? y - STEP : y}
-          r={0.6} fill={color}
-        />
+          x={x + half + LINE_GAP * (0.45 + i * 0.45)}
+          y={(dia - BOTTOM_LINE) % 2 === 0 ? y - STEP : y}
+          fontSize={size} fontFamily={FONT_STACK} fill={color}
+        >
+          {GLYPH.dot}
+        </text>
       ))}
+
+      {/* 잇단음표 표시는 늘 오선 위에. 아래에 두면 계이름·가사와 겹친다. */}
       {note.triplet && (
         <text
-          x={x} y={up ? sy - 1.2 : sy + 4}
-          textAnchor="middle" fontSize={3.6} fontStyle="italic"
-          fill="currentColor" opacity={0.55}
+          x={x}
+          y={Math.min(STAFF_TOP - LINE_GAP * 0.5, y - LINE_GAP * 1.2, stemY - LINE_GAP * 0.4)}
+          textAnchor="middle" fontSize={size * 0.6} fontFamily={FONT_STACK}
+          fill="currentColor" opacity={0.7}
         >
-          3
+          {GLYPH.tuplet3}
         </text>
       )}
 
@@ -573,41 +599,18 @@ function NoteHead({
  * 온·2분쉼표는 줄에 걸린 네모, 4분쉼표는 지그재그, 8분 이하는 갈고리다.
  * 유니코드 음악 기호는 기기마다 없는 글꼴이 있어 직접 그린다.
  */
-function Rest({ x, value, dots }: { x: number; value: number; dots: number }) {
-  const mid = STAFF_TOP + LINE_GAP * 2;
-  const color = "currentColor";
-
-  if (value >= 4 || value === 2) {
-    // 온쉼표는 둘째 줄 아래에 매달고, 2분쉼표는 가운뎃줄 위에 얹는다
-    const y = value >= 4 ? STAFF_TOP + LINE_GAP : mid - 1.4;
-    return (
-      <g opacity={0.7}>
-        <rect x={x - 1.8} y={y} width={3.6} height={1.4} fill={color} />
-      </g>
-    );
-  }
-
-  if (value === 1) {
-    return (
-      <path
-        d={`M ${x - 1.1} ${mid - 5} L ${x + 1.1} ${mid - 2.2}
-            L ${x - 1.1} ${mid + 0.6} L ${x + 1.4} ${mid + 3.8}`}
-        fill="none" stroke={color} strokeWidth={1} opacity={0.7}
-        strokeLinecap="round" strokeLinejoin="round"
-      />
-    );
-  }
-
-  const hooks = Math.max(1, Math.round(Math.log2(0.5 / value)) + 1);
+function Rest({ x, value }: { x: number; value: number; dots: number }) {
   return (
-    <g opacity={0.7}>
-      <line
-        x1={x + 1.1} y1={mid - 3.4} x2={x - 0.9} y2={mid + 3.4}
-        stroke={color} strokeWidth={0.7}
-      />
-      {Array.from({ length: hooks }, (_, i) => (
-        <circle key={i} cx={x - 0.4} cy={mid - 3 + i * 2.4} r={0.8} fill={color} />
-      ))}
-    </g>
+    <text
+      x={x}
+      y={STAFF_TOP + LINE_GAP * restLine(value)}
+      textAnchor="middle"
+      fontSize={fontSize(LINE_GAP)}
+      fontFamily={FONT_STACK}
+      fill="currentColor"
+      opacity={0.85}
+    >
+      {restGlyph(value)}
+    </text>
   );
 }
