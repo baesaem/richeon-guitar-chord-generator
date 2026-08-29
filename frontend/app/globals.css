@@ -79,7 +79,10 @@ body {
 .app-scale {
   --app-zoom: 1;
   zoom: var(--app-zoom);
-  width: calc(100% / var(--app-zoom));
+  /* 퍼센트는 확대를 이미 셈하고 들어온다 — 여기서 또 나누면 화면
+     오른쪽에 그만큼 빈 자리가 남는다(1.28배면 22%). 반면 dvh는
+     확대를 모르는 화면 단위라 나누어야 한 화면에 딱 맞는다. */
+  width: 100%;
   height: calc(100dvh / var(--app-zoom));
 }
 @media (min-width: 768px) and (min-height: 600px) {
