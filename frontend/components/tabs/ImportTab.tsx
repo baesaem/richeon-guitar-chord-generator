@@ -253,8 +253,14 @@ export function ImportTab({
     );
   };
 
-  /** 한 곡 받기 버튼. 이미 받은 곡이 달라졌으면 물어보고 덮는다. */
-  const fetchShared = async (file: SharedFile) => {
+  /**
+   * 한 곡 받기 버튼. 이미 받은 곡이 달라졌으면 물어보고 덮는다.
+   *
+   * force면 같아 보여도 그냥 다시 받는다 — 「다시 받기」를 눌렀는데
+   * 「그대로 두었습니다」라고 하면 누른 사람은 아무 일도 일어나지
+   * 않았다고 느낀다. 겉으로 같아도 악보나 음원이 빠졌을 수 있다.
+   */
+  const fetchShared = async (file: SharedFile, force = false) => {
     setFetching(file.id);
     setSharedError(null);
     setSharedNotice(null);
@@ -272,7 +278,7 @@ export function ImportTab({
         });
         return;
       }
-      if (await alreadySame(results)) {
+      if (!force && (await alreadySame(results))) {
         await refreshFetched();
         setSharedNotice("이미 받은 것과 같습니다. 그대로 두었습니다.");
         return;
@@ -292,7 +298,7 @@ export function ImportTab({
    * 한 곡이 실패해도 멈추지 않는다 — 스무 곡 받다가 하나 깨졌다고 나머지
    * 열아홉 곡을 못 받으면 곤란하다. 끝에 몇 곡이 실패했는지 알려 준다.
    */
-  const fetchAll = async (files: SharedFile[]) => {
+  const fetchAll = async (files: SharedFile[], force = false) => {
     setSharedError(null);
     setSharedNotice(null);
     let songs = 0;
@@ -316,7 +322,7 @@ export function ImportTab({
           conflicts.push({ file, data, results, changes });
           continue;
         }
-        if (await alreadySame(results)) {
+        if (!force && (await alreadySame(results))) {
           same += 1;
           continue;
         }
@@ -768,7 +774,8 @@ export function ImportTab({
               <button
                 className="mb-2 w-full rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
                 disabled={fetching !== null}
-                onClick={() => fetchAll(visible)}
+                // 「다시 받기」로 적힌 자리에서는 무조건 다시 받는다
+                onClick={() => fetchAll(visible, filter === "fetched")}
               >
                 {fetching !== null
                   ? "받는 중…"
@@ -789,7 +796,7 @@ export function ImportTab({
                     <button
                       className="flex w-full items-center gap-2 py-2.5 text-left disabled:opacity-50"
                       disabled={fetching !== null}
-                      onClick={() => fetchShared(file)}
+                      onClick={() => fetchShared(file, done)}
                     >
                       <span className="min-w-0 flex-1 truncate text-sm">
                         {songTitleOf(file.name)}
