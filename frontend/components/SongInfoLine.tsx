@@ -38,7 +38,7 @@ export function SongInfoLine({
     /* 스크롤 밖에 붙여 둔다 — 싱크·마디 조절이 이 줄에 있는데, 악보를
        내리다 보면 줄이 위로 사라져 조절할 수가 없었다. 스크롤이 없는
        화면(재생 화면)에서는 sticky가 아무 일도 하지 않는다. */
-    <div className="sticky top-0 z-10 flex items-center gap-x-1.5 bg-[var(--background)] py-0.5 text-[11px] text-gray-500 roomy:gap-x-2.5 roomy:text-[14px]">
+    <div className="sticky top-0 z-10 flex items-center gap-x-1.5 bg-[var(--background)] py-1 text-[11px] text-gray-500 roomy:gap-x-2.5 roomy:text-[14px]">
       <div
         className="flex min-w-0 flex-1 items-center gap-x-2 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none" }}

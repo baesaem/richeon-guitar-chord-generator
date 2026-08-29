@@ -1538,7 +1538,10 @@ export default function Home() {
               </p>
             )}
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+            {/* 위쪽 여백을 두지 않는다. 여백이 있으면 스크롤한 악보가
+                그 틈으로 지나가, 붙박이 안내줄 위에 반쯤 보인다.
+                여백이 필요한 탭은 저마다 pt로 준다. */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
               {sheetTab === "score" && (
                 /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
                 <ChordScore
@@ -1663,7 +1666,7 @@ export default function Home() {
               )}
 
               {sheetTab === "lyrics" && (
-                <div className="text-[13px] leading-relaxed">
+                <div className="pt-2 text-[13px] leading-relaxed">
                   {/* 자동 자막에서 온 가사를 다듬는다. 서버가 있어야 한다 */}
                   {health && (result.lyrics ?? []).length > 1 && (
                     <button
@@ -1730,15 +1733,19 @@ export default function Home() {
               )}
 
               {sheetTab === "web" && (
+                <div className="pt-2">
                 <SheetFinder
                   resultId={result.id}
                   title={result.title}
                   online={!!health}
                 />
+                </div>
               )}
 
               {sheetTab === "mine" && (
-                <MySheet resultId={result.id} online={!!health} />
+                <div className="pt-2">
+                  <MySheet resultId={result.id} online={!!health} />
+                </div>
               )}
 
             </div>
