@@ -6,6 +6,7 @@ import {
   dropScore,
   dropSheetImage,
   moveSheetImage,
+  readSheetImage,
   putScore,
   putSheetImage,
 } from "@/lib/api";
@@ -41,7 +42,14 @@ export function ScoreAttach({
   const score = result.score as ScoreData | null | undefined;
   const align = result.score_align as ScoreAlign | null | undefined;
   const sheet = result.sheet as
-    | { bars: unknown[]; source: string; repeats: number; offset: number }
+    | {
+        bars: unknown[];
+        source: string;
+        repeats: number;
+        offset: number;
+        /** 부르는 차례. AI가 되돌이를 읽으면 적힌 마디보다 길어진다 */
+        passes?: unknown[][];
+      }
     | null
     | undefined;
 
@@ -59,6 +67,24 @@ export function ScoreAttach({
       onResult(await moveSheetImage(result.id, offset, repeats));
     } catch (e) {
       setError(e instanceof Error ? e.message : "옮기지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * 되돌이 표시를 AI에게 읽힌다.
+   *
+   * 도돌이표의 점 두 개는 그림에서도 찾히지만, 1·2번 괄호의 숫자와
+   * 「D.S. al Coda」 같은 글자는 모양만 봐서는 읽지 못한다.
+   */
+  const readMarks = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onResult(await readSheetImage(result.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "읽지 못했습니다");
     } finally {
       setBusy(false);
     }
@@ -144,6 +170,24 @@ export function ScoreAttach({
           · 그림 {sheet.bars.length}마디
           {sheet.source === "score" ? (
             " (악보 파일에 맞춤)"
+          ) : sheet.source === "repeat" ? (
+            <span className="text-emerald-600">
+              (악보 파일의 되돌이 · {sheet.passes?.[0]?.length ?? 0}마디 부름)
+            </span>
+          ) : sheet.source === "read" ? (
+            <>
+              <span className="text-emerald-600">
+                (AI가 읽은 되돌이 · {sheet.passes?.[0]?.length ?? 0}마디 부름)
+              </span>
+              <button
+                className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+                disabled={busy || !online}
+                onClick={() => void readMarks()}
+                title="AI에게 다시 읽힙니다"
+              >
+                다시 읽기
+              </button>
+            </>
           ) : (
             <>
               <span className="text-gray-500">
@@ -165,6 +209,14 @@ export function ScoreAttach({
                 title="악보를 한 마디 뒤로"
               >
                 ▶
+              </button>
+              <button
+                className="rounded bg-gray-200/70 px-1.5 py-0.5 font-semibold disabled:opacity-40 dark:bg-gray-700"
+                disabled={busy || !online}
+                onClick={() => void readMarks()}
+                title="도돌이표·1·2번 괄호·D.S.를 AI가 읽어 부르는 차례를 폅니다"
+              >
+                AI로 되돌이 읽기
               </button>
               <select
                 className="rounded bg-gray-200/70 px-1 py-0.5 dark:bg-gray-700"

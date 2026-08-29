@@ -47,6 +47,15 @@ export interface SongSetup {
    * 아르페지오와 같은 대접 — 강사님이 정한 패턴이 곡에 붙어 다닌다.
    */
   strum: string;
+  /**
+   * 악보에 코드를 얹을지.
+   *
+   * 멜로디만 그려진 악보는 코드가 없어 기타를 칠 수가 없다 — 음원에서
+   * 딴 코드를 얹어 준다. 그런데 그림만으로는 인쇄된 코드가 있는지 알
+   * 길이 없어, 이미 적힌 악보에 얹으면 글자가 겹친다. 그래서 곡마다
+   * 강사님이 켜 준다. 켠 값은 곡 파일에 실려 수강생에게도 간다.
+   */
+  autoChords: boolean;
 }
 
 export const DEFAULT_SETUP: SongSetup = {
@@ -57,6 +66,7 @@ export const DEFAULT_SETUP: SongSetup = {
   lyricSync: 0,
   arp: 0,
   strum: "",
+  autoChords: false,
 };
 
 function readAll(): Record<string, SongSetup> {
@@ -90,7 +100,8 @@ export function saveSetup(songId: string, setup: SongSetup): void {
       setup.sync === 0 &&
       setup.lyricSync === 0 &&
       setup.arp === 0 &&
-      setup.strum === "";
+      setup.strum === "" &&
+      !setup.autoChords;
     if (untouched) delete all[songId];
     else all[songId] = setup;
     localStorage.setItem(KEY, JSON.stringify(all));

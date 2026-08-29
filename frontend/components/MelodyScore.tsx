@@ -120,6 +120,11 @@ interface Props {
   onSeek?: (t: number) => void;
   /** 관리자에게만 「손볼 마디」 표시를 보인다 */
   showChecks?: boolean;
+  /**
+   * 악보에 코드가 적혀 있지 않을 때 음원에서 딴 코드를 얹을지.
+   * 곡마다 강사님이 켠다 — 그림만으로는 인쇄된 코드가 있는지 알 수 없다.
+   */
+  autoChords?: boolean;
   /** 음표 아래 계이름(도·레·미)을 적을지. 원본 악보에는 없다 */
   solfege?: boolean;
   onSolfege?: () => void;
@@ -157,6 +162,7 @@ export function MelodyScore({
   visibleLines,
   onSeek,
   showChecks = false,
+  autoChords = false,
   solfege = false,
   onSolfege,
 }: Props) {
@@ -172,9 +178,18 @@ export function MelodyScore({
   const view = useMemo(
     () =>
       usingScore
-        ? viewFromScore(score!, align!, pass, transpose, flats, chords)
+        ? viewFromScore(
+            score!,
+            align!,
+            pass,
+            transpose,
+            flats,
+            // 악보에 코드가 없을 때 대신 얹을 것. 곡마다 켜 준 때에만
+            // 넘긴다 — 인쇄된 코드가 있는 악보에 겹쳐 적으면 안 된다.
+            autoChords ? chords : undefined,
+          )
         : viewFromMelody(bars, chords, melody, lyrics, transpose, flats),
-    [usingScore, score, align, pass, bars, chords, melody, lyrics, transpose, flats],
+    [usingScore, score, align, pass, bars, chords, melody, lyrics, transpose, flats, autoChords],
   );
 
   // 지금 마디. 시각을 알면 그것으로 찾는다 — 악보를 쓰면 마디 번호가

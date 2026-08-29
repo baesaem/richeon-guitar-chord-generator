@@ -167,6 +167,18 @@ export const moveSheetImage = (id: string, offset: number, repeats: number) =>
     body: JSON.stringify({ offset, repeats }),
   }).then(json<AnalysisResult>);
 
+/**
+ * 악보 그림에서 되돌이 표시를 AI로 읽는다.
+ *
+ * 도돌이표의 점 두 개는 그림에서도 찾히지만, 1·2번 괄호의 숫자와
+ * 「D.S. al Coda」 같은 글자는 모양만 봐서는 읽지 못한다. 그림을 AI에게
+ * 보여 주고 읽게 해, 부르는 차례를 편다.
+ */
+export const readSheetImage = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/sheet/read`, { method: "POST" }).then(
+    json<AnalysisResult>,
+  );
+
 export const dropSheetImage = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}/sheet`, { method: "DELETE" }).then(
     json<AnalysisResult>,

@@ -118,6 +118,8 @@ export default function Home() {
   const [arp, setArp] = useState(0);
   // 직접 고른 스트로크 패턴 이름. 빈 문자열이면 자동 추천
   const [strumName, setStrumName] = useState("");
+  /** 악보에 코드를 얹을지(곡마다). 멜로디만 그려진 악보에 쓴다 */
+  const [autoChords, setAutoChords] = useState(false);
   // 가사 보기: 켜면 코드 박스와 곡 전체 코드 자리를 가사가 대신 쓴다
   const [showLyrics, setShowLyrics] = useState(false);
   // 곡 전체 악보 모달
@@ -320,6 +322,7 @@ export default function Home() {
     setLyricSync(setup.lyricSync);
     setArp(setup.arp);
     setStrumName(setup.strum);
+    setAutoChords(setup.autoChords);
     addRecent(r.id, r.title || r.id);
   };
 
@@ -601,8 +604,9 @@ export default function Home() {
     if (!result) return;
     saveSetup(result.id, {
       transpose, rate, loop, sync, lyricSync, arp, strum: strumName,
+      autoChords,
     });
-  }, [result?.id, transpose, rate, loop, sync, lyricSync, arp, strumName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [result?.id, transpose, rate, loop, sync, lyricSync, arp, strumName, autoChords]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 연주설정에서 기본값과 달라진 것만 모은다. 악보 안내줄에 적어
   // "지금 무슨 설정으로 보고 있는지"를 늘 눈에 두게 한다.
@@ -807,13 +811,9 @@ export default function Home() {
    * 음원 코드는 원곡 조다. 카포를 끼운 만큼 내려 적어야 손가락과 맞는다.
    */
   const autoSheetChords = useMemo(() => {
-    const sc = (result?.score ?? null) as { bars?: { chords?: unknown[] }[] } | null;
-    // 악보 파일이 붙어 있어야 「코드가 없다」고 말할 수 있다. 그림만
-    // 있으면 인쇄된 코드가 있는지 알 길이 없는데, 얹어 버리면 적혀
-    // 있는 코드 위에 겹쳐 둘 다 못 읽게 된다.
-    if (!sc?.bars?.length) return undefined;
-    const written = sc.bars.some((b) => (b.chords ?? []).length > 0);
-    if (written || !result?.chords?.length) return undefined;
+    // 그림만으로는 인쇄된 코드가 있는지 알 길이 없다. 적혀 있는 악보에
+    // 얹으면 글자가 겹쳐 둘 다 못 읽게 되므로, 곡마다 켜 준 때에만 얹는다.
+    if (!autoChords || !result?.chords?.length) return undefined;
     return result.chords
       .filter((c) => c.root)
       .map((c) => ({
@@ -821,7 +821,7 @@ export default function Home() {
         end: c.end,
         label: labelFor(transposeRoot(c.root, noteShift), c.quality, flats),
       }));
-  }, [result?.score, result?.chords, noteShift, flats]);
+  }, [autoChords, result?.chords, noteShift, flats]);
 
 
   // 지금 보고 있는 메뉴의 이름. 넓은 화면에서는 사이드바가 앱 이름을
@@ -1050,6 +1050,8 @@ export default function Home() {
                   onLoop={setLoop}
                   arp={arp}
                   onArp={setArp}
+                  autoChords={autoChords}
+                  onAutoChords={setAutoChords}
                   timeSignature={result.time_signature}
                   bpm={result.bpm}
                   strumName={strumName}
@@ -1328,6 +1330,7 @@ export default function Home() {
                   score={(result.score ?? null) as never}
                   align={(result.score_align ?? null) as never}
                   showChecks={settings.adminMode}
+                  autoChords={autoChords}
                   getTime={
                     playback
                       ? () => playback.getTime() + lyricSync - settings.latency
@@ -1578,6 +1581,8 @@ export default function Home() {
                   onLoop={setLoop}
                   arp={arp}
                   onArp={setArp}
+                  autoChords={autoChords}
+                  onAutoChords={setAutoChords}
                   timeSignature={result.time_signature}
                   bpm={result.bpm}
                   strumName={strumName}
@@ -1745,6 +1750,7 @@ export default function Home() {
                     score={(result.score ?? null) as never}
                     align={(result.score_align ?? null) as never}
                     showChecks={settings.adminMode}
+                    autoChords={autoChords}
                     getTime={
                       playback
                         ? () => playback.getTime() + lyricSync - settings.latency

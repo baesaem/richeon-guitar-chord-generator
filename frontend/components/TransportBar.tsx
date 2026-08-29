@@ -30,6 +30,9 @@ interface Props {
   /** 주법. 0 = 스트로크, 1~ = 아르페지오 패턴 번호 */
   arp?: number;
   onArp?: (no: number) => void;
+  /** 악보에 코드를 얹을지(곡마다). 멜로디만 그려진 악보에 쓴다 */
+  autoChords?: boolean;
+  onAutoChords?: (on: boolean) => void;
   /** 아르페지오 패턴 추천에 쓴다 */
   timeSignature?: string;
   bpm?: number;
@@ -371,6 +374,28 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                   {props.vocalError}
                 </p>
               )}
+            </>
+          )}
+
+          {/* ---- 악보에 코드 넣기 ---- */}
+          {props.onAutoChords && (
+            <>
+              <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={!!props.autoChords}
+                  onChange={(e) => props.onAutoChords?.(e.target.checked)}
+                />
+                <span>
+                  <span className="text-sm font-medium">악보에 코드 넣기</span>
+                  <span className="block text-[11px] leading-snug text-gray-500">
+                    멜로디만 그려진 악보에 음원에서 딴 코드를 얹습니다.
+                    코드가 이미 적힌 악보에는 켜지 마세요 — 글자가 겹칩니다.
+                  </span>
+                </span>
+              </label>
             </>
           )}
 

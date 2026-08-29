@@ -29,6 +29,7 @@ from . import (
     score_align,
     score_file,
     sheet_layout,
+    sheet_read,
     sheet_score,
 )
 from .llm import pick_model, rank_models
@@ -902,6 +903,13 @@ async def put_score(result_id: str, file: UploadFile = File(...)) -> AnalysisRes
     return result
 
 
+def _sheet_source(result_id: str) -> Path | None:
+    """붙여 둔 악보 그림의 원본(PDF·사진). 쪽 그림과 악보 파일은 뺀다."""
+    for path in sorted(_sheet_dir().glob(f"{result_id}.*")):
+        return path
+    return None
+
+
 def _page_path(result_id: str, index: int) -> Path:
     return _sheet_dir() / f"{result_id}__p{index}.png"
 
@@ -970,8 +978,62 @@ async def put_sheet(
     (_sheet_dir() / f"{result_id}{suffix}").write_bytes(data)
 
     result.sheet = sheet_score.build(
-        pages, result.model_dump(), result.score_align, offset, repeats
+        pages,
+        result.model_dump(),
+        result.score_align,
+        offset,
+        repeats,
+        score=result.score,
     )
+    save_result(result)
+    return result
+
+
+@app.post("/api/results/{result_id}/sheet/read")
+async def read_sheet(result_id: str) -> AnalysisResult:
+    """악보 그림에서 되돌이 표시를 AI로 읽어 부르는 차례를 만든다.
+
+    악보 파일(.mscz·MusicXML)이 붙어 있으면 이 길이 필요 없다 — 거기엔
+    도돌이표도 D.S.도 글자로 적혀 있다. 그림뿐일 때, 1·2번 괄호의
+    숫자와 「D.S. al Coda」 같은 글자를 읽어 낼 다른 방법이 없어 쓴다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    if not result.sheet:
+        raise HTTPException(400, "먼저 악보 그림을 붙여 주세요")
+
+    src = _sheet_source(result_id)
+    if src is None:
+        raise HTTPException(400, "악보 원본이 없습니다. 그림을 다시 붙여 주세요")
+
+    data = src.read_bytes()
+    try:
+        if src.suffix.lower() == ".pdf":
+            pages, images = await asyncio.to_thread(sheet_layout.from_pdf, data)
+        else:
+            pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
+    except Exception as exc:
+        raise HTTPException(400, f"악보를 읽지 못했습니다: {exc}") from exc
+
+    try:
+        got = await asyncio.to_thread(sheet_read.read, pages, images)
+    except Exception as exc:
+        raise HTTPException(400, f"AI가 읽지 못했습니다: {exc}") from exc
+
+    sheet = dict(result.sheet)
+    result.sheet = sheet_score.build(
+        pages,
+        result.model_dump(),
+        result.score_align,
+        float(sheet.get("offset", 0.0) or 0.0),
+        1,
+        order=got["order"],
+        score=result.score,
+    )
+    result.sheet["read"] = got["found"]
     save_result(result)
     return result
 
