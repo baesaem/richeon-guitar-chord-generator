@@ -58,6 +58,14 @@ interface Props {
   resultId: string;
   sheet: SheetData;
   time: number;
+  /**
+   * 지금 재생 위치를 바로 읽는 길.
+   *
+   * 바깥의 time은 초당 네 번만 갱신된다(화면 전체를 다시 그리는 값이라
+   * 그보다 자주 바꾸면 무겁다). 그 값으로 진행 바를 그리면 최대 0.25초
+   * 뒤처져 보인다. 이 창만 제 시계로 매 프레임 따라간다.
+   */
+  getTime?: () => number;
   /** 그림 위에 덮어쓸 코드. 마디마다 [{at 0~1, label}] */
   /**
    * 그림 위에 덮어쓸 코드.
@@ -95,10 +103,42 @@ interface Props {
  * 인쇄된 코드가 원곡과 다르기 때문이다(하얀나비는 악보 사장조,
  * 원곡 가장조).
  */
+/**
+ * 재생 위치를 매 프레임 따라가는 시계.
+ *
+ * 바깥은 초당 네 번만 알려 준다 — 화면 전체를 다시 그리는 값이라
+ * 그보다 자주 바꾸면 무겁기 때문이다. 진행 바는 그래서는 안 되므로
+ * 이 창만 따로 읽는다. 다시 그리는 것은 악보 한 칸뿐이다.
+ */
+function useSmoothTime(time: number, getTime?: () => number): number {
+  const [now, setNow] = useState(time);
+  useEffect(() => {
+    if (!getTime) {
+      setNow(time);
+      return;
+    }
+    let raf = 0;
+    let last = -1;
+    const frame = () => {
+      const t = getTime();
+      // 30분의 1초보다 잘게 바꿔 봐야 눈에 띄지 않는다
+      if (Math.abs(t - last) > 0.03) {
+        last = t;
+        setNow(t);
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [getTime, time]);
+  return getTime ? now : time;
+}
+
 export function SheetScore({
   resultId,
   sheet,
-  time,
+  time: rawTime,
+  getTime,
   chords,
   showChords,
   onZoom,
@@ -110,6 +150,7 @@ export function SheetScore({
   lines = 2,
   barsView = 4,
 }: Props) {
+  const time = useSmoothTime(rawTime, getTime);
   const pass = passAt(sheet, time);
   const steps = sheet.passes[pass] ?? [];
 

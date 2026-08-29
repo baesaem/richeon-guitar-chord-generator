@@ -858,9 +858,7 @@ export default function Home() {
                   {(
                     [
                       ["sheet", "코드악보"] as const,
-                      ...(hasMelody
-                        ? [["melody", sheetImg ? "악보" : "멜로디"] as const]
-                        : []),
+                      ...(hasMelody ? [["melody", "멜로디"] as const] : []),
                       ["wave", "파형"] as const,
                     ]
                   ).map(([value, label]) => (
@@ -1017,6 +1015,11 @@ export default function Home() {
                       // 악보는 코드와 같은 것을 짚는 도구다. 가사 싱크가
                       // 아니라 코드 싱크(연주설정)로 맞춘다.
                       time={time + sync - settings.latency}
+                      getTime={
+                        playback
+                          ? () => playback.getTime() + sync - settings.latency
+                          : undefined
+                      }
                       chords={sheetChordList}
                       // 음높이를 바꾸면 인쇄된 코드가 어긋난다. 그때만
                       // 우리 코드를 덮어쓴다 — 손대지 않았으면 원본이 옳다.
@@ -1465,6 +1468,11 @@ export default function Home() {
                   resultId={result.id}
                   sheet={sheetImg}
                   time={time + sync - settings.latency}
+                  getTime={
+                    playback
+                      ? () => playback.getTime() + sync - settings.latency
+                      : undefined
+                  }
                   chords={sheetChordList}
                   showChords={transpose !== 0}
                   musicKey={result.key}
