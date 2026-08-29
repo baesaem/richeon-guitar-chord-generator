@@ -655,7 +655,8 @@ export default function Home() {
     <div className="app-scale flex overflow-x-hidden">
       <SideNav tab={tab} onChange={setTab} />
 
-      <div className="mx-auto flex h-full min-w-0 w-full max-w-2xl flex-col md:mx-0 md:max-w-none md:border-l md:border-gray-200 md:dark:border-gray-800">
+      {/* 본문은 화면 폭을 그대로 쓴다. 폰에서만 너무 넓어지지 않게 모은다 */}
+      <div className="mx-auto flex h-full min-w-0 w-full max-w-2xl flex-col sm:max-w-none md:mx-0 md:border-l md:border-gray-200 md:dark:border-gray-800">
       {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바. */}
       <header className="shrink-0 bg-[var(--bar-bg)]">
         <div className="flex items-center gap-2.5 px-3 py-2 roomy:gap-3 roomy:px-5 roomy:py-4">
@@ -1346,7 +1347,7 @@ export default function Home() {
           onClick={() => setShowSheet(false)}
         >
           <div
-            className="mx-auto flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-[var(--background)] shadow-xl"
+            className="mx-auto flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-[var(--background)] shadow-xl sm:max-w-none"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-gray-800">
