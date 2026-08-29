@@ -1051,10 +1051,16 @@ async def move_sheet(result_id: str, body: dict) -> AnalysisResult:
     count = len(sheet.get("bars") or [])
     offset = float(body.get("offset", sheet.get("offset", 0.0)))
     repeats = int(body.get("repeats", sheet.get("repeats", 1)))
+    # 밀기만 하는 것이지 되돌이를 잊는 것이 아니다. AI가 읽어 둔 차례나
+    # 악보 파일의 차례가 있으면 그대로 지킨다 — 여기서 잃으면 밀 때마다
+    # 도돌이가 통째로 날아간다.
+    order = sheet.get("order") or sheet_score._order_of(result.score, count)
     sheet["passes"] = sheet_score.times_from_grid(
-        result.model_dump(), count, offset, repeats
+        result.model_dump(), count, offset, repeats, order
     )
-    sheet["source"] = "grid"
+    # 차례를 어디서 얻었는지는 그대로 둔다 — 미는 일과 상관이 없다
+    was = str(sheet.get("source") or "")
+    sheet["source"] = was if (order and was in ("read", "repeat")) else ("repeat" if order else "grid")
     sheet["offset"] = offset
     sheet["repeats"] = repeats
     result.sheet = sheet
