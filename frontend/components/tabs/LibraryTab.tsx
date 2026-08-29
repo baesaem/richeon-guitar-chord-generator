@@ -266,7 +266,17 @@ export function LibraryTab({
             );
           }
           step = "드라이브에 올리기";
-          await driveUpload(klass.folderId, bundleFileName(bundle), blob);
+          await driveUpload(
+            klass.folderId,
+            bundleFileName(bundle),
+            blob,
+            (part, of) =>
+              setWorking(
+                of > 1
+                  ? `드라이브에 올리는 중 (${done + 1}/${ids.length}) · ${part}/${of}토막`
+                  : `드라이브에 올리는 중 (${done + 1}/${ids.length})`,
+              ),
+          );
         } catch (e) {
           throw new Error(`${id} — ${step}에서 막혔습니다: ${(e as Error).message}`);
         }

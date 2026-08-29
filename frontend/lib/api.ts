@@ -203,16 +203,45 @@ export const driveDisconnect = () =>
     json<{ connected: boolean }>,
   );
 
+/**
+ * 한 번에 보낼 수 있는 크기.
+ *
+ * 개발 서버(:3000)가 백엔드로 넘겨 주는 길이 10MB에서 끊긴다. 곡
+ * 하나가 15MB쯤 되므로 그냥 보내면 서버에 닿지도 못하고 500이 된다.
+ * 여유를 두고 5MB씩 나눈다.
+ */
+const CHUNK = 5 * 1024 * 1024;
+
 /** 공유 폴더에 파일 하나를 올린다. 같은 이름이 있으면 갈아 끼운다. */
-export const driveUpload = (folder: string, name: string, blob: Blob) => {
-  const fd = new FormData();
-  fd.append("folder", folder);
-  fd.append("name", name);
-  fd.append("file", blob, name);
-  return fetch(`${apiBase()}/api/drive/upload`, { method: "POST", body: fd }).then(
-    json<{ id: string; name: string; replaced: boolean }>,
-  );
-};
+export async function driveUpload(
+  folder: string,
+  name: string,
+  blob: Blob,
+  onProgress?: (done: number, of: number) => void,
+): Promise<{ id: string; name: string; replaced: boolean }> {
+  const count = Math.max(Math.ceil(blob.size / CHUNK), 1);
+  // 토막마다 같은 표를 달아 서버가 이어 붙일 수 있게 한다
+  const session = `u${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+
+  let last: unknown = null;
+  for (let i = 0; i < count; i++) {
+    const fd = new FormData();
+    fd.append("folder", folder);
+    fd.append("name", name);
+    fd.append("file", blob.slice(i * CHUNK, (i + 1) * CHUNK), name);
+    if (count > 1) {
+      fd.append("session", session);
+      fd.append("index", String(i));
+      fd.append("count", String(count));
+    }
+    last = await fetch(`${apiBase()}/api/drive/upload`, {
+      method: "POST",
+      body: fd,
+    }).then(json<unknown>);
+    onProgress?.(i + 1, count);
+  }
+  return last as { id: string; name: string; replaced: boolean };
+}
 
 export interface LlmSettings {
   configured: boolean;

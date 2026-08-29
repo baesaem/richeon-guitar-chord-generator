@@ -167,21 +167,58 @@ async def drive_disconnect() -> dict:
     return {"connected": False}
 
 
+def _part_path(session: str) -> Path:
+    """나누어 받는 파일을 모으는 자리."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{6,64}", session):
+        raise HTTPException(400, "올리기 표가 올바르지 않습니다")
+    path = settings.result_dir.parent / "uploads"
+    path.mkdir(parents=True, exist_ok=True)
+    return path / f"{session}.part"
+
+
+#: 나누어 받아도 이보다 큰 것은 받지 않는다. 곡 하나가 이만큼 되면
+#: 무언가 잘못된 것이다(반주가 wav로 남아 있다든지).
+_UPLOAD_MAX_BYTES = 200 * 1024 * 1024
+
+
 @app.post("/api/drive/upload")
 async def drive_put(
     folder: str = Form(...),
     name: str = Form(...),
     file: UploadFile = File(...),
+    session: str = Form(""),
+    index: int = Form(0),
+    count: int = Form(1),
 ) -> dict:
-    """공유 폴더에 파일을 올린다. 같은 이름이 있으면 갈아 끼운다."""
+    """공유 폴더에 파일을 올린다. 같은 이름이 있으면 갈아 끼운다.
+
+    큰 파일은 토막으로 나뉘어 온다. 개발 서버(:3000)가 백엔드로 넘겨
+    주는 길에 10MB를 넘기지 못해서다 — 곡 하나가 15MB쯤 되므로 그냥
+    보내면 서버에 닿지도 못하고 끊긴다. 토막을 이어 붙였다가 마지막
+    토막이 오면 한 번에 올린다.
+    """
     data = await file.read()
+    mime = file.content_type or "application/octet-stream"
+
+    if count > 1:
+        part = _part_path(session)
+        if index == 0:
+            part.unlink(missing_ok=True)
+        elif not part.exists():
+            raise HTTPException(400, "앞 토막이 없습니다. 처음부터 다시 올려 주세요")
+        with part.open("ab") as fh:
+            fh.write(data)
+        if part.stat().st_size > _UPLOAD_MAX_BYTES:
+            part.unlink(missing_ok=True)
+            raise HTTPException(413, "파일이 너무 큽니다")
+        if index < count - 1:
+            return {"partial": True, "received": index + 1, "of": count}
+        data = part.read_bytes()
+        part.unlink(missing_ok=True)
+
     try:
         return await asyncio.to_thread(
-            drive_upload.upload,
-            folder,
-            name,
-            data,
-            file.content_type or "application/octet-stream",
+            drive_upload.upload, folder, name, data, mime
         )
     except drive_upload.DriveError as exc:
         raise HTTPException(400, str(exc)) from exc
