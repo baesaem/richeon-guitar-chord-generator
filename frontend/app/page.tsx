@@ -1502,13 +1502,15 @@ export default function Home() {
               <div className="flex min-h-0 flex-1 flex-col md:order-1 md:min-w-0 md:overflow-y-auto">
 
               <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
-              {/* 코드악보/파형 세그먼트 + 연주설정·영상접기. 글자 크기를 통일한 한 줄.
-                  코드악보를 왼쪽에 둔다 — 주로 보는 화면이라 손이 먼저 간다. */}
+              {/* 타브/파형 세그먼트 + 연주설정·영상접기. 글자 크기를 통일한 한 줄.
+                  타브를 왼쪽에 둔다 — 주로 보는 화면이라 손이 먼저 간다. */}
               <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800 roomy:gap-2 roomy:px-3 roomy:py-2.5">
                 <div className="flex min-w-0 flex-1 rounded-lg bg-gray-200/70 p-0.5 dark:bg-gray-800">
                   {(
                     [
-                      ["sheet", "코드악보"] as const,
+                      // 여섯 줄 타브다. 전체보기와 같은 이름을 쓴다 —
+                      // 같은 것을 두 이름으로 부르면 헷갈린다.
+                      ["sheet", "타브"] as const,
                       ["melody", "멜로디"] as const,
                       ["wave", "파형"] as const,
                     ]
@@ -2157,7 +2159,7 @@ function NoMelody({ admin }: { admin: boolean }) {
       <p className="mt-1.5 text-[12px] leading-5 text-gray-500">
         {admin
           ? "이 곡에 악보 파일(.mscz)이나 악보 그림(PDF)을 붙이면 멜로디가 나옵니다."
-          : "악보가 붙은 음원을 받으시면 이 자리에 멜로디가 나옵니다. 코드악보와 파형은 그대로 쓰실 수 있습니다."}
+          : "악보가 붙은 음원을 받으시면 이 자리에 멜로디가 나옵니다. 타브와 파형은 그대로 쓰실 수 있습니다."}
       </p>
     </div>
   );
