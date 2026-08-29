@@ -422,7 +422,8 @@ export function MelodyScore({
                         key={k}
                         x={at(c.t)} y={chordY}
                         textAnchor="start" fontSize={chordFont} fontWeight="700"
-                        fill="currentColor"
+                        // 음원에서 딴 코드는 빨강. 악보에 적힌 것과 갈린다.
+                        fill={c.auto ? "#d32020" : "currentColor"}
                       >
                         {svgLabel(c.label)}
                       </text>

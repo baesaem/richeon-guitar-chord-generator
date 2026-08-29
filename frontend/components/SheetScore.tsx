@@ -547,9 +547,9 @@ function SystemRow({
             className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[8.5px] font-extrabold leading-[1.15] roomy:text-[11px]"
             style={{
               left: `${x * 100}%`,
-              // 인쇄된 코드를 덮어쓴 것이니 또렷해야 한다. 강조색을
-              // 그대로 쓰면 흰 바탕에서 옅어 인쇄 글자보다 흐려 보인다.
-              color: "color-mix(in srgb, var(--accent) 65%, #000)",
+              // 빨강. 인쇄된 검은 글자와 한눈에 갈린다 — 어느 것이 악보에
+              // 적힌 코드이고 어느 것이 앱이 적은 코드인지 헷갈리면 안 된다.
+              color: "#d32020",
               // 인쇄된 코드는 오선 바로 위 한 칸쯤에 앉는다. 그 자리를
               // 덮도록 오선 윗줄보다 조금 올려 놓는다.
               bottom: `${(1 - (first.top - top - (first.bottom - first.top) * 0.3) / height) * 100}%`,

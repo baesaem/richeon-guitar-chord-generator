@@ -76,7 +76,8 @@ export interface ViewBar {
   end: number;
   /** 이 마디의 길이(박). 인쇄 악보처럼 자리를 나누는 데 쓴다 */
   beats?: number;
-  chords: { t: number; label: string }[];
+  /** auto면 악보에 적힌 것이 아니라 음원에서 딴 코드다(빨강으로 적는다) */
+  chords: { t: number; label: string; auto?: boolean }[];
   /** 쉼표. 어디서 쉬는지 보이지 않으면 리듬을 읽을 수 없다 */
   rests: { t: number; end: number; value: number; dots: number }[];
   /** 서버가 「가사가 어긋난다」고 표시한 마디인가 */
