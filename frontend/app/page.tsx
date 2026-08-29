@@ -808,7 +808,11 @@ export default function Home() {
    */
   const autoSheetChords = useMemo(() => {
     const sc = (result?.score ?? null) as { bars?: { chords?: unknown[] }[] } | null;
-    const written = (sc?.bars ?? []).some((b) => (b.chords ?? []).length > 0);
+    // 악보 파일이 붙어 있어야 「코드가 없다」고 말할 수 있다. 그림만
+    // 있으면 인쇄된 코드가 있는지 알 길이 없는데, 얹어 버리면 적혀
+    // 있는 코드 위에 겹쳐 둘 다 못 읽게 된다.
+    if (!sc?.bars?.length) return undefined;
+    const written = sc.bars.some((b) => (b.chords ?? []).length > 0);
     if (written || !result?.chords?.length) return undefined;
     return result.chords
       .filter((c) => c.root)

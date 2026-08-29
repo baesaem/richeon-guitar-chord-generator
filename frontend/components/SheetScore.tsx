@@ -415,9 +415,12 @@ function SystemRow({
     start === 0
       ? Math.max(page?.left ?? 0, 0)
       : Math.max(sheet.bars[rowBars[start]].x0 - pad, 0);
+  // 줄의 마지막 마디까지 보일 때는 쪽 오른쪽 끝에 맞춘다. 여기에 또
+  // 여유를 더하면 오선 오른쪽에 흰 자리가 남아 악보가 작아 보인다.
+  const lastOne = start + count >= rowBars.length;
   const x1 = Math.min(
     sheet.bars[rowBars[Math.min(start + count, rowBars.length) - 1]].x1 + pad,
-    1,
+    lastOne ? (page?.right ?? 1) : 1,
   );
   const viewW = Math.max(x1 - x0, 0.02);
   /** 쪽 가로 자리(0~1) → 창 안의 자리(0~1) */

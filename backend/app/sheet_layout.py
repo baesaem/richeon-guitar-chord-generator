@@ -284,7 +284,10 @@ def _view_bands(ink: np.ndarray, systems: list[System]) -> None:
     for i, s in enumerate(systems):
         staff = max(s.bottom - s.top, 1)
         if i == 0:
-            s.view_top = max(s.top - staff, 0)
+            # 첫 줄 위에도 코드가 적혀 있다. 오선 높이만큼만 띄우면 그
+            # 글자를 반으로 자른다 — 오선 위 세 뼘 안에서 가장 넓게 빈
+            # 자리를 찾아 거기서 끊는다. 제목까지 올라가지는 않는다.
+            s.view_top = _split(ink, max(s.top - staff * 3, 0), s.top)
         else:
             s.view_top = _split(ink, systems[i - 1].bottom + 1, s.top)
         if i + 1 < len(systems):
