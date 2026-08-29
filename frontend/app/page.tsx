@@ -80,6 +80,10 @@ import {
 } from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
 
+/** 전체보기 탭 줄의 되감기·정지·끝으로 단추 */
+const TRANSPORT =
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-200/70 text-gray-700 disabled:opacity-40 dark:bg-gray-700 dark:text-gray-200";
+
 export default function Home() {
   const [tab, setTab] = useState<Tab>("home");
   // 홈에서 「기타반」으로 들어오면 그 카드를 바로 펼친다
@@ -1413,27 +1417,78 @@ export default function Home() {
                 여기 없으면 창을 닫았다 열었다 하며 재생해야 한다. 줄은
                 스크롤 밖이라 어느 탭에서든 늘 같은 자리에 있다. */}
             <div className="flex shrink-0 items-center gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
-              <button
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white disabled:opacity-40"
-                disabled={!playback}
-                aria-label={playing ? "멈춤" : "재생"}
-                onClick={() => {
-                  if (!playback) return;
-                  if (playback.isPlaying()) playback.pause();
-                  else playback.play();
-                }}
-              >
-                {playing ? (
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
-                    <rect x="6" y="5" width="4" height="14" rx="1" />
-                    <rect x="14" y="5" width="4" height="14" rx="1" />
+              {/* 되감기·재생·정지·끝으로. 창이 영상을 가리므로 여기에 둔다 */}
+              <span className="flex shrink-0 items-center gap-0.5">
+                <button
+                  className={TRANSPORT}
+                  disabled={!playback}
+                  aria-label="처음으로"
+                  title="처음으로"
+                  onClick={() => {
+                    playback?.seek(0);
+                    setTime(0);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+                    <rect x="5" y="5" width="2.5" height="14" rx="1" />
+                    <path d="M20 5.5v13L9.5 12z" />
                   </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" className="ml-0.5 h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
-                    <path d="M7 4.5v15l13-7.5z" />
+                </button>
+                <button
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white disabled:opacity-40"
+                  disabled={!playback}
+                  aria-label={playing ? "멈춤" : "재생"}
+                  title={playing ? "멈춤" : "재생"}
+                  onClick={() => {
+                    if (!playback) return;
+                    if (playback.isPlaying()) playback.pause();
+                    else playback.play();
+                  }}
+                >
+                  {playing ? (
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                      <rect x="6" y="5" width="4" height="14" rx="1" />
+                      <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" className="ml-0.5 h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                      <path d="M7 4.5v15l13-7.5z" />
+                    </svg>
+                  )}
+                </button>
+                {/* 정지는 멈추고 처음으로 되돌린다 — 「멈춤」과 다른 점이다 */}
+                <button
+                  className={TRANSPORT}
+                  disabled={!playback}
+                  aria-label="정지"
+                  title="정지 — 멈추고 처음으로"
+                  onClick={() => {
+                    playback?.pause();
+                    playback?.seek(0);
+                    setTime(0);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+                    <rect x="6" y="6" width="12" height="12" rx="1.5" />
                   </svg>
-                )}
-              </button>
+                </button>
+                <button
+                  className={TRANSPORT}
+                  disabled={!playback}
+                  aria-label="끝으로"
+                  title="끝으로"
+                  onClick={() => {
+                    const end = Math.max((result.duration || 0) - 0.3, 0);
+                    playback?.seek(end);
+                    setTime(end);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+                    <path d="M4 5.5v13L14.5 12z" />
+                    <rect x="16.5" y="5" width="2.5" height="14" rx="1" />
+                  </svg>
+                </button>
+              </span>
               {(
                 [
                   ["score", "코드악보"] as const,

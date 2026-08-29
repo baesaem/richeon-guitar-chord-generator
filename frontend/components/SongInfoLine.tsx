@@ -35,7 +35,10 @@ export function SongInfoLine({
     /* 곡 정보와 전체보기 버튼을 한 줄에 둔다. 두 줄로 접히면 그 아래
        악보가 통째로 밀려 내려가, 한 화면에 보이던 마디가 사라진다.
        버튼은 스크롤 밖에 고정 — 정보가 길면 정보만 옆으로 밀어 본다. */
-    <div className="flex items-center gap-x-1.5 text-[11px] text-gray-500 roomy:gap-x-2.5 roomy:text-[14px]">
+    /* 스크롤 밖에 붙여 둔다 — 싱크·마디 조절이 이 줄에 있는데, 악보를
+       내리다 보면 줄이 위로 사라져 조절할 수가 없었다. 스크롤이 없는
+       화면(재생 화면)에서는 sticky가 아무 일도 하지 않는다. */
+    <div className="sticky top-0 z-10 flex items-center gap-x-1.5 bg-[var(--background)] py-0.5 text-[11px] text-gray-500 roomy:gap-x-2.5 roomy:text-[14px]">
       <div
         className="flex min-w-0 flex-1 items-center gap-x-2 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none" }}
@@ -61,10 +64,10 @@ export function SongInfoLine({
             {note}
           </span>
         ))}
-        {children && (
-          <span className="ml-auto shrink-0 pl-2 tabular-nums">{children}</span>
-        )}
       </div>
+      {/* 조절 단추는 스크롤 밖에 둔다. 안에 두면 곡 정보가 길 때 밀려나
+          잘린다 — 눌러야 하는 것이 먼저 사라지면 안 된다. */}
+      {children && <span className="shrink-0">{children}</span>}
       {right && <span className="shrink-0">{right}</span>}
     </div>
   );
