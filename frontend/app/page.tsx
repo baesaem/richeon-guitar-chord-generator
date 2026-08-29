@@ -803,7 +803,405 @@ export default function Home() {
 
       {/* 뷰는 화면 폭을 그대로 쓴다. 넓어진 만큼 각 화면의 격자가
           칸을 늘려 채운다(코드표·홈 카드·그리드 악보) */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+      {/* 전체보기. 화면 전체가 아니라 본문 칸만 덮는다 — 위의 앱 이름과
+          아래 메뉴는 그대로 두어야 어디에 있는지 알고, 다른 자리로도
+          바로 갈 수 있다. */}
+      {showSheet && result && (
+        <div
+          className="absolute inset-0 z-40 flex flex-col bg-black/50 p-3"
+          onClick={() => setShowSheet(false)}
+        >
+          <div
+            className="mx-auto flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-[var(--background)] shadow-xl sm:max-w-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-gray-800">
+              <h3 className="min-w-0 flex-1 truncate text-sm font-bold">
+                {result.title || "악보"}
+              </h3>
+              {/* 잘못 고쳤을 때 돌아갈 자리. 고칠 것이 있을 때만 낸다 */}
+              {editMode && undo.length > 0 && (
+                <button
+                  className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] dark:bg-gray-800"
+                  onClick={undoChordEdit}
+                >
+                  되돌리기 {undo.length}
+                </button>
+              )}
+              {/* 연주설정 — 악보를 보며 카포·빠르기를 맞추는 자리다.
+                  가사·내 악보에는 맞출 것이 없으니 내지 않는다. */}
+              {(sheetTab === "score" ||
+                sheetTab === "melody" ||
+                sheetTab === "grid") && (
+                <PlaySettings
+                  duration={result.duration}
+                  time={time}
+                  transpose={transpose}
+                  rate={rate}
+                  loop={loop}
+                  sync={sync}
+                  lyricSync={lyricSync}
+                  onSync={setSync}
+                  onLyricSync={setLyricSync}
+                  onTranspose={setTranspose}
+                  onRate={(r) => {
+                    setRate(r);
+                    playback?.setRate(r);
+                  }}
+                  onLoop={setLoop}
+                  arp={arp}
+                  onArp={setArp}
+                  timeSignature={result.time_signature}
+                  bpm={result.bpm}
+                  strumName={strumName}
+                  onStrumName={setStrumName}
+                  strumRec={strumRec ?? undefined}
+                  stem={stem}
+                  vocalBusy={vocalBusy}
+                  vocalError={vocalError}
+                  onStem={pickStem}
+                />
+              )}
+              <button
+                className="rounded px-2 py-1 text-sm text-gray-500"
+                onClick={() => setShowSheet(false)}
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 한 화면에 다 담으면 스크롤이 길어진다. 볼 것만 골라 본다.
+                재생 단추는 탭 줄에 붙여 둔다 — 이 창이 영상을 가리므로,
+                여기 없으면 창을 닫았다 열었다 하며 재생해야 한다. 줄은
+                스크롤 밖이라 어느 탭에서든 늘 같은 자리에 있다. */}
+            <div className="flex shrink-0 items-center gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+              {/* 되감기·재생·정지·끝으로. 창이 영상을 가리므로 여기에 둔다 */}
+              <span className="flex shrink-0 items-center gap-0.5">
+                <button
+                  className={TRANSPORT}
+                  disabled={!playback}
+                  aria-label="처음으로"
+                  title="처음으로"
+                  onClick={() => {
+                    playback?.seek(0);
+                    setTime(0);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+                    <rect x="5" y="5" width="2.5" height="14" rx="1" />
+                    <path d="M20 5.5v13L9.5 12z" />
+                  </svg>
+                </button>
+                <button
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white disabled:opacity-40"
+                  disabled={!playback}
+                  aria-label={playing ? "멈춤" : "재생"}
+                  title={playing ? "멈춤" : "재생"}
+                  onClick={() => {
+                    if (!playback) return;
+                    if (playback.isPlaying()) playback.pause();
+                    else playback.play();
+                  }}
+                >
+                  {playing ? (
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                      <rect x="6" y="5" width="4" height="14" rx="1" />
+                      <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" className="ml-0.5 h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                      <path d="M7 4.5v15l13-7.5z" />
+                    </svg>
+                  )}
+                </button>
+                {/* 정지는 멈추고 처음으로 되돌린다 — 「멈춤」과 다른 점이다 */}
+                <button
+                  className={TRANSPORT}
+                  disabled={!playback}
+                  aria-label="정지"
+                  title="정지 — 멈추고 처음으로"
+                  onClick={() => {
+                    playback?.pause();
+                    playback?.seek(0);
+                    setTime(0);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+                    <rect x="6" y="6" width="12" height="12" rx="1.5" />
+                  </svg>
+                </button>
+                <button
+                  className={TRANSPORT}
+                  disabled={!playback}
+                  aria-label="끝으로"
+                  title="끝으로"
+                  onClick={() => {
+                    const end = Math.max((result.duration || 0) - 0.3, 0);
+                    playback?.seek(end);
+                    setTime(end);
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+                    <path d="M4 5.5v13L14.5 12z" />
+                    <rect x="16.5" y="5" width="2.5" height="14" rx="1" />
+                  </svg>
+                </button>
+              </span>
+              {(
+                [
+                  // 이 탭이 그리는 것은 여섯 줄 타브다. 「코드악보」는
+                  // 재생 화면에서 쓰는 이름이라 여기서는 본 모습으로 적는다.
+                  ["score", "타브"] as const,
+                  ["melody", "멜로디"] as const,
+                  ["grid", "그리드"] as const,
+                  ["lyrics", "가사"] as const,
+                  ["mine", "내 악보"] as const,
+                ]
+              )
+                // 코드수정으로 들어왔으면 고치는 데 쓰는 탭만 남긴다
+                .filter(([value]) => !editMode || value !== "mine")
+                .map(([value, label]) => {
+                // 고칠 때는 가사가 없어도 연다 — 없는 가사를 채우는 자리다
+                const disabled =
+                  value === "lyrics" &&
+                  !editMode &&
+                  !(result.lyrics && result.lyrics.length > 0);
+                return (
+                  <button
+                    key={value}
+                    disabled={disabled}
+                    onClick={() => setSheetTab(value)}
+                    className={[
+                      "flex-1 rounded-md py-1 text-[13px] font-medium transition-colors",
+                      disabled
+                        ? "text-gray-300 dark:text-gray-600"
+                        : sheetTab === value
+                          ? "bg-gray-200/80 text-black dark:bg-gray-700 dark:text-white"
+                          : "text-gray-500",
+                    ].join(" ")}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 고치는 법은 탭 바로 아래에 둔다. 길게 눌러야 열린다는 것을
+                모르면 아무것도 못 고친다 */}
+            {editMode && (
+              <p className="shrink-0 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-3 py-1.5 text-[11px] leading-snug text-[var(--accent)]">
+                {sheetTab === "lyrics"
+                  ? "고칠 줄을 3초 길게 누르세요(마우스는 오른쪽 클릭). 재생하면서 고칠 수 있습니다."
+                  : "고칠 마디를 3초 길게 누르세요(마우스는 오른쪽 클릭). 재생하면서 고칠 수 있습니다."}
+              </p>
+            )}
+
+            {/* 위쪽 여백을 두지 않는다. 여백이 있으면 스크롤한 악보가
+                그 틈으로 지나가, 붙박이 안내줄 위에 반쯤 보인다.
+                여백이 필요한 탭은 저마다 pt로 준다. */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
+              {sheetTab === "score" && (
+                /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
+                <ChordScore
+                  bars={bars}
+                  chords={shownChords}
+                  strums={result.strums}
+                  sync={sync}
+                  onSync={setSync}
+                  perLine={settings.chordPerLine}
+                  onPerLine={(n) => setSettings({ ...settings, chordPerLine: n })}
+                  arp={arp}
+                  strumName={strumName}
+                  playNotes={playNotes}
+                  currentBar={barIdx}
+                  time={time + sync - settings.latency}
+                  getTime={
+                    playback
+                      ? () => playback.getTime() + sync - settings.latency
+                      : undefined
+                  }
+                  flats={flats}
+                  transpose={noteShift}
+                  timeSignature={result.time_signature}
+                  musicKey={result.key}
+                  bpm={result.bpm}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                  onEditBar={setEditBar}
+                  follow
+                />
+              )}
+
+              {sheetTab === "melody" && hasMelody && sheetImg && (
+                /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
+                   끊지 않고 곡 전체를 죽 편다. */
+                <SheetScore
+                  resultId={result.id}
+                  sheet={sheetImg}
+                  time={time + sync - settings.latency}
+                  getTime={
+                    playback
+                      ? () => playback.getTime() + sync - settings.latency
+                      : undefined
+                  }
+                  chords={sheetChordList}
+                  showChords={transpose !== 0}
+                  musicKey={result.key}
+                  timeSignature={result.time_signature}
+                  playNotes={playNotes}
+                  barsView={settings.sheetZoom}
+                  onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
+                  sync={sync}
+                  onSync={setSync}
+                  lines={999}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                />
+              )}
+
+              {sheetTab === "melody" && !hasMelody && (
+                <div className="p-3">
+                  <NoMelody admin={settings.adminMode} />
+                </div>
+              )}
+              {sheetTab === "melody" && hasMelody && !sheetImg && (
+                /* 악보 그림이 없는 곡. 오선 악보를 곡 전체로 죽 편다. */
+                <MelodyScore
+                  bars={bars}
+                  chords={shownChords}
+                  melody={result.melody ?? []}
+                  lyrics={result.lyrics}
+                  score={(result.score ?? null) as never}
+                  align={(result.score_align ?? null) as never}
+                  showChecks={settings.adminMode}
+                  getTime={
+                    playback
+                      ? () => playback.getTime() + lyricSync - settings.latency
+                      : undefined
+                  }
+                  solfege={settings.solfege}
+                  onSolfege={() =>
+                    setSettings({ ...settings, solfege: !settings.solfege })
+                  }
+                  time={time + lyricSync - settings.latency}
+                  playNotes={playNotes}
+                  currentBar={barIdx}
+                  flats={flats}
+                  transpose={noteShift}
+                  timeSignature={result.time_signature}
+                  musicKey={result.key}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                  follow
+                />
+              )}
+
+              {sheetTab === "grid" && (
+                <ChordSheet
+                  bars={bars}
+                  chords={shownChords}
+                  currentBar={barIdx}
+                  currentChord={chordIdx}
+                  flats={flats}
+                  transpose={noteShift}
+                  follow={false}
+                  sync={sync}
+                  onSync={setSync}
+                  perRow={settings.gridPerRow}
+                  onPerRow={(n) => setSettings({ ...settings, gridPerRow: n })}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                  onEditBar={setEditBar}
+                />
+              )}
+
+              {sheetTab === "lyrics" && (
+                <div className="pt-2 text-[13px] leading-relaxed">
+                  {/* 자동 자막에서 온 가사를 다듬는다. 서버가 있어야 한다 */}
+                  {health && (result.lyrics ?? []).length > 1 && (
+                    <button
+                      className="mb-2 w-full rounded bg-[var(--accent)] py-2 text-xs text-white disabled:opacity-40"
+                      disabled={lyricBusy}
+                      onClick={tidyWithAi}
+                    >
+                      {lyricBusy ? "다듬는 중…" : "AI로 가사 다듬기"}
+                    </button>
+                  )}
+                  {editMode && (
+                    <button
+                      className="mb-2 w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
+                      onClick={addLyricLine}
+                    >
+                      + 지금 자리({Math.floor(time / 60)}:
+                      {String(Math.floor(time % 60)).padStart(2, "0")})에 줄 추가
+                    </button>
+                  )}
+                  {(result.lyrics ?? []).length === 0 && (
+                    <p className="py-4 text-center text-xs text-gray-400">
+                      가사가 없습니다.
+                      {editMode ? " 위 단추로 한 줄씩 넣을 수 있습니다." : ""}
+                    </p>
+                  )}
+                  {/* 문장 단위로 끊는다. 자막 가사는 숨 쉬는 자리마다 토막나
+                      그대로 늘어놓으면 소절을 알 수 없다. 고칠 때는 줄 그대로
+                      봐야 해서 편집 모드에서는 안 묶는다 */}
+                  {editMode
+                    ? (result.lyrics ?? []).map((line, i) => (
+                        <LyricRow
+                          key={`${line.t}-${i}`}
+                          text={line.text}
+                          now={
+                            lyricIndexAt(
+                              result.lyrics ?? [],
+                              time + lyricSync - settings.latency + LYRIC_LEAD,
+                            ) === i
+                          }
+                          onSeek={() => {
+                            playback?.seek(line.t);
+                            setTime(line.t);
+                          }}
+                          onEdit={() => setEditLyric(i)}
+                        />
+                      ))
+                    : lyricGroups.map((g, i) => (
+                        <LyricRow
+                          key={`${g.start}-${i}`}
+                          text={g.text}
+                          now={
+                            groupIndexAt(
+                              lyricGroups,
+                              time + lyricSync - settings.latency,
+                            ) === i
+                          }
+                          onSeek={() => {
+                            playback?.seek(g.start);
+                            setTime(g.start);
+                          }}
+                        />
+                      ))}
+                </div>
+              )}
+
+              {sheetTab === "mine" && (
+                <div className="pt-2">
+                  <MySheet resultId={result.id} online={!!health} />
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
         {/* 홈 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}
         <div
           className={
@@ -1410,401 +1808,6 @@ export default function Home() {
       )}
 
       {/* 곡 전체 악보. 재생 화면은 좁으므로 볼 때만 크게 펼친다. */}
-      {showSheet && result && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/50 p-3"
-          onClick={() => setShowSheet(false)}
-        >
-          <div
-            className="mx-auto flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-[var(--background)] shadow-xl sm:max-w-none"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-gray-800">
-              <h3 className="min-w-0 flex-1 truncate text-sm font-bold">
-                {result.title || "악보"}
-              </h3>
-              {/* 잘못 고쳤을 때 돌아갈 자리. 고칠 것이 있을 때만 낸다 */}
-              {editMode && undo.length > 0 && (
-                <button
-                  className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] dark:bg-gray-800"
-                  onClick={undoChordEdit}
-                >
-                  되돌리기 {undo.length}
-                </button>
-              )}
-              {/* 연주설정 — 악보를 보며 카포·빠르기를 맞추는 자리다.
-                  가사·내 악보에는 맞출 것이 없으니 내지 않는다. */}
-              {(sheetTab === "score" ||
-                sheetTab === "melody" ||
-                sheetTab === "grid") && (
-                <PlaySettings
-                  duration={result.duration}
-                  time={time}
-                  transpose={transpose}
-                  rate={rate}
-                  loop={loop}
-                  sync={sync}
-                  lyricSync={lyricSync}
-                  onSync={setSync}
-                  onLyricSync={setLyricSync}
-                  onTranspose={setTranspose}
-                  onRate={(r) => {
-                    setRate(r);
-                    playback?.setRate(r);
-                  }}
-                  onLoop={setLoop}
-                  arp={arp}
-                  onArp={setArp}
-                  timeSignature={result.time_signature}
-                  bpm={result.bpm}
-                  strumName={strumName}
-                  onStrumName={setStrumName}
-                  strumRec={strumRec ?? undefined}
-                  stem={stem}
-                  vocalBusy={vocalBusy}
-                  vocalError={vocalError}
-                  onStem={pickStem}
-                />
-              )}
-              <button
-                className="rounded px-2 py-1 text-sm text-gray-500"
-                onClick={() => setShowSheet(false)}
-                aria-label="닫기"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* 한 화면에 다 담으면 스크롤이 길어진다. 볼 것만 골라 본다.
-                재생 단추는 탭 줄에 붙여 둔다 — 이 창이 영상을 가리므로,
-                여기 없으면 창을 닫았다 열었다 하며 재생해야 한다. 줄은
-                스크롤 밖이라 어느 탭에서든 늘 같은 자리에 있다. */}
-            <div className="flex shrink-0 items-center gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
-              {/* 되감기·재생·정지·끝으로. 창이 영상을 가리므로 여기에 둔다 */}
-              <span className="flex shrink-0 items-center gap-0.5">
-                <button
-                  className={TRANSPORT}
-                  disabled={!playback}
-                  aria-label="처음으로"
-                  title="처음으로"
-                  onClick={() => {
-                    playback?.seek(0);
-                    setTime(0);
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
-                    <rect x="5" y="5" width="2.5" height="14" rx="1" />
-                    <path d="M20 5.5v13L9.5 12z" />
-                  </svg>
-                </button>
-                <button
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white disabled:opacity-40"
-                  disabled={!playback}
-                  aria-label={playing ? "멈춤" : "재생"}
-                  title={playing ? "멈춤" : "재생"}
-                  onClick={() => {
-                    if (!playback) return;
-                    if (playback.isPlaying()) playback.pause();
-                    else playback.play();
-                  }}
-                >
-                  {playing ? (
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" className="ml-0.5 h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
-                      <path d="M7 4.5v15l13-7.5z" />
-                    </svg>
-                  )}
-                </button>
-                {/* 정지는 멈추고 처음으로 되돌린다 — 「멈춤」과 다른 점이다 */}
-                <button
-                  className={TRANSPORT}
-                  disabled={!playback}
-                  aria-label="정지"
-                  title="정지 — 멈추고 처음으로"
-                  onClick={() => {
-                    playback?.pause();
-                    playback?.seek(0);
-                    setTime(0);
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
-                    <rect x="6" y="6" width="12" height="12" rx="1.5" />
-                  </svg>
-                </button>
-                <button
-                  className={TRANSPORT}
-                  disabled={!playback}
-                  aria-label="끝으로"
-                  title="끝으로"
-                  onClick={() => {
-                    const end = Math.max((result.duration || 0) - 0.3, 0);
-                    playback?.seek(end);
-                    setTime(end);
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
-                    <path d="M4 5.5v13L14.5 12z" />
-                    <rect x="16.5" y="5" width="2.5" height="14" rx="1" />
-                  </svg>
-                </button>
-              </span>
-              {(
-                [
-                  // 이 탭이 그리는 것은 여섯 줄 타브다. 「코드악보」는
-                  // 재생 화면에서 쓰는 이름이라 여기서는 본 모습으로 적는다.
-                  ["score", "타브"] as const,
-                  ["melody", "멜로디"] as const,
-                  ["grid", "그리드"] as const,
-                  ["lyrics", "가사"] as const,
-                  ["mine", "내 악보"] as const,
-                ]
-              )
-                // 코드수정으로 들어왔으면 고치는 데 쓰는 탭만 남긴다
-                .filter(([value]) => !editMode || value !== "mine")
-                .map(([value, label]) => {
-                // 고칠 때는 가사가 없어도 연다 — 없는 가사를 채우는 자리다
-                const disabled =
-                  value === "lyrics" &&
-                  !editMode &&
-                  !(result.lyrics && result.lyrics.length > 0);
-                return (
-                  <button
-                    key={value}
-                    disabled={disabled}
-                    onClick={() => setSheetTab(value)}
-                    className={[
-                      "flex-1 rounded-md py-1 text-[13px] font-medium transition-colors",
-                      disabled
-                        ? "text-gray-300 dark:text-gray-600"
-                        : sheetTab === value
-                          ? "bg-gray-200/80 text-black dark:bg-gray-700 dark:text-white"
-                          : "text-gray-500",
-                    ].join(" ")}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* 고치는 법은 탭 바로 아래에 둔다. 길게 눌러야 열린다는 것을
-                모르면 아무것도 못 고친다 */}
-            {editMode && (
-              <p className="shrink-0 bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-3 py-1.5 text-[11px] leading-snug text-[var(--accent)]">
-                {sheetTab === "lyrics"
-                  ? "고칠 줄을 3초 길게 누르세요(마우스는 오른쪽 클릭). 재생하면서 고칠 수 있습니다."
-                  : "고칠 마디를 3초 길게 누르세요(마우스는 오른쪽 클릭). 재생하면서 고칠 수 있습니다."}
-              </p>
-            )}
-
-            {/* 위쪽 여백을 두지 않는다. 여백이 있으면 스크롤한 악보가
-                그 틈으로 지나가, 붙박이 안내줄 위에 반쯤 보인다.
-                여백이 필요한 탭은 저마다 pt로 준다. */}
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
-              {sheetTab === "score" && (
-                /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
-                <ChordScore
-                  bars={bars}
-                  chords={shownChords}
-                  strums={result.strums}
-                  sync={sync}
-                  onSync={setSync}
-                  perLine={settings.chordPerLine}
-                  onPerLine={(n) => setSettings({ ...settings, chordPerLine: n })}
-                  arp={arp}
-                  strumName={strumName}
-                  playNotes={playNotes}
-                  currentBar={barIdx}
-                  time={time + sync - settings.latency}
-                  getTime={
-                    playback
-                      ? () => playback.getTime() + sync - settings.latency
-                      : undefined
-                  }
-                  flats={flats}
-                  transpose={noteShift}
-                  timeSignature={result.time_signature}
-                  musicKey={result.key}
-                  bpm={result.bpm}
-                  onSeek={(t) => {
-                    playback?.seek(t);
-                    setTime(t);
-                  }}
-                  onEditBar={setEditBar}
-                  follow
-                />
-              )}
-
-              {sheetTab === "melody" && hasMelody && sheetImg && (
-                /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
-                   끊지 않고 곡 전체를 죽 편다. */
-                <SheetScore
-                  resultId={result.id}
-                  sheet={sheetImg}
-                  time={time + sync - settings.latency}
-                  getTime={
-                    playback
-                      ? () => playback.getTime() + sync - settings.latency
-                      : undefined
-                  }
-                  chords={sheetChordList}
-                  showChords={transpose !== 0}
-                  musicKey={result.key}
-                  timeSignature={result.time_signature}
-                  playNotes={playNotes}
-                  barsView={settings.sheetZoom}
-                  onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
-                  sync={sync}
-                  onSync={setSync}
-                  lines={999}
-                  onSeek={(t) => {
-                    playback?.seek(t);
-                    setTime(t);
-                  }}
-                />
-              )}
-
-              {sheetTab === "melody" && !hasMelody && (
-                <div className="p-3">
-                  <NoMelody admin={settings.adminMode} />
-                </div>
-              )}
-              {sheetTab === "melody" && hasMelody && !sheetImg && (
-                /* 악보 그림이 없는 곡. 오선 악보를 곡 전체로 죽 편다. */
-                <MelodyScore
-                  bars={bars}
-                  chords={shownChords}
-                  melody={result.melody ?? []}
-                  lyrics={result.lyrics}
-                  score={(result.score ?? null) as never}
-                  align={(result.score_align ?? null) as never}
-                  showChecks={settings.adminMode}
-                  getTime={
-                    playback
-                      ? () => playback.getTime() + lyricSync - settings.latency
-                      : undefined
-                  }
-                  solfege={settings.solfege}
-                  onSolfege={() =>
-                    setSettings({ ...settings, solfege: !settings.solfege })
-                  }
-                  time={time + lyricSync - settings.latency}
-                  playNotes={playNotes}
-                  currentBar={barIdx}
-                  flats={flats}
-                  transpose={noteShift}
-                  timeSignature={result.time_signature}
-                  musicKey={result.key}
-                  onSeek={(t) => {
-                    playback?.seek(t);
-                    setTime(t);
-                  }}
-                  follow
-                />
-              )}
-
-              {sheetTab === "grid" && (
-                <ChordSheet
-                  bars={bars}
-                  chords={shownChords}
-                  currentBar={barIdx}
-                  currentChord={chordIdx}
-                  flats={flats}
-                  transpose={noteShift}
-                  follow={false}
-                  sync={sync}
-                  onSync={setSync}
-                  perRow={settings.gridPerRow}
-                  onPerRow={(n) => setSettings({ ...settings, gridPerRow: n })}
-                  onSeek={(t) => {
-                    playback?.seek(t);
-                    setTime(t);
-                  }}
-                  onEditBar={setEditBar}
-                />
-              )}
-
-              {sheetTab === "lyrics" && (
-                <div className="pt-2 text-[13px] leading-relaxed">
-                  {/* 자동 자막에서 온 가사를 다듬는다. 서버가 있어야 한다 */}
-                  {health && (result.lyrics ?? []).length > 1 && (
-                    <button
-                      className="mb-2 w-full rounded bg-[var(--accent)] py-2 text-xs text-white disabled:opacity-40"
-                      disabled={lyricBusy}
-                      onClick={tidyWithAi}
-                    >
-                      {lyricBusy ? "다듬는 중…" : "AI로 가사 다듬기"}
-                    </button>
-                  )}
-                  {editMode && (
-                    <button
-                      className="mb-2 w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
-                      onClick={addLyricLine}
-                    >
-                      + 지금 자리({Math.floor(time / 60)}:
-                      {String(Math.floor(time % 60)).padStart(2, "0")})에 줄 추가
-                    </button>
-                  )}
-                  {(result.lyrics ?? []).length === 0 && (
-                    <p className="py-4 text-center text-xs text-gray-400">
-                      가사가 없습니다.
-                      {editMode ? " 위 단추로 한 줄씩 넣을 수 있습니다." : ""}
-                    </p>
-                  )}
-                  {/* 문장 단위로 끊는다. 자막 가사는 숨 쉬는 자리마다 토막나
-                      그대로 늘어놓으면 소절을 알 수 없다. 고칠 때는 줄 그대로
-                      봐야 해서 편집 모드에서는 안 묶는다 */}
-                  {editMode
-                    ? (result.lyrics ?? []).map((line, i) => (
-                        <LyricRow
-                          key={`${line.t}-${i}`}
-                          text={line.text}
-                          now={
-                            lyricIndexAt(
-                              result.lyrics ?? [],
-                              time + lyricSync - settings.latency + LYRIC_LEAD,
-                            ) === i
-                          }
-                          onSeek={() => {
-                            playback?.seek(line.t);
-                            setTime(line.t);
-                          }}
-                          onEdit={() => setEditLyric(i)}
-                        />
-                      ))
-                    : lyricGroups.map((g, i) => (
-                        <LyricRow
-                          key={`${g.start}-${i}`}
-                          text={g.text}
-                          now={
-                            groupIndexAt(
-                              lyricGroups,
-                              time + lyricSync - settings.latency,
-                            ) === i
-                          }
-                          onSeek={() => {
-                            playback?.seek(g.start);
-                            setTime(g.start);
-                          }}
-                        />
-                      ))}
-                </div>
-              )}
-
-              {sheetTab === "mine" && (
-                <div className="pt-2">
-                  <MySheet resultId={result.id} online={!!health} />
-                </div>
-              )}
-
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 마디 코드 고르기 */}
       {editBar !== null && result && bars[editBar] && (
