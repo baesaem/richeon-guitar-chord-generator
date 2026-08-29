@@ -158,6 +158,67 @@ def find_bars(ink: np.ndarray, system: System) -> list[int]:
     return bars
 
 
+def _close_end(ink: np.ndarray, system: System, bars: list[int]) -> int | None:
+    """줄 끝에 마디선이 없을 때, 오선이 끝나는 자리.
+
+    마지막 마디를 세로줄로 닫지 않은 악보가 있다. 그러면 그 마디가
+    통째로 빠져 화면에서 건너뛰어진다 — 오선 자체가 끝나는 자리를
+    마지막 경계로 삼는다.
+    """
+    if len(bars) < 2:
+        return None
+    band = ink[system.top : system.bottom + 1, :]
+    counts = band.sum(axis=0)
+    inked = counts[counts > 0]
+    if not inked.size:
+        return None
+    # 오선 줄만 있는 칸의 잉크 양. 그만큼이라도 있으면 오선이 이어진다.
+    base = float(np.median(inked))
+    on = np.nonzero(counts >= base * 0.6)[0]
+    if not on.size:
+        return None
+    end = int(on[-1])
+    gaps = [b - a for a, b in zip(bars, bars[1:])]
+    med = float(np.median(gaps)) if gaps else 0.0
+    # 한 마디의 반은 되어야 마디로 친다. 아니면 그저 오선의 꼬리다.
+    if med <= 0 or end - bars[-1] < med * 0.5:
+        return None
+    return end
+
+
+def _drop_slivers(bars: list[int]) -> list[int]:
+    """마디 같지 않게 좁은 칸을 만든 세로줄을 뺀다.
+
+    음표 기둥에 꼬리가 붙어 오선 위아래를 다 꿰면 마디선처럼 보인다.
+    그렇게 생긴 가짜 선은 한 뼘도 안 되는 칸을 만든다 — 인쇄된 악보의
+    마디는 한 줄 안에서 서로 엇비슷한 너비다. 가운데 너비의 3할도 안
+    되는 칸은 마디가 아니라고 보고, 그 칸을 만든 선을 이웃에 붙인다.
+
+    줄의 처음과 끝 선은 건드리지 않는다 — 그 둘은 줄의 경계다.
+    """
+    out = list(bars)
+    for _ in range(len(bars)):
+        if len(out) < 4:
+            break
+        gaps = [b - a for a, b in zip(out, out[1:])]
+        med = float(np.median(gaps))
+        i = int(np.argmin(gaps))
+        if med <= 0 or gaps[i] >= med * 0.35:
+            break
+        # 좁은 칸을 어느 쪽 이웃에 붙일지 — 더 좁은 쪽에 붙여야
+        # 남는 칸들이 고르다
+        if i == 0:
+            drop = 1
+        elif i == len(gaps) - 1:
+            drop = len(out) - 2
+        elif gaps[i - 1] <= gaps[i + 1]:
+            drop = i
+        else:
+            drop = i + 1
+        out.pop(max(1, min(drop, len(out) - 2)))
+    return out
+
+
 def _open_start(ink: np.ndarray, system: System) -> int | None:
     """줄 첫머리에 마디선이 없을 때, 첫 마디가 시작하는 자리.
 
@@ -248,6 +309,12 @@ def layout(image: Image.Image, index: int = 0) -> Page:
         start = _open_start(ink, system)
         if start is not None and system.bars[0] - start > (system.bottom - system.top):
             system.bars.insert(0, start)
+        system.bars = _drop_slivers(system.bars)
+        end = _close_end(ink, system, system.bars)
+        if end is not None:
+            system.bars.append(end)
+        if len(system.bars) < 2:
+            continue
         page.systems.append(system)
     _view_bands(ink, page.systems)
 
