@@ -286,7 +286,9 @@ function SystemRow({
       <img
         src={src}
         alt=""
-        className="pointer-events-none absolute select-none"
+        // max-w-none이 없으면 Tailwind의 기본값(max-width:100%)이 폭을
+        // 100%로 되돌린다 — 잘라내기도 확대도 전혀 먹지 않는다.
+        className="pointer-events-none absolute max-w-none select-none"
         style={{
           width: `${(100 / viewW).toFixed(3)}%`,
           left: `${(-x0 / viewW) * 100}%`,

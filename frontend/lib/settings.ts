@@ -78,7 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   showGrid: true,
   sheetChords: false,
-  sheetZoom: 1,
+  sheetZoom: 2,
   solfege: false,
   latency: 0,
   adminMode: false,
