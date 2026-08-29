@@ -22,7 +22,15 @@ from .lyrics import (
     polish_captions,
     sync_to_song,
 )
-from . import drive_upload, llm, score_align, score_file, sheet_layout, sheet_score
+from . import (
+    attachments,
+    drive_upload,
+    llm,
+    score_align,
+    score_file,
+    sheet_layout,
+    sheet_score,
+)
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
 from .sheets import clean_query, search as search_sheets
@@ -824,8 +832,19 @@ async def put_score(result_id: str, file: UploadFile = File(...)) -> AnalysisRes
     except Exception as exc:
         raise HTTPException(400, f"악보를 음원에 맞추지 못했습니다: {exc}") from exc
 
+    # 원본을 남긴다 — 재분석하면 마디 시각이 달라지는데, 그때 이 파일을
+    # 다시 읽어 새 박자에 맞춘다. 없으면 붙인 악보를 잃는다.
+    suffix = Path(file.filename or "").suffix.lower()
+    attachments.save_score_file(
+        result_id, data, suffix if suffix in {".mscz", ".mscx"} else ".mscz"
+    )
+
     result.score = score_file.to_dict(parsed)
     result.score_align = alignment
+    # 그림이 이미 붙어 있으면 새 정렬로 시각을 다시 준다. 안 그러면
+    # 악보는 바뀌었는데 그림 위 커서는 예전 자리를 지나간다.
+    if result.sheet:
+        result.sheet = attachments.retime(dict(result.sheet), result)
     save_result(result)
     return result
 
@@ -951,6 +970,7 @@ async def drop_score(result_id: str) -> AnalysisResult:
     result = load_result(result_id)
     if result is None:
         raise HTTPException(404, "분석 결과가 없습니다")
+    attachments.drop_score_file(result_id)
     result.score = None
     result.score_align = None
     save_result(result)

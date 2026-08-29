@@ -246,12 +246,21 @@ export function LibraryTab({
       let done = 0;
       for (const id of ids) {
         setWorking(`드라이브에 올리는 중 (${done + 1}/${ids.length})`);
-        const result = (await getLocal(id)) ?? (await getResult(id));
-        const bundle = await makeBundle(result);
-        const blob = new Blob([JSON.stringify(bundle)], {
-          type: "application/octet-stream",
-        });
-        await driveUpload(klass.folderId, bundleFileName(bundle), blob);
+        // 어느 곡에서, 어느 걸음에서 어긋났는지 적어 준다. 「500」 한
+        // 마디만 남으면 곡이 열 개일 때 무엇을 손봐야 할지 알 수 없다.
+        let step = "곡 읽기";
+        try {
+          const result = (await getLocal(id)) ?? (await getResult(id));
+          step = "곡 파일 만들기";
+          const bundle = await makeBundle(result);
+          const blob = new Blob([JSON.stringify(bundle)], {
+            type: "application/octet-stream",
+          });
+          step = "드라이브에 올리기";
+          await driveUpload(klass.folderId, bundleFileName(bundle), blob);
+        } catch (e) {
+          throw new Error(`${id} — ${step}에서 막혔습니다: ${(e as Error).message}`);
+        }
         done += 1;
       }
       flash(`${done}곡을 ${klass.name} 폴더에 올렸습니다.`);

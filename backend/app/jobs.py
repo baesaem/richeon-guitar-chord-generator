@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import traceback
 import uuid
 from typing import AsyncIterator
 
+from . import attachments
 from .analysis.pipeline import PIPELINE_VERSION, analyze
 from .config import settings
 from .lyrics import fetch_lyrics_blocking, polish_captions, sync_to_song
@@ -122,6 +124,13 @@ class JobManager:
                         sync_to_song, result.lyrics, audio.id
                     )
 
+                # 강사님이 붙여 둔 악보는 재분석이 지우지 않는다. 새 박자에
+                # 맞춰 시각만 다시 준다 — 가사와 같은 규칙이다.
+                await progress(JobStage.POSTPROCESS, 0.98, "붙여 둔 악보 잇는 중")
+                await asyncio.to_thread(
+                    attachments.restore, result, _raw_result(audio.id)
+                )
+
                 save_result(result)
 
                 if not settings.keep_audio_cache:
@@ -187,6 +196,22 @@ def load_result(result_id: str) -> AnalysisResult | None:
     if result.meta.pipeline_version != PIPELINE_VERSION:
         return None
     return result
+
+
+def _raw_result(result_id: str) -> dict | None:
+    """예전 결과를 날 것으로 읽는다.
+
+    load_result는 파이프라인이 올라가면 None을 준다(그래야 캐시 때문에
+    개선이 묻히지 않는다). 그런데 강사님이 붙인 악보는 그 규칙과 상관이
+    없다 — 사람이 올린 것이지 우리가 뽑은 것이 아니다.
+    """
+    path = result_path(result_id)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
 
 
 def save_result(result: AnalysisResult) -> None:
