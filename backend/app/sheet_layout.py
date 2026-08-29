@@ -48,6 +48,10 @@ class System:
     #: 도돌이표로 보이는 마디선의 자리(bars에서 몇 번째인가)와 방향.
     #: +1이면 시작 𝄆(점이 오른쪽), -1이면 끝 𝄇(점이 왼쪽).
     repeats: list[tuple[int, int]] = field(default_factory=list)
+    #: 우리가 넣어 준 경계인가(인쇄된 마디선이 아니라). 도돌이표를
+    #: 찾을 때 건너뛴다 — 우리가 그은 자리에 점이 있을 리 없다.
+    made_start: bool = False
+    made_end: bool = False
     #: 2단 악보에서 이 줄에 딸린 **아래 단**의 오선 윗자리.
     #: 위 단만 쓰되, 화면에 잘라 보일 때 아래 단을 물지 않게 하는 데 쓴다.
     pair_top: int | None = None
@@ -164,21 +168,42 @@ def find_bars(ink: np.ndarray, system: System) -> list[int]:
     return bars
 
 
+def _dot_rows(lines: int) -> tuple[tuple[float, float], tuple[float, float]]:
+    """도돌이표 점이 앉는 칸과, 견줄 바깥 칸. (칸 번호는 0.5 단위)
+
+    오선(5줄)은 가운데 두 칸에 점을 찍는다. 타브(6줄)는 칸이 다섯이라
+    가운데를 비우고 둘째·넷째 칸에 찍는다. 줄 수에 따라 자리가 다르다.
+    """
+    spaces = max(lines - 1, 2)
+    mid = spaces / 2.0
+    if spaces % 2 == 0:
+        dots = (mid - 0.5, mid + 0.5)
+    else:
+        dots = (mid - 1.0, mid + 1.0)
+    return dots, (0.5, spaces - 0.5)
+
+
 def _dot_ink(ink: np.ndarray, system: System, x: int, side: int) -> tuple[float, float]:
-    """마디선 옆 네 칸의 잉크. (가운데 두 칸, 바깥 두 칸)"""
-    space = (system.bottom - system.top) / 4.0
+    """마디선 옆 칸들의 잉크. (점이 앉을 칸, 그 바깥 칸)"""
+    spaces = max(system.lines - 1, 2)
+    space = (system.bottom - system.top) / float(spaces)
     lo = int(x + 3) if side > 0 else int(x - space * 1.5)
     hi = int(x + space * 1.5) if side > 0 else int(x - 3)
     lo, hi = max(lo, 0), min(hi, ink.shape[1] - 1)
     if hi - lo < 3:
         return 0.0, 1.0
-    vals = []
-    for k in (0.5, 1.5, 2.5, 3.5):
+
+    def mean_at(k: float) -> float:
         y = k * space
         a, b = int(y - space * 0.3), int(y + space * 0.3)
         win = ink[system.top + max(a, 0) : system.top + b + 1, lo:hi]
-        vals.append(float(win.mean()) if win.size else 0.0)
-    return (vals[1] + vals[2]) / 2, (vals[0] + vals[3]) / 2
+        return float(win.mean()) if win.size else 0.0
+
+    dots, outer = _dot_rows(system.lines)
+    return (
+        (mean_at(dots[0]) + mean_at(dots[1])) / 2,
+        (mean_at(outer[0]) + mean_at(outer[1])) / 2,
+    )
 
 
 def find_repeats(ink: np.ndarray, system: System) -> list[tuple[int, int]]:
@@ -189,8 +214,10 @@ def find_repeats(ink: np.ndarray, system: System) -> list[tuple[int, int]]:
     보지 않는다 — 거기 도돌이표가 있어도 우리가 넣은 경계일 뿐이다.
     """
     out: list[tuple[int, int]] = []
+    last = len(system.bars) - 1
     for i, x in enumerate(system.bars):
-        if i == 0 or i == len(system.bars) - 1:
+        # 우리가 넣은 경계는 건너뛴다. 인쇄된 선에만 점이 붙는다.
+        if (i == 0 and system.made_start) or (i == last and system.made_end):
             continue
         for side in (-1, 1):
             mid, outer = _dot_ink(ink, system, x, side)
@@ -405,10 +432,12 @@ def layout(image: Image.Image, index: int = 0) -> Page:
         start = _open_start(ink, system)
         if start is not None and system.bars[0] - start > (system.bottom - system.top):
             system.bars.insert(0, start)
+            system.made_start = True
         system.bars = _drop_slivers(system.bars)
         end = _close_end(ink, system, system.bars)
         if end is not None:
             system.bars.append(end)
+            system.made_end = True
         if len(system.bars) < 2:
             continue
         system.repeats = find_repeats(ink, system)
