@@ -265,7 +265,10 @@ export function ChordScore({
                       </>
                     )}
 
-                    {/* 박마다 리듬 슬래시 + 코드가 바뀌는 박 위에 코드 심볼 */}
+                    {/* 코드 이름을 적을 자리.
+                        한 마디에 둘이면 첫째는 마디 시작선, 둘째는 마디
+                        한가운데다 — 박에 맞춰 잘게 놓으면 어느 마디의
+                        코드인지 헷갈린다. 셋째부터는 적지 않는다. */}
                     {bar.beatTimes.map((t, b) => {
                       const slot = contentX + (contentW * (b + 0.5)) / beats;
                       const idx = chordIndexAt(chords, t);
@@ -279,6 +282,21 @@ export function ChordScore({
                       // 반드시 적어 준다. 그래야 무엇을 짚고 있는지 알 수 있다.
                       const opensView = lineIndex === from && i === 0 && b === 0;
                       const changed = idx !== prevIdx || opensView;
+                      // 이 마디에서 몇 번째로 바뀌는 코드인가
+                      let rank = 0;
+                      if (changed) {
+                        for (let k = 0; k < b; k++) {
+                          const pk =
+                            k === 0 ? bar.beatTimes[0] - 0.001 : bar.beatTimes[k - 1];
+                          const opens = lineIndex === from && i === 0 && k === 0;
+                          if (chordIndexAt(chords, bar.beatTimes[k]) !== chordIndexAt(chords, pk) || opens) {
+                            rank += 1;
+                          }
+                        }
+                      }
+                      // 첫째는 마디 시작선에, 둘째는 한가운데에
+                      const nameX = rank === 0 ? contentX + 1 : contentX + contentW / 2;
+                      const nameAnchor = rank === 0 ? "start" : "middle";
                       // 스트로크: 코드가 바뀌는 박에만 운지를 찍는다(매 박은
                       // 숫자에 파묻힌다). 아르페지오: 매 박이 곧 운지다.
                       const voicing =
@@ -355,10 +373,10 @@ export function ChordScore({
                               opacity={changed ? 0.85 : 0.35}
                             />
                           )}
-                          {changed && chord && (
+                          {changed && chord && rank < 2 && (
                             <text
-                              x={slot} y={CHORD_Y}
-                              textAnchor="middle" fontSize={chordFont} fontWeight="700"
+                              x={nameX} y={CHORD_Y}
+                              textAnchor={nameAnchor} fontSize={chordFont} fontWeight="700"
                               fill="currentColor"
                             >
                               {svgLabel(

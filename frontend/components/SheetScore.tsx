@@ -212,14 +212,18 @@ export function SheetScore({
       // 다만 마디 끝자락에서 바뀌는 것은 적지 않는다 — 반주가 다음 마디
       // 코드를 반 박 먼저 짚는 일이 흔한데, 그것까지 적으면 같은 코드가
       // 마디 끝과 다음 마디 첫머리에 잇달아 두 번 찍힌다.
+      let second = false;
       for (const { c, share } of here) {
-        if (c === lead.c || c.start <= s.start) continue;
+        if (second || c === lead.c || c.start <= s.start) continue;
         if (c.label === last) continue;
         if (share < span * 0.25) continue;
         const beat = Math.round(((c.start - s.start) / span) * perBar);
         if (beat < 1 || beat > perBar - 2) continue;
         last = c.label;
-        out.push({ bar: s.bar, at: beat / perBar, label: c.label });
+        // 한 마디에 둘이면 첫째는 마디선, 둘째는 마디 한가운데. 박에
+        // 맞춰 잘게 놓으면 어느 마디의 코드인지 헷갈린다.
+        out.push({ bar: s.bar, at: 0.5, label: c.label });
+        second = true;
       }
     }
     return out;
