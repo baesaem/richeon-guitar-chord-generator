@@ -794,6 +794,28 @@ export default function Home() {
     return sheetChords((result?.score ?? null) as never, shift - transpose, flats);
   }, [result?.score, result?.score_align, transpose, flats]);
 
+  /**
+   * 악보에 코드가 인쇄돼 있지 않을 때 대신 얹을 코드.
+   *
+   * 뮤즈스코어에서 받은 악보는 멜로디만 그려진 것이 많다. 그대로 띄우면
+   * 기타를 칠 수가 없다 — 코드가 하나도 없으니까. 음원에서 딴 코드를
+   * 얹어 준다. 인쇄된 코드가 하나라도 있으면 그쪽이 옳으므로 두지 않는다.
+   *
+   * 음원 코드는 원곡 조다. 카포를 끼운 만큼 내려 적어야 손가락과 맞는다.
+   */
+  const autoSheetChords = useMemo(() => {
+    const sc = (result?.score ?? null) as { bars?: { chords?: unknown[] }[] } | null;
+    const written = (sc?.bars ?? []).some((b) => (b.chords ?? []).length > 0);
+    if (written || !result?.chords?.length) return undefined;
+    return result.chords
+      .filter((c) => c.root)
+      .map((c) => ({
+        start: c.start,
+        end: c.end,
+        label: labelFor(transposeRoot(c.root, noteShift), c.quality, flats),
+      }));
+  }, [result?.score, result?.chords, noteShift, flats]);
+
 
   // 지금 보고 있는 메뉴의 이름. 넓은 화면에서는 사이드바가 앱 이름을
   // 맡고, 위쪽 띠는 "여기가 어디인지"를 맡는다.
@@ -1267,6 +1289,7 @@ export default function Home() {
                       : undefined
                   }
                   chords={sheetChordList}
+                  autoChords={autoSheetChords}
                   showChords={transpose !== 0}
                   musicKey={result.key}
                   timeSignature={result.time_signature}
@@ -1679,6 +1702,7 @@ export default function Home() {
                           : undefined
                       }
                       chords={sheetChordList}
+                      autoChords={autoSheetChords}
                       // 음높이를 바꾸면 인쇄된 코드가 어긋난다. 그때만
                       // 우리 코드를 덮어쓴다 — 손대지 않았으면 원본이 옳다.
                       showChords={transpose !== 0}

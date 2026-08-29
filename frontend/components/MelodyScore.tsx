@@ -172,7 +172,7 @@ export function MelodyScore({
   const view = useMemo(
     () =>
       usingScore
-        ? viewFromScore(score!, align!, pass, transpose, flats)
+        ? viewFromScore(score!, align!, pass, transpose, flats, chords)
         : viewFromMelody(bars, chords, melody, lyrics, transpose, flats),
     [usingScore, score, align, pass, bars, chords, melody, lyrics, transpose, flats],
   );

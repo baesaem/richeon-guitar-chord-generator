@@ -173,6 +173,14 @@ export function viewFromScore(
   pass: number,
   transpose: number,
   flats: boolean,
+  /**
+   * 악보에 코드가 하나도 적혀 있지 않을 때 대신 쓸 코드.
+   *
+   * 멜로디만 그려진 악보가 흔하다. 그런 악보에 코드가 없다고 빈 오선만
+   * 내놓으면 기타를 칠 수가 없다 — 음원에서 딴 코드를 얹어 준다.
+   * 악보에 적힌 코드가 하나라도 있으면 그쪽이 옳으므로 손대지 않는다.
+   */
+  fallback?: Chord[],
 ): StaffView {
   const p = align.passes[Math.min(Math.max(pass, 0), align.passes.length - 1)];
   const off = new Map(
@@ -190,6 +198,10 @@ export function viewFromScore(
   const notes: ViewNote[] = [];
   const byNumber = new Map(score.bars.map((b) => [b.number, b]));
 
+  // 악보 어디에도 코드가 없으면 음원에서 딴 코드를 쓴다
+  const written = score.bars.some((b) => (b.chords ?? []).length > 0);
+  const guessed = !written && fallback && fallback.length > 0 ? fallback : null;
+
   for (const slot of p.bars) {
     const src = byNumber.get(slot.number);
     if (!src) continue;
@@ -201,10 +213,21 @@ export function viewFromScore(
       start: slot.start,
       end: slot.end,
       beats: src.beats,
-      chords: src.chords.map((c) => ({
-        t: at(c.beat),
-        label: transposeLabel(c.label, shift, flats),
-      })),
+      chords: guessed
+        ? // 이 마디에 걸린 코드. 마디 첫머리에 이미 울리고 있던 것도
+          // 적는다 — 앞 마디에서 이어지는 코드를 빼면 첫 마디가 빈다.
+          guessed
+            .filter((c) => c.end > slot.start && c.start < slot.end)
+            .map((c) => ({
+              t: Math.max(c.start, slot.start),
+              // 음원에서 딴 코드는 원곡 조다. 악보는 짚기 쉬운 조로
+              // 적혀 있으므로 카포만큼 내려 적어야 손가락과 맞는다.
+              label: labelFor(transposeRoot(c.root, -transpose), c.quality, flats),
+            }))
+        : src.chords.map((c) => ({
+            t: at(c.beat),
+            label: transposeLabel(c.label, shift, flats),
+          })),
       rests: (src.rests ?? []).map((r) => ({
         t: at(r.beat),
         end: at(Math.min(r.beat + r.dur, src.beats)),

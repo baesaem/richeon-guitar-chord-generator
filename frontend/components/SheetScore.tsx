@@ -100,6 +100,14 @@ interface Props {
    * 배율이 아니다. 폰에서도 네 마디는 보여야 한 악구가 눈에 들어온다.
    */
   barsView?: number;
+  /**
+   * 악보에 코드가 인쇄돼 있지 않을 때 대신 얹을 코드(음원에서 딴 것).
+   *
+   * 멜로디만 그려진 악보가 흔하다. 그런 악보를 그대로 띄우면 기타를
+   * 칠 수가 없다 — 코드가 하나도 없으니까. 인쇄된 코드가 있으면
+   * 그쪽이 옳으므로 이것은 쓰지 않는다.
+   */
+  autoChords?: { start: number; end: number; label: string }[];
 }
 
 /**
@@ -130,6 +138,7 @@ export function SheetScore({
   onSeek,
   lines = 2,
   barsView = 4,
+  autoChords,
 }: Props) {
   const time = useSmoothTime(rawTime, getTime);
   const pass = passAt(sheet, time);
@@ -146,6 +155,36 @@ export function SheetScore({
   }, [steps, time]);
   /** 지금 걸음이 가리키는 그림 위 마디 */
   const at = steps[step]?.bar ?? 0;
+
+  // 인쇄된 코드가 없는 악보에 얹을 코드. 마디마다 시각을 알고 있으므로
+  // (커서가 그것으로 움직인다) 그 안에 걸린 코드를 그 자리에 놓는다.
+  const auto = useMemo(() => {
+    if (!autoChords?.length) return [];
+    const out: { bar: number; at: number; label: string }[] = [];
+    let last = "";
+    for (const s of steps) {
+      const span = Math.max(s.end - s.start, 0.01);
+      let inBar = 0;
+      for (const c of autoChords) {
+        // 이 마디에서 **바뀌는** 코드만 적는다. 앞 마디에서 이어지는
+        // 것까지 적으면 마디마다 같은 이름이 두 번씩 찍혀 지저분하다.
+        if (c.start < s.start || c.start >= s.end) continue;
+        if (c.label === last) continue;
+        last = c.label;
+        if (inBar >= 3) continue; // 한 마디에 셋이면 넉넉하다
+        inBar += 1;
+        out.push({
+          bar: s.bar,
+          at: Math.min(Math.max((c.start - s.start) / span, 0), 0.94),
+          label: c.label,
+        });
+      }
+    }
+    return out;
+  }, [autoChords, steps]);
+
+  /** 화면에 적을 코드. 인쇄된 것을 고쳐 적거나, 없으면 딴 것을 얹는다 */
+  const shownChords = showChords && chords?.length ? chords : auto;
 
   // 그림의 줄(system)을 쪽별로 묶는다. 화면은 줄 단위로 넘어간다.
   const systems = useMemo(() => {
@@ -212,7 +251,7 @@ export function SheetScore({
           time={time}
           at={at}
           barsView={barsView}
-          chords={showChords ? chords : undefined}
+          chords={shownChords.length ? shownChords : undefined}
           onSeek={onSeek}
         />
       ))}
