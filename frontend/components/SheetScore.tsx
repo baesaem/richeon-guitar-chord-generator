@@ -207,15 +207,18 @@ export function SheetScore({
         last = lead.c.label;
         out.push({ bar: s.bar, at: 0, label: lead.c.label });
       }
-      // 마디 안에서 또 바뀌는 코드는 그 자리에 따로 적는다
-      for (const { c } of here) {
+      // 마디 안에서 또 바뀌는 코드는 그 자리에 따로 적는다.
+      //
+      // 다만 마디 끝자락에서 바뀌는 것은 적지 않는다 — 반주가 다음 마디
+      // 코드를 반 박 먼저 짚는 일이 흔한데, 그것까지 적으면 같은 코드가
+      // 마디 끝과 다음 마디 첫머리에 잇달아 두 번 찍힌다.
+      for (const { c, share } of here) {
         if (c === lead.c || c.start <= s.start) continue;
         if (c.label === last) continue;
+        if (share < span * 0.25) continue;
+        const beat = Math.round(((c.start - s.start) / span) * perBar);
+        if (beat < 1 || beat > perBar - 2) continue;
         last = c.label;
-        const beat = Math.min(
-          Math.max(Math.round(((c.start - s.start) / span) * perBar), 1),
-          perBar - 1,
-        );
         out.push({ bar: s.bar, at: beat / perBar, label: c.label });
       }
     }
@@ -547,9 +550,12 @@ function SystemRow({
             // 넉넉히 두어 아래 글자가 비쳐 보이지 않게 한다.
             // 코드는 연주하며 힐끗 보는 글자라 눈에 들어와야 하지만,
             // 너무 키우면 인쇄된 음표와 가사를 덮는다. 그 사이를 잡는다.
-            className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[10px] font-extrabold leading-[1.15] roomy:text-[12px]"
+            className="pointer-events-none absolute whitespace-nowrap rounded-sm bg-white px-[2px] text-[10px] font-extrabold leading-[1.15] roomy:text-[12px]"
             style={{
               left: `${x * 100}%`,
+              // 줄 오른쪽 끝에 붙은 코드는 오른쪽으로 자라다 잘린다
+              // (Dm의 m이 잘려 D로 보였다). 끝자락에서는 왼쪽으로 자란다.
+              transform: x > 0.9 ? "translateX(-100%)" : undefined,
               // 빨강. 인쇄된 검은 글자와 한눈에 갈린다 — 어느 것이 악보에
               // 적힌 코드이고 어느 것이 앱이 적은 코드인지 헷갈리면 안 된다.
               color: "#d32020",
