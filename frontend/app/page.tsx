@@ -265,10 +265,24 @@ export default function Home() {
     () => groupBySentence(result?.lyrics ?? []),
     [result?.lyrics],
   );
-  const flats = useMemo(
-    () => (result ? resolveFlats(result.key, settings.notation) : false),
-    [result, settings.notation],
-  );
+
+  // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
+  // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
+  const noteShift = -transpose;
+
+  /**
+   * ♭로 적을지 ♯로 적을지.
+   *
+   * 카포를 끼우면 화면에 적히는 코드는 **옮겨진 조**의 것이다. 원곡
+   * 조로 정하면 사장조 자리에 G♭m·D♭7 같은 엉뚱한 이름이 나온다 —
+   * 사장조는 ♯을 쓰는 조다. 옮겨진 조를 보고 정한다.
+   */
+  const flats = useMemo(() => {
+    if (!result) return false;
+    const [tonic, mode = ""] = result.key.split(" ");
+    const moved = transposeRoot(tonic, noteShift);
+    return resolveFlats(moved ? `${moved} ${mode}`.trim() : result.key, settings.notation);
+  }, [result, noteShift, settings.notation]);
 
   // 재생 위치를 매 프레임 읽어 타임라인을 그린다. 상태는 값이 바뀔 때만 갱신.
   useEffect(() => {
@@ -790,9 +804,6 @@ export default function Home() {
   // 아는 것보다 낫다.
   const boardView = settings.view;
 
-  // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
-  // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
-  const noteShift = -transpose;
 
   // 악보 그림 위에 덮어쓸 코드. 자리는 악보에 적힌 그대로 쓴다.
   //
@@ -820,14 +831,11 @@ export default function Home() {
     // 그림만으로는 인쇄된 코드가 있는지 알 길이 없다. 적혀 있는 악보에
     // 얹으면 글자가 겹쳐 둘 다 못 읽게 되므로, 곡마다 켜 준 때에만 얹는다.
     //
-    // 다만 음높이를 바꾸면 이야기가 다르다. 인쇄된 코드는 그 순간
-    // **틀린 코드**가 되므로 덮어써야 한다. 악보 파일에 코드가 적혀
-    // 있으면 그것을 옮겨 적고(sheetChordList), 없으면 음원에서 딴 것을
-    // 옮겨 적는다 — 그러지 않으면 카포를 끼우고도 옛 코드만 보인다.
-    const written = ((result?.score ?? null) as { bars?: { chords?: unknown[] }[] } | null)
-      ?.bars?.some((b) => (b.chords ?? []).length > 0);
-    const needed = autoChords || (transpose !== 0 && !written);
-    if (!needed || !result?.chords?.length) return undefined;
+    // 음높이를 바꿨다고 얹지는 않는다. 악보 파일에 코드가 없으면
+    // 인쇄된 코드가 무엇인지 알 수 없어 **어림으로 덮어쓰는 셈**이라,
+    // 음원에서 잘못 딴 코드가 제대로 적힌 코드를 가려 버린다.
+    // (실제로 라라라 대목에서 G♭m·D♭7 같은 엉뚱한 이름이 얹혔다.)
+    if (!autoChords || !result?.chords?.length) return undefined;
     return result.chords
       .filter((c) => c.root)
       .map((c) => ({
@@ -835,7 +843,7 @@ export default function Home() {
         end: c.end,
         label: labelFor(transposeRoot(c.root, noteShift), c.quality, flats),
       }));
-  }, [autoChords, transpose, result?.score, result?.chords, noteShift, flats]);
+  }, [autoChords, result?.chords, noteShift, flats]);
 
 
   // 지금 보고 있는 메뉴의 이름. 넓은 화면에서는 사이드바가 앱 이름을

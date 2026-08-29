@@ -222,7 +222,8 @@ export function SheetScore({
   }, [autoChords, steps, timeSignature]);
 
   /** 화면에 적을 코드. 인쇄된 것을 고쳐 적거나, 없으면 딴 것을 얹는다 */
-  const shownChords = showChords && chords?.length ? chords : auto;
+  const printed = !!(showChords && chords?.length);
+  const shownChords = printed ? chords! : auto;
 
   // 그림의 줄(system)을 쪽별로 묶는다. 화면은 줄 단위로 넘어간다.
   const systems = useMemo(() => {
@@ -294,6 +295,9 @@ export function SheetScore({
           at={at}
           barsView={barsView}
           chords={shownChords.length ? shownChords : undefined}
+          // 인쇄된 코드를 고쳐 적을 때만 음표 쪽으로 민다. 음원에서 딴
+          // 코드는 이미 박에 맞춰 두었으니 그 자리가 옳다.
+          nudge={printed}
           showNumbers={numbers}
           onSeek={onSeek}
         />
@@ -390,6 +394,7 @@ function SystemRow({
   chords,
   onSeek,
   showNumbers,
+  nudge: nudged,
 }: {
   /** 지금 연주 중인 줄에만 붙는다. 화면을 이 줄로 끌어오는 데 쓴다 */
   innerRef?: React.Ref<HTMLDivElement>;
@@ -404,6 +409,8 @@ function SystemRow({
   chords?: { bar: number; at: number; label: string }[];
   onSeek?: (t: number) => void;
   showNumbers?: boolean;
+  /** 코드를 음표 쪽으로 밀지. 인쇄된 코드를 덮어쓸 때만 민다 */
+  nudge?: boolean;
 }) {
   const page = sheet.pages[row.page];
   const first = sheet.bars[row.bars[0]];
@@ -524,10 +531,13 @@ function SystemRow({
       {chords?.map((c, i) => {
         const b = sheet.bars[c.bar];
         if (!b || b.page !== row.page || b.system !== row.system) return null;
-        // 인쇄된 코드는 마디선이 아니라 그 박의 음표 위에 놓인다.
-        // 조금 오른쪽으로 밀어야 겹친다. 줄의 첫 마디는 자리표와 조표가
-        // 앞을 차지하므로 더 밀어야 한다.
-        const nudge = c.bar === row.bars[0] ? 0.12 : 0.035;
+        // 코드는 **마디가 시작하는 자리**를 기점으로 적는다. 인쇄된
+        // 글자에 맞춰 밀면 마디마다 조금씩 다른 자리에 앉아 어수선하다 —
+        // 마디선에 맞춰야 어느 마디의 코드인지 한눈에 보인다.
+        //
+        // 다만 줄의 첫 마디는 자리표와 조표가 앞을 차지하므로, 거기까지
+        // 왼쪽으로 붙이면 조표 위에 얹힌다.
+        const nudge = c.bar === row.bars[0] && nudged ? 0.12 : 0;
         const x = toX(b.x0 + (b.x1 - b.x0) * (c.at + nudge));
         return (
           <span
