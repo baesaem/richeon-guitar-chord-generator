@@ -44,6 +44,10 @@ export interface SheetData {
 }
 
 /** 한 창에 담을 수 있는 마디의 최대. 이보다 늘리면 「줄 전체」가 된다 */
+/** 싱크·마디를 한 칸씩 옮기는 작은 단추 */
+const STEP =
+  "rounded bg-gray-200/70 px-1 font-bold leading-4 text-gray-900 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-100 roomy:px-1.5 roomy:leading-5";
+
 const MAX_BARS = 8;
 
 /** 지금 시각이 몇 바퀴째인가 */
@@ -77,6 +81,14 @@ interface Props {
   chords?: { bar: number; at: number; label: string }[];
   showChords: boolean;
   onZoom?: (zoom: number) => void;
+  /**
+   * 코드 싱크(초). 화면이 노래보다 이르거나 늦을 때 맞춘다.
+   *
+   * 연주설정에도 있지만 악보를 보며 맞추는 것이라, 악보 옆에 두어야
+   * 한 번에 고칠 수 있다. 곡마다 저장된다.
+   */
+  sync?: number;
+  onSync?: (sec: number) => void;
   musicKey: string;
   timeSignature: string;
   playNotes?: string[];
@@ -112,6 +124,8 @@ export function SheetScore({
   chords,
   showChords,
   onZoom,
+  sync = 0,
+  onSync,
   musicKey,
   timeSignature,
   playNotes,
@@ -163,31 +177,62 @@ export function SheetScore({
         playNotes={playNotes}
         right={headerRight}
       >
-        {/* 확대·축소. 한 번에 보는 마디를 줄이면 그만큼 커진다 —
-            악보에서 「크게」와 「몇 마디」는 같은 말이다. */}
-        {onZoom && (
-          <span className="ml-1.5 flex shrink-0 items-center gap-0.5">
-            <button
-              className="rounded bg-gray-200/70 px-1.5 py-0.5 font-bold text-gray-900 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-100"
-              disabled={barsView === 1}
-              onClick={() => onZoom(barsView === 0 ? MAX_BARS : Math.max(barsView - 1, 1))}
-              title="크게 — 한 번에 보는 마디를 줄입니다"
-            >
-              ＋
-            </button>
-            <span className="px-0.5 tabular-nums">
-              {barsView ? `${barsView}마디` : "줄 전체"}
+        {/* 싱크와 마디를 한 상자에 묶는다 — 따로 두면 각각이 제 줄을
+            차지해 두 줄로 접힌다. 손가락으로 누를 만큼은 두되, 악보가
+            밀려 내려가지 않게 작게 만든다. */}
+        <span className="flex shrink-0 items-center gap-1 text-[10px] roomy:text-[12px]">
+          {/* 싱크. 악보를 보며 맞추는 것이라 악보 옆에 둔다 —
+              연주설정을 열었다 닫았다 하며 맞출 수는 없다. */}
+          {onSync && (
+            <span className="flex items-center gap-px">
+              <span className="text-gray-400">싱크</span>
+              <button
+                className={STEP}
+                onClick={() => onSync(Math.round((sync - 0.1) * 10) / 10)}
+                title="화면을 늦춥니다 — 악보가 노래보다 이를 때"
+              >
+                －
+              </button>
+              <span className="w-6 text-center tabular-nums roomy:w-7">
+                {sync > 0 ? "+" : ""}
+                {sync.toFixed(1)}
+              </span>
+              <button
+                className={STEP}
+                onClick={() => onSync(Math.round((sync + 0.1) * 10) / 10)}
+                title="화면을 당깁니다 — 악보가 노래보다 늦을 때"
+              >
+                ＋
+              </button>
             </span>
-            <button
-              className="rounded bg-gray-200/70 px-1.5 py-0.5 font-bold text-gray-900 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-100"
-              disabled={barsView === 0}
-              onClick={() => onZoom(barsView >= MAX_BARS ? 0 : barsView + 1)}
-              title="작게 — 한 번에 보는 마디를 늘립니다"
-            >
-              －
-            </button>
-          </span>
-        )}
+          )}
+
+          {/* 확대·축소. 한 번에 보는 마디를 줄이면 그만큼 커진다 —
+              악보에서 「크게」와 「몇 마디」는 같은 말이다. */}
+          {onZoom && (
+            <span className="flex items-center gap-px">
+              <button
+                className={STEP}
+                disabled={barsView === 1}
+                onClick={() => onZoom(barsView === 0 ? MAX_BARS : Math.max(barsView - 1, 1))}
+                title="크게 — 한 번에 보는 마디를 줄입니다"
+              >
+                ＋
+              </button>
+              <span className="w-9 text-center tabular-nums roomy:w-11">
+                {barsView ? `${barsView}마디` : "줄 전체"}
+              </span>
+              <button
+                className={STEP}
+                disabled={barsView === 0}
+                onClick={() => onZoom(barsView >= MAX_BARS ? 0 : barsView + 1)}
+                title="작게 — 한 번에 보는 마디를 늘립니다"
+              >
+                －
+              </button>
+            </span>
+          )}
+        </span>
       </SongInfoLine>
 
       {/* 줄과 줄을 붙여 한 장의 악보처럼 보이게 한다 */}

@@ -621,9 +621,10 @@ export default function Home() {
   const hasMelody = hasScore || !!sheetImg || (result?.melody?.length ?? 0) > 8;
 
 
-  // 멜로디가 없는 곡을 열었는데 지난 곡에서 고른 「멜로디」가 남아 있으면
-  // 코드악보로 되돌린다.
-  const boardView = settings.view === "melody" && !hasMelody ? "sheet" : settings.view;
+  // 멜로디가 없어도 칸은 남긴다. 눌렀을 때 「이 음원은 멜로디 악보를
+  // 지원하지 않습니다」라고 적어 주는 편이, 칸이 사라져 앱이 고장난 줄
+  // 아는 것보다 낫다.
+  const boardView = settings.view;
 
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
@@ -858,7 +859,7 @@ export default function Home() {
                   {(
                     [
                       ["sheet", "코드악보"] as const,
-                      ...(hasMelody ? [["melody", "멜로디"] as const] : []),
+                      ["melody", "멜로디"] as const,
                       ["wave", "파형"] as const,
                     ]
                   ).map(([value, label]) => (
@@ -1007,7 +1008,9 @@ export default function Home() {
                 </>
               ) : boardView === "melody" ? (
                 <div className="shrink-0 px-2 py-1">
-                  {sheetImg ? (
+                  {!hasMelody ? (
+                    <NoMelody admin={settings.adminMode} />
+                  ) : sheetImg ? (
                     /* 인쇄된 악보 그대로. 마디선만 찾아 그 위로 커서가 간다 */
                     <SheetScore
                       resultId={result.id}
@@ -1026,6 +1029,8 @@ export default function Home() {
                       showChords={transpose !== 0}
                       barsView={settings.sheetZoom}
                       onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
+                      sync={sync}
+                      onSync={setSync}
                       musicKey={result.key}
                       timeSignature={result.time_signature}
                       playNotes={playNotes}
@@ -1400,8 +1405,7 @@ export default function Home() {
               {(
                 [
                   ["score", "코드악보"] as const,
-                  // 오선 악보는 그릴 것이 있을 때만. 없으면 빈 탭이 된다.
-                  ...(hasMelody ? [["melody", "멜로디"] as const] : []),
+                  ["melody", "멜로디"] as const,
                   ["grid", "그리드"] as const,
                   ["lyrics", "가사"] as const,
                   ["web", "웹 악보"] as const,
@@ -1478,7 +1482,7 @@ export default function Home() {
                 />
               )}
 
-              {sheetTab === "melody" && sheetImg && (
+              {sheetTab === "melody" && hasMelody && sheetImg && (
                 /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
                    끊지 않고 곡 전체를 죽 편다. */
                 <SheetScore
@@ -1497,6 +1501,8 @@ export default function Home() {
                   playNotes={playNotes}
                   barsView={settings.sheetZoom}
                   onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
+                  sync={sync}
+                  onSync={setSync}
                   lines={999}
                   onSeek={(t) => {
                     playback?.seek(t);
@@ -1505,7 +1511,12 @@ export default function Home() {
                 />
               )}
 
-              {sheetTab === "melody" && !sheetImg && (
+              {sheetTab === "melody" && !hasMelody && (
+                <div className="p-3">
+                  <NoMelody admin={settings.adminMode} />
+                </div>
+              )}
+              {sheetTab === "melody" && hasMelody && !sheetImg && (
                 /* 악보 그림이 없는 곡. 오선 악보를 곡 전체로 죽 편다. */
                 <MelodyScore
                   bars={bars}
@@ -1752,5 +1763,26 @@ function FullscreenButton() {
         )}
       </svg>
     </button>
+  );
+}
+
+/**
+ * 멜로디 악보가 없는 곡에 띄우는 안내.
+ *
+ * 칸을 아예 없애면 수강생은 자기 앱이 고장난 줄 안다. 없다는 것과
+ * 무엇을 하면 되는지를 적어 두는 편이 낫다.
+ */
+function NoMelody({ admin }: { admin: boolean }) {
+  return (
+    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center dark:border-gray-700 dark:bg-gray-900/40">
+      <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+        이 음원은 멜로디 악보를 지원하지 않습니다
+      </div>
+      <p className="mt-1.5 text-[12px] leading-5 text-gray-500">
+        {admin
+          ? "이 곡에 악보 파일(.mscz)이나 악보 그림(PDF)을 붙이면 멜로디가 나옵니다."
+          : "악보가 붙은 음원을 받으시면 이 자리에 멜로디가 나옵니다. 코드악보와 파형은 그대로 쓰실 수 있습니다."}
+      </p>
+    </div>
   );
 }
