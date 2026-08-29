@@ -39,7 +39,7 @@ export interface Settings {
    * 원곡과 다를 수 있다.
    */
   sheetChords: boolean;
-  /** 악보 확대 배율. 지금 마디를 가운데 두고 옆으로 따라간다 */
+  /** 악보를 한 번에 몇 마디씩 볼지. 0이면 줄 전체 */
   sheetZoom: number;
   /**
    * 음표 아래에 계이름(도·레·미)을 적을지.
@@ -78,7 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   showGrid: true,
   sheetChords: false,
-  sheetZoom: 2,
+  sheetZoom: 4,
   solfege: false,
   latency: 0,
   adminMode: false,

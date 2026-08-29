@@ -67,8 +67,13 @@ interface Props {
   onSeek?: (t: number) => void;
   /** 한 번에 보일 줄 수 */
   lines?: number;
-  /** 확대 배율. 1보다 크면 지금 마디를 가운데 두고 옆으로 따라간다 */
-  zoom?: number;
+  /**
+   * 한 번에 볼 마디 수. 0이면 줄 전체.
+   *
+   * 배율(1.5배·2배)보다 이 편이 알기 쉽다 — 사람이 세는 것은 마디이지
+   * 배율이 아니다. 폰에서도 네 마디는 보여야 한 악구가 눈에 들어온다.
+   */
+  barsView?: number;
 }
 
 /**
@@ -96,7 +101,7 @@ export function SheetScore({
   headerRight,
   onSeek,
   lines = 2,
-  zoom = 1,
+  barsView = 4,
 }: Props) {
   const pass = passAt(sheet, time);
   const steps = sheet.passes[pass] ?? [];
@@ -130,7 +135,7 @@ export function SheetScore({
   const shown = systems.slice(from, from + lines);
 
   return (
-    <div className="space-y-1">
+    <div>
       <SongInfoLine
         musicKey={musicKey}
         timeSignature={timeSignature}
@@ -152,10 +157,10 @@ export function SheetScore({
         {onZoom && (
           <button
             className="ml-1.5 shrink-0 rounded px-1.5 py-0.5 text-gray-500 underline decoration-dotted underline-offset-2"
-            onClick={() => onZoom(zoom >= 2 ? 1 : zoom + 0.5)}
-            title="지금 마디를 가운데 두고 크게 봅니다"
+            onClick={() => onZoom(barsView === 2 ? 4 : barsView === 4 ? 0 : 2)}
+            title="한 번에 볼 마디 수. 적을수록 크게 보입니다"
           >
-            {zoom > 1 ? `${zoom}배` : "확대"}
+            {barsView ? `${barsView}마디씩` : "줄 전체"}
           </button>
         )}
         <span className="ml-2 shrink-0">
@@ -164,6 +169,8 @@ export function SheetScore({
         </span>
       </SongInfoLine>
 
+      {/* 줄과 줄을 붙여 한 장의 악보처럼 보이게 한다 */}
+      <div className="overflow-hidden rounded bg-white">
       {shown.map((row) => (
         <SystemRow
           key={`${row.page}:${row.system}`}
@@ -174,11 +181,12 @@ export function SheetScore({
           step={step}
           time={time}
           at={at}
-          zoom={zoom}
+          barsView={barsView}
           chords={showChords ? chords : undefined}
           onSeek={onSeek}
         />
       ))}
+      </div>
     </div>
   );
 }
@@ -224,7 +232,7 @@ function SystemRow({
   step,
   time,
   at,
-  zoom,
+  barsView,
   chords,
   onSeek,
 }: {
@@ -235,7 +243,7 @@ function SystemRow({
   step: number;
   time: number;
   at: number;
-  zoom: number;
+  barsView: number;
   chords?: { bar: number; at: number; label: string }[];
   onSeek?: (t: number) => void;
 }) {
@@ -253,33 +261,40 @@ function SystemRow({
   const span = now ? Math.max(now.end - now.start, 0.05) : 1;
   const progress = now ? (time - now.start) / span : 0;
 
-  // 쪽 여백을 빼고, 배율만큼 좁게 잘라 본다. 배율이 1보다 크면 지금
-  // 마디를 한가운데 두고 옆으로 따라간다 — 어르신 화면에서 음표가
-  // 작으면 아무 소용이 없다.
-  const cropL = page?.left ?? 0;
-  const cropR = page?.right ?? 1;
-  const cropW = Math.max(cropR - cropL, 0.05);
-  const viewW = cropW / zoom;
-  const centre =
-    live && hereBar
-      ? hereBar.x0 + (hereBar.x1 - hereBar.x0) * Math.min(Math.max(progress, 0), 1)
-      : row.bars.length
-        ? sheet.bars[row.bars[0]].x0
-        : cropL;
-  const x0 = Math.min(
-    Math.max(centre - viewW / 2, cropL),
-    Math.max(cropR - viewW, cropL),
+  // 마디 몇 개를 창에 담을지로 자른다. 배율이 아니라 마디 수로 정하면
+  // 여백이 저절로 빠지고, 몇 마디가 보일지도 사람이 미리 안다.
+  const rowBars = row.bars;
+  const firstX = rowBars.length ? sheet.bars[rowBars[0]].x0 : 0;
+  const lastX = rowBars.length ? sheet.bars[rowBars[rowBars.length - 1]].x1 : 1;
+  const count = barsView > 0 ? Math.min(barsView, rowBars.length) : rowBars.length;
+  // 지금 마디가 창 안에 들어오게. 줄의 끝을 넘지 않는다.
+  const hereAt = Math.max(rowBars.indexOf(at), 0);
+  const start = Math.min(
+    Math.max(hereAt - Math.floor((count - 1) / 2), 0),
+    Math.max(rowBars.length - count, 0),
   );
+  const pad = (lastX - firstX) * 0.012;
+  const x0 = Math.max(sheet.bars[rowBars[start]].x0 - pad, 0);
+  const x1 = Math.min(
+    sheet.bars[rowBars[Math.min(start + count, rowBars.length) - 1]].x1 + pad,
+    1,
+  );
+  const viewW = Math.max(x1 - x0, 0.02);
   /** 쪽 가로 자리(0~1) → 창 안의 자리(0~1) */
   const toX = (px: number) => (px - x0) / viewW;
 
   // 창의 세로:가로 비율
   const ratio = (height * (page?.height ?? 1)) / (viewW * (page?.width ?? 1));
-  const cursorX = toX(centre);
+  // 지금 마디 안에서 얼마나 왔는지가 커서 자리다
+  const cursorX = toX(
+    live && hereBar
+      ? hereBar.x0 + (hereBar.x1 - hereBar.x0) * Math.min(Math.max(progress, 0), 1)
+      : x0,
+  );
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded bg-white"
+      className="relative w-full overflow-hidden bg-white"
       style={{ paddingTop: `${ratio * 100}%` }}
     >
       {/* 쪽 그림. 이 줄이 창에 꽉 차도록 위로 끌어올린다 */}

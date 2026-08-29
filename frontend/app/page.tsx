@@ -1010,14 +1010,16 @@ export default function Home() {
                     <SheetScore
                       resultId={result.id}
                       sheet={sheetImg}
-                      time={time + lyricSync - settings.latency}
+                      // 악보는 코드와 같은 것을 짚는 도구다. 가사 싱크가
+                      // 아니라 코드 싱크(연주설정)로 맞춘다.
+                      time={time + sync - settings.latency}
                       chords={sheetChordList}
                       showChords={settings.sheetChords}
                       onToggleChords={() =>
                         setSettings({ ...settings, sheetChords: !settings.sheetChords })
                       }
-                      zoom={settings.sheetZoom}
-                      onZoom={(z) => setSettings({ ...settings, sheetZoom: z })}
+                      barsView={settings.sheetZoom}
+                      onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
                       musicKey={result.key}
                       timeSignature={result.time_signature}
                       playNotes={playNotes}
