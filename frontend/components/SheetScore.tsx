@@ -123,6 +123,8 @@ interface Props {
    * 위아래로 쌓인 채 함께 남는다.
    */
   topBar?: React.ReactNode;
+  /** 악보를 한 마디씩 미는 손잡이(강사님). 없으면 단추를 두지 않는다 */
+  onShiftBar?: (delta: number) => void;
 }
 
 /**
@@ -156,6 +158,7 @@ export function SheetScore({
   autoChords,
   numbers = true,
   topBar,
+  onShiftBar,
 }: Props) {
   const time = useSmoothTime(rawTime, getTime);
   const pass = passAt(sheet, time);
@@ -280,6 +283,7 @@ export function SheetScore({
           onBars={onZoom}
           barsMax={MAX_BARS}
           barsLabel="줄 전체"
+          onShiftBar={onShiftBar}
         />
       </SongInfoLine>
       </div>

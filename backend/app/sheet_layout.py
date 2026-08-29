@@ -457,9 +457,12 @@ def layout(image: Image.Image, index: int = 0) -> Page:
     # 쪽 여백은 잘라 낸다. 화면이 좁은 폰에서는 이 여백이 곧 글씨 크기다.
     if page.systems:
         pad = max(image.width // 100, 4)
-        left = min(s.bars[0] for s in page.systems)
+        # 왼쪽은 **오선이 시작하는 자리**에서 잰다. 첫 마디선에서 재면
+        # 그 앞의 자리표·조표가 잘린다 — 자리표에 바싹 붙은 그림은
+        # 악보를 반쯤 잘라 놓은 것처럼 보인다.
+        left = min(_staff_left(ink, s) for s in page.systems)
         right = max(s.bars[-1] for s in page.systems)
-        page.crop_left = max(left - pad * 3, 0)
+        page.crop_left = max(left - pad * 2, 0)
         page.crop_right = min(right + pad, image.width - 1)
     else:
         page.crop_right = image.width - 1

@@ -48,6 +48,7 @@ import {
   getHealth,
   getResult,
   listResults,
+  moveSheetImage,
   makeInstrumental,
   makeVocals,
   watchJob,
@@ -714,6 +715,29 @@ export default function Home() {
   };
 
   /**
+   * 악보를 음원 위에서 한 마디씩 민다(강사님).
+   *
+   * 악보설정 줄에도 같은 손잡이가 있지만, 싱크 옆에도 있어야 한다 —
+   * 어긋난 것이 한 마디인지 반 박인지는 눌러 보며 가리는 일이다.
+   */
+  const shiftBar = async (delta: number) => {
+    const sh = (result?.sheet ?? null) as { offset?: number; repeats?: number } | null;
+    if (!result || !sh) return;
+    try {
+      setResult(
+        await moveSheetImage(
+          result.id,
+          Math.round(((sh.offset ?? 0) + delta) * 100) / 100,
+          sh.repeats ?? 1,
+        ),
+      );
+    } catch {
+      // 서버가 없으면 밀 수 없다. 조용히 넘어간다 — 수강생 화면에는
+      // 이 손잡이가 아예 나오지 않는다.
+    }
+  };
+
+  /**
    * 연주기 창에서 고를 수 있는 곡 목록.
    *
    * 기기에 담아 둔 곡이 먼저다 — 수강생에게는 그것이 전부이고, 강사님도
@@ -1329,6 +1353,7 @@ export default function Home() {
                   onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
                   sync={sync}
                   onSync={setSync}
+                  onShiftBar={settings.adminMode && health ? shiftBar : undefined}
                   lines={999}
                   // 악보 붙이기·마디 맞추기. 곡 전체가 보이는 이 자리에서
                   // 해야 한다 — 재생 화면에서는 두 줄만 보인다.
@@ -1350,6 +1375,18 @@ export default function Home() {
                 />
               )}
 
+              {/* 악보 그림이 없는 곡에도 붙이는 자리가 있어야 한다. 그림이
+                  있으면 안내줄과 한 상자에 담아 붙박이로 세우지만(topBar),
+                  없으면 세울 안내줄이 없으니 여기에 따로 낸다. */}
+              {sheetTab === "melody" && settings.adminMode && !sheetImg && (
+                <div className="pb-1 pt-1.5">
+                  <ScoreAttach
+                    result={result}
+                    onResult={setResult}
+                    online={!!health}
+                  />
+                </div>
+              )}
               {sheetTab === "melody" && !hasMelody && (
                 <div className="p-3">
                   <NoMelody admin={settings.adminMode} />
@@ -2221,7 +2258,7 @@ function NoMelody({ admin }: { admin: boolean }) {
       </div>
       <p className="mt-1.5 text-[12px] leading-5 text-gray-500">
         {admin
-          ? "이 곡에 악보 파일(.mscz · MusicXML)이나 악보 그림(PDF)을 붙이면 멜로디가 나옵니다."
+          ? "위 줄의 「악보 그림 붙이기」로 PDF·사진을, 「악보 붙이기」로 .mscz·MusicXML을 붙이면 멜로디가 나옵니다."
           : "악보가 붙은 음원을 받으시면 이 자리에 멜로디가 나옵니다. 타브와 파형은 그대로 쓰실 수 있습니다."}
       </p>
     </div>

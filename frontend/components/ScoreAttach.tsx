@@ -299,7 +299,7 @@ export function ScoreAttach({
           onClick={() => pickImage.current?.click()}
           title="인쇄된 악보를 그대로 띄우고 그 위로 커서가 지나갑니다"
         >
-          {sheet ? "그림 바꾸기" : "악보 그림"}
+          {sheet ? "그림 바꾸기" : "악보 그림 붙이기"}
         </button>
         {sheet && (
           <button

@@ -21,6 +21,7 @@ export function ViewSteppers({
   onBars,
   barsMax,
   barsLabel,
+  onShiftBar,
 }: {
   /** 코드 싱크(초). 화면이 노래보다 이르거나 늦을 때 맞춘다 */
   sync?: number;
@@ -31,6 +32,13 @@ export function ViewSteppers({
   barsMax?: number;
   /** 0일 때 적을 말. 없으면 0을 쓰지 않는다는 뜻 */
   barsLabel?: string;
+  /**
+   * 악보를 음원 위에서 한 마디씩 미는 손잡이(강사님).
+   *
+   * 싱크와 나란히 있어야 한다 — 어긋난 것이 한 마디인지 반 박인지는
+   * 눌러 보며 가리는 일이라, 두 손잡이가 떨어져 있으면 오가야 한다.
+   */
+  onShiftBar?: (delta: number) => void;
 }) {
   const max = barsMax ?? 8;
   return (
@@ -56,6 +64,19 @@ export function ViewSteppers({
             title="화면을 당깁니다 — 악보가 노래보다 늦을 때"
           >
             ＋
+          </button>
+        </span>
+      )}
+
+      {/* 악보를 한 마디씩 앞뒤로. 음원과 어긋났을 때 강사님이 맞춘다 */}
+      {onShiftBar && (
+        <span className="flex items-center gap-px">
+          <span className="text-gray-400">마디</span>
+          <button className={STEP} onClick={() => onShiftBar(-1)} title="악보를 한 마디 앞으로">
+            ◀
+          </button>
+          <button className={STEP} onClick={() => onShiftBar(1)} title="악보를 한 마디 뒤로">
+            ▶
           </button>
         </span>
       )}
