@@ -166,6 +166,16 @@ export function SheetScore({
   const from = whole ? 0 : Math.max(current < 0 ? 0 : current, 0);
   const shown = systems.slice(from, from + lines);
 
+  // 곡 전체를 펴 놓으면 악보가 화면보다 길다. 노래가 나아가면 지금 줄이
+  // 화면 아래로 밀려나 진행 바가 보이지 않는다 — 줄이 바뀔 때마다 그
+  // 줄을 화면 가운데로 끌어온다. 매 프레임이 아니라 줄이 바뀔 때만
+  // 움직이므로 손으로 훑어볼 때 방해가 되지 않는다.
+  const hereRow = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!whole || current < 0) return;
+    hereRow.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [whole, current]);
+
   return (
     <div>
       <SongInfoLine
@@ -190,9 +200,10 @@ export function SheetScore({
           종이 악보를 펴면 맨 위에 제목이 있는 것과 같다. 곡이 나아가
           다음 줄로 넘어가면 저절로 사라진다. */}
       {from === 0 && <TitleBand resultId={resultId} sheet={sheet} />}
-      {shown.map((row) => (
+      {shown.map((row, i) => (
         <SystemRow
           key={`${row.page}:${row.system}`}
+          innerRef={from + i === current ? hereRow : undefined}
           resultId={resultId}
           sheet={sheet}
           row={row}
@@ -285,6 +296,7 @@ function TitleBand({ resultId, sheet }: { resultId: string; sheet: SheetData }) 
 }
 
 function SystemRow({
+  innerRef,
   resultId,
   sheet,
   row,
@@ -296,6 +308,8 @@ function SystemRow({
   chords,
   onSeek,
 }: {
+  /** 지금 연주 중인 줄에만 붙는다. 화면을 이 줄로 끌어오는 데 쓴다 */
+  innerRef?: React.Ref<HTMLDivElement>;
   resultId: string;
   sheet: SheetData;
   row: { page: number; system: number; bars: number[] };
@@ -360,6 +374,7 @@ function SystemRow({
 
   return (
     <div
+      ref={innerRef}
       className="relative w-full overflow-hidden bg-white"
       style={{ paddingTop: `${ratio * 100}%` }}
     >
