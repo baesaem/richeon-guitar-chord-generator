@@ -360,8 +360,17 @@ def _view_bands(ink: np.ndarray, systems: list[System]) -> None:
         else:
             s.view_top = _split(ink, systems[i - 1].bottom + 1, s.top)
         if s.pair_top is not None:
-            # 2단 악보. 아래 단을 물지 않게 두 단 사이에서 끊는다.
-            s.view_bottom = _split(ink, s.bottom + 1, s.pair_top)
+            # 2단 악보. 아래 단 바로 위까지 담는다.
+            #
+            # 가장 넓게 빈 자리에서 끊으면 오선과 가사 사이가 잘려 **2절
+            # 가사가 통째로 날아간다**. 위 단에 딸린 것(1·2절 가사)은 모두
+            # 아래 단 위에 있으니, 아래 단만 피하면 된다.
+            # 가사 아래, 아래 단 위 — 그 사이에서 가장 넓게 빈 자리.
+            # 오선 바로 밑까지 뒤지면 오선과 가사 사이가 이겨 버린다.
+            mid = (s.bottom + s.pair_top) // 2
+            s.view_bottom = min(
+                _split(ink, mid, s.pair_top), s.pair_top - int(staff * 0.25)
+            )
         elif i + 1 < len(systems):
             s.view_bottom = _split(ink, s.bottom + 1, systems[i + 1].top)
         else:

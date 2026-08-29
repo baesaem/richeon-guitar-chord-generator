@@ -1285,6 +1285,21 @@ export default function Home() {
                 />
               )}
 
+              {/* 악보 붙이기·마디 맞추기. 곡 전체가 보이는 이 자리에 둔다 —
+                  악보를 음원에 맞추는 일은 앞뒤를 다 보며 해야 한다.
+                  재생 화면에 두었을 때는 두 줄만 보이는 채로 맞춰야 했다. */}
+              {sheetTab === "melody" && settings.adminMode && (
+                /* 붙박이로 두지 않는다 — 그 아래 안내줄(싱크·마디)이 붙박이라
+                   위에서 겹쳐 가린다. 악보를 붙이는 일은 한 번뿐이고, 싱크는
+                   보면서 계속 만지는 것이라 그쪽이 위에 남아야 한다. */
+                <div className="bg-[var(--background)] pb-1.5 pt-2">
+                  <ScoreAttach
+                    result={result}
+                    onResult={setResult}
+                    online={!!health}
+                  />
+                </div>
+              )}
               {sheetTab === "melody" && hasMelody && sheetImg && (
                 /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
                    끊지 않고 곡 전체를 죽 편다. */
@@ -1795,15 +1810,6 @@ export default function Home() {
                     visibleLines={wide ? 4 : 2}
                     follow
                   />
-                  )}
-                  {/* 강사님만 보이는 줄. 악보를 붙이면 뽑아낸 멜로디 대신
-                      악보를 그린다 — 음표가 하나도 빠지지 않는다. */}
-                  {settings.adminMode && (
-                    <ScoreAttach
-                      result={result}
-                      onResult={setResult}
-                      online={!!health}
-                    />
                   )}
                 </div>
               ) : (
