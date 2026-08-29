@@ -607,6 +607,27 @@ export default function Home() {
     return out;
   }, [transpose, rate, loop, settings.chordVocab, stem, sync, lyricSync, arp]);
 
+  /**
+   * 메뉴를 눌렀을 때. 「연주기」는 탭이 아니라 전체보기 창이다.
+   *
+   * 곡을 보다가 큰 화면으로 펴는 일은 자주 하는데, 여태 곡 화면
+   * 안쪽의 작은 「전체보기」를 찾아야 했다. 아래 메뉴에서 바로 연다.
+   */
+  const goTab = (next: Tab) => {
+    if (next !== "player") {
+      setTab(next);
+      return;
+    }
+    if (!result) {
+      // 열어 놓은 곡이 없으면 고를 자리로 보낸다
+      setTab("library");
+      return;
+    }
+    setTab("home");
+    setEditMode(false);
+    setShowSheet(true);
+  };
+
   // 태블릿·PC 폭인가. 넓으면 악보를 더 많은 줄 보인다 —
   // 세로도 폭만큼 남으므로 두 줄만 띄우면 화면이 텅 빈다.
   const wide = useWideScreen();
@@ -659,6 +680,8 @@ export default function Home() {
   // 맡고, 위쪽 띠는 "여기가 어디인지"를 맡는다.
   const TAB_TITLE: Record<Tab, string> = {
     home: result ? result.title || "재생" : "홈",
+    // 연주기는 창을 여는 자리라 이 이름이 띠에 오래 남지 않는다
+    player: result ? result.title || "연주기" : "연주기",
     library: "음원목록",
     import: "음원 가져오기",
     lesson: "공부방",
@@ -673,7 +696,7 @@ export default function Home() {
        - 태블릿·PC(md 이상): 왼쪽에 주메뉴 기둥(위에 앱 이름), 오른쪽 본문
          위에 지금 메뉴 이름 띠. 본문은 넓은 화면에서 가운데로 모은다 */
     <div className="app-scale flex overflow-x-hidden">
-      <SideNav tab={tab} onChange={setTab} />
+      <SideNav tab={showSheet ? "player" : tab} onChange={goTab} />
 
       {/* 본문은 화면 폭을 그대로 쓴다. 폰에서만 너무 넓어지지 않게 모은다 */}
       <div className="mx-auto flex h-full min-w-0 w-full max-w-2xl flex-col sm:max-w-none md:mx-0 md:border-l md:border-gray-200 md:dark:border-gray-800">
@@ -1829,7 +1852,7 @@ export default function Home() {
         <Working label="가사 다듬는 중" note="AI가 토막난 자막을 소절로 잇습니다" />
       )}
 
-      <BottomNav tab={tab} onChange={setTab} />
+      <BottomNav tab={showSheet ? "player" : tab} onChange={goTab} />
       </div>
     </div>
   );

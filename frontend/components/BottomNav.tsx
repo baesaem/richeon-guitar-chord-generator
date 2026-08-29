@@ -2,6 +2,8 @@
 
 export type Tab =
   | "home"
+  /** 연주기 — 탭이 아니라 전체보기 창을 여는 자리다 */
+  | "player"
   | "library"
   | "import"
   | "lesson"
@@ -20,6 +22,19 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     id: "home",
     label: "홈",
     icon: <path d="M3 10.5 12 3l9 7.5V21H3z" />,
+  },
+  {
+    id: "player",
+    label: "연주기",
+    icon: (
+      <>
+        {/* 악보대 위의 재생 — 지금 곡을 큰 화면으로 편다 */}
+        <rect x="3" y="4" width="18" height="13" rx="2" />
+        <path d="M3 8h18" />
+        <path d="M10.5 11v4l3.5-2z" />
+        <path d="M12 17v3M8.5 20h7" />
+      </>
+    ),
   },
   {
     id: "library",
