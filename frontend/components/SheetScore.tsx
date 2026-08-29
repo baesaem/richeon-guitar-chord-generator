@@ -161,23 +161,32 @@ export function SheetScore({
   const auto = useMemo(() => {
     if (!autoChords?.length) return [];
     const out: { bar: number; at: number; label: string }[] = [];
+    // 음원에서 잡은 코드 바뀜은 몇십 분의 일 초쯤 흔들린다. 그대로
+    // 얹으면 글자가 마디 한가운데나 음표 사이에 어정쩡하게 앉는다.
+    // 가장 가까운 **박**으로 당겨 붙인다 — 악보에 코드를 적는 자리가
+    // 본디 박 위다.
+    const perBar = Math.max(
+      Number.parseInt((timeSignature || "4/4").split("/")[0], 10) || 4,
+      1,
+    );
     let last = "";
     for (const s of steps) {
       const span = Math.max(s.end - s.start, 0.01);
-      let inBar = 0;
+      const taken = new Set<number>();
       for (const c of autoChords) {
         // 이 마디에서 **바뀌는** 코드만 적는다. 앞 마디에서 이어지는
         // 것까지 적으면 마디마다 같은 이름이 두 번씩 찍혀 지저분하다.
         if (c.start < s.start || c.start >= s.end) continue;
         if (c.label === last) continue;
         last = c.label;
-        if (inBar >= 3) continue; // 한 마디에 셋이면 넉넉하다
-        inBar += 1;
-        out.push({
-          bar: s.bar,
-          at: Math.min(Math.max((c.start - s.start) / span, 0), 0.94),
-          label: c.label,
-        });
+        // 마디 끝에 바싹 붙은 것은 다음 마디의 일이다(반올림하면 넘어간다)
+        const beat = Math.min(
+          Math.round(((c.start - s.start) / span) * perBar),
+          perBar - 1,
+        );
+        if (taken.has(beat)) continue; // 한 박에 둘을 겹쳐 적지 않는다
+        taken.add(beat);
+        out.push({ bar: s.bar, at: beat / perBar, label: c.label });
       }
     }
     return out;

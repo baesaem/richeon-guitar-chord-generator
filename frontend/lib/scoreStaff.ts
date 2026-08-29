@@ -217,13 +217,22 @@ export function viewFromScore(
         ? // 이 마디에 걸린 코드. 마디 첫머리에 이미 울리고 있던 것도
           // 적는다 — 앞 마디에서 이어지는 코드를 빼면 첫 마디가 빈다.
           guessed
-            .filter((c) => c.end > slot.start && c.start < slot.end)
-            .map((c) => ({
-              t: Math.max(c.start, slot.start),
-              // 음원에서 딴 코드는 원곡 조다. 악보는 짚기 쉬운 조로
-              // 적혀 있으므로 카포만큼 내려 적어야 손가락과 맞는다.
-              label: labelFor(transposeRoot(c.root, -transpose), c.quality, flats),
-            }))
+            // 이 마디에서 **바뀌는** 코드만. 이어지는 것까지 적으면
+            // 마디마다 같은 이름이 두 번씩 찍힌다.
+            .filter((c) => c.start >= slot.start && c.start < slot.end)
+            .map((c) => {
+              // 음원에서 잡은 바뀜은 조금씩 흔들린다. 가장 가까운 박으로
+              // 당겨 붙여야 음표 위에 반듯이 앉는다.
+              const rel = ((c.start - slot.start) / span) * src.beats;
+              const beat = Math.min(Math.max(Math.round(rel), 0), src.beats - 1);
+              return {
+                t: at(beat),
+                // 음원에서 딴 코드는 원곡 조다. 악보는 짚기 쉬운 조로
+                // 적혀 있으므로 카포만큼 내려 적어야 손가락과 맞는다.
+                label: labelFor(transposeRoot(c.root, -transpose), c.quality, flats),
+              };
+            })
+            .filter((c, i, all) => i === 0 || all[i - 1].t !== c.t)
         : src.chords.map((c) => ({
             t: at(c.beat),
             label: transposeLabel(c.label, shift, flats),
