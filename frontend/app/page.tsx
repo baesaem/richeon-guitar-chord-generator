@@ -47,12 +47,13 @@ import {
   reanalyze,
   getHealth,
   getResult,
+  listResults,
   makeInstrumental,
   makeVocals,
   watchJob,
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
-import { getLocal, getLocalAudio, saveLocal } from "@/lib/library";
+import { getLocal, getLocalAudio, listLocal, saveLocal } from "@/lib/library";
 import { LYRIC_LEAD, groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
 import { lyricIndexAt } from "@/lib/lrc";
 import {
@@ -76,8 +77,13 @@ import {
   type LyricLine,
   type Health,
   type JobStatus,
+  type ResultSummary,
 } from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
+
+/** 연주기 곡 고르기의 앞·뒤 단추 */
+const SONG_STEP =
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-200/70 text-[10px] text-gray-700 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-200";
 
 /** 전체보기 탭 줄의 되감기·정지·끝으로 단추 */
 const TRANSPORT =
@@ -608,6 +614,31 @@ export default function Home() {
   }, [transpose, rate, loop, settings.chordVocab, stem, sync, lyricSync, arp]);
 
   /**
+   * 연주기 창에서 고를 수 있는 곡 목록.
+   *
+   * 기기에 담아 둔 곡이 먼저다 — 수강생에게는 그것이 전부이고, 강사님도
+   * 연습할 때는 담아 둔 곡을 친다. 기기가 비었으면 서버 것을 보여 준다.
+   */
+  const [songList, setSongList] = useState<ResultSummary[]>([]);
+  useEffect(() => {
+    if (!showSheet) return;
+    let alive = true;
+    (async () => {
+      let rows = await listLocal().catch(() => [] as ResultSummary[]);
+      if (rows.length === 0 && health) {
+        rows = await listResults().catch(() => [] as ResultSummary[]);
+      }
+      if (alive) setSongList(rows);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [showSheet, health]);
+
+  /** 목록에서 지금 곡이 몇 번째인가. 없으면 -1 */
+  const songAt = result ? songList.findIndex((r) => r.id === result.id) : -1;
+
+  /**
    * 메뉴를 눌렀을 때. 「연주기」는 탭이 아니라 전체보기 창이다.
    *
    * 곡을 보다가 큰 화면으로 펴는 일은 자주 하는데, 여태 곡 화면
@@ -871,6 +902,55 @@ export default function Home() {
                 ✕
               </button>
             </div>
+
+            {/* 곡 고르기. 연주기는 창을 닫지 않고 곡을 옮겨 다니는 자리다 —
+                한 곡 치고 창을 닫았다 다시 여는 것은 번거롭다. */}
+            {songList.length > 1 && (
+              <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+                <button
+                  className={SONG_STEP}
+                  disabled={songAt <= 0}
+                  title="이전 음원"
+                  onClick={() => {
+                    const prev = songList[songAt - 1];
+                    if (prev) openSaved(prev.id);
+                  }}
+                >
+                  ◀
+                </button>
+                <select
+                  className="min-w-0 flex-1 truncate rounded bg-gray-100 px-2 py-1 text-[12px] dark:bg-gray-800"
+                  value={result.id}
+                  onChange={(e) => {
+                    if (e.target.value !== result.id) openSaved(e.target.value);
+                  }}
+                >
+                  {/* 목록에 없는 곡(서버에만 있는 것)도 제 이름은 보여야 한다 */}
+                  {songAt < 0 && (
+                    <option value={result.id}>{result.title || result.id}</option>
+                  )}
+                  {songList.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.title || r.id}
+                    </option>
+                  ))}
+                </select>
+                <span className="shrink-0 text-[11px] tabular-nums text-gray-400">
+                  {songAt >= 0 ? `${songAt + 1}/${songList.length}` : `−/${songList.length}`}
+                </span>
+                <button
+                  className={SONG_STEP}
+                  disabled={songAt < 0 || songAt >= songList.length - 1}
+                  title="다음 음원"
+                  onClick={() => {
+                    const next = songList[songAt + 1];
+                    if (next) openSaved(next.id);
+                  }}
+                >
+                  ▶
+                </button>
+              </div>
+            )}
 
             {/* 한 화면에 다 담으면 스크롤이 길어진다. 볼 것만 골라 본다.
                 재생 단추는 탭 줄에 붙여 둔다 — 이 창이 영상을 가리므로,
