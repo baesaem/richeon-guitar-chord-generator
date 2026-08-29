@@ -30,7 +30,6 @@ import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { measureOutputLatency } from "@/lib/latency";
 import { stemKey, type StemChoice } from "@/lib/sharedFiles";
 import { clearChordAt, setChordAt } from "@/lib/editChords";
-import { SheetFinder } from "@/components/SheetFinder";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { StrumPickModal } from "@/components/StrumPick";
@@ -142,7 +141,7 @@ export default function Home() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // 악보보기 모달에서 무엇을 볼지
   const [sheetTab, setSheetTab] = useState<
-    "score" | "melody" | "grid" | "lyrics" | "web" | "mine"
+    "score" | "melody" | "grid" | "lyrics" | "mine"
   >("score");
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   // 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만
@@ -1491,16 +1490,16 @@ export default function Home() {
               </span>
               {(
                 [
-                  ["score", "코드악보"] as const,
+                  // 이 탭이 그리는 것은 여섯 줄 타브다. 「코드악보」는
+                  // 재생 화면에서 쓰는 이름이라 여기서는 본 모습으로 적는다.
+                  ["score", "타브"] as const,
                   ["melody", "멜로디"] as const,
                   ["grid", "그리드"] as const,
                   ["lyrics", "가사"] as const,
-                  ["web", "웹 악보"] as const,
                   ["mine", "내 악보"] as const,
                 ]
               )
                 // 코드수정으로 들어왔으면 고치는 데 쓰는 탭만 남긴다
-                .filter(([value]) => !editMode || value !== "web")
                 .filter(([value]) => !editMode || value !== "mine")
                 .map(([value, label]) => {
                 // 고칠 때는 가사가 없어도 연다 — 없는 가사를 채우는 자리다
@@ -1729,16 +1728,6 @@ export default function Home() {
                           }}
                         />
                       ))}
-                </div>
-              )}
-
-              {sheetTab === "web" && (
-                <div className="pt-2">
-                <SheetFinder
-                  resultId={result.id}
-                  title={result.title}
-                  online={!!health}
-                />
                 </div>
               )}
 
