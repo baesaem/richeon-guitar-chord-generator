@@ -545,17 +545,21 @@ function SystemRow({
             key={i}
             // 인쇄된 코드를 가리고 그 자리에 앉는다. 흰 바탕을 조금
             // 넉넉히 두어 아래 글자가 비쳐 보이지 않게 한다.
-            // 곡 전체를 펴 놓으면 악보가 작아진다. 코드는 연주하며 힐끗
-            // 보는 글자라, 악보보다 조금 커야 눈에 들어온다.
-            className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[11px] font-extrabold leading-[1.15] roomy:text-[14px]"
+            // 코드는 연주하며 힐끗 보는 글자라 눈에 들어와야 하지만,
+            // 너무 키우면 인쇄된 음표와 가사를 덮는다. 그 사이를 잡는다.
+            className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[10px] font-extrabold leading-[1.15] roomy:text-[12px]"
             style={{
               left: `${x * 100}%`,
               // 빨강. 인쇄된 검은 글자와 한눈에 갈린다 — 어느 것이 악보에
               // 적힌 코드이고 어느 것이 앱이 적은 코드인지 헷갈리면 안 된다.
               color: "#d32020",
-              // 인쇄된 코드는 오선 바로 위 한 칸쯤에 앉는다. 그 자리를
-              // 덮도록 오선 윗줄보다 조금 올려 놓는다.
-              bottom: `${(1 - (first.top - top - (first.bottom - first.top) * 0.3) / height) * 100}%`,
+              // 인쇄된 코드는 오선 바로 위에 앉는다. 그 자리를 덮되,
+              // 글자의 **위쪽**을 기준으로 잡는다. 아래쪽으로 잡으면 글자를
+              // 키울 때마다 위로 자라 띠 밖으로 나가 잘린다.
+              top: `${Math.max(
+                ((first.top - (first.bottom - first.top) * 0.85 - top) / height) * 100,
+                0,
+              )}%`,
             }}
           >
             {c.label}
