@@ -64,6 +64,7 @@ import {
   transposeRoot,
 } from "@/lib/notation";
 import { findNewLessons, markLessonsSeen, type NewLessons } from "@/lib/lessonShare";
+import { findNewSongs, markSongsSeen, type NewSongs } from "@/lib/songAlert";
 import { loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
@@ -161,6 +162,8 @@ export default function Home() {
    * 「새 강좌 가져오기」를 눌러 볼 생각을 못 하면 영영 못 받는다.
    */
   const [newLessons, setNewLessons] = useState<NewLessons[]>([]);
+  /** 올라온 새 곡. 강좌와 같은 자리에서 한 번에 알린다 */
+  const [newSongs, setNewSongs] = useState<NewSongs[]>([]);
   // 공부방을 열 때 펼칠 반(알림에서 건너온 경우)
   const [lessonClass, setLessonClass] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -170,6 +173,11 @@ export default function Home() {
       findNewLessons(!!health)
         .then((found) => {
           if (alive) setNewLessons(found);
+        })
+        .catch(() => {});
+      findNewSongs(!!health)
+        .then((found) => {
+          if (alive) setNewSongs(found);
         })
         .catch(() => {});
     }, 1500);
@@ -790,23 +798,47 @@ export default function Home() {
         </p>
       )}
 
-      {/* 새 강좌 알림 — 앱을 열 때 한 번. 띠로 두면 못 보고 지나친다 */}
-      {newLessons.length > 0 && (
+      {/* 새로 올라온 것 알림 — 앱을 열 때 한 번. 띠로 두면 못 보고
+          지나친다. 곡과 강좌를 한 창에 모아 두 번 묻지 않는다. */}
+      {(newLessons.length > 0 || newSongs.length > 0) && (
         <Popup
-          title="새 강좌가 올라왔습니다"
+          title={
+            newSongs.length > 0 && newLessons.length > 0
+              ? "새 자료가 올라왔습니다"
+              : newSongs.length > 0
+                ? "새 음원이 올라왔습니다"
+                : "새 강좌가 올라왔습니다"
+          }
           width="max-w-xs"
           onClose={() => {
             markLessonsSeen(newLessons.flatMap((l) => l.ids));
+            markSongsSeen(newSongs.flatMap((s) => s.ids));
             setNewLessons([]);
+            setNewSongs([]);
           }}
         >
           <p className="mb-2.5 text-[11px] leading-snug text-gray-500">
-            강사님이 공부방 강의실에 새 자료를 올렸습니다. 받으러 가시겠어요?
+            강사님이 새 자료를 올렸습니다. 받으러 가시겠어요?
           </p>
           <div className="space-y-1.5">
+            {newSongs.map((g) => (
+              <button
+                key={`song-${g.klass.id}`}
+                className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
+                onClick={() => {
+                  setImportCard(g.klass.id);
+                  setTab("import");
+                  markSongsSeen(newSongs.flatMap((x) => x.ids));
+                  setNewSongs([]);
+                }}
+              >
+                {g.klass.name.match(/\(([^)]+)\)/)?.[1] ?? g.klass.name} 음원{" "}
+                {g.ids.length}곡 받으러 가기
+              </button>
+            ))}
             {newLessons.map((l) => (
               <button
-                key={l.klass.id}
+                key={`lesson-${l.klass.id}`}
                 className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
                 onClick={() => {
                   setLessonClass(l.klass.id);
@@ -815,15 +847,17 @@ export default function Home() {
                   setNewLessons([]);
                 }}
               >
-                {l.klass.name.match(/\(([^)]+)\)/)?.[1] ?? l.klass.name} {l.ids.length}개
-                받으러 가기
+                {l.klass.name.match(/\(([^)]+)\)/)?.[1] ?? l.klass.name} 강좌{" "}
+                {l.ids.length}개 받으러 가기
               </button>
             ))}
             <button
               className="w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
               onClick={() => {
                 markLessonsSeen(newLessons.flatMap((l) => l.ids));
+                markSongsSeen(newSongs.flatMap((g) => g.ids));
                 setNewLessons([]);
+                setNewSongs([]);
               }}
             >
               나중에
