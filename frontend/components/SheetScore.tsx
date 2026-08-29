@@ -364,9 +364,12 @@ function SystemRow({
             key={i}
             // 인쇄된 코드를 가리고 그 자리에 앉는다. 흰 바탕을 조금
             // 넉넉히 두어 아래 글자가 비쳐 보이지 않게 한다.
-            className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[8px] font-bold leading-[1.15] text-[var(--accent)] roomy:text-[10px]"
+            className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[8.5px] font-extrabold leading-[1.15] roomy:text-[11px]"
             style={{
               left: `${x * 100}%`,
+              // 인쇄된 코드를 덮어쓴 것이니 또렷해야 한다. 강조색을
+              // 그대로 쓰면 흰 바탕에서 옅어 인쇄 글자보다 흐려 보인다.
+              color: "color-mix(in srgb, var(--accent) 65%, #000)",
               // 인쇄된 코드는 오선 바로 위 한 칸쯤에 앉는다. 그 자리를
               // 덮도록 오선 윗줄보다 조금 올려 놓는다.
               bottom: `${(1 - (first.top - top - (first.bottom - first.top) * 0.3) / height) * 100}%`,
