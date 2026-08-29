@@ -116,6 +116,13 @@ interface Props {
    * 「스물세째 마디부터」를 찾을 수 있다.
    */
   numbers?: boolean;
+  /**
+   * 안내줄 위에 함께 붙박이로 세울 것(강사님 악보설정).
+   *
+   * 따로 두면 각자 붙박이가 되어 서로 겹친다. 한 상자에 담아야
+   * 위아래로 쌓인 채 함께 남는다.
+   */
+  topBar?: React.ReactNode;
 }
 
 /**
@@ -148,6 +155,7 @@ export function SheetScore({
   barsView = 4,
   autoChords,
   numbers = true,
+  topBar,
 }: Props) {
   const time = useSmoothTime(rawTime, getTime);
   const pass = passAt(sheet, time);
@@ -247,6 +255,9 @@ export function SheetScore({
 
   return (
     <div>
+      {/* 악보설정과 안내줄을 한 상자에 담아 함께 붙박이로 세운다 */}
+      <div className="sticky top-0 z-20 bg-[var(--background)]">
+      {topBar}
       <SongInfoLine
         musicKey={musicKey}
         timeSignature={timeSignature}
@@ -262,6 +273,7 @@ export function SheetScore({
           barsLabel="줄 전체"
         />
       </SongInfoLine>
+      </div>
 
       {/* 줄과 줄을 붙여 한 장의 악보처럼 보이게 한다 */}
       <div className="overflow-hidden rounded bg-white">
