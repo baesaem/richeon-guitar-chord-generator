@@ -207,17 +207,19 @@ export function SheetScore({
             </span>
           )}
 
-          {/* 확대·축소. 한 번에 보는 마디를 줄이면 그만큼 커진다 —
-              악보에서 「크게」와 「몇 마디」는 같은 말이다. */}
+          {/* 한 번에 보는 마디 수. 줄이면 그만큼 커진다 — 악보에서
+              「크게」와 「몇 마디」는 같은 말이지만, 단추에 적힌 ＋－는
+              적힌 숫자(마디 수)를 따른다. 크기를 따르면 ＋를 눌렀는데
+              숫자가 줄어 헷갈린다. */}
           {onZoom && (
             <span className="flex items-center gap-px">
               <button
                 className={STEP}
                 disabled={barsView === 1}
                 onClick={() => onZoom(barsView === 0 ? MAX_BARS : Math.max(barsView - 1, 1))}
-                title="크게 — 한 번에 보는 마디를 줄입니다"
+                title="마디를 줄입니다 — 그만큼 크게 보입니다"
               >
-                ＋
+                －
               </button>
               <span className="w-9 text-center tabular-nums roomy:w-11">
                 {barsView ? `${barsView}마디` : "줄 전체"}
@@ -226,9 +228,9 @@ export function SheetScore({
                 className={STEP}
                 disabled={barsView === 0}
                 onClick={() => onZoom(barsView >= MAX_BARS ? 0 : barsView + 1)}
-                title="작게 — 한 번에 보는 마디를 늘립니다"
+                title="마디를 늘립니다 — 그만큼 작게 보입니다"
               >
-                －
+                ＋
               </button>
             </span>
           )}
