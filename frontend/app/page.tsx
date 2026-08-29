@@ -611,9 +611,13 @@ export default function Home() {
   // 눌러도 빈 오선만 나온다 — 있을 때만 칸을 만든다.
   const hasScore = !!(result as { score?: unknown } | null)?.score;
   // 강사님이 올린 악보 그림. 있으면 우리가 그리지 않고 이것을 띄운다.
-  // 악보 파일(.mscz)이 붙어 있으면 직접 그린다 — 되풀이를 펴서 이어
-  // 그릴 수 있고 조옮김도 따라온다. 그림은 악보 파일이 없을 때만 쓴다.
-  const sheetImg = hasScore ? null : ((result?.sheet ?? null) as SheetData | null);
+  // 인쇄된 악보 그림이 있으면 그것을 띄운다 — 원본과 똑같은 것은
+  // 이 길뿐이다. 도돌이표는 편 차례를 그림에도 넘겼으므로, 되돌아가는
+  // 자리에서 화면도 함께 되돌아간다.
+  //
+  // 그린 악보는 전체보기의 「멜로디」 탭에 남는다 — 조옮김이 필요하거나
+  // 그림이 없는 곡에 쓴다.
+  const sheetImg = (result?.sheet ?? null) as SheetData | null;
   const hasMelody = hasScore || !!sheetImg || (result?.melody?.length ?? 0) > 8;
 
 

@@ -29,8 +29,13 @@ export interface SheetData {
     right?: number;
   }[];
   bars: SheetBar[];
-  /** 되풀이마다 마디별 시작·끝 시각 */
-  passes: { start: number; end: number }[][];
+  /**
+   * 부르는 차례. 걸음마다 「그림의 몇 번째 마디」와 그 시각.
+   *
+   * 도돌이표를 편 곡은 같은 마디가 여러 번 나온다 — 종이 악보를 보며
+   * 연주할 때 D.S.를 만나면 사람도 그 마디로 되돌아간다. 화면도 그런다.
+   */
+  passes: { bar: number; start: number; end: number }[][];
   /** "score"면 악보 파일의 정렬, "grid"면 박 격자에 고르게 얹은 것 */
   source: "score" | "grid";
   offset: number;
@@ -94,17 +99,19 @@ export function SheetScore({
   zoom = 1,
 }: Props) {
   const pass = passAt(sheet, time);
-  const bars = sheet.passes[pass] ?? [];
+  const steps = sheet.passes[pass] ?? [];
 
-  // 지금 마디
-  const at = useMemo(() => {
+  // 지금 몇 번째 걸음인가
+  const step = useMemo(() => {
     let found = -1;
-    for (let i = 0; i < bars.length; i++) {
-      if (time >= bars[i].start) found = i;
+    for (let i = 0; i < steps.length; i++) {
+      if (time >= steps[i].start) found = i;
       else break;
     }
     return Math.max(found, 0);
-  }, [bars, time]);
+  }, [steps, time]);
+  /** 지금 걸음이 가리키는 그림 위 마디 */
+  const at = steps[step]?.bar ?? 0;
 
   // 그림의 줄(system)을 쪽별로 묶는다. 화면은 줄 단위로 넘어간다.
   const systems = useMemo(() => {
@@ -163,7 +170,8 @@ export function SheetScore({
           resultId={resultId}
           sheet={sheet}
           row={row}
-          bars={bars}
+          steps={steps}
+          step={step}
           time={time}
           at={at}
           zoom={zoom}
@@ -212,7 +220,8 @@ function SystemRow({
   resultId,
   sheet,
   row,
-  bars,
+  steps,
+  step,
   time,
   at,
   zoom,
@@ -222,7 +231,8 @@ function SystemRow({
   resultId: string;
   sheet: SheetData;
   row: { page: number; system: number; bars: number[] };
-  bars: { start: number; end: number }[];
+  steps: { bar: number; start: number; end: number }[];
+  step: number;
   time: number;
   at: number;
   zoom: number;
@@ -239,8 +249,9 @@ function SystemRow({
 
   const live = row.bars.includes(at);
   const hereBar = sheet.bars[at];
-  const span = bars[at] ? Math.max(bars[at].end - bars[at].start, 0.05) : 1;
-  const progress = bars[at] ? (time - bars[at].start) / span : 0;
+  const now = steps[step];
+  const span = now ? Math.max(now.end - now.start, 0.05) : 1;
+  const progress = now ? (time - now.start) / span : 0;
 
   // 쪽 여백을 빼고, 배율만큼 좁게 잘라 본다. 배율이 1보다 크면 지금
   // 마디를 한가운데 두고 옆으로 따라간다 — 어르신 화면에서 음표가
@@ -329,7 +340,18 @@ function SystemRow({
       {onSeek &&
         row.bars.map((bi) => {
           const b = sheet.bars[bi];
-          const t = bars[bi]?.start;
+          // 되돌아가는 곡은 같은 마디를 여러 번 부른다. 지금 자리에서
+          // 가장 가까운 걸음으로 보낸다 — 늘 처음으로 튀면 곤란하다.
+          let t: number | undefined;
+          let best = Infinity;
+          for (const st of steps) {
+            if (st.bar !== bi) continue;
+            const d = Math.abs(st.start - time);
+            if (d < best) {
+              best = d;
+              t = st.start;
+            }
+          }
           if (t === undefined) return null;
           return (
             <button

@@ -59,32 +59,32 @@ def flatten(pages: list[Page]) -> list[Placed]:
     return out
 
 
-def times_from_score(align: dict, count: int) -> list[list[dict]] | None:
-    """붙여 둔 악보(.mscz)의 정렬을 그대로 쓴다.
+def times_from_score(align: dict, placed: list[Placed]) -> list[list[dict]] | None:
+    """붙여 둔 악보(.mscz)의 정렬을 그림 위 마디에 잇는다.
 
-    마디 수가 다르면 쓰지 않는다 — 그림과 악보가 같은 판이 아니라는
-    뜻이라, 억지로 맞추면 어긋난 채로 조용히 흘러간다.
+    도돌이표를 편 정렬은 같은 마디가 여러 번 나온다. 그림에는 그 마디가
+    한 자리뿐이지만 **되돌아가면 될 뿐이다** — 종이 악보를 보며 연주할
+    때 D.S.를 만나면 사람도 그 마디로 되돌아간다. 그래서 마디를 버리지
+    않고, 부르는 차례마다 「그림의 몇 번째 마디」를 가리키게 한다.
     """
     passes = align.get("passes") or []
     if not passes:
         return None
 
+    # 그림의 마디 번호 → 그림에서 몇 번째 마디인가. 그림은 적힌 차례대로다.
+    index_of = {i + 1: i for i in range(len(placed))}
+
     out: list[list[dict]] = []
     for p in passes:
-        rows = p.get("bars") or []
-        # 도돌이표를 편 정렬은 같은 마디가 여러 번 나온다. 그림은 마디마다
-        # 자리가 하나뿐이라 그대로 얹을 수 없다 — 박 격자로 물러난다.
-        if len({b["number"] for b in rows}) != len(rows):
-            return None
-        by_number = {b["number"]: b for b in rows}
-        # 그림의 n번째 마디는 악보의 n번째 마디다. 번호로 짚는다.
-        bars = []
-        for i in range(1, count + 1):
-            b = by_number.get(i)
-            if b is None:
+        steps = []
+        for b in p.get("bars") or []:
+            at = index_of.get(b["number"])
+            if at is None:
                 return None
-            bars.append({"start": b["start"], "end": b["end"]})
-        out.append(bars)
+            steps.append({"bar": at, "start": b["start"], "end": b["end"]})
+        if not steps:
+            return None
+        out.append(steps)
     return out
 
 
@@ -106,12 +106,16 @@ def times_from_grid(
     out: list[list[dict]] = []
     for r in range(max(repeats, 1)):
         base = (offset + r * count) * per_bar
-        bars = []
+        steps = []
         for i in range(count):
             start = grid.sec(base + i * per_bar)
             end = grid.sec(base + (i + 1) * per_bar)
-            bars.append({"start": round(start, 3), "end": round(max(end, start + 0.05), 3)})
-        out.append(bars)
+            steps.append({
+                "bar": i,
+                "start": round(start, 3),
+                "end": round(max(end, start + 0.05), 3),
+            })
+        out.append(steps)
     return out
 
 
@@ -127,7 +131,7 @@ def build(
     passes = None
     source = "grid"
     if align:
-        passes = times_from_score(align, len(placed))
+        passes = times_from_score(align, placed)
         if passes:
             source = "score"
     if passes is None:
@@ -158,7 +162,8 @@ def build(
             }
             for b in placed
         ],
-        # 되풀이마다 마디별 시작·끝 시각
+        # 부르는 차례. 걸음마다 「그림의 몇 번째 마디」와 그 시각.
+        # 도돌이표를 편 곡은 같은 마디가 여러 번 나온다.
         "passes": passes,
         #: 시각을 어디서 얻었나 — "score"면 악보 파일의 정렬, "grid"면 박 격자
         "source": source,

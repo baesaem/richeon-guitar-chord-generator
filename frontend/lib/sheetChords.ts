@@ -21,7 +21,7 @@ export interface SheetChord {
 }
 
 export function sheetChords(
-  bars: { start: number; end: number }[],
+  steps: { bar: number; start: number; end: number }[],
   chords: Chord[],
   transpose: number,
   flats: boolean,
@@ -29,7 +29,7 @@ export function sheetChords(
   const out: SheetChord[] = [];
   let last = "";
 
-  bars.forEach((bar, i) => {
+  steps.forEach((bar) => {
     const span = Math.max(bar.end - bar.start, 0.05);
     for (const c of chords) {
       if (c.end <= bar.start || c.start >= bar.end) continue;
@@ -41,7 +41,7 @@ export function sheetChords(
       // 언제 손을 옮기는지가 오히려 안 보인다.
       if (label === last) continue;
       const at = Math.min(Math.max((c.start - bar.start) / span, 0), 0.9);
-      out.push({ bar: i, at, label });
+      out.push({ bar: bar.bar, at, label });
       last = label;
     }
   });
