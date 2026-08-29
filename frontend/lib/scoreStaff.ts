@@ -202,7 +202,53 @@ export function viewFromScore(
   const written = score.bars.some((b) => (b.chords ?? []).length > 0);
   const guessed = !written && fallback && fallback.length > 0 ? fallback : null;
 
-  for (const slot of p.bars) {
+  /**
+   * 얹을 코드를 마디마다 나누어 둔다.
+   *
+   * 음원에서 잡은 바뀜은 몇십 분의 일 초쯤 흔들린다. 마디선보다 살짝
+   * 이른 것을 그 마디 안에서만 찾으면 **앞 마디 끝**에 붙어 한 박자
+   * 어긋나 보인다. 마디를 넘어가는 것은 다음 마디 첫 박으로 넘긴다.
+   */
+  const dealt = new Map<number, { beat: number; label: string }[]>();
+  if (guessed) {
+    const taken = new Set<string>();
+    let last = "";
+    let si = 0;
+    for (const c of guessed) {
+      const slots = p.bars;
+      if (!slots.length || c.start < slots[0].start - 0.3) continue;
+      while (si < slots.length - 1 && c.start >= slots[si].end) si += 1;
+      const slot = slots[si];
+      if (c.start >= slot.end + 0.3) continue;
+      const src = byNumber.get(slot.number);
+      if (!src) continue;
+
+      const span = Math.max(slot.end - slot.start, 0.05);
+      let idx = si;
+      let beat = Math.round(((c.start - slot.start) / span) * src.beats);
+      if (beat >= src.beats) {
+        if (si + 1 < slots.length) {
+          idx = si + 1;
+          beat = 0;
+        } else {
+          beat = src.beats - 1;
+        }
+      }
+      if (beat < 0) beat = 0;
+
+      const label = labelFor(transposeRoot(c.root, -transpose), c.quality, flats);
+      if (label === last) continue;
+      last = label;
+      const key = `${idx}:${beat}`;
+      if (taken.has(key)) continue;
+      taken.add(key);
+      const row = dealt.get(idx) ?? [];
+      row.push({ beat, label });
+      dealt.set(idx, row);
+    }
+  }
+
+  for (const [slotIndex, slot] of p.bars.entries()) {
     const src = byNumber.get(slot.number);
     if (!src) continue;
     const span = Math.max(slot.end - slot.start, 0.05);
@@ -214,25 +260,10 @@ export function viewFromScore(
       end: slot.end,
       beats: src.beats,
       chords: guessed
-        ? // 이 마디에 걸린 코드. 마디 첫머리에 이미 울리고 있던 것도
-          // 적는다 — 앞 마디에서 이어지는 코드를 빼면 첫 마디가 빈다.
-          guessed
-            // 이 마디에서 **바뀌는** 코드만. 이어지는 것까지 적으면
-            // 마디마다 같은 이름이 두 번씩 찍힌다.
-            .filter((c) => c.start >= slot.start && c.start < slot.end)
-            .map((c) => {
-              // 음원에서 잡은 바뀜은 조금씩 흔들린다. 가장 가까운 박으로
-              // 당겨 붙여야 음표 위에 반듯이 앉는다.
-              const rel = ((c.start - slot.start) / span) * src.beats;
-              const beat = Math.min(Math.max(Math.round(rel), 0), src.beats - 1);
-              return {
-                t: at(beat),
-                // 음원에서 딴 코드는 원곡 조다. 악보는 짚기 쉬운 조로
-                // 적혀 있으므로 카포만큼 내려 적어야 손가락과 맞는다.
-                label: labelFor(transposeRoot(c.root, -transpose), c.quality, flats),
-              };
-            })
-            .filter((c, i, all) => i === 0 || all[i - 1].t !== c.t)
+        ? (dealt.get(slotIndex) ?? []).map((c) => ({
+            t: at(c.beat),
+            label: c.label,
+          }))
         : src.chords.map((c) => ({
             t: at(c.beat),
             label: transposeLabel(c.label, shift, flats),

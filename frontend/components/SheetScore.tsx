@@ -159,38 +159,50 @@ export function SheetScore({
   // 인쇄된 코드가 없는 악보에 얹을 코드. 마디마다 시각을 알고 있으므로
   // (커서가 그것으로 움직인다) 그 안에 걸린 코드를 그 자리에 놓는다.
   const auto = useMemo(() => {
-    if (!autoChords?.length) return [];
-    const out: { bar: number; at: number; label: string }[] = [];
+    if (!autoChords?.length || !steps.length) return [];
     // 음원에서 잡은 코드 바뀜은 몇십 분의 일 초쯤 흔들린다. 그대로
-    // 얹으면 글자가 마디 한가운데나 음표 사이에 어정쩡하게 앉는다.
-    // 가장 가까운 **박**으로 당겨 붙인다 — 악보에 코드를 적는 자리가
-    // 본디 박 위다.
+    // 얹으면 글자가 마디 한가운데에 어정쩡하게 앉고, 마디선보다 살짝
+    // 이른 것은 **앞 마디 끝**에 붙어 한 박자 어긋나 보인다.
+    // 가장 가까운 박으로 당겨 붙이되, 마디를 넘어가는 것은 넘겨 준다.
     const perBar = Math.max(
       Number.parseInt((timeSignature || "4/4").split("/")[0], 10) || 4,
       1,
     );
+    const out: { bar: number; at: number; label: string }[] = [];
+    const taken = new Set<string>();
     let last = "";
-    for (const s of steps) {
+    let si = 0;
+
+    for (const c of autoChords) {
+      // 악보가 시작하기 전(전주)이나 끝난 뒤의 코드는 적을 자리가 없다
+      if (c.start < steps[0].start - 0.3) continue;
+      while (si < steps.length - 1 && c.start >= steps[si].end) si += 1;
+      const s = steps[si];
+      if (c.start >= s.end + 0.3) continue;
+
       const span = Math.max(s.end - s.start, 0.01);
-      const taken = new Set<number>();
-      for (const c of autoChords) {
-        // 이 마디에서 **바뀌는** 코드만 적는다. 앞 마디에서 이어지는
-        // 것까지 적으면 마디마다 같은 이름이 두 번씩 찍혀 지저분하다.
-        if (c.start < s.start || c.start >= s.end) continue;
-        if (c.label === last) continue;
-        last = c.label;
-        // 마디 끝에 바싹 붙은 것은 다음 마디의 일이다(반올림하면 넘어간다)
-        const beat = Math.min(
-          Math.round(((c.start - s.start) / span) * perBar),
-          perBar - 1,
-        );
-        if (taken.has(beat)) continue; // 한 박에 둘을 겹쳐 적지 않는다
-        taken.add(beat);
-        out.push({ bar: s.bar, at: beat / perBar, label: c.label });
+      let idx = si;
+      let beat = Math.round(((c.start - s.start) / span) * perBar);
+      if (beat >= perBar) {
+        // 마디선을 넘어섰다 — 다음 마디 첫 박이 제자리다
+        if (si + 1 < steps.length) {
+          idx = si + 1;
+          beat = 0;
+        } else {
+          beat = perBar - 1;
+        }
       }
+      if (beat < 0) beat = 0;
+
+      if (c.label === last) continue;
+      last = c.label;
+      const key = `${idx}:${beat}`;
+      if (taken.has(key)) continue; // 한 박에 둘을 겹쳐 적지 않는다
+      taken.add(key);
+      out.push({ bar: steps[idx].bar, at: beat / perBar, label: c.label });
     }
     return out;
-  }, [autoChords, steps]);
+  }, [autoChords, steps, timeSignature]);
 
   /** 화면에 적을 코드. 인쇄된 것을 고쳐 적거나, 없으면 딴 것을 얹는다 */
   const shownChords = showChords && chords?.length ? chords : auto;
