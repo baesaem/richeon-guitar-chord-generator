@@ -727,6 +727,9 @@ export default function Home() {
    */
   const goTab = async (next: Tab) => {
     if (next !== "player") {
+      // 연주기 창은 본문 칸을 덮고 있다. 닫지 않고 탭만 바꾸면 뒤에서
+      // 바뀔 뿐이라, 눌러도 아무 일이 없는 것처럼 보인다.
+      setShowSheet(false);
       setTab(next);
       return;
     }
