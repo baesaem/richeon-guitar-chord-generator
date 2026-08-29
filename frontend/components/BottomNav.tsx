@@ -60,7 +60,7 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: "import",
-    label: "음원가져오기",
+    label: "음원받기",
     icon: (
       <>
         <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />

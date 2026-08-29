@@ -188,7 +188,7 @@ export default function Home() {
   }, [health]);
 
   // 설정에서 서버 주소를 바꾸면 다시 확인한다.
-  // 기타반 곡은 자동으로 담지 않는다 - 수강생이 음원 가져오기의
+  // 기타반 곡은 자동으로 담지 않는다 - 수강생이 음원받기의
   // 기타반 목록에서 필요한 곡만 골라 받는다.
   useEffect(() => {
     getHealth()
@@ -678,10 +678,15 @@ export default function Home() {
   const leaveApp = () => {
     leaving.current = true;
     setAskExit(false);
-    // 붙잡아 둔 자리와 앱에 들어온 자리를 함께 되돌린다
-    window.history.go(-2);
-    // 브라우저 탭으로 열었으면 그래도 남는다. 창을 닫아 본다.
-    setTimeout(() => window.close(), 400);
+    // 붙잡아 둔 자리(#p)를 놓아 준다
+    window.history.back();
+    // 그다음 한 칸을 더 물러나면 앱 밖이다. 설치한 앱은 이때 닫힌다.
+    // 한 번에 go(-2)로 하지 않는 것은, 되돌아갈 칸이 하나뿐일 때
+    // 브라우저가 통째로 무시해 아무 일도 일어나지 않기 때문이다.
+    setTimeout(() => {
+      window.close();
+      window.history.back();
+    }, 150);
   };
 
   /**
@@ -797,7 +802,7 @@ export default function Home() {
     // 연주기는 창을 여는 자리라 이 이름이 띠에 오래 남지 않는다
     player: result ? result.title || "연주기" : "연주기",
     library: "음원목록",
-    import: "음원 가져오기",
+    import: "음원받기",
     lesson: "공부방",
     edit: "코드수정",
     chords: "기타 기초",
