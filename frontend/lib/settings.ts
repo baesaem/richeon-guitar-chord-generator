@@ -32,13 +32,6 @@ export interface Settings {
   theme: Theme;
   /** 곡 전체 코드 그리드를 펼쳐 둘지 */
   showGrid: boolean;
-  /**
-   * 악보 그림 위에 이 음원의 코드를 덮어쓸지.
-   *
-   * 기타 악보는 짚기 쉬운 조로 옮겨 적는 일이 흔해, 인쇄된 코드가
-   * 원곡과 다를 수 있다.
-   */
-  sheetChords: boolean;
   /** 악보를 한 번에 몇 마디씩 볼지. 0이면 줄 전체 */
   sheetZoom: number;
   /**
@@ -77,7 +70,6 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSave: true,
   theme: "system",
   showGrid: true,
-  sheetChords: false,
   sheetZoom: 4,
   solfege: false,
   latency: 0,

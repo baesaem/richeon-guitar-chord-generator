@@ -1014,10 +1014,9 @@ export default function Home() {
                       // 아니라 코드 싱크(연주설정)로 맞춘다.
                       time={time + sync - settings.latency}
                       chords={sheetChordList}
-                      showChords={settings.sheetChords}
-                      onToggleChords={() =>
-                        setSettings({ ...settings, sheetChords: !settings.sheetChords })
-                      }
+                      // 음높이를 바꾸면 인쇄된 코드가 어긋난다. 그때만
+                      // 우리 코드를 덮어쓴다 — 손대지 않았으면 원본이 옳다.
+                      showChords={transpose !== 0}
                       barsView={settings.sheetZoom}
                       onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
                       musicKey={result.key}

@@ -59,9 +59,14 @@ interface Props {
   sheet: SheetData;
   time: number;
   /** 그림 위에 덮어쓸 코드. 마디마다 [{at 0~1, label}] */
+  /**
+   * 그림 위에 덮어쓸 코드.
+   *
+   * 음높이(카포)를 바꾸면 인쇄된 코드는 더 이상 맞지 않는다. 그때만
+   * 우리 코드를 얹는다 — 손대지 않았으면 악보에 적힌 대로가 옳다.
+   */
   chords?: { bar: number; at: number; label: string }[];
   showChords: boolean;
-  onToggleChords: () => void;
   onZoom?: (zoom: number) => void;
   musicKey: string;
   timeSignature: string;
@@ -96,7 +101,6 @@ export function SheetScore({
   time,
   chords,
   showChords,
-  onToggleChords,
   onZoom,
   musicKey,
   timeSignature,
@@ -145,18 +149,6 @@ export function SheetScore({
         playNotes={playNotes}
         right={headerRight}
       >
-        <button
-          className={[
-            "shrink-0 rounded px-1.5 py-0.5",
-            showChords
-              ? "bg-[var(--accent)] text-white"
-              : "text-gray-500 underline decoration-dotted underline-offset-2",
-          ].join(" ")}
-          onClick={onToggleChords}
-          title="악보에 적힌 코드 위에 이 음원의 코드를 덮어 씁니다"
-        >
-          코드 바꿔 보기
-        </button>
         {/* 확대·축소. 한 번에 보는 마디를 줄이면 그만큼 커진다 —
             악보에서 「크게」와 「몇 마디」는 같은 말이다. */}
         {onZoom && (
@@ -182,10 +174,6 @@ export function SheetScore({
             </button>
           </span>
         )}
-        <span className="ml-2 shrink-0">
-          {sheet.passes.length > 1 ? `${pass + 1}번째 · ` : ""}
-          {from + 1}–{Math.min(from + lines, systems.length)} / {systems.length}줄
-        </span>
       </SongInfoLine>
 
       {/* 줄과 줄을 붙여 한 장의 악보처럼 보이게 한다 */}
