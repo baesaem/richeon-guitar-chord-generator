@@ -108,6 +108,14 @@ interface Props {
    * 그쪽이 옳으므로 이것은 쓰지 않는다.
    */
   autoChords?: { start: number; end: number; label: string }[];
+  /**
+   * 마디 번호를 적을지.
+   *
+   * 인쇄된 번호는 네 마디마다 하나뿐이고 판마다 다르다. 앱이 세는
+   * 번호가 보여야 「몇째 마디가 어긋난다」고 짚을 수 있고, 수강생도
+   * 「스물세째 마디부터」를 찾을 수 있다.
+   */
+  numbers?: boolean;
 }
 
 /**
@@ -139,6 +147,7 @@ export function SheetScore({
   lines = 2,
   barsView = 4,
   autoChords,
+  numbers = true,
 }: Props) {
   const time = useSmoothTime(rawTime, getTime);
   const pass = passAt(sheet, time);
@@ -273,6 +282,7 @@ export function SheetScore({
           at={at}
           barsView={barsView}
           chords={shownChords.length ? shownChords : undefined}
+          showNumbers={numbers}
           onSeek={onSeek}
         />
       ))}
@@ -367,6 +377,7 @@ function SystemRow({
   barsView,
   chords,
   onSeek,
+  showNumbers,
 }: {
   /** 지금 연주 중인 줄에만 붙는다. 화면을 이 줄로 끌어오는 데 쓴다 */
   innerRef?: React.Ref<HTMLDivElement>;
@@ -380,6 +391,7 @@ function SystemRow({
   barsView: number;
   chords?: { bar: number; at: number; label: string }[];
   onSeek?: (t: number) => void;
+  showNumbers?: boolean;
 }) {
   const page = sheet.pages[row.page];
   const first = sheet.bars[row.bars[0]];
@@ -476,6 +488,24 @@ function SystemRow({
           style={{ left: `${cursorX * 100}%`, top: 0, bottom: 0 }}
         />
       )}
+
+      {/* 마디 번호. 인쇄된 번호는 네 마디마다 하나뿐이고 판마다 다르다 —
+          앱이 세는 번호를 적어 두어야 「몇째 마디가 어긋난다」고 짚을 수
+          있고, 마디 맞추기도 이 번호를 보고 한다. */}
+      {showNumbers &&
+        row.bars.slice(start, start + count).map((bi) => {
+          const b = sheet.bars[bi];
+          if (!b) return null;
+          return (
+            <span
+              key={`n${bi}`}
+              className="pointer-events-none absolute rounded-sm bg-white/80 px-[1px] text-[7px] font-semibold leading-none text-gray-400 roomy:text-[9px]"
+              style={{ left: `${toX(b.x0) * 100}%`, top: 0 }}
+            >
+              {bi + 1}
+            </span>
+          );
+        })}
 
       {/* 코드 덮어쓰기. 인쇄된 코드가 있는 자리(오선 바로 위)에 얹는다 —
           줄 맨 위에 찍으면 앞 줄 가사 위에 뜬다. */}
