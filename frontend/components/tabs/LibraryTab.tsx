@@ -208,6 +208,24 @@ export function LibraryTab({
    * 결과 파일(.rml)에는 코드·비트·가사·파형이 모두 들어 있다.
    */
   /**
+   * 곡 파일에 담을 알맹이를 고른다 — 서버 것을 먼저 본다.
+   *
+   * 기기에 저장된 것은 담을 때의 모습으로 굳어 있다. 그 뒤 강사님이
+   * 악보를 붙이거나 코드를 고치면 서버 것만 새로워진다. 그대로 올리면
+   * 「재배포했는데 반영이 안 된다」가 된다 — 실제로 악보를 붙인 곡을
+   * 올렸는데 받은 파일에는 악보가 없었다.
+   *
+   * 서버에 닿지 못하면(수강생 기기·서버 꺼짐) 기기 것을 쓴다.
+   */
+  const freshest = async (id: string) => {
+    const mine = await getResult(id).catch(() => null);
+    if (mine) return mine;
+    const local = await getLocal(id);
+    if (!local) throw new Error("곡을 찾지 못했습니다");
+    return local;
+  };
+
+  /**
    * (관리자) 곡을 통째로 한 파일에 담아 내려받는다.
    *
    * 코드·가사·음원·반주가 전부 .rml 하나에 들어간다(곡당 10~20MB).
@@ -250,7 +268,7 @@ export function LibraryTab({
         // 마디만 남으면 곡이 열 개일 때 무엇을 손봐야 할지 알 수 없다.
         let step = "곡 읽기";
         try {
-          const result = (await getLocal(id)) ?? (await getResult(id));
+          const result = await freshest(id);
           step = "곡 파일 만들기";
           const bundle = await makeBundle(result);
           const blob = new Blob([JSON.stringify(bundle)], {
@@ -292,7 +310,7 @@ export function LibraryTab({
 
   const exportOne = async (id: string) => {
     try {
-      const result = (await getLocal(id)) ?? (await getResult(id));
+      const result = await freshest(id);
       downloadBundle(await makeBundle(result));
     } catch (e) {
       setError((e as Error).message);
@@ -356,7 +374,7 @@ export function LibraryTab({
       setWorking("전체 내보내는 중");
       let count = 0;
       for (const item of items) {
-        const result = (await getLocal(item.id)) ?? (await getResult(item.id));
+        const result = await freshest(item.id);
         const bundle = await makeBundle(result);
         if (dir) {
           await writeBundleTo(dir, bundle);
