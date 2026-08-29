@@ -1409,6 +1409,40 @@ export default function Home() {
                   되돌리기 {undo.length}
                 </button>
               )}
+              {/* 연주설정 — 악보를 보며 카포·빠르기를 맞추는 자리다.
+                  가사·내 악보에는 맞출 것이 없으니 내지 않는다. */}
+              {(sheetTab === "score" ||
+                sheetTab === "melody" ||
+                sheetTab === "grid") && (
+                <PlaySettings
+                  duration={result.duration}
+                  time={time}
+                  transpose={transpose}
+                  rate={rate}
+                  loop={loop}
+                  sync={sync}
+                  lyricSync={lyricSync}
+                  onSync={setSync}
+                  onLyricSync={setLyricSync}
+                  onTranspose={setTranspose}
+                  onRate={(r) => {
+                    setRate(r);
+                    playback?.setRate(r);
+                  }}
+                  onLoop={setLoop}
+                  arp={arp}
+                  onArp={setArp}
+                  timeSignature={result.time_signature}
+                  bpm={result.bpm}
+                  strumName={strumName}
+                  onStrumName={setStrumName}
+                  strumRec={strumRec ?? undefined}
+                  stem={stem}
+                  vocalBusy={vocalBusy}
+                  vocalError={vocalError}
+                  onStem={pickStem}
+                />
+              )}
               <button
                 className="rounded px-2 py-1 text-sm text-gray-500"
                 onClick={() => setShowSheet(false)}
