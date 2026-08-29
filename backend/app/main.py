@@ -465,8 +465,22 @@ def _stem_mp3(result_id: str, kind: str) -> Path:
     return settings.audio_dir / f"{result_id}.{kind}.mp3"
 
 
-def _serve_stem(result_id: str, kind: str) -> FileResponse:
-    for path in (_stem_mp3(result_id, kind), _STEM_WAVS[kind](result_id)):
+async def _serve_stem(result_id: str, kind: str) -> FileResponse:
+    """분리 트랙 한 벌. 늘 mp3로 낸다.
+
+    분리가 남기는 wav는 4분 곡이 40MB다. 그대로 내주면 폰으로 받기도
+    무겁고, 곡 파일(.rml)에 담으면 세 트랙이 100MB를 넘어 드라이브에
+    올리다 막힌다. 그래서 아직 없으면 여기서 줄여 두고 낸다 —
+    「만들기」를 따로 누르지 않아도 되게.
+    """
+    mp3 = _stem_mp3(result_id, kind)
+    wav = _STEM_WAVS[kind](result_id)
+    if not mp3.exists() and wav.exists():
+        try:
+            await encode_mp3(wav, mp3, bitrate="128k")
+        except Exception:
+            pass  # 줄이지 못하면 wav라도 낸다
+    for path in (mp3, wav):
         if path.exists():
             return FileResponse(path, filename=path.name)
     raise HTTPException(404, "트랙이 아직 없습니다")
@@ -505,7 +519,7 @@ async def _make_stem(result_id: str, kind: str) -> dict:
 async def get_instrumental(result_id: str) -> FileResponse:
     """보컬을 뺀 반주 트랙. 없으면 404 — 프론트가 만들기를 요청한다."""
     _guard_id(result_id)
-    return _serve_stem(result_id, "instrumental")
+    return await _serve_stem(result_id, "instrumental")
 
 
 @app.post("/api/audio/{result_id}/instrumental")
@@ -518,7 +532,7 @@ async def make_instrumental(result_id: str) -> dict:
 async def get_vocals(result_id: str) -> FileResponse:
     """보컬만 남긴 트랙. 노래 연습용 — 반주를 빼고 목소리만 듣는다."""
     _guard_id(result_id)
-    return _serve_stem(result_id, "vocals")
+    return await _serve_stem(result_id, "vocals")
 
 
 @app.post("/api/audio/{result_id}/vocals")

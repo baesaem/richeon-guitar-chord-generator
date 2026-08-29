@@ -186,6 +186,9 @@ export function SheetScore({
 
       {/* 줄과 줄을 붙여 한 장의 악보처럼 보이게 한다 */}
       <div className="overflow-hidden rounded bg-white">
+      {/* 곡을 죽 펴 보는 화면에서만 악보 머리(제목·가수·작사작곡)를
+          띄운다. 연주 화면은 한 줄이라도 더 보여야 하는 자리다. */}
+      {whole && <TitleBand resultId={resultId} sheet={sheet} />}
       {shown.map((row) => (
         <SystemRow
           key={`${row.page}:${row.system}`}
@@ -239,6 +242,47 @@ function usePageUrl(resultId: string, index: number): string {
  * 따로 만들지 않는 편이 낫다 — 서버가 쪽마다 한 장만 주면 되고,
  * 화면이 커지면 그만큼 또렷해진다.
  */
+/**
+ * 악보 첫 쪽의 머리 — 제목·가수·작사작곡.
+ *
+ * 첫 줄 오선 위의 여백이 곧 그 자리다. 따로 찾을 것이 없다. 연주
+ * 화면에서는 자리가 아까워 잘라내지만, 전체보기는 곡을 처음부터 죽
+ * 펴 보는 자리라 제목이 있어야 무슨 악보인지 안다.
+ */
+function TitleBand({ resultId, sheet }: { resultId: string; sheet: SheetData }) {
+  const src = usePageUrl(resultId, 0);
+  const page = sheet.pages[0];
+  const first = sheet.bars.find((b) => b.page === 0);
+  // 첫 줄 띠가 시작하는 바로 그 자리에서 끊는다. 조금이라도 겹치거나
+  // 벌어지면 빠르기표(♩=113)처럼 경계에 걸친 글자가 잘린다.
+  const bottom = Math.max(first?.viewTop ?? 0, 0);
+  const x0 = Math.max(page?.left ?? 0, 0);
+  const x1 = Math.min(page?.right ?? 1, 1);
+  const viewW = Math.max(x1 - x0, 0.02);
+  // 머리가 없는 악보(바로 오선부터 시작)는 아예 그리지 않는다
+  if (!page || bottom < 0.02) return null;
+  const ratio = (bottom * page.height) / (viewW * page.width);
+
+  return (
+    <div
+      className="relative w-full overflow-hidden bg-white"
+      style={{ paddingTop: `${ratio * 100}%` }}
+    >
+      <img
+        src={src}
+        alt=""
+        className="pointer-events-none absolute max-w-none select-none"
+        style={{
+          width: `${(100 / viewW).toFixed(3)}%`,
+          left: `${(-x0 / viewW) * 100}%`,
+          top: 0,
+        }}
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 function SystemRow({
   resultId,
   sheet,
