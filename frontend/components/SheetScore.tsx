@@ -42,6 +42,9 @@ export interface SheetData {
   repeats: number;
 }
 
+/** 한 창에 담을 수 있는 마디의 최대. 이보다 늘리면 「줄 전체」가 된다 */
+const MAX_BARS = 8;
+
 /** 지금 시각이 몇 바퀴째인가 */
 function passAt(sheet: SheetData, time: number): number {
   let best = 0;
@@ -154,14 +157,30 @@ export function SheetScore({
         >
           코드 바꿔 보기
         </button>
+        {/* 확대·축소. 한 번에 보는 마디를 줄이면 그만큼 커진다 —
+            악보에서 「크게」와 「몇 마디」는 같은 말이다. */}
         {onZoom && (
-          <button
-            className="ml-1.5 shrink-0 rounded px-1.5 py-0.5 text-gray-500 underline decoration-dotted underline-offset-2"
-            onClick={() => onZoom(barsView === 2 ? 4 : barsView === 4 ? 0 : 2)}
-            title="한 번에 볼 마디 수. 적을수록 크게 보입니다"
-          >
-            {barsView ? `${barsView}마디씩` : "줄 전체"}
-          </button>
+          <span className="ml-1.5 flex shrink-0 items-center gap-0.5">
+            <button
+              className="rounded bg-gray-200/70 px-1.5 py-0.5 font-bold text-gray-900 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-100"
+              disabled={barsView === 1}
+              onClick={() => onZoom(barsView === 0 ? MAX_BARS : Math.max(barsView - 1, 1))}
+              title="크게 — 한 번에 보는 마디를 줄입니다"
+            >
+              ＋
+            </button>
+            <span className="px-0.5 tabular-nums">
+              {barsView ? `${barsView}마디` : "줄 전체"}
+            </span>
+            <button
+              className="rounded bg-gray-200/70 px-1.5 py-0.5 font-bold text-gray-900 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-100"
+              disabled={barsView === 0}
+              onClick={() => onZoom(barsView >= MAX_BARS ? 0 : barsView + 1)}
+              title="작게 — 한 번에 보는 마디를 늘립니다"
+            >
+              －
+            </button>
+          </span>
         )}
         <span className="ml-2 shrink-0">
           {sheet.passes.length > 1 ? `${pass + 1}번째 · ` : ""}
@@ -273,8 +292,14 @@ function SystemRow({
     Math.max(hereAt - Math.floor((count - 1) / 2), 0),
     Math.max(rowBars.length - count, 0),
   );
-  const pad = (lastX - firstX) * 0.012;
-  const x0 = Math.max(sheet.bars[rowBars[start]].x0 - pad, 0);
+  // 마디선에 바싹 붙여 자르면 그 자리의 음표 머리가 반쯤 잘린다.
+  const pad = (lastX - firstX) * 0.022;
+  // 줄의 첫 마디를 보일 때는 **자리표와 조표까지** 담아야 한다.
+  // 그것들은 첫 마디선보다 왼쪽에 있어서, 마디선에서 자르면 사라진다.
+  const x0 =
+    start === 0
+      ? Math.max(page?.left ?? 0, 0)
+      : Math.max(sheet.bars[rowBars[start]].x0 - pad, 0);
   const x1 = Math.min(
     sheet.bars[rowBars[Math.min(start + count, rowBars.length) - 1]].x1 + pad,
     1,
