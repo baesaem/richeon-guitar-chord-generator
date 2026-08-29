@@ -24,6 +24,7 @@ import { EditTab } from "@/components/tabs/EditTab";
 import { ChordPicker } from "@/components/ChordPicker";
 import { LyricEditor, LyricRow } from "@/components/LyricEditor";
 import { SongInfoLine } from "@/components/SongInfoLine";
+import { ViewSteppers } from "@/components/ViewSteppers";
 import { Working } from "@/components/Working";
 import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { measureOutputLatency } from "@/lib/latency";
@@ -995,7 +996,10 @@ export default function Home() {
                           전체보기
                         </button>
                       }
-                    />
+                    >
+                      {/* 파형에는 마디를 나눌 것이 없다 — 싱크만 둔다 */}
+                      <ViewSteppers sync={sync} onSync={setSync} />
+                    </SongInfoLine>
                   </div>
                   <ChordStrip
                     ref={stripRef}
@@ -1129,6 +1133,10 @@ export default function Home() {
                     bars={bars}
                     chords={shownChords}
                     strums={result.strums}
+                    sync={sync}
+                    onSync={setSync}
+                    perLine={settings.chordPerLine}
+                    onPerLine={(n) => setSettings({ ...settings, chordPerLine: n })}
                     arp={arp}
                     strumName={strumName}
                     playNotes={playNotes}
@@ -1400,8 +1408,32 @@ export default function Home() {
               </button>
             </div>
 
-            {/* 한 화면에 다 담으면 스크롤이 길어진다. 볼 것만 골라 본다. */}
-            <div className="flex shrink-0 gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+            {/* 한 화면에 다 담으면 스크롤이 길어진다. 볼 것만 골라 본다.
+                재생 단추는 탭 줄에 붙여 둔다 — 이 창이 영상을 가리므로,
+                여기 없으면 창을 닫았다 열었다 하며 재생해야 한다. 줄은
+                스크롤 밖이라 어느 탭에서든 늘 같은 자리에 있다. */}
+            <div className="flex shrink-0 items-center gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+              <button
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white disabled:opacity-40"
+                disabled={!playback}
+                aria-label={playing ? "멈춤" : "재생"}
+                onClick={() => {
+                  if (!playback) return;
+                  if (playback.isPlaying()) playback.pause();
+                  else playback.play();
+                }}
+              >
+                {playing ? (
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                    <rect x="6" y="5" width="4" height="14" rx="1" />
+                    <rect x="14" y="5" width="4" height="14" rx="1" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="ml-0.5 h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                    <path d="M7 4.5v15l13-7.5z" />
+                  </svg>
+                )}
+              </button>
               {(
                 [
                   ["score", "코드악보"] as const,
@@ -1458,6 +1490,10 @@ export default function Home() {
                   bars={bars}
                   chords={shownChords}
                   strums={result.strums}
+                  sync={sync}
+                  onSync={setSync}
+                  perLine={settings.chordPerLine}
+                  onPerLine={(n) => setSettings({ ...settings, chordPerLine: n })}
                   arp={arp}
                   strumName={strumName}
                   playNotes={playNotes}
@@ -1559,6 +1595,10 @@ export default function Home() {
                   flats={flats}
                   transpose={noteShift}
                   follow={false}
+                  sync={sync}
+                  onSync={setSync}
+                  perRow={settings.gridPerRow}
+                  onPerRow={(n) => setSettings({ ...settings, gridPerRow: n })}
                   onSeek={(t) => {
                     playback?.seek(t);
                     setTime(t);

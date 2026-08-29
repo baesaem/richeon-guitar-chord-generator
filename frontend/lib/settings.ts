@@ -34,6 +34,10 @@ export interface Settings {
   showGrid: boolean;
   /** 악보를 한 번에 몇 마디씩 볼지. 0이면 줄 전체 */
   sheetZoom: number;
+  /** 코드악보 한 줄에 몇 마디씩. 4가 표준(한 줄이 한 악구) */
+  chordPerLine: number;
+  /** 그리드 한 줄에 몇 칸씩. 0이면 자동(좁으면 4칸, 넓으면 8칸) */
+  gridPerRow: number;
   /**
    * 음표 아래에 계이름(도·레·미)을 적을지.
    *
@@ -71,6 +75,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   showGrid: true,
   sheetZoom: 4,
+  chordPerLine: 4,
+  gridPerRow: 0,
   solfege: false,
   latency: 0,
   adminMode: false,

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 
 import { SongInfoLine } from "@/components/SongInfoLine";
+import { ViewSteppers } from "@/components/ViewSteppers";
 import { EDIT_HOLD_MS } from "@/lib/editChords";
 import { useLongPress } from "@/lib/useLongPress";
 import { arpPattern, arpString } from "@/lib/arpeggio";
@@ -60,6 +61,11 @@ interface Props {
    * 한 줄이 한 악구가 되고 줄바꿈이 곡의 구조와 일치한다.
    */
   perLine?: number;
+  /** 한 줄 마디 수를 안내줄에서 바꾼다. 없으면 단추를 두지 않는다 */
+  onPerLine?: (n: number) => void;
+  /** 코드 싱크(초). 악보를 보며 맞추는 것이라 안내줄에 둔다 */
+  sync?: number;
+  onSync?: (sec: number) => void;
   /**
    * 한 번에 보여줄 줄 수. 지정하면 현재 줄이 맨 위에 오도록 창을 옮긴다.
    * 재생 화면은 2를 써서 「지금 줄 + 다음 줄」만 띄운다 — 스크롤을 쫓지
@@ -116,6 +122,9 @@ export function ChordScore({
   onPickStrum,
   follow,
   perLine = 4,
+  onPerLine,
+  sync,
+  onSync,
   visibleLines,
   onSeek,
   onEditBar,
@@ -171,9 +180,13 @@ export function ChordScore({
         onPickStrum={pattern ? undefined : onPickStrum}
         right={headerRight}
       >
-        {visibleLines && lines.length > visibleLines
-          ? `${from + 1}–${Math.min(from + visibleLines, lines.length)} / ${lines.length}줄`
-          : ""}
+        <ViewSteppers
+          sync={sync}
+          onSync={onSync}
+          bars={onPerLine ? per : undefined}
+          onBars={onPerLine}
+          barsMax={8}
+        />
       </SongInfoLine>
 
       {shown.map(([lineIndex, line]) => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { ViewSteppers } from "@/components/ViewSteppers";
 import { useEffect, useRef } from "react";
 
 import { ChordLabel } from "@/components/ChordLabel";
@@ -22,6 +23,12 @@ interface Props {
   onEditBar?: (barIndex: number) => void;
   /** 마디를 짧게 눌렀을 때 그 자리로 건너뛴다 */
   onSeek?: (t: number) => void;
+  /** 한 줄에 놓을 칸 수. 0이면 자동(좁으면 4칸, 넓으면 8칸) */
+  perRow?: number;
+  onPerRow?: (n: number) => void;
+  /** 코드 싱크(초) */
+  sync?: number;
+  onSync?: (sec: number) => void;
 }
 
 interface Span {
@@ -57,6 +64,10 @@ export function ChordSheet({
   follow,
   onEditBar,
   onSeek,
+  perRow = 0,
+  onPerRow,
+  sync,
+  onSync,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
 
@@ -66,7 +77,25 @@ export function ChordSheet({
   }, [currentBar, follow]);
 
   return (
-    <div className="grid grid-cols-4 gap-1 lg:grid-cols-8">
+    <div>
+      {/* 코드악보·멜로디와 같은 조절. 화면을 옮길 때마다 단추를 새로
+          찾게 하지 않는다. 여기서 「마디」는 한 줄에 놓는 칸 수다. */}
+      {(onSync || onPerRow) && (
+        <div className="mb-1.5 flex justify-end text-[11px] text-gray-500">
+          <ViewSteppers
+            sync={sync}
+            onSync={onSync}
+            bars={onPerRow ? perRow : undefined}
+            onBars={onPerRow}
+            barsMax={8}
+            barsLabel="자동"
+          />
+        </div>
+      )}
+    <div
+      className={perRow ? "grid gap-1" : "grid grid-cols-4 gap-1 lg:grid-cols-8"}
+      style={perRow ? { gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` } : undefined}
+    >
       {bars.map((bar, i) => {
         const active = i === currentBar;
         const spans = spansOf(bar, chords);
@@ -129,6 +158,7 @@ export function ChordSheet({
           </BarCell>
         );
       })}
+      </div>
     </div>
   );
 }
