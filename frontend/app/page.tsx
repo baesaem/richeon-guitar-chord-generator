@@ -622,6 +622,69 @@ export default function Home() {
   }, [transpose, rate, loop, settings.chordVocab, stem, sync, lyricSync, arp]);
 
   /**
+   * 폰의 「뒤로」로 앱이 꺼지지 않게 한다.
+   *
+   * 안드로이드에서 뒤로를 누르면 곧장 앱이 닫혔다 — 악보를 보다 잘못
+   * 누르면 처음부터 다시 열어야 했다. 뒤로는 한 걸음씩 물러나는 것이어야
+   * 한다: 열린 창을 닫고, 그다음 홈으로, 더 물러날 데가 없을 때에만
+   * 「나가시겠습니까?」를 묻는다.
+   *
+   * 되돌아갈 자리(history)를 한 칸 만들어 두고, 뒤로가 눌리면 그 칸을
+   * 도로 채워 넣는 식으로 붙잡는다.
+   */
+  const [askExit, setAskExit] = useState(false);
+  // popstate는 한 번만 붙인다. 지금 상태는 ref로 들여다본다.
+  const backState = useRef({ showSheet, showStrums, editBar, tab });
+  backState.current = { showSheet, showStrums, editBar, tab };
+  const leaving = useRef(false);
+  useEffect(() => {
+    // 주소 뒤에 #p를 붙여 되돌아갈 자리를 만든다. pushState로 만들면
+    // Next 라우터가 화면 이동으로 알아듣고 앱을 통째로 다시 그린다 —
+    // 그러면 보고 있던 자리도, 붙잡을 기회도 함께 날아간다. 해시는
+    // 라우터가 거들떠보지 않는다.
+    const guard = () => {
+      if (leaving.current) return;
+      if (window.location.hash !== "#p") window.location.hash = "p";
+    };
+    guard();
+    const onPop = () => {
+      if (leaving.current) return;
+      if (window.location.hash === "#p") return; // 우리가 붙인 자리로 돌아온 것
+      const now = backState.current;
+      guard(); // 다시 붙잡아 둔다 — 아래에서 한 걸음만 물러난다
+      if (now.editBar !== null) {
+        setEditBar(null);
+        return;
+      }
+      if (now.showStrums) {
+        setShowStrums(false);
+        return;
+      }
+      if (now.showSheet) {
+        setShowSheet(false);
+        return;
+      }
+      if (now.tab !== "home") {
+        setTab("home");
+        return;
+      }
+      setAskExit(true);
+    };
+    window.addEventListener("hashchange", onPop);
+    return () => window.removeEventListener("hashchange", onPop);
+  }, []);
+
+  /** 「나가기」를 골랐을 때. 붙잡아 둔 자리를 놓아 준다. */
+  const leaveApp = () => {
+    leaving.current = true;
+    setAskExit(false);
+    // 붙잡아 둔 자리와 앱에 들어온 자리를 함께 되돌린다
+    window.history.go(-2);
+    // 브라우저 탭으로 열었으면 그래도 남는다. 창을 닫아 본다.
+    setTimeout(() => window.close(), 400);
+  };
+
+  /**
    * 연주기 창에서 고를 수 있는 곡 목록.
    *
    * 기기에 담아 둔 곡이 먼저다 — 수강생에게는 그것이 전부이고, 강사님도
@@ -808,6 +871,30 @@ export default function Home() {
           기기 저장 곡과 기타 기초는 그대로 쓸 수 있습니다. 서버 주소는 설정
           탭에서 지정합니다.
         </p>
+      )}
+
+      {/* 나가기 확인. 뒤로를 눌러 앱이 툭 꺼지면 놀란다 — 한 번 묻는다 */}
+      {askExit && (
+        <Popup title="앱을 나가시겠습니까?" width="max-w-xs" onClose={() => setAskExit(false)}>
+          <p className="mb-2.5 text-[11px] leading-snug text-gray-500">
+            받아 둔 곡과 설정은 그대로 남습니다. 다시 열면 이어서 치실 수
+            있습니다.
+          </p>
+          <div className="space-y-1.5">
+            <button
+              className="w-full rounded bg-gray-100 py-2.5 text-sm font-medium dark:bg-gray-800"
+              onClick={() => setAskExit(false)}
+            >
+              계속 쓰기
+            </button>
+            <button
+              className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
+              onClick={leaveApp}
+            >
+              나가기
+            </button>
+          </div>
+        </Popup>
       )}
 
       {/* 새로 올라온 것 알림 — 앱을 열 때 한 번. 띠로 두면 못 보고
