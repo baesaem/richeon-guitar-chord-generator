@@ -130,7 +130,7 @@ export const renameResult = (id: string, title: string) =>
   }).then(json<AnalysisResult>);
 
 /**
- * 정식 악보 붙이기 (뮤즈스코어 .mscz/.mscx).
+ * 정식 악보 붙이기 (뮤즈스코어 .mscz·.mscx, MusicXML .musicxml·.mxl).
  *
  * 보컬에서 딴 멜로디는 부른 음의 15~30%밖에 잡히지 않는다. 강사님이
  * 악보를 올리면 서버가 음표·가사·코드를 읽어 이 음원의 시각에 이어

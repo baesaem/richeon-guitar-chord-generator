@@ -150,20 +150,37 @@ def _chord_label(el: ET.Element) -> str | None:
 
 
 def parse(data: bytes | str) -> Score:
-    """.mscz(zip) 또는 .mscx(xml) 바이트를 읽는다."""
+    """악보 파일을 읽는다.
+
+    뮤즈스코어(.mscz/.mscx)와 MusicXML(.musicxml/.xml/.mxl)을 함께 받는다.
+    어느 쪽인지는 파일 이름이 아니라 속을 열어 보고 가린다 — 이름은
+    옮겨 적다 바뀌지만 속은 바뀌지 않는다.
+    """
     if isinstance(data, str):
         xml = data
     elif data[:2] == b"PK":
         with zipfile.ZipFile(io.BytesIO(data)) as z:
-            inner = next(n for n in z.namelist() if n.endswith(".mscx"))
+            inner = next((n for n in z.namelist() if n.endswith(".mscx")), None)
+            if inner is None:
+                from . import musicxml
+
+                return musicxml.parse(data)
             xml = z.read(inner).decode("utf-8")
     else:
-        xml = data.decode("utf-8")
+        xml = data.decode("utf-8-sig")
 
     root = ET.fromstring(xml)
+    if root.tag in ("score-partwise", "score-timewise"):
+        from . import musicxml
+
+        return musicxml.parse(xml)
+
     score_el = root.find("Score")
     if score_el is None:
-        raise ValueError("악보를 찾을 수 없습니다. 뮤즈스코어 파일이 맞습니까?")
+        raise ValueError(
+            "악보를 찾을 수 없습니다. 뮤즈스코어(.mscz) 또는 "
+            "MusicXML(.musicxml·.mxl) 파일이 맞습니까?"
+        )
 
     meta = {m.get("name"): (m.text or "") for m in score_el.findall("metaTag")}
 
@@ -392,7 +409,7 @@ def expand(bars: list[ScoreBar]) -> list[int]:
         # 1·2번 괄호: 이번 바퀴에 부르지 않는 괄호는 통째로 건너뛴다
         if bar.volta:
             endings, span = bar.volta
-            turn = played.get(_next_end(bars, i), 0) + 1
+            turn = played.get(_volta_end(bars, i, start), 0) + 1
             if endings and turn not in endings:
                 i += span
                 continue
@@ -417,8 +434,16 @@ def expand(bars: list[ScoreBar]) -> list[int]:
     return play
 
 
-def _next_end(bars: list[ScoreBar], i: int) -> int:
-    """이 자리 뒤에 오는 되돌이 끝 마디. 괄호가 몇 번째 바퀴인지 세는 데 쓴다."""
+def _volta_end(bars: list[ScoreBar], i: int, start: int) -> int:
+    """이 괄호가 매달린 되돌이 끝 마디. 몇 번째 바퀴인지 세는 데 쓴다.
+
+    1번 괄호 안에 되돌이 끝(𝄇)이 들어 있고, 2번 괄호는 그 **뒤**에 온다.
+    그래서 뒤만 보면 2번 괄호가 셀 것을 찾지 못해 영영 건너뛴다 —
+    지금 되돌이 구간 안에서 앞을 먼저 보고, 없으면 뒤를 본다.
+    """
+    for j in range(i - 1, start - 1, -1):
+        if bars[j].end_repeat:
+            return j
     for j in range(i, len(bars)):
         if bars[j].end_repeat:
             return j

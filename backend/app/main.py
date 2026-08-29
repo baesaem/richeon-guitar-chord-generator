@@ -887,7 +887,9 @@ async def put_score(result_id: str, file: UploadFile = File(...)) -> AnalysisRes
     # 다시 읽어 새 박자에 맞춘다. 없으면 붙인 악보를 잃는다.
     suffix = Path(file.filename or "").suffix.lower()
     attachments.save_score_file(
-        result_id, data, suffix if suffix in {".mscz", ".mscx"} else ".mscz"
+        result_id,
+        data,
+        suffix if suffix in {".mscz", ".mscx", ".musicxml", ".mxl", ".xml"} else ".mscz",
     )
 
     result.score = score_file.to_dict(parsed)

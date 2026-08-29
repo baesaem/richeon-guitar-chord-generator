@@ -2158,7 +2158,7 @@ function NoMelody({ admin }: { admin: boolean }) {
       </div>
       <p className="mt-1.5 text-[12px] leading-5 text-gray-500">
         {admin
-          ? "이 곡에 악보 파일(.mscz)이나 악보 그림(PDF)을 붙이면 멜로디가 나옵니다."
+          ? "이 곡에 악보 파일(.mscz · MusicXML)이나 악보 그림(PDF)을 붙이면 멜로디가 나옵니다."
           : "악보가 붙은 음원을 받으시면 이 자리에 멜로디가 나옵니다. 타브와 파형은 그대로 쓰실 수 있습니다."}
       </p>
     </div>

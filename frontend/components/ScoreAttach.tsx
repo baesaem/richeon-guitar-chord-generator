@@ -16,7 +16,8 @@ import type { AnalysisResult } from "@/lib/types";
  * 정식 악보 붙이기 — 강사님 화면에만 나온다.
  *
  * 보컬에서 딴 멜로디는 부른 음의 15~30%밖에 잡히지 않아 뼈대만 남는다.
- * 뮤즈스코어 파일을 붙이면 음표가 하나도 빠지지 않고, 가사도 음표에
+ * 악보 파일(뮤즈스코어 .mscz·.mscx, MusicXML .musicxml·.mxl)을 붙이면
+ * 음표가 하나도 빠지지 않고, 가사도 음표에
  * 원래 붙어 있던 그대로 놓인다.
  *
  * 붙이는 즉시 음원의 시각에 이어 두고, **가사가 어긋난 마디**를 세어
@@ -47,7 +48,7 @@ export function ScoreAttach({
   /**
    * 악보 그림을 음원 위에서 앞뒤로 민다.
    *
-   * 뮤즈스코어 파일이 함께 붙어 있으면 마디 시각이 이미 정확하므로
+   * 악보 파일이 함께 붙어 있으면 마디 시각이 이미 정확하므로
    * 밀 일이 없다. 그림만 있는 곡은 음원의 박 격자에 고르게 얹은 것이라,
    * 「악보 1마디가 음원의 몇 마디째인가」를 사람이 한 번 짚어 줘야 한다.
    */
@@ -134,7 +135,7 @@ export function ScoreAttach({
       ) : (
         <span>
           악보 그림(PDF)을 붙이면 인쇄된 악보 위로 커서가 지나갑니다.
-          뮤즈스코어 .mscz를 함께 붙이면 마디 시각이 더 정확합니다.
+          악보 파일(.mscz · MusicXML)을 함께 붙이면 마디 시각이 더 정확합니다.
         </span>
       )}
 
@@ -225,7 +226,7 @@ export function ScoreAttach({
       <input
         ref={pick}
         type="file"
-        accept=".mscz,.mscx"
+        accept=".mscz,.mscx,.musicxml,.mxl,.xml"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
