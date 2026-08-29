@@ -137,8 +137,11 @@ export function SheetScore({
     return [...map.values()];
   }, [sheet.bars]);
 
+  // 창을 몇 줄만 띄울 때는 지금 줄이 맨 위에 온다. 곡 전체를 펴는
+  // 화면(전체보기)에서는 처음부터 죽 보인다.
   const current = systems.findIndex((s) => s.bars.includes(at));
-  const from = Math.max(current < 0 ? 0 : current, 0);
+  const whole = lines >= systems.length;
+  const from = whole ? 0 : Math.max(current < 0 ? 0 : current, 0);
   const shown = systems.slice(from, from + lines);
 
   return (
@@ -351,14 +354,22 @@ function SystemRow({
       {chords?.map((c, i) => {
         const b = sheet.bars[c.bar];
         if (!b || b.page !== row.page || b.system !== row.system) return null;
-        const x = toX(b.x0 + (b.x1 - b.x0) * c.at);
+        // 인쇄된 코드는 마디선이 아니라 그 박의 음표 위에 놓인다.
+        // 조금 오른쪽으로 밀어야 겹친다. 줄의 첫 마디는 자리표와 조표가
+        // 앞을 차지하므로 더 밀어야 한다.
+        const nudge = c.bar === row.bars[0] ? 0.12 : 0.035;
+        const x = toX(b.x0 + (b.x1 - b.x0) * (c.at + nudge));
         return (
           <span
             key={i}
-            className="pointer-events-none absolute rounded-sm bg-white px-0.5 text-[10px] font-bold leading-none text-[var(--accent)] roomy:text-[13px]"
+            // 인쇄된 코드를 가리고 그 자리에 앉는다. 흰 바탕을 조금
+            // 넉넉히 두어 아래 글자가 비쳐 보이지 않게 한다.
+            className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[8px] font-bold leading-[1.15] text-[var(--accent)] roomy:text-[10px]"
             style={{
               left: `${x * 100}%`,
-              bottom: `${(1 - (first.top - top) / height) * 100}%`,
+              // 인쇄된 코드는 오선 바로 위 한 칸쯤에 앉는다. 그 자리를
+              // 덮도록 오선 윗줄보다 조금 올려 놓는다.
+              bottom: `${(1 - (first.top - top - (first.bottom - first.top) * 0.3) / height) * 100}%`,
             }}
           >
             {c.label}

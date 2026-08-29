@@ -3,17 +3,18 @@
 /**
  * 악보 그림 위에 덮어쓸 코드.
  *
- * 기타 악보는 짚기 쉬운 조로 옮겨 적는 일이 흔하다 — 하얀나비는 악보가
- * 사장조인데 원곡은 가장조다(카포 2프렛). 인쇄된 코드를 그대로 짚으면
- * 음원과 어긋난다. 그래서 이 음원에서 인식한 코드를 마디 자리에 맞춰
- * 얹는다.
+ * 음높이(카포)를 손대면 인쇄된 코드는 그 순간 어긋난다. 그때만 고쳐
+ * 적는다 — 손대지 않았으면 악보에 적힌 대로가 옳다.
+ *
+ * 자리는 **악보에 적힌 코드의 자리**를 그대로 쓴다. 음원에서 코드가
+ * 바뀐 시각으로 잡으면 인쇄된 글자와 어긋난 곳에 얹혀, 두 개가 나란히
+ * 보이거나 엉뚱한 마디에 앉는다.
  */
 
-import { labelFor, transposeRoot } from "./notation";
-import type { Chord } from "./types";
+import { transposeLabel, type ScoreData } from "./scoreStaff";
 
 export interface SheetChord {
-  /** 몇 번째 마디인가 */
+  /** 그림에서 몇 번째 마디인가 */
   bar: number;
   /** 마디 안의 자리(0~1) */
   at: number;
@@ -21,28 +22,22 @@ export interface SheetChord {
 }
 
 export function sheetChords(
-  steps: { bar: number; start: number; end: number }[],
-  chords: Chord[],
+  score: ScoreData | null | undefined,
   transpose: number,
   flats: boolean,
 ): SheetChord[] {
+  if (!score?.bars?.length) return [];
   const out: SheetChord[] = [];
-  let last = "";
 
-  steps.forEach((bar) => {
-    const span = Math.max(bar.end - bar.start, 0.05);
-    for (const c of chords) {
-      if (c.end <= bar.start || c.start >= bar.end) continue;
-      // 스치듯 지나가는 오인식은 적지 않는다 — 악보를 덮어 가리기만 한다
-      if (c.end - c.start < 0.35) continue;
-      const label = labelFor(transposeRoot(c.root, transpose), c.quality, flats);
-      if (!label || label.startsWith("N")) continue;
-      // 바뀌는 자리만 적는다. 이어지는 코드를 마디마다 다시 적으면
-      // 언제 손을 옮기는지가 오히려 안 보인다.
-      if (label === last) continue;
-      const at = Math.min(Math.max((c.start - bar.start) / span, 0), 0.9);
-      out.push({ bar: bar.bar, at, label });
-      last = label;
+  score.bars.forEach((bar, i) => {
+    const beats = bar.beats || 4;
+    for (const c of bar.chords ?? []) {
+      out.push({
+        // 그림의 n번째 마디가 악보의 n번째 마디다
+        bar: i,
+        at: Math.min(Math.max(c.beat / beats, 0), 0.94),
+        label: transposeLabel(c.label, transpose, flats),
+      });
     }
   });
 

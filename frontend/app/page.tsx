@@ -629,15 +629,19 @@ export default function Home() {
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
   const noteShift = -transpose;
 
-  // 악보 그림 위에 덮어쓸 코드. 지금 바퀴의 마디 시각에 맞춘다.
+  // 악보 그림 위에 덮어쓸 코드. 자리는 악보에 적힌 그대로 쓴다.
+  //
+  // 악보는 이미 짚기 쉬운 조로 옮겨 적혀 있다(하얀나비는 사장조이고
+  // 카포 2프렛으로 원곡 가장조가 된다). 그러니 화면에 적을 코드는
+  //     적힌 코드 + (악보와 원곡의 차이) − 지금 카포
+  // 다. 여기서 또 -transpose를 걸면 두 번 옮겨져 엉뚱한 코드가 된다.
   const sheetChordList = useMemo(() => {
-    if (!sheetImg?.passes?.length) return [];
-    let pass = 0;
-    sheetImg.passes.forEach((bars, i) => {
-      if (bars.length && time >= bars[0].start) pass = i;
-    });
-    return sheetChords(sheetImg.passes[pass] ?? [], shownChords, noteShift, flats);
-  }, [sheetImg, shownChords, time, flats, transpose]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (transpose === 0) return [];
+    const shift =
+      ((result?.score_align ?? null) as { shift?: number } | null)?.shift ?? 0;
+    return sheetChords((result?.score ?? null) as never, shift - transpose, flats);
+  }, [result?.score, result?.score_align, transpose, flats]);
+
 
   // 지금 보고 있는 메뉴의 이름. 넓은 화면에서는 사이드바가 앱 이름을
   // 맡고, 위쪽 띠는 "여기가 어디인지"를 맡는다.
@@ -1454,9 +1458,30 @@ export default function Home() {
                 />
               )}
 
-              {sheetTab === "melody" && (
-                /* 오선 악보를 곡 전체로 죽 편다. 창을 씌우지 않으므로
-                   처음부터 끝까지 훑어볼 수 있다 — 인쇄하듯 보는 화면이다. */
+              {sheetTab === "melody" && sheetImg && (
+                /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
+                   끊지 않고 곡 전체를 죽 편다. */
+                <SheetScore
+                  resultId={result.id}
+                  sheet={sheetImg}
+                  time={time + sync - settings.latency}
+                  chords={sheetChordList}
+                  showChords={transpose !== 0}
+                  musicKey={result.key}
+                  timeSignature={result.time_signature}
+                  playNotes={playNotes}
+                  barsView={settings.sheetZoom}
+                  onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
+                  lines={999}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
+                />
+              )}
+
+              {sheetTab === "melody" && !sheetImg && (
+                /* 악보 그림이 없는 곡. 오선 악보를 곡 전체로 죽 편다. */
                 <MelodyScore
                   bars={bars}
                   chords={shownChords}
