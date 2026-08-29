@@ -118,6 +118,14 @@ export interface AnalysisResult {
    * 모양은 components/SheetScore.tsx의 SheetData를 따른다.
    */
   sheet?: unknown;
+  /**
+   * 강사님이 맞춰 둔 기준 연주설정(싱크·카포·주법).
+   *
+   * 곡마다의 설정은 본디 기기에만 남지만, 싱크는 기기 사정이 아니라
+   * 악보와 음원이 어긋난 정도다 — 곡에 적어 두면 곡 파일에 실려 간다.
+   * 수강생이 스스로 손댄 값이 있으면 그쪽이 이긴다.
+   */
+  setup?: Partial<import("./perSong").SongSetup>;
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;

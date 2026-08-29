@@ -81,6 +81,11 @@ function readAll(): Record<string, SongSetup> {
 }
 
 /** 이 곡에 저장해 둔 설정. 없으면 기본값. */
+/** 이 기기에서 이 곡을 손댄 적이 있나. 없으면 곡에 딸려 온 기준값을 쓴다 */
+export function hasSetup(songId: string): boolean {
+  return readAll()[songId] !== undefined;
+}
+
 export function loadSetup(songId: string): SongSetup {
   const saved = readAll()[songId];
   return saved ? { ...DEFAULT_SETUP, ...saved } : { ...DEFAULT_SETUP };

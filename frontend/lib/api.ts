@@ -179,6 +179,20 @@ export const readSheetImage = (id: string) =>
     json<AnalysisResult>,
   );
 
+/**
+ * 강사님이 맞춘 연주설정을 이 곡의 기준값으로 적는다.
+ *
+ * 싱크는 기기 사정이 아니라 악보와 음원이 얼마나 어긋났나다 — 한 번
+ * 맞추면 수강생 모두에게 같은 값이 옳다. 곡에 적어 두면 곡 파일에
+ * 실려 함께 가고, 기기를 바꾸거나 재분석해도 남는다.
+ */
+export const putSongSetup = (id: string, setup: object) =>
+  fetch(`${apiBase()}/api/results/${id}/setup`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(setup),
+  }).then(json<AnalysisResult>);
+
 export const dropSheetImage = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}/sheet`, { method: "DELETE" }).then(
     json<AnalysisResult>,

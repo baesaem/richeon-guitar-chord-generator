@@ -2,10 +2,13 @@
 
 import { useRef, useState } from "react";
 
+import { loadSetup } from "@/lib/perSong";
+
 import {
   dropScore,
   dropSheetImage,
   moveSheetImage,
+  putSongSetup,
   readSheetImage,
   putScore,
   putSheetImage,
@@ -37,6 +40,8 @@ export function ScoreAttach({
   const pick = useRef<HTMLInputElement | null>(null);
   const pickImage = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 방금 기준값으로 적었다는 표시. 잠깐 보였다 사라진다 */
+  const [kept, setKept] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const score = result.score as ScoreData | null | undefined;
@@ -85,6 +90,27 @@ export function ScoreAttach({
       onResult(await readSheetImage(result.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : "읽지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * 지금 맞춘 연주설정을 이 곡의 기준값으로 적어 둔다.
+   *
+   * 싱크는 기기 사정이 아니라 악보와 음원이 어긋난 정도다 — 강사님이
+   * 한 번 맞추면 수강생 모두에게 같은 값이 옳다. 곡에 적어 두면 곡
+   * 파일에 실려 함께 가고, 기기를 바꾸거나 재분석해도 남는다.
+   */
+  const keepSetup = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onResult(await putSongSetup(result.id, loadSetup(result.id)));
+      setKept(true);
+      setTimeout(() => setKept(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "적어 두지 못했습니다");
     } finally {
       setBusy(false);
     }
@@ -254,6 +280,16 @@ export function ScoreAttach({
             그림 떼기
           </button>
         )}
+        {/* 지금 맞춘 싱크·카포를 이 곡의 기준값으로. 곡 파일에 실려
+            수강생에게도 같은 값이 간다 */}
+        <button
+          className="rounded bg-gray-200/70 px-2 py-0.5 font-semibold text-gray-900 disabled:opacity-40 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1"
+          disabled={busy || !online}
+          onClick={() => void keepSetup()}
+          title="지금 싱크·카포·주법을 이 곡의 기준으로 적어 둡니다. 수강생도 같은 값으로 시작합니다"
+        >
+          {kept ? "적어 두었습니다" : "기준값 저장"}
+        </button>
         <button
           className="rounded bg-gray-200/70 px-2 py-0.5 font-semibold text-gray-900 disabled:opacity-40 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1"
           disabled={busy || !online}

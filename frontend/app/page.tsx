@@ -65,7 +65,7 @@ import {
 } from "@/lib/notation";
 import { findNewLessons, markLessonsSeen, type NewLessons } from "@/lib/lessonShare";
 import { findNewSongs, markSongsSeen, type NewSongs } from "@/lib/songAlert";
-import { loadSetup, saveSetup } from "@/lib/perSong";
+import { DEFAULT_SETUP, hasSetup, loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent, listRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
 import { useWideScreen } from "@/lib/useMedia";
@@ -309,9 +309,15 @@ export default function Home() {
    *
    * 그 곡에 저장해 둔 연주설정을 함께 되살린다 — 카포를 맞추고 속도를
    * 낮춰 연습하던 자리에서 그대로 이어 칠 수 있다.
+   *
+   * 이 기기에서 손댄 적이 없으면 **곡에 딸려 온 기준값**으로 시작한다.
+   * 강사님이 악보와 음원을 맞춰 둔 싱크가 거기 들어 있다 — 수강생이
+   * 받자마자 맞는 자리에서 시작해야 한다.
    */
   const showSong = (r: AnalysisResult) => {
-    const setup = loadSetup(r.id);
+    const setup = hasSetup(r.id)
+      ? loadSetup(r.id)
+      : { ...DEFAULT_SETUP, ...((r.setup ?? {}) as Partial<typeof DEFAULT_SETUP>) };
     setResult(r);
     // 다른 곡의 되돌리기가 이 곡에 적용되면 안 된다
     setUndo([]);
@@ -813,7 +819,15 @@ export default function Home() {
   const autoSheetChords = useMemo(() => {
     // 그림만으로는 인쇄된 코드가 있는지 알 길이 없다. 적혀 있는 악보에
     // 얹으면 글자가 겹쳐 둘 다 못 읽게 되므로, 곡마다 켜 준 때에만 얹는다.
-    if (!autoChords || !result?.chords?.length) return undefined;
+    //
+    // 다만 음높이를 바꾸면 이야기가 다르다. 인쇄된 코드는 그 순간
+    // **틀린 코드**가 되므로 덮어써야 한다. 악보 파일에 코드가 적혀
+    // 있으면 그것을 옮겨 적고(sheetChordList), 없으면 음원에서 딴 것을
+    // 옮겨 적는다 — 그러지 않으면 카포를 끼우고도 옛 코드만 보인다.
+    const written = ((result?.score ?? null) as { bars?: { chords?: unknown[] }[] } | null)
+      ?.bars?.some((b) => (b.chords ?? []).length > 0);
+    const needed = autoChords || (transpose !== 0 && !written);
+    if (!needed || !result?.chords?.length) return undefined;
     return result.chords
       .filter((c) => c.root)
       .map((c) => ({
@@ -821,7 +835,7 @@ export default function Home() {
         end: c.end,
         label: labelFor(transposeRoot(c.root, noteShift), c.quality, flats),
       }));
-  }, [autoChords, result?.chords, noteShift, flats]);
+  }, [autoChords, transpose, result?.score, result?.chords, noteShift, flats]);
 
 
   // 지금 보고 있는 메뉴의 이름. 넓은 화면에서는 사이드바가 앱 이름을

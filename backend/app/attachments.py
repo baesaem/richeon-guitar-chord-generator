@@ -105,6 +105,10 @@ def restore(result: AnalysisResult, old: dict | None) -> None:
         result.score = old.get("score") or result.score
         result.score_align = old.get("score_align") or result.score_align
 
+    # 기준 연주설정도 사람이 맞춘 것이다. 재분석이 지우지 않는다.
+    if old.get("setup"):
+        result.setup = old["setup"]
+
     # --- 악보 그림 ---
     sheet = old.get("sheet")
     if not sheet:

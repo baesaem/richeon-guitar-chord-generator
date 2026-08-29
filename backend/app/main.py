@@ -989,6 +989,29 @@ async def put_sheet(
     return result
 
 
+@app.put("/api/results/{result_id}/setup")
+async def put_setup(result_id: str, body: dict) -> AnalysisResult:
+    """강사님이 맞춰 둔 연주설정을 이 곡의 기준값으로 적어 둔다.
+
+    싱크는 기기 사정이 아니라 악보와 음원이 얼마나 어긋났나다. 강사님이
+    한 번 맞추면 수강생 모두에게 같은 값이 옳으므로, 기기에만 두지 않고
+    곡에 적는다 — 곡 파일에 실려 함께 가고 재분석해도 남는다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+
+    # 아는 항목만 받는다. 모르는 열쇠를 그대로 담아 두면 나중에 무엇이
+    # 무엇인지 알 수 없다.
+    keep = ("transpose", "rate", "sync", "lyricSync", "arp", "strum", "autoChords")
+    setup = {k: body[k] for k in keep if k in body}
+    result.setup = setup or None
+    save_result(result)
+    return result
+
+
 @app.post("/api/results/{result_id}/sheet/read")
 async def read_sheet(result_id: str) -> AnalysisResult:
     """악보 그림에서 되돌이 표시를 AI로 읽어 부르는 차례를 만든다.
