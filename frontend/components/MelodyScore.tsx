@@ -9,6 +9,7 @@ import {
   diatonic,
   keySignature,
   pickOctave,
+  signatureOf,
   SIG_OCTAVE,
   SOLFEGE,
   spellMidi,
@@ -113,6 +114,9 @@ interface Props {
   onSeek?: (t: number) => void;
   /** 관리자에게만 「손볼 마디」 표시를 보인다 */
   showChecks?: boolean;
+  /** 음표 아래 계이름(도·레·미)을 적을지. 원본 악보에는 없다 */
+  solfege?: boolean;
+  onSolfege?: () => void;
 }
 
 /**
@@ -146,6 +150,8 @@ export function MelodyScore({
   visibleLines,
   onSeek,
   showChecks = false,
+  solfege = false,
+  onSolfege,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
   const per = perLine;
@@ -182,7 +188,15 @@ export function MelodyScore({
     () => pickOctave(view.notes.map((n) => ({ t: n.t, end: n.end, midi: n.midi }))),
     [view.notes],
   );
-  const sig = useMemo(() => keySignature(musicKey, transpose), [musicKey, transpose]);
+  // 조표도 악보에 적힌 그대로. 음원의 조(가장조)가 아니라 악보의
+  // 조(사장조)를 쓴다 — 옮겨 그리지 않기로 했으므로.
+  const sig = useMemo(
+    () =>
+      usingScore && score
+        ? signatureOf(score.fifths + 0)
+        : keySignature(musicKey, transpose),
+    [usingScore, score, musicKey, transpose],
+  );
   // 조표에 든 음은 음표마다 ♭·♯을 다시 붙이지 않는다
   const sigSet = useMemo(
     () =>
@@ -231,13 +245,30 @@ export function MelodyScore({
         playNotes={playNotes}
         right={headerRight}
       >
+        {onSolfege && (
+          <button
+            className={[
+              "shrink-0 rounded px-1.5 py-0.5",
+              solfege
+                ? "bg-[var(--accent)] text-white"
+                : "text-gray-500 underline decoration-dotted underline-offset-2",
+            ].join(" ")}
+            onClick={onSolfege}
+            title="음표 아래에 도·레·미를 적습니다(원본 악보에는 없습니다)"
+          >
+            계이름
+          </button>
+        )}
         {[
           usingScore
             ? align!.passes.length > 1
               ? `악보 ${(align!.passes[pass]?.verse ?? pass) + 1}절`
               : "악보"
             : "",
-          octave > 0 ? "한 옥타브 올려 적음" : octave < 0 ? "한 옥타브 내려 적음" : "",
+          // 악보를 옮겨 그리지 않으므로, 음원과 맞추려면 카포가 필요하다
+          usingScore && align && align.shift > 0
+            ? `카포 ${align.shift}프렛`
+            : "",
           visibleLines && lines.length > visibleLines
             ? `${from + 1}–${Math.min(from + visibleLines, lines.length)} / ${lines.length}줄`
             : "",
@@ -392,6 +423,7 @@ export function MelodyScore({
                       useFlats={useFlats}
                       sigSet={sigSet}
                       time={time}
+                      solfege={solfege}
                     />
 
                     {/* 지금 자리 */}
@@ -463,6 +495,7 @@ function BarNotes({
   useFlats,
   sigSet,
   time,
+  solfege,
 }: {
   notes: ViewNote[];
   at: (t: number) => number;
@@ -474,6 +507,7 @@ function BarNotes({
   useFlats: boolean;
   sigSet: Set<string>;
   time?: number;
+  solfege: boolean;
 }) {
   const raw = notes.map((n) => {
     const sp = spellMidi(n.midi + shift, useFlats);
@@ -634,6 +668,7 @@ function NoteHead({
   sigSet,
   now,
   beamed = false,
+  solfege = false,
 }: {
   note: ViewNote;
   x: number;
@@ -644,6 +679,7 @@ function NoteHead({
   now: boolean;
   /** 이음보로 묶인 음표인가. 기둥과 꼬리는 묶음이 그린다 */
   beamed?: boolean;
+  solfege?: boolean;
 }) {
   const sp = spellMidi(midi, useFlats);
   const dia = diatonic(sp);
@@ -777,13 +813,16 @@ function NoteHead({
         />
       )}
 
-      <text
-        x={x} y={SOL_Y}
-        textAnchor="middle" fontSize={4.6}
-        fill="var(--accent)" opacity={now ? 1 : 0.8}
-      >
-        {SOLFEGE[sp.letter]}
-      </text>
+      {/* 계이름은 원본 악보에 없다. 켤 때만 적는다. */}
+      {solfege && (
+        <text
+          x={x} y={SOL_Y}
+          textAnchor="middle" fontSize={4.6}
+          fill="var(--accent)" opacity={now ? 1 : 0.8}
+        >
+          {SOLFEGE[sp.letter]}
+        </text>
+      )}
       {note.syl && (
         <text
           x={x} y={LYR_Y}

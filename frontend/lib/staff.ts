@@ -53,6 +53,15 @@ export const SIG_OCTAVE: Record<"flat" | "sharp", Record<string, number>> = {
  * 조표. transpose(카포)만큼 옮긴 조로 계산한다 —
  * 음표가 옮겨 그려지는데 조표만 제자리면 임시표가 온통 붙는다.
  */
+export function signatureOf(fifths: number): KeySignature {
+  return {
+    flats: fifths < 0 ? ORDER_FLAT.slice(0, -fifths) : [],
+    sharps: fifths > 0 ? ORDER_SHARP.slice(0, fifths) : [],
+    useFlats: fifths < 0,
+  };
+}
+
+
 export function keySignature(musicKey: string, transpose = 0): KeySignature {
   const [rawRoot = "C", mode = "major"] = (musicKey || "C major").split(" ");
   const root = transposeRoot(rawRoot, transpose) ?? rawRoot;

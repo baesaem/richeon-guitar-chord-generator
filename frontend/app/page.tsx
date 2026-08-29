@@ -1041,6 +1041,10 @@ export default function Home() {
                     score={(result.score ?? null) as never}
                     align={(result.score_align ?? null) as never}
                     showChecks={settings.adminMode}
+                    solfege={settings.solfege}
+                    onSolfege={() =>
+                      setSettings({ ...settings, solfege: !settings.solfege })
+                    }
                     time={time + lyricSync - settings.latency}
                     playNotes={playNotes}
                     headerRight={
@@ -1455,6 +1459,10 @@ export default function Home() {
                   score={(result.score ?? null) as never}
                   align={(result.score_align ?? null) as never}
                   showChecks={settings.adminMode}
+                  solfege={settings.solfege}
+                  onSolfege={() =>
+                    setSettings({ ...settings, solfege: !settings.solfege })
+                  }
                   time={time + lyricSync - settings.latency}
                   playNotes={playNotes}
                   currentBar={barIdx}

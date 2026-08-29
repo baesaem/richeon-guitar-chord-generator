@@ -178,7 +178,10 @@ export function viewFromScore(
   const off = new Map(
     align.checks.filter((c) => c.pass === pass).map((c) => [c.bar, c.off]),
   );
-  const shift = align.shift + transpose;
+  // 악보에 **적힌 그대로** 그린다. 원곡 조로 옮기지 않는다 —
+  // 기타 악보는 짚기 쉬운 조로 적혀 있고, 카포로 맞추는 것이 본디
+  // 쓰임새다. 옮겨 그리면 인쇄본과 딴 악보가 된다.
+  const shift = transpose;
   // 2절을 부르는데 1절 글자가 뜨면 화면과 노래가 딴소리를 한다.
   // 절마다 다른 대목만 따로 적혀 있으므로, 없으면 1절로 되돌아간다.
   const verse = p.verse ?? 0;
@@ -236,7 +239,7 @@ export function viewFromScore(
       notes.push({
         t: at(n.beat),
         end: at(Math.min(n.beat + n.dur, src.beats)),
-        midi: n.midi + align.shift,
+        midi: n.midi,
         syl: n.syls?.[verse] || n.syl,
         tie: n.tie,
         ...notated(n.head, n.tuplet),

@@ -42,6 +42,13 @@ export interface Settings {
   /** 악보 확대 배율. 지금 마디를 가운데 두고 옆으로 따라간다 */
   sheetZoom: number;
   /**
+   * 음표 아래에 계이름(도·레·미)을 적을지.
+   *
+   * 원본 악보에는 없다. 오선을 처음 보시는 분께는 도움이 되지만,
+   * 악보를 읽는 분께는 군더더기다. 기본은 끔.
+   */
+  solfege: boolean;
+  /**
    * 기기 지연 보정(초). 소리가 화면보다 늦게 나오는 만큼 화면을 늦춘다.
    *
    * 브라우저가 알려 주는 출력 지연을 그대로 쓴다. 곡이 아니라 기기의
@@ -72,6 +79,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showGrid: true,
   sheetChords: false,
   sheetZoom: 1,
+  solfege: false,
   latency: 0,
   adminMode: false,
   adminKeep: true,
