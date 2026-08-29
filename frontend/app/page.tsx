@@ -66,7 +66,7 @@ import {
 import { findNewLessons, markLessonsSeen, type NewLessons } from "@/lib/lessonShare";
 import { findNewSongs, markSongsSeen, type NewSongs } from "@/lib/songAlert";
 import { loadSetup, saveSetup } from "@/lib/perSong";
-import { addRecent } from "@/lib/recent";
+import { addRecent, listRecent } from "@/lib/recent";
 import { useSettings } from "@/lib/settings";
 import { useWideScreen } from "@/lib/useMedia";
 import { suggestStrum } from "@/lib/strumLibrary";
@@ -632,9 +632,14 @@ export default function Home() {
     if (!showSheet) return;
     let alive = true;
     (async () => {
-      let rows = await listLocal().catch(() => [] as ResultSummary[]);
-      if (rows.length === 0 && health) {
-        rows = await listResults().catch(() => [] as ResultSummary[]);
+      // 기기에 담아 둔 곡이 먼저. 서버가 붙어 있으면(강사님 PC) 서버에만
+      // 있는 곡을 뒤에 잇는다 — 기기에 한 곡만 담겨 있다고 목록이 사라지면
+      // 곡을 옮겨 다닐 수가 없다.
+      const rows = await listLocal().catch(() => [] as ResultSummary[]);
+      const seen = new Set(rows.map((r) => r.id));
+      if (health) {
+        const more = await listResults().catch(() => [] as ResultSummary[]);
+        for (const r of more) if (!seen.has(r.id)) rows.push(r);
       }
       if (alive) setSongList(rows);
     })();
@@ -652,19 +657,26 @@ export default function Home() {
    * 곡을 보다가 큰 화면으로 펴는 일은 자주 하는데, 여태 곡 화면
    * 안쪽의 작은 「전체보기」를 찾아야 했다. 아래 메뉴에서 바로 연다.
    */
-  const goTab = (next: Tab) => {
+  const goTab = async (next: Tab) => {
     if (next !== "player") {
       setTab(next);
       return;
     }
-    if (!result) {
-      // 열어 놓은 곡이 없으면 고를 자리로 보낸다
-      setTab("library");
+    if (result) {
+      setTab("home");
+      setEditMode(false);
+      setShowSheet(true);
       return;
     }
-    setTab("home");
-    setEditMode(false);
-    setShowSheet(true);
+    // 앱을 새로 열면 곡이 없다. 그때마다 목록으로 튕기면 「눌러도 안
+    // 된다」가 된다 — 마지막에 치던 곡을 열어 준다.
+    const last = listRecent()[0];
+    if (last && (await openSaved(last.id))) {
+      setEditMode(false);
+      setShowSheet(true);
+      return;
+    }
+    setTab("library");
   };
 
   // 태블릿·PC 폭인가. 넓으면 악보를 더 많은 줄 보인다 —
