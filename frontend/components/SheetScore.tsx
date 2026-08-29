@@ -544,7 +544,9 @@ function SystemRow({
             key={i}
             // 인쇄된 코드를 가리고 그 자리에 앉는다. 흰 바탕을 조금
             // 넉넉히 두어 아래 글자가 비쳐 보이지 않게 한다.
-            className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[8.5px] font-extrabold leading-[1.15] roomy:text-[11px]"
+            // 곡 전체를 펴 놓으면 악보가 작아진다. 코드는 연주하며 힐끗
+            // 보는 글자라, 악보보다 조금 커야 눈에 들어온다.
+            className="pointer-events-none absolute rounded-sm bg-white px-[2px] text-[11px] font-extrabold leading-[1.15] roomy:text-[14px]"
             style={{
               left: `${x * 100}%`,
               // 빨강. 인쇄된 검은 글자와 한눈에 갈린다 — 어느 것이 악보에
