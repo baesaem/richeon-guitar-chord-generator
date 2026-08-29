@@ -1054,6 +1054,11 @@ export default function Home() {
                     score={(result.score ?? null) as never}
                     align={(result.score_align ?? null) as never}
                     showChecks={settings.adminMode}
+                    getTime={
+                      playback
+                        ? () => playback.getTime() + lyricSync - settings.latency
+                        : undefined
+                    }
                     solfege={settings.solfege}
                     onSolfege={() =>
                       setSettings({ ...settings, solfege: !settings.solfege })
@@ -1147,6 +1152,12 @@ export default function Home() {
                       </button>
                     }
                     currentBar={barIdx}
+                    time={time + sync - settings.latency}
+                    getTime={
+                      playback
+                        ? () => playback.getTime() + sync - settings.latency
+                        : undefined
+                    }
                     flats={flats}
                     transpose={noteShift}
                     timeSignature={result.time_signature}
@@ -1447,6 +1458,12 @@ export default function Home() {
                   strumName={strumName}
                   playNotes={playNotes}
                   currentBar={barIdx}
+                  time={time + sync - settings.latency}
+                  getTime={
+                    playback
+                      ? () => playback.getTime() + sync - settings.latency
+                      : undefined
+                  }
                   flats={flats}
                   transpose={noteShift}
                   timeSignature={result.time_signature}
@@ -1498,6 +1515,11 @@ export default function Home() {
                   score={(result.score ?? null) as never}
                   align={(result.score_align ?? null) as never}
                   showChecks={settings.adminMode}
+                  getTime={
+                    playback
+                      ? () => playback.getTime() + lyricSync - settings.latency
+                      : undefined
+                  }
                   solfege={settings.solfege}
                   onSolfege={() =>
                     setSettings({ ...settings, solfege: !settings.solfege })

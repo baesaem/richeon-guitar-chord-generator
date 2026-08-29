@@ -19,8 +19,9 @@
 「간격」은 격자에 맡기고, 「악보를 격자의 어디에 얹을지」만 가사로
 정한다. 두 자료의 잘하는 몫만 쓰는 셈이다.
 
-곡이 조금씩 밀리는 것(옛 녹음은 흔하다)은 앵커를 옮겨 가며 중앙값을
-다시 내어 따라간다.
+옮기는 양은 **곡 전체에 하나**다. 앵커를 옮겨 가며 언저리 중앙값을
+쓰면 가사에는 더 붙지만 진행 바가 출렁여 함께 연주할 수가 없다.
+악보는 박을 짚는 도구이지 노래를 흉내 내는 도구가 아니다.
 """
 
 from __future__ import annotations
@@ -151,37 +152,53 @@ def _anchors(
     score_syls: list[tuple[str, float]],
     sung: list[tuple[str, float, bool]],
     start: int,
-) -> tuple[list[tuple[float, float]], int]:
-    """sung의 start번째부터 악보 가사를 맞춰 (박, 초) 짝을 뽑는다."""
+) -> tuple[list[tuple[float, float, bool]], int]:
+    """sung의 start번째부터 악보 가사를 맞춰 (박, 초, 또렷한가) 짝을 뽑는다."""
     a = "".join(c for c, _ in score_syls)
     b = "".join(c for c, _, _ in sung[start:])
     if not a or not b:
         return [], len(sung)
     sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
-    pairs: list[tuple[float, float]] = []
+    pairs: list[tuple[float, float, bool]] = []
     end = start
     for i, j, size in sm.get_matching_blocks():
         if not size:
             continue
         for k in range(size):
-            pairs.append((score_syls[i + k][1], sung[start + j + k][1]))
+            at = start + j + k
+            pairs.append((score_syls[i + k][1], sung[at][1], sung[at][2]))
         end = start + j + size
     return pairs, end
 
 
-def _keep(pairs: list[tuple[float, float]], grid: Grid) -> list[tuple[float, float]]:
-    """(박, 옮긴 박). 뚝 떨어진 것은 잘못 붙은 것이니 버린다."""
-    deltas = [(beat, grid.beat(sec) - beat) for beat, sec in pairs]
+def _keep(
+    pairs: list[tuple[float, float, bool]], grid: Grid
+) -> list[tuple[float, float]]:
+    """(박, 옮긴 박). 뚝 떨어진 것은 잘못 붙은 것이니 버린다.
+
+    낱말 첫 글자만 위스퍼가 실제로 찍은 시각이지만, 그것만 쓰면 앵커가
+    56개에서 19개로 줄고 오히려 자리가 흔들린다 — 어림이 섞여도 수가
+    많은 편이 낫다.
+    """
+    deltas = [(beat, grid.beat(sec) - beat) for beat, sec, _ in pairs]
     if not deltas:
         return []
     mid = st.median([d for _, d in deltas])
     return [(b, d) for b, d in deltas if abs(d - mid) < 2.0]
 
 
-def _delta_at(keep: list[tuple[float, float]], beat: float, window: float = 32.0) -> float:
-    """이 자리 언저리의 옮긴 박. 곡이 밀리면 따라 밀린다."""
-    near = [d for b, d in keep if abs(b - beat) <= window]
-    return st.median(near if len(near) >= 3 else [d for _, d in keep])
+def _delta_of(keep: list[tuple[float, float]]) -> float:
+    """악보를 박 격자의 어디에 얹을지. **곡 전체에 하나**의 값이다.
+
+    처음에는 앵커를 옮겨 가며 그 언저리의 중앙값을 썼다. 가수의 밀고
+    당김까지 따라가므로 가사에는 더 붙지만, 진행 바가 출렁여 **함께
+    연주할 수가 없다.** 악보는 박을 짚는 도구이지 노래를 흉내 내는
+    도구가 아니다.
+
+    간격은 음원에서 뽑은 박 격자가 정한다 — 그것이 곧 이 곡의 템포다.
+    가사는 「어디서 시작하는가」만 정한다.
+    """
+    return st.median([d for _, d in keep]) if keep else 0.0
 
 
 def align(score: Score, result: dict, words: list[dict]) -> dict:
@@ -228,11 +245,12 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
             break
 
 
+        delta = _delta_of(keep)
         bars = []
         beat = 0.0
         for bar in played:
-            start = grid.sec(beat + _delta_at(keep, beat))
-            end = grid.sec(beat + bar.beats + _delta_at(keep, beat + bar.beats))
+            start = grid.sec(beat + delta)
+            end = grid.sec(beat + bar.beats + delta)
             bars.append({
                 "number": bar.number,
                 "start": round(start, 3),
@@ -256,7 +274,7 @@ def align(score: Score, result: dict, words: list[dict]) -> dict:
             for n in bar.notes:
                 if not n.syl:
                     continue
-                t = grid.sec(beat + n.beat + _delta_at(keep, beat + n.beat))
+                t = grid.sec(beat + n.beat + delta)
                 near = [s for c, s in firm if c == n.syl[0] and abs(s - t) < 2.0]
                 if near:
                     offs.append(min(near, key=lambda s: abs(s - t)) - t)

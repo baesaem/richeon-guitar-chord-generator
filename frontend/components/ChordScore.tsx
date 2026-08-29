@@ -10,6 +10,7 @@ import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, transposeRoot } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
 import { PATTERNS, suggestStrum } from "@/lib/strumLibrary";
+import { useSmoothTime } from "@/lib/useSmoothTime";
 import type { Chord, Strum } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자(tspan)로 올린다. dy는 누적이라 복귀시켜야 한다. */
@@ -36,6 +37,13 @@ interface Props {
   /** 안내줄 오른쪽 끝에 놓을 것(악보보기 버튼 등) */
   headerRight?: React.ReactNode;
   currentBar: number;
+  /** 지금 재생 위치(초). 마디 안에서 진행 바가 지나간다 */
+  time?: number;
+  /**
+   * 재생 위치를 바로 읽는 길. 바깥의 time은 초당 네 번만 갱신되어
+   * 진행 바가 뒤처져 보인다 — 이 창만 제 시계로 매 프레임 따라간다.
+   */
+  getTime?: () => number;
   flats: boolean;
   transpose: number;
   timeSignature: string;
@@ -98,6 +106,8 @@ export function ChordScore({
   playNotes,
   headerRight,
   currentBar,
+  time,
+  getTime,
   flats,
   transpose,
   timeSignature,
@@ -113,6 +123,7 @@ export function ChordScore({
   strumName = "",
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
+  const now = useSmoothTime(time ?? 0, time === undefined ? undefined : getTime);
   // 아르페지오 모드에서도 한 줄 4마디를 유지한다 — 줄바꿈이 악구와
   // 일치하는 쪽이 숫자가 조금 촘촘한 것보다 낫다.
   const pattern = arp > 0 ? arpPattern(arp) : null;
@@ -349,6 +360,17 @@ export function ChordScore({
                         </g>
                       );
                     })}
+
+                    {/* 지금 자리. 멜로디 악보와 같은 진행 바다 —
+                        마디만 물들면 마디 안 어디쯤인지 알 수 없다. */}
+                    {time !== undefined && now >= bar.start && now < bar.end && (
+                      <line
+                        x1={x0 + (measureW * (now - bar.start)) / Math.max(bar.end - bar.start, 0.01)}
+                        x2={x0 + (measureW * (now - bar.start)) / Math.max(bar.end - bar.start, 0.01)}
+                        y1={STAFF_TOP - 8} y2={STAFF_TOP + STAFF_H + 4}
+                        stroke="var(--accent)" strokeWidth={0.9} opacity={0.8}
+                      />
+                    )}
 
                     {/* 마디 번호 */}
                     <text

@@ -35,6 +35,7 @@ import {
   restLine,
   timeSigDigit,
 } from "@/lib/smufl";
+import { useSmoothTime } from "@/lib/useSmoothTime";
 import type { Chord, LyricLine, Note } from "@/lib/types";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자로 올린다. dy는 누적이라 복귀시켜야 한다. */
@@ -101,6 +102,11 @@ interface Props {
   align?: ScoreAlign | null;
   /** 지금 재생 위치(초) */
   time?: number;
+  /**
+   * 재생 위치를 바로 읽는 길. 바깥의 time은 초당 네 번만 갱신되어
+   * 진행 바가 뒤처져 보인다 — 이 창만 제 시계로 매 프레임 따라간다.
+   */
+  getTime?: () => number;
   playNotes?: string[];
   headerRight?: React.ReactNode;
   currentBar: number;
@@ -137,7 +143,8 @@ export function MelodyScore({
   lyrics,
   score,
   align,
-  time,
+  time: rawTime,
+  getTime,
   playNotes,
   headerRight,
   currentBar,
@@ -155,6 +162,8 @@ export function MelodyScore({
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
   const per = perLine;
+  const hasTime = rawTime !== undefined;
+  const time = useSmoothTime(rawTime ?? 0, hasTime ? getTime : undefined);
 
   const usingScore = !!(score && align && align.passes.length > 0);
   // 되풀이하는 곡은 악보 한 벌을 여러 번 쓴다. 지금이 몇 바퀴째인지.
@@ -171,13 +180,13 @@ export function MelodyScore({
   // 지금 마디. 시각을 알면 그것으로 찾는다 — 악보를 쓰면 마디 번호가
   // 음원 마디와 달라, 바깥에서 받은 번호를 그대로 쓸 수 없다.
   const barIndex = useMemo(() => {
-    if (time === undefined) return currentBar;
+    if (!hasTime) return currentBar;
     const i = view.bars.findIndex((b) => time >= b.start && time < b.end);
     if (i >= 0) return i;
     if (view.bars.length && time >= view.bars[view.bars.length - 1].end)
       return view.bars.length - 1;
     return 0;
-  }, [time, currentBar, view.bars]);
+  }, [hasTime, time, currentBar, view.bars]);
 
   useEffect(() => {
     if (!follow || visibleLines) return;
@@ -422,12 +431,12 @@ export function MelodyScore({
                       shift={transpose + octave}
                       useFlats={useFlats}
                       sigSet={sigSet}
-                      time={time}
+                      time={hasTime ? time : undefined}
                       solfege={solfege}
                     />
 
                     {/* 지금 자리 */}
-                    {time !== undefined && time >= bar.start && time < bar.end && (
+                    {hasTime && time >= bar.start && time < bar.end && (
                       <line
                         x1={at(time)} x2={at(time)}
                         y1={vbTop + 2} y2={LYR_Y + 2}

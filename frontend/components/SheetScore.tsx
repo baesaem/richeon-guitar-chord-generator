@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { apiBase } from "@/lib/api";
 import { getSheetPage } from "@/lib/library";
+import { useSmoothTime } from "@/lib/useSmoothTime";
 
 /** 그림 위 마디 하나. 자리는 0~1 비율이라 화면 크기와 무관하다 */
 export interface SheetBar {
@@ -103,37 +104,6 @@ interface Props {
  * 인쇄된 코드가 원곡과 다르기 때문이다(하얀나비는 악보 사장조,
  * 원곡 가장조).
  */
-/**
- * 재생 위치를 매 프레임 따라가는 시계.
- *
- * 바깥은 초당 네 번만 알려 준다 — 화면 전체를 다시 그리는 값이라
- * 그보다 자주 바꾸면 무겁기 때문이다. 진행 바는 그래서는 안 되므로
- * 이 창만 따로 읽는다. 다시 그리는 것은 악보 한 칸뿐이다.
- */
-function useSmoothTime(time: number, getTime?: () => number): number {
-  const [now, setNow] = useState(time);
-  useEffect(() => {
-    if (!getTime) {
-      setNow(time);
-      return;
-    }
-    let raf = 0;
-    let last = -1;
-    const frame = () => {
-      const t = getTime();
-      // 30분의 1초보다 잘게 바꿔 봐야 눈에 띄지 않는다
-      if (Math.abs(t - last) > 0.03) {
-        last = t;
-        setNow(t);
-      }
-      raf = requestAnimationFrame(frame);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, [getTime, time]);
-  return getTime ? now : time;
-}
-
 export function SheetScore({
   resultId,
   sheet,
