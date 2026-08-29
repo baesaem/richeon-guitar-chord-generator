@@ -137,7 +137,7 @@ export default function Home() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // 악보보기 모달에서 무엇을 볼지
   const [sheetTab, setSheetTab] = useState<
-    "score" | "grid" | "lyrics" | "web" | "mine"
+    "score" | "melody" | "grid" | "lyrics" | "web" | "mine"
   >("score");
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   // 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만
@@ -1371,12 +1371,14 @@ export default function Home() {
             <div className="flex shrink-0 gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
               {(
                 [
-                  ["score", "악보"],
-                  ["grid", "그리드"],
-                  ["lyrics", "가사"],
-                  ["web", "웹 악보"],
-                  ["mine", "내 악보"],
-                ] as const
+                  ["score", "코드악보"] as const,
+                  // 오선 악보는 그릴 것이 있을 때만. 없으면 빈 탭이 된다.
+                  ...(hasMelody ? [["melody", "멜로디"] as const] : []),
+                  ["grid", "그리드"] as const,
+                  ["lyrics", "가사"] as const,
+                  ["web", "웹 악보"] as const,
+                  ["mine", "내 악보"] as const,
+                ]
               )
                 // 코드수정으로 들어왔으면 고치는 데 쓰는 탭만 남긴다
                 .filter(([value]) => !editMode || value !== "web")
@@ -1438,6 +1440,32 @@ export default function Home() {
                     setTime(t);
                   }}
                   onEditBar={setEditBar}
+                  follow
+                />
+              )}
+
+              {sheetTab === "melody" && (
+                /* 오선 악보를 곡 전체로 죽 편다. 창을 씌우지 않으므로
+                   처음부터 끝까지 훑어볼 수 있다 — 인쇄하듯 보는 화면이다. */
+                <MelodyScore
+                  bars={bars}
+                  chords={shownChords}
+                  melody={result.melody ?? []}
+                  lyrics={result.lyrics}
+                  score={(result.score ?? null) as never}
+                  align={(result.score_align ?? null) as never}
+                  showChecks={settings.adminMode}
+                  time={time + lyricSync - settings.latency}
+                  playNotes={playNotes}
+                  currentBar={barIdx}
+                  flats={flats}
+                  transpose={noteShift}
+                  timeSignature={result.time_signature}
+                  musicKey={result.key}
+                  onSeek={(t) => {
+                    playback?.seek(t);
+                    setTime(t);
+                  }}
                   follow
                 />
               )}

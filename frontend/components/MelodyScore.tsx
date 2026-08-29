@@ -58,9 +58,9 @@ const LINE_GAP = 7;        // 줄 사이
 const STEP = LINE_GAP / 2; // 한 음(도→레) 높이
 const STAFF_H = LINE_GAP * 4;
 const STAFF_BOT = STAFF_TOP + STAFF_H;
-const SOL_Y = STAFF_BOT + 9.5;  // 계이름
-const LYR_Y = STAFF_BOT + 18;   // 가사
-const ROW_H = LYR_Y + 3.5;
+const SOL_Y = STAFF_BOT + 10.5; // 계이름
+const LYR_Y = STAFF_BOT + 20;   // 가사
+const ROW_H = LYR_Y + 4;
 // 첫머리에 놓이는 것들의 폭(오선 칸 단위). Bravura 글자의 실제 크기다.
 const CLEF_W = 1.9;      // 높은음자리표
 const SIG_W = 0.7;      // 조표 한 개
@@ -650,14 +650,17 @@ function NoteHead({
   const y = noteY(dia);
   const color = now ? "var(--accent)" : "currentColor";
 
-  // 앞 마디에서 이어진 음은 꼬리만 그린다. 머리를 다시 그리면 같은
-  // 음을 두 번 치라는 뜻이 된다.
+  // 앞 마디에서 이어진 음. 머리를 다시 그리면 같은 음을 두 번 치라는
+  // 뜻이 되므로, 원본처럼 **이음줄**만 그어 소리가 이어짐을 보인다.
   if (note.tie) {
+    const end = Math.max(x2, x + LINE_GAP);
     return (
-      <rect
-        x={x} y={y - 0.8}
-        width={Math.max(x2 - x, 1)} height={1.6} rx={0.8}
-        fill="var(--accent)" opacity={now ? 0.55 : 0.28}
+      <path
+        d={`M ${x} ${y + 2.4} Q ${(x + end) / 2} ${y + LINE_GAP * 1.1} ${end} ${y + 2.4}`}
+        fill="none"
+        stroke={now ? "var(--accent)" : "currentColor"}
+        strokeWidth={0.7}
+        opacity={now ? 0.9 : 0.5}
       />
     );
   }
@@ -776,15 +779,15 @@ function NoteHead({
 
       <text
         x={x} y={SOL_Y}
-        textAnchor="middle" fontSize={3.9}
-        fill="var(--accent)" opacity={now ? 1 : 0.7}
+        textAnchor="middle" fontSize={4.6}
+        fill="var(--accent)" opacity={now ? 1 : 0.8}
       >
         {SOLFEGE[sp.letter]}
       </text>
       {note.syl && (
         <text
           x={x} y={LYR_Y}
-          textAnchor="middle" fontSize={5.6} fontWeight="500"
+          textAnchor="middle" fontSize={6.4} fontWeight="500"
           fill={color}
         >
           {note.syl}
