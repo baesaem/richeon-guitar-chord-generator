@@ -622,7 +622,14 @@ export default function Home() {
   // 그린 악보는 전체보기의 「멜로디」 탭에 남는다 — 조옮김이 필요하거나
   // 그림이 없는 곡에 쓴다.
   const sheetImg = (result?.sheet ?? null) as SheetData | null;
-  const hasMelody = hasScore || !!sheetImg || (result?.melody?.length ?? 0) > 8;
+  /**
+   * 「멜로디」 칸에 보여 줄 악보가 있는가.
+   *
+   * 강사님이 붙인 악보 파일이나 악보 그림이 있어야 한다. 보컬에서 딴
+   * 멜로디는 부른 음의 15~30%밖에 잡히지 않아, 그것을 악보라고 내놓으면
+   * 틀린 음을 따라 치게 된다. 없으면 없다고 적는 편이 낫다.
+   */
+  const hasMelody = hasScore || !!sheetImg;
 
 
   // 멜로디가 없어도 칸은 남긴다. 눌렀을 때 「이 음원은 멜로디 악보를
