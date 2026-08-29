@@ -88,6 +88,7 @@ function extOf(mime: string): string {
 async function findAudio(id: string): Promise<{ blob: Blob; ext: string } | null> {
   const local = await getLocalAudio(id).catch(() => null);
   if (local) return { blob: local, ext: extOf(local.type) };
+
   try {
     const res = await fetch(`${apiBase()}/api/audio/${id}`);
     if (!res.ok) return null;
@@ -100,24 +101,50 @@ async function findAudio(id: string): Promise<{ blob: Blob; ext: string } | null
   }
 }
 
-/** 분리 트랙(반주·보컬). 기기 → 서버(없으면 만들어 달라고 한다) 순서 */
+/**
+ * 무거운 트랙의 잣대.
+ *
+ * 분리가 남기는 wav는 4분 곡이 40MB다. 반주·보컬 둘이면 80MB,
+ * 곡 파일에 담으면 base64로 110MB가 넘어 드라이브에 올리다 막힌다.
+ * 8MB를 넘으면 wav로 본다 — 같은 길이 mp3는 4MB 안쪽이다.
+ */
+const HEAVY = 8 * 1024 * 1024;
+
+/**
+ * 분리 트랙(반주·보컬). 기기 → 서버(없으면 만들어 달라고 한다) 순서.
+ *
+ * 기기에 예전 wav가 남아 있으면 서버의 mp3로 바꿔 담는다. 예전에 받아
+ * 둔 것 때문에 곡 파일이 열 배로 부풀지 않게.
+ */
 async function findStem(
   id: string,
   kind: "instrumental" | "vocals",
 ): Promise<Blob | null> {
   const key = kind === "instrumental" ? instKey(id) : stemKey(id, "vocals");
   const local = await getLocalAudio(key).catch(() => null);
-  if (local) return local;
-  try {
-    let res = await fetch(`${apiBase()}/api/audio/${id}/${kind}`);
-    if (!res.ok) {
-      await (kind === "instrumental" ? makeInstrumental(id) : makeVocals(id));
-      res = await fetch(`${apiBase()}/api/audio/${id}/${kind}`);
+  if (local && local.size <= HEAVY) return local;
+
+  const fromServer = async (): Promise<Blob | null> => {
+    try {
+      let res = await fetch(`${apiBase()}/api/audio/${id}/${kind}`);
+      if (!res.ok) {
+        await (kind === "instrumental" ? makeInstrumental(id) : makeVocals(id));
+        res = await fetch(`${apiBase()}/api/audio/${id}/${kind}`);
+      }
+      return res.ok ? await res.blob() : null;
+    } catch {
+      return null;
     }
-    return res.ok ? await res.blob() : null;
-  } catch {
-    return null;
+  };
+
+  const fresh = await fromServer();
+  // 서버가 줄여 주었으면 기기 것도 갈아 끼운다 — 다음부터는 가볍다
+  if (fresh && fresh.size <= HEAVY) {
+    await saveLocalAudio(key, fresh).catch(() => {});
+    return fresh;
   }
+  // 서버에 닿지 못했으면 있는 것이라도 담는다
+  return fresh ?? local;
 }
 
 /**

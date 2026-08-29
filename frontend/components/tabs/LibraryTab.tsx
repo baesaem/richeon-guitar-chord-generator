@@ -256,6 +256,15 @@ export function LibraryTab({
           const blob = new Blob([JSON.stringify(bundle)], {
             type: "application/octet-stream",
           });
+          // 너무 크면 올리다 끊긴다. 끊긴 뒤 「500」을 보는 것보다
+          // 왜 못 올리는지 미리 말해 주는 편이 낫다.
+          const mb = blob.size / 1024 / 1024;
+          if (mb > 60) {
+            throw new Error(
+              `곡 파일이 ${mb.toFixed(0)}MB로 너무 큽니다. ` +
+                "연주설정에서 반주·보컬을 다시 만들면 가벼워집니다.",
+            );
+          }
           step = "드라이브에 올리기";
           await driveUpload(klass.folderId, bundleFileName(bundle), blob);
         } catch (e) {
