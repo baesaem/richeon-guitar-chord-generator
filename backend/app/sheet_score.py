@@ -89,12 +89,20 @@ def times_from_score(align: dict, placed: list[Placed]) -> list[list[dict]] | No
 
 
 def times_from_grid(
-    result: dict, count: int, offset: float = 0.0, repeats: int = 1
+    result: dict,
+    count: int,
+    offset: float = 0.0,
+    repeats: int = 1,
+    order: list[int] | None = None,
 ) -> list[list[dict]]:
     """음원의 박 격자에 마디를 고르게 얹는다.
 
     offset은 악보 첫 마디를 음원의 몇 번째 마디에 놓을지다(소수 가능).
     되풀이하는 곡은 repeats만큼 이어 붙인다.
+
+    order를 주면 **부르는 차례**대로 얹는다. 도돌이표를 편 차례라
+    같은 마디가 여러 번 나온다 — 적힌 대로 한 번씩만 얹으면 되돌이가
+    있는 곡은 그 뒤로 죽 어긋난다.
     """
     grid = Grid.of(result["beats"])
     try:
@@ -103,20 +111,32 @@ def times_from_grid(
         per_bar = 4.0
     per_bar = per_bar if per_bar > 0 else 4.0
 
+    walk = order if order else list(range(count))
     out: list[list[dict]] = []
     for r in range(max(repeats, 1)):
-        base = (offset + r * count) * per_bar
+        base = (offset + r * len(walk)) * per_bar
         steps = []
-        for i in range(count):
-            start = grid.sec(base + i * per_bar)
-            end = grid.sec(base + (i + 1) * per_bar)
+        for k, bar in enumerate(walk):
+            start = grid.sec(base + k * per_bar)
+            end = grid.sec(base + (k + 1) * per_bar)
             steps.append({
-                "bar": i,
+                "bar": bar,
                 "start": round(start, 3),
                 "end": round(max(end, start + 0.05), 3),
             })
         out.append(steps)
     return out
+
+
+def _order_of(score: dict | None, count: int) -> list[int] | None:
+    """악보 파일이 아는 부르는 차례. 그림과 마디 수가 같을 때만 쓴다."""
+    if not score:
+        return None
+    bars = score.get("bars") or []
+    play = score.get("play") or []
+    if len(bars) != count or len(play) <= count:
+        return None
+    return [i for i in play if 0 <= i < count]
 
 
 def build(
@@ -125,6 +145,8 @@ def build(
     align: dict | None,
     offset: float = 0.0,
     repeats: int = 1,
+    order: list[int] | None = None,
+    score: dict | None = None,
 ) -> dict:
     """앱으로 넘길 모양."""
     placed = flatten(pages)
@@ -135,7 +157,16 @@ def build(
         if passes:
             source = "score"
     if passes is None:
-        passes = times_from_grid(result, len(placed), offset, repeats)
+        # 악보 파일에 가사가 없으면 정렬이 서지 않는다(정렬은 가사를
+        # 표지 삼아 붙인다). 그래도 그 파일이 아는 것이 하나 있다 —
+        # **도돌이표를 편 차례**다. 시각은 박 격자에서 얻고 차례만 빌린다.
+        if order is None:
+            order = _order_of(score, len(placed))
+            if order:
+                source = "repeat"
+        elif order:
+            source = "read"
+        passes = times_from_grid(result, len(placed), offset, repeats, order)
 
     return {
         "pages": [
@@ -165,8 +196,11 @@ def build(
         # 부르는 차례. 걸음마다 「그림의 몇 번째 마디」와 그 시각.
         # 도돌이표를 편 곡은 같은 마디가 여러 번 나온다.
         "passes": passes,
-        #: 시각을 어디서 얻었나 — "score"면 악보 파일의 정렬, "grid"면 박 격자
+        #: 시각을 어디서 얻었나 — "score"면 악보 파일의 정렬,
+        #: "read"면 AI가 그림에서 읽은 되돌이 차례, "grid"면 박 격자
         "source": source,
         "offset": offset,
         "repeats": len(passes),
+        #: 부르는 차례(그림의 몇 번째 마디인지). AI가 읽었을 때만 담긴다
+        **({"order": order} if order else {}),
     }

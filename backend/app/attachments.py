@@ -125,6 +125,16 @@ def retime(sheet: dict, result: AnalysisResult) -> dict:
         passes = times_from_score(result.score_align, placed)
     if passes:
         sheet["source"] = "score"
+    elif sheet.get("order"):
+        # AI가 읽어 둔 되돌이 차례가 있으면 그대로 쓴다
+        passes = times_from_grid(
+            result.model_dump(),
+            len(placed),
+            float(sheet.get("offset", 0.0) or 0.0),
+            1,
+            list(sheet["order"]),
+        )
+        sheet["source"] = "read"
     else:
         passes = times_from_grid(
             result.model_dump(),

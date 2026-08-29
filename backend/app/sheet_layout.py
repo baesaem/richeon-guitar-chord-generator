@@ -45,6 +45,12 @@ class System:
     #: 화면에 잘라 보일 띠. 이 줄에 딸린 코드와 가사까지 담는다.
     view_top: int = 0
     view_bottom: int = 0
+    #: 도돌이표로 보이는 마디선의 자리(bars에서 몇 번째인가)와 방향.
+    #: +1이면 시작 𝄆(점이 오른쪽), -1이면 끝 𝄇(점이 왼쪽).
+    repeats: list[tuple[int, int]] = field(default_factory=list)
+    #: 2단 악보에서 이 줄에 딸린 **아래 단**의 오선 윗자리.
+    #: 위 단만 쓰되, 화면에 잘라 보일 때 아래 단을 물지 않게 하는 데 쓴다.
+    pair_top: int | None = None
 
     @property
     def measures(self) -> list[tuple[int, int]]:
@@ -156,6 +162,42 @@ def find_bars(ink: np.ndarray, system: System) -> list[int]:
             continue
         bars.append(x)
     return bars
+
+
+def _dot_ink(ink: np.ndarray, system: System, x: int, side: int) -> tuple[float, float]:
+    """마디선 옆 네 칸의 잉크. (가운데 두 칸, 바깥 두 칸)"""
+    space = (system.bottom - system.top) / 4.0
+    lo = int(x + 3) if side > 0 else int(x - space * 1.5)
+    hi = int(x + space * 1.5) if side > 0 else int(x - 3)
+    lo, hi = max(lo, 0), min(hi, ink.shape[1] - 1)
+    if hi - lo < 3:
+        return 0.0, 1.0
+    vals = []
+    for k in (0.5, 1.5, 2.5, 3.5):
+        y = k * space
+        a, b = int(y - space * 0.3), int(y + space * 0.3)
+        win = ink[system.top + max(a, 0) : system.top + b + 1, lo:hi]
+        vals.append(float(win.mean()) if win.size else 0.0)
+    return (vals[1] + vals[2]) / 2, (vals[0] + vals[3]) / 2
+
+
+def find_repeats(ink: np.ndarray, system: System) -> list[tuple[int, int]]:
+    """도돌이표(점 두 개)가 붙은 마디선을 찾는다.
+
+    점은 오선 **가운데 두 칸**에만 있다. 자리표나 음표는 위아래 칸까지
+    채우므로 그것으로 가린다. 줄 첫머리 경계는 자리표가 붙어 있어
+    보지 않는다 — 거기 도돌이표가 있어도 우리가 넣은 경계일 뿐이다.
+    """
+    out: list[tuple[int, int]] = []
+    for i, x in enumerate(system.bars):
+        if i == 0 or i == len(system.bars) - 1:
+            continue
+        for side in (-1, 1):
+            mid, outer = _dot_ink(ink, system, x, side)
+            if mid >= 0.12 and outer <= mid * 0.35:
+                out.append((i, side))
+                break
+    return out
 
 
 def _close_end(ink: np.ndarray, system: System, bars: list[int]) -> int | None:
@@ -290,13 +332,64 @@ def _view_bands(ink: np.ndarray, systems: list[System]) -> None:
             s.view_top = _split(ink, max(s.top - staff * 3, 0), s.top)
         else:
             s.view_top = _split(ink, systems[i - 1].bottom + 1, s.top)
-        if i + 1 < len(systems):
+        if s.pair_top is not None:
+            # 2단 악보. 아래 단을 물지 않게 두 단 사이에서 끊는다.
+            s.view_bottom = _split(ink, s.bottom + 1, s.pair_top)
+        elif i + 1 < len(systems):
             s.view_bottom = _split(ink, s.bottom + 1, systems[i + 1].top)
         else:
             s.view_bottom = min(s.bottom + staff * 2, ink.shape[0] - 1)
         # 오선에 너무 바싹 붙지 않게 최소 여유는 둔다
         s.view_top = min(s.view_top, s.top - int(staff * 0.35))
         s.view_bottom = max(s.view_bottom, s.bottom + int(staff * 0.35))
+
+
+def _staff_left(ink: np.ndarray, system: System) -> int:
+    """오선 줄이 시작하는 x. 이음표({)는 이보다 왼쪽에 있다."""
+    band = ink[system.top : system.bottom + 1, :]
+    counts = band.sum(axis=0)
+    on = np.nonzero(counts >= max(system.lines - 1, 3))[0]
+    return int(on[0]) if on.size else 0
+
+
+def _braced(ink: np.ndarray, a: System, b: System) -> float:
+    """두 오선이 이음표({)로 묶여 있나. 0~1.
+
+    2단 악보(멜로디 + 반주)는 왼쪽에 큰 중괄호로 두 단을 묶는다. 그
+    중괄호는 두 오선 **사이를 끝까지** 지난다 — 자리표 꼬리는 위쪽만
+    조금 내려올 뿐이다. 그 차이로 가린다.
+    """
+    lo, hi = a.bottom + 3, b.top - 3
+    if hi - lo < 6:
+        return 0.0
+    left = max(min(a.bars[0], b.bars[0]) - 4, 1)
+    band = ink[lo:hi, 0:left]
+    return float(band.any(axis=1).mean()) if band.size else 0.0
+
+
+def _fold_pairs(ink: np.ndarray, systems: list[System]) -> list[System]:
+    """2단 악보면 위 단만 남긴다.
+
+    멜로디와 반주가 한 묶음으로 적힌 악보에서, 우리가 따라가야 하는
+    것은 위 단(멜로디·코드·가사)이다. 아래 단까지 세면 마디 수가 곱절이
+    되어 음원과 맞출 길이 없다.
+    """
+    if len(systems) < 4:
+        return systems
+    kept: list[System] = []
+    i = 0
+    pairs = 0
+    while i < len(systems):
+        if i + 1 < len(systems) and _braced(ink, systems[i], systems[i + 1]) >= 0.9:
+            systems[i].pair_top = systems[i + 1].top
+            kept.append(systems[i])
+            pairs += 1
+            i += 2
+            continue
+        kept.append(systems[i])
+        i += 1
+    # 두 묶음도 못 찾으면 2단 악보가 아니다. 괜히 줄을 버리지 않는다.
+    return kept if pairs >= 2 else systems
 
 
 def layout(image: Image.Image, index: int = 0) -> Page:
@@ -318,7 +411,9 @@ def layout(image: Image.Image, index: int = 0) -> Page:
             system.bars.append(end)
         if len(system.bars) < 2:
             continue
+        system.repeats = find_repeats(ink, system)
         page.systems.append(system)
+    page.systems = _fold_pairs(ink, page.systems)
     _view_bands(ink, page.systems)
 
     # 쪽 여백은 잘라 낸다. 화면이 좁은 폰에서는 이 여백이 곧 글씨 크기다.
