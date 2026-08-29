@@ -128,6 +128,52 @@ def times_from_grid(
     return out
 
 
+def fit_offset(
+    result: dict,
+    sheet: dict,
+    order: list[int] | None,
+    around: float,
+) -> float:
+    """코드가 바뀌는 자리가 마디선과 가장 잘 맞도록 시작 마디를 다듬는다.
+
+    반주는 대개 마디 첫머리에서 코드를 바꾼다. 그러니 「코드가 바뀐 시각」이
+    마디선에 얼마나 가까운가를 재면, 악보를 얼마나 밀어야 하는지 알 수 있다.
+
+    한 마디 통째로 옮기는 일은 하지 않는다 — 그것은 가사를 봐야 알 수 있고,
+    사람이 ◀ ▶로 정하는 몫이다. 여기서는 **한 마디 안에서만** 다듬는다.
+    """
+    changes = [c["start"] for c in result.get("chords") or [] if c.get("root")]
+    if len(changes) < 8:
+        return around
+    count = len(sheet.get("bars") or [])
+    if count < 2:
+        return around
+
+    best = (float("inf"), around)
+    for step in range(-25, 26):
+        offset = around + step / 50.0        # 0.02마디씩
+        passes = times_from_grid(result, count, offset, 1, order)
+        starts = [s["start"] for s in passes[0]]
+        if not starts:
+            continue
+        span = passes[0][0]["end"] - passes[0][0]["start"] or 1.0
+        total = 0.0
+        n = 0
+        for t in changes:
+            if t < starts[0] or t > passes[0][-1]["end"]:
+                continue
+            near = min(starts, key=lambda s: abs(s - t))
+            # 반 마디를 넘게 벌어진 것은 다른 마디의 일이다. 한도를 둔다.
+            total += min(abs(near - t), span / 2)
+            n += 1
+        if n < 8:
+            continue
+        score = total / n
+        if score < best[0]:
+            best = (score, offset)
+    return round(best[1], 2)
+
+
 def _order_of(score: dict | None, count: int) -> list[int] | None:
     """악보 파일이 아는 부르는 차례. 그림과 마디 수가 같을 때만 쓴다."""
     if not score:

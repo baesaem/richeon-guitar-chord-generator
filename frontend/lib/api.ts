@@ -193,6 +193,18 @@ export const putSongSetup = (id: string, setup: object) =>
     body: JSON.stringify(setup),
   }).then(json<AnalysisResult>);
 
+/**
+ * 코드가 바뀌는 자리를 마디선에 맞춰 시작 마디를 다듬는다.
+ *
+ * 반주는 대개 마디 첫머리에서 코드를 바꾼다. 그 시각이 마디선에 얼마나
+ * 가까운가를 재면 악보를 얼마나 밀어야 하는지 알 수 있다. 한 마디
+ * 통째로 옮기는 일은 사람이 ◀ ▶로 한다 — 이것은 한 마디 안에서만 다듬는다.
+ */
+export const fitSheetImage = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/sheet/fit`, { method: "POST" }).then(
+    json<AnalysisResult>,
+  );
+
 export const dropSheetImage = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}/sheet`, { method: "DELETE" }).then(
     json<AnalysisResult>,

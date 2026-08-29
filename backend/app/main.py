@@ -1012,6 +1012,38 @@ async def put_setup(result_id: str, body: dict) -> AnalysisResult:
     return result
 
 
+@app.post("/api/results/{result_id}/sheet/fit")
+async def fit_sheet(result_id: str) -> AnalysisResult:
+    """코드가 바뀌는 자리를 마디선에 맞춰 시작 마디를 다듬는다.
+
+    한 마디 통째로 옮기는 일은 하지 않는다 — 그것은 가사를 봐야 알 수
+    있고 사람이 ◀ ▶로 정하는 몫이다. 여기서는 한 마디 안에서만 다듬는다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None or not result.sheet:
+        raise HTTPException(404, "붙여 둔 악보가 없습니다")
+
+    sheet = dict(result.sheet)
+    count = len(sheet.get("bars") or [])
+    order = sheet.get("order") or sheet_score._order_of(result.score, count)
+    payload = result.model_dump()
+    offset = sheet_score.fit_offset(
+        payload, sheet, order, float(sheet.get("offset", 0.0) or 0.0)
+    )
+    repeats = int(sheet.get("repeats", 1) or 1) if not order else 1
+    sheet["passes"] = sheet_score.times_from_grid(
+        payload, count, offset, repeats, order
+    )
+    sheet["offset"] = offset
+    was = str(sheet.get("source") or "")
+    sheet["source"] = was if (order and was in ("read", "repeat")) else ("repeat" if order else "grid")
+    result.sheet = sheet
+    save_result(result)
+    return result
+
+
 @app.post("/api/results/{result_id}/sheet/read")
 async def read_sheet(result_id: str) -> AnalysisResult:
     """악보 그림에서 되돌이 표시를 AI로 읽어 부르는 차례를 만든다.

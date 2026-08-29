@@ -177,46 +177,47 @@ export function SheetScore({
   // (커서가 그것으로 움직인다) 그 안에 걸린 코드를 그 자리에 놓는다.
   const auto = useMemo(() => {
     if (!autoChords?.length || !steps.length) return [];
-    // 음원에서 잡은 코드 바뀜은 몇십 분의 일 초쯤 흔들린다. 그대로
-    // 얹으면 글자가 마디 한가운데에 어정쩡하게 앉고, 마디선보다 살짝
-    // 이른 것은 **앞 마디 끝**에 붙어 한 박자 어긋나 보인다.
-    // 가장 가까운 박으로 당겨 붙이되, 마디를 넘어가는 것은 넘겨 준다.
+    // 코드는 **마디가 시작하는 자리**에 적는다.
+    //
+    // 음원에서 잡은 바뀜을 그 시각 그대로 얹으면 안 된다. 그림의 마디
+    // 경계와 음원의 마디 경계가 늘 딱 맞지는 않기 때문이다 — 「마디
+    // 맞추기」로 반 마디쯤 밀어 두면 그만큼 오른쪽에 앉아, 옆 마디 것처럼
+    // 보인다. 이 마디에서 울리는 코드를 마디 첫머리에 적고, 마디 안에서
+    // 또 바뀌면 그 자리에만 따로 적는다.
     const perBar = Math.max(
       Number.parseInt((timeSignature || "4/4").split("/")[0], 10) || 4,
       1,
     );
     const out: { bar: number; at: number; label: string }[] = [];
-    const taken = new Set<string>();
     let last = "";
-    let si = 0;
-
-    for (const c of autoChords) {
-      // 악보가 시작하기 전(전주)이나 끝난 뒤의 코드는 적을 자리가 없다
-      if (c.start < steps[0].start - 0.3) continue;
-      while (si < steps.length - 1 && c.start >= steps[si].end) si += 1;
-      const s = steps[si];
-      if (c.start >= s.end + 0.3) continue;
-
+    for (const s of steps) {
       const span = Math.max(s.end - s.start, 0.01);
-      let idx = si;
-      let beat = Math.round(((c.start - s.start) / span) * perBar);
-      if (beat >= perBar) {
-        // 마디선을 넘어섰다 — 다음 마디 첫 박이 제자리다
-        if (si + 1 < steps.length) {
-          idx = si + 1;
-          beat = 0;
-        } else {
-          beat = perBar - 1;
-        }
-      }
-      if (beat < 0) beat = 0;
+      const here = autoChords
+        .map((c) => ({
+          c,
+          // 이 마디를 얼마나 차지하는가. 마디를 대표하는 코드는 가장
+          // 오래 울린 것이다 — 앞 마디에서 꼬리만 걸친 것이 아니다.
+          share: Math.min(c.end, s.end) - Math.max(c.start, s.start),
+        }))
+        .filter((x) => x.share > 0);
+      if (!here.length) continue;
 
-      if (c.label === last) continue;
-      last = c.label;
-      const key = `${idx}:${beat}`;
-      if (taken.has(key)) continue; // 한 박에 둘을 겹쳐 적지 않는다
-      taken.add(key);
-      out.push({ bar: steps[idx].bar, at: beat / perBar, label: c.label });
+      const lead = here.reduce((a, b) => (b.share > a.share ? b : a));
+      if (lead.c.label !== last) {
+        last = lead.c.label;
+        out.push({ bar: s.bar, at: 0, label: lead.c.label });
+      }
+      // 마디 안에서 또 바뀌는 코드는 그 자리에 따로 적는다
+      for (const { c } of here) {
+        if (c === lead.c || c.start <= s.start) continue;
+        if (c.label === last) continue;
+        last = c.label;
+        const beat = Math.min(
+          Math.max(Math.round(((c.start - s.start) / span) * perBar), 1),
+          perBar - 1,
+        );
+        out.push({ bar: s.bar, at: beat / perBar, label: c.label });
+      }
     }
     return out;
   }, [autoChords, steps, timeSignature]);

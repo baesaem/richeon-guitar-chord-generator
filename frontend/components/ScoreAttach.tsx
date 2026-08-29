@@ -7,6 +7,7 @@ import { loadSetup } from "@/lib/perSong";
 import {
   dropScore,
   dropSheetImage,
+  fitSheetImage,
   moveSheetImage,
   putSongSetup,
   readSheetImage,
@@ -83,6 +84,19 @@ export function ScoreAttach({
    * 도돌이표의 점 두 개는 그림에서도 찾히지만, 1·2번 괄호의 숫자와
    * 「D.S. al Coda」 같은 글자는 모양만 봐서는 읽지 못한다.
    */
+  /** 코드가 바뀌는 자리에 마디선을 맞춘다(한 마디 안에서만) */
+  const fitBars = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onResult(await fitSheetImage(result.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "맞추지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const readMarks = async () => {
     setBusy(true);
     setError(null);
@@ -208,6 +222,14 @@ export function ScoreAttach({
               <button
                 className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
                 disabled={busy || !online}
+                onClick={() => void fitBars()}
+                title="코드가 바뀌는 자리에 마디선을 맞춥니다(한 마디 안에서)"
+              >
+                자동 맞추기
+              </button>
+              <button
+                className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+                disabled={busy || !online}
                 onClick={() => void readMarks()}
                 title="AI에게 다시 읽힙니다"
               >
@@ -235,6 +257,14 @@ export function ScoreAttach({
                 title="악보를 한 마디 뒤로"
               >
                 ▶
+              </button>
+              <button
+                className="rounded bg-gray-200/70 px-1.5 py-0.5 font-semibold disabled:opacity-40 dark:bg-gray-700"
+                disabled={busy || !online}
+                onClick={() => void fitBars()}
+                title="코드가 바뀌는 자리에 마디선을 맞춥니다(한 마디 안에서)"
+              >
+                자동 맞추기
               </button>
               <button
                 className="rounded bg-gray-200/70 px-1.5 py-0.5 font-semibold disabled:opacity-40 dark:bg-gray-700"
