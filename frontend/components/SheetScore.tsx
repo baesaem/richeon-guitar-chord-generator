@@ -186,9 +186,10 @@ export function SheetScore({
 
       {/* 줄과 줄을 붙여 한 장의 악보처럼 보이게 한다 */}
       <div className="overflow-hidden rounded bg-white">
-      {/* 곡을 죽 펴 보는 화면에서만 악보 머리(제목·가수·작사작곡)를
-          띄운다. 연주 화면은 한 줄이라도 더 보여야 하는 자리다. */}
-      {whole && <TitleBand resultId={resultId} sheet={sheet} />}
+      {/* 첫 줄이 보일 때는 악보 머리(제목·가수·작사작곡)도 함께 띄운다.
+          종이 악보를 펴면 맨 위에 제목이 있는 것과 같다. 곡이 나아가
+          다음 줄로 넘어가면 저절로 사라진다. */}
+      {from === 0 && <TitleBand resultId={resultId} sheet={sheet} />}
       {shown.map((row) => (
         <SystemRow
           key={`${row.page}:${row.system}`}
