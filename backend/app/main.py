@@ -1044,13 +1044,50 @@ async def fit_sheet(result_id: str) -> AnalysisResult:
     return result
 
 
-@app.post("/api/results/{result_id}/sheet/read")
-async def read_sheet(result_id: str) -> AnalysisResult:
-    """악보 그림에서 되돌이 표시를 AI로 읽어 부르는 차례를 만든다.
+#: AI가 악보를 읽는 일의 진행 상태. 곡 하나에 하나씩.
+_reads: dict[str, dict] = {}
 
-    악보 파일(.mscz·MusicXML)이 붙어 있으면 이 길이 필요 없다 — 거기엔
-    도돌이표도 D.S.도 글자로 적혀 있다. 그림뿐일 때, 1·2번 괄호의
-    숫자와 「D.S. al Coda」 같은 글자를 읽어 낼 다른 방법이 없어 쓴다.
+
+async def _run_read(result_id: str) -> None:
+    """AI에게 되돌이 표시를 읽히고 부르는 차례를 적어 둔다(뒤에서)."""
+    try:
+        result = load_result(result_id)
+        src = _sheet_source(result_id)
+        if result is None or not result.sheet or src is None:
+            raise ValueError("붙여 둔 악보가 없습니다")
+
+        data = src.read_bytes()
+        if src.suffix.lower() == ".pdf":
+            pages, images = await asyncio.to_thread(sheet_layout.from_pdf, data)
+        else:
+            pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
+
+        got = await asyncio.to_thread(sheet_read.read, pages, images)
+
+        sheet = dict(result.sheet)
+        result.sheet = sheet_score.build(
+            pages,
+            result.model_dump(),
+            result.score_align,
+            float(sheet.get("offset", 0.0) or 0.0),
+            1,
+            order=got["order"],
+            score=result.score,
+        )
+        result.sheet["read"] = got["found"]
+        save_result(result)
+        _reads[result_id] = {"state": "done"}
+    except Exception as exc:
+        _reads[result_id] = {"state": "failed", "detail": str(exc)}
+
+
+@app.post("/api/results/{result_id}/sheet/read")
+async def read_sheet(result_id: str) -> dict:
+    """악보 그림에서 되돌이 표시를 AI로 읽는다 — 시작만 하고 곧 돌려준다.
+
+    그림 몇 장을 AI에게 보이는 일이라 30초를 넘긴다. 그동안 붙잡고
+    있으면 중간의 개발 서버가 먼저 끊어 버려 500이 된다. 시작만 시키고
+    상태는 따로 물어보게 한다.
     """
     _guard_id(result_id)
 
@@ -1059,38 +1096,21 @@ async def read_sheet(result_id: str) -> AnalysisResult:
         raise HTTPException(404, "분석 결과가 없습니다")
     if not result.sheet:
         raise HTTPException(400, "먼저 악보 그림을 붙여 주세요")
-
-    src = _sheet_source(result_id)
-    if src is None:
+    if _sheet_source(result_id) is None:
         raise HTTPException(400, "악보 원본이 없습니다. 그림을 다시 붙여 주세요")
 
-    data = src.read_bytes()
-    try:
-        if src.suffix.lower() == ".pdf":
-            pages, images = await asyncio.to_thread(sheet_layout.from_pdf, data)
-        else:
-            pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
-    except Exception as exc:
-        raise HTTPException(400, f"악보를 읽지 못했습니다: {exc}") from exc
+    if _reads.get(result_id, {}).get("state") == "running":
+        return {"state": "running"}
+    _reads[result_id] = {"state": "running"}
+    asyncio.create_task(_run_read(result_id))
+    return {"state": "running"}
 
-    try:
-        got = await asyncio.to_thread(sheet_read.read, pages, images)
-    except Exception as exc:
-        raise HTTPException(400, f"AI가 읽지 못했습니다: {exc}") from exc
 
-    sheet = dict(result.sheet)
-    result.sheet = sheet_score.build(
-        pages,
-        result.model_dump(),
-        result.score_align,
-        float(sheet.get("offset", 0.0) or 0.0),
-        1,
-        order=got["order"],
-        score=result.score,
-    )
-    result.sheet["read"] = got["found"]
-    save_result(result)
-    return result
+@app.get("/api/results/{result_id}/sheet/read")
+async def read_state(result_id: str) -> dict:
+    """AI 읽기가 끝났는지 물어본다."""
+    _guard_id(result_id)
+    return _reads.get(result_id) or {"state": "idle"}
 
 
 @app.put("/api/results/{result_id}/sheet")

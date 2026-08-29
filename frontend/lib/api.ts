@@ -174,10 +174,23 @@ export const moveSheetImage = (id: string, offset: number, repeats: number) =>
  * 「D.S. al Coda」 같은 글자는 모양만 봐서는 읽지 못한다. 그림을 AI에게
  * 보여 주고 읽게 해, 부르는 차례를 편다.
  */
-export const readSheetImage = (id: string) =>
-  fetch(`${apiBase()}/api/results/${id}/sheet/read`, { method: "POST" }).then(
-    json<AnalysisResult>,
-  );
+export async function readSheetImage(id: string): Promise<AnalysisResult> {
+  // 그림 몇 장을 AI에게 보이는 일이라 30초를 넘긴다. 붙잡고 기다리면
+  // 중간의 개발 서버가 먼저 끊어 500이 된다 — 시작만 시키고 물어본다.
+  await fetch(`${apiBase()}/api/results/${id}/sheet/read`, {
+    method: "POST",
+  }).then(json<{ state: string }>);
+
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const state = await fetch(
+      `${apiBase()}/api/results/${id}/sheet/read`,
+    ).then(json<{ state: string; detail?: string }>);
+    if (state.state === "done") return getResult(id);
+    if (state.state === "failed") throw new Error(state.detail || "읽지 못했습니다");
+  }
+  throw new Error("너무 오래 걸립니다. 잠시 뒤 다시 눌러 주세요");
+}
 
 /**
  * 강사님이 맞춘 연주설정을 이 곡의 기준값으로 적는다.
