@@ -439,12 +439,17 @@ export default function Home() {
 
       if (loop && loop.b > loop.a && t >= loop.b) playback.seek(loop.a);
 
+      /* 재생 중인지는 시각과 따로 본다.
+         멈추면 시각이 굳어 tick이 더는 바뀌지 않는다 — 그 안에서만
+         갱신하면 「멈췄다」는 사실이 영영 화면에 닿지 못한다. */
+      const nowPlaying = playback.isPlaying();
+      setPlaying((was) => (was === nowPlaying ? was : nowPlaying));
+
       // 시계와 탐색 바는 초당 4번이면 충분하다
       const tick = Math.floor(t * 4);
       if (tick !== lastTick) {
         lastTick = tick;
         setTime(t);
-        setPlaying(playback.isPlaying());
       }
       raf = requestAnimationFrame(frame);
     };

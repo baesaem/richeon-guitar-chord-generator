@@ -212,7 +212,21 @@ export function PracticeRoom({
   /** 「다른 음원」 창이 열려 있는가 */
   const [picking, setPicking] = useState(false);
   const now = useSmoothTime(time, playback ? playback.getTime : undefined);
-  const playing = playback?.isPlaying() ?? false;
+
+  /* 재생 중인지를 상태로 들고 있는다.
+     예전에는 그릴 때마다 재생기에게 물었는데, 멈추면 화면이 다시
+     그려질 일이 없어 물어볼 기회조차 없었다 — 그래서 ❚❚ 가 그대로
+     남고, 다시 누르면 이미 멈춘 것을 또 멈춰 아무 일도 없었다.
+     폰·태블릿은 마우스를 올리는 일이 없어 더 자주 겪는다. */
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playback) return;
+    const id = setInterval(() => {
+      const p = playback.isPlaying();
+      setPlaying((was) => (was === p ? was : p));
+    }, 150);
+    return () => clearInterval(id);
+  }, [playback]);
 
   const rateIdx = () => {
     const i = RATES.indexOf(rate);
@@ -439,7 +453,15 @@ export function PracticeRoom({
               <button
                 className={`${circle} h-10 w-10 text-sm`}
                 aria-label={playing ? "일시정지" : "재생"}
-                onClick={() => (playing ? playback?.pause() : playback?.play())}
+                /* 누르는 순간 재생기에게 직접 묻는다 — 화면에 그려진
+                   표시가 뒤처져 있어도 토글은 어긋나지 않는다 */
+                onClick={() => {
+                  if (!playback) return;
+                  const p = playback.isPlaying();
+                  if (p) playback.pause();
+                  else playback.play();
+                  setPlaying(!p);
+                }}
               >
                 {playing ? "❚❚" : "▶"}
               </button>
