@@ -719,6 +719,34 @@ export default function Home() {
     setEditLyric(put);
   };
 
+  /**
+   * 고른 줄에 아랫줄을 붙인다.
+   *
+   * 자막은 숨 쉬는 자리마다 토막나 한 소절이 두세 줄로 갈린다. 그대로
+   * 두면 악보 아래 가사가 잘게 끊겨 어디를 부르는지 알기 어렵다.
+   * 붙일 때 시각은 **앞줄 것을 쓴다** — 소절은 앞줄에서 시작한다.
+   */
+  const mergeLyricDown = async (index: number) => {
+    if (!result) return;
+    const list = result.lyrics ?? [];
+    const cur = list[index];
+    const after = list[index + 1];
+    if (!cur || !after) return;
+
+    const rows = list
+      .map((l, i) =>
+        i === index
+          ? { ...l, text: `${l.text} ${after.text}`.trim(), end: after.end }
+          : l,
+      )
+      .filter((_, i) => i !== index + 1);
+
+    const next = { ...result, lyrics: rows, lyrics_manual: true };
+    setResult(next);
+    await saveLocal(next).catch(() => {});
+    if (health) await putLyrics(next.id, rows).catch(() => {});
+  };
+
   /** 이 시각이 몇 번째 마디인가(1부터). 가사 앞에 적어 준다 */
   const barOfTime = (t: number): number => {
     let no = 0;
@@ -2031,6 +2059,11 @@ export default function Home() {
                                 bar={barOfTime(line.t)}
                                 onBar={(dir) => void shiftLyricsFrom(i, dir)}
                                 onAddAfter={() => void addLyricAfter(i)}
+                                onMergeDown={
+                                  i + 1 < (result.lyrics?.length ?? 0)
+                                    ? () => void mergeLyricDown(i)
+                                    : undefined
+                                }
                                 onGrab={(e) => {
                                   e.currentTarget.setPointerCapture?.(
                                     e.pointerId,

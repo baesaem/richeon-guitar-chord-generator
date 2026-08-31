@@ -113,6 +113,7 @@ export function LyricRow({
   onBar,
   onGrab,
   onAddAfter,
+  onMergeDown,
 }: {
   text: string;
   /** 왼쪽에 붙일 표시(마디 번호 등) */
@@ -130,6 +131,8 @@ export function LyricRow({
   onGrab?: (e: React.PointerEvent<HTMLElement>) => void;
   /** 이 줄 다음에 빈 줄을 넣는다 */
   onAddAfter?: () => void;
+  /** 아랫줄을 이 줄에 붙인다. 아랫줄이 없으면 주지 않는다 */
+  onMergeDown?: () => void;
 }) {
   const press = useLongPress(() => onEdit?.(), EDIT_HOLD_MS);
   return (
@@ -187,7 +190,7 @@ export function LyricRow({
         )}
         <span className="min-w-0 flex-1">{text}</span>
         {/* 고른 줄에만 붙는다 — 모든 줄에 두면 가사보다 단추가 많다 */}
-        {selected && (onGrab || onAddAfter) && (
+        {selected && (onGrab || onAddAfter || onMergeDown) && (
           <span className="flex shrink-0 items-center gap-1">
             {/* 잡고 끌면 글자가 다른 칸으로 옮겨 간다. 시각은 그 자리에
                 그대로 있다 — 자막이 한 줄씩 밀려 붙었을 때 쓴다 */}
@@ -216,6 +219,20 @@ export function LyricRow({
                 }}
               >
                 ＋줄
+              </button>
+            )}
+            {/* 자막은 숨 쉬는 자리마다 토막난다. 한 소절이 두세 줄로
+                갈렸을 때 도로 잇는다 */}
+            {onMergeDown && (
+              <button
+                className="rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                title="아랫줄을 이 줄에 붙입니다"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMergeDown();
+                }}
+              >
+                합치기
               </button>
             )}
           </span>
