@@ -15,6 +15,7 @@ from .analysis.decode import encode_mp3, ffmpeg_available
 from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .analysis.separate import instrumental_path, separate, vocals_path
 from .config import settings
+from . import beats_even
 from .jobs import load_result, manager, result_path, save_result
 from .lyrics import (
     fetch_lyrics_blocking,
@@ -39,6 +40,7 @@ from .schemas import (
     AnalysisResult,
     AnalyzeRequest,
     ReanalyzeRequest,
+    Beat,
     Chord,
     LlmSettings,
     LyricLine,
@@ -1010,6 +1012,62 @@ async def put_setup(result_id: str, body: dict) -> AnalysisResult:
     result.setup = setup or None
     save_result(result)
     return result
+
+
+@app.post("/api/results/{result_id}/beats")
+async def fix_beats(result_id: str, body: dict) -> AnalysisResult:
+    """박을 고르게 하거나, 빠르기를 절반·두 배로 다시 본다.
+
+    박 찾기가 곡 한가운데서 잣대를 바꾸면 마디 길이가 들쭉날쭉해진다 —
+    「그건 너」는 열여덟째 마디까지 1.4초, 열아홉째부터 2.9초였다. mode가
+    "even"이면 그런 자리를 메우거나 덜어 고르게 한다.
+
+    "half"·"double"은 빠르기를 어떻게 볼 것인가다. 8분음표를 박으로 세면
+    마디가 절반이 되어 악보와 어긋난다. 어느 쪽이 옳은지는 악보를 보아야
+    아는 일이라 사람이 정한다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+
+    mode = str(body.get("mode") or "even")
+    rows = [b.model_dump() for b in result.beats]
+    if mode == "even":
+        rows, fixed = beats_even.even(rows)
+        if not fixed:
+            raise HTTPException(400, "이미 고른 박입니다")
+    elif mode in ("half", "double"):
+        rows = beats_even.scale(rows, 0.5 if mode == "half" else 2)
+    else:
+        raise HTTPException(400, "모르는 방식입니다")
+
+    result.beats = [Beat(**r) for r in rows]
+    result.bpm = beats_even.bpm_of(rows) or result.bpm
+    _retime_sheet(result)
+    save_result(result)
+    return result
+
+
+def _retime_sheet(result: AnalysisResult) -> None:
+    """박이 달라졌으니 악보 마디의 시각도 다시 잰다."""
+    if not result.sheet:
+        return
+    sheet = dict(result.sheet)
+    count = len(sheet.get("bars") or [])
+    if not count:
+        return
+    order = sheet.get("order") or None
+    repeats = int(sheet.get("repeats", 1) or 1) if not order else 1
+    sheet["passes"] = sheet_score.times_from_grid(
+        result.model_dump(),
+        count,
+        float(sheet.get("offset", 0.0) or 0.0),
+        repeats,
+        order,
+    )
+    result.sheet = sheet
 
 
 @app.post("/api/results/{result_id}/sheet/fit")

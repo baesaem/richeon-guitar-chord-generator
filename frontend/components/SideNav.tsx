@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-import { NAV_ITEMS, type Tab } from "@/components/BottomNav";
+import { navItemsFor, type Tab } from "@/components/BottomNav";
 
 /**
  * 태블릿·PC용 왼쪽 주메뉴.
@@ -15,10 +15,14 @@ import { NAV_ITEMS, type Tab } from "@/components/BottomNav";
 export function SideNav({
   tab,
   onChange,
+  adminMode,
 }: {
   tab: Tab;
   onChange: (tab: Tab) => void;
+  /** 음원등록은 강사님 일 — 수강생 메뉴에서는 숨긴다 */
+  adminMode?: boolean;
 }) {
+  const items = navItemsFor(adminMode);
   return (
     <nav className="hidden w-56 shrink-0 flex-col bg-[var(--bar-bg)] roomy:flex lg:w-60">
       {/* 앱 이름 — 사이드바 머리 */}
@@ -47,7 +51,7 @@ export function SideNav({
 
       {/* 메뉴 — 세로로 세운다. 아이콘과 글자가 한 줄에 놓여 읽기 쉽다 */}
       <ul className="mt-2 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const active = item.id === tab;
           return (
             <li key={item.id}>

@@ -424,7 +424,9 @@ def expand(bars: list[ScoreBar]) -> list[int]:
         if bar.jump and i not in jumped:
             jumped.add(i)
             target, until, cont = bar.jump
-            if target in marker_at:
+            # 세뇨가 D.S.와 같은 마디에 적혔다면 잘못 읽은 것이다. 그대로
+            # 뛰면 그 마디만 한 번 더 부르고 뒤가 통째로 한 마디씩 밀린다.
+            if target in marker_at and marker_at[target] != i:
                 i = marker_at[target]
                 continue
             until = cont = ""

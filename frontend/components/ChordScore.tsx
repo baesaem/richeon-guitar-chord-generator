@@ -35,6 +35,8 @@ interface Props {
   strums?: Strum[];
   /** 안내줄에 함께 보일 연주설정(카포·빠르기 등). 바꾼 것만 넘긴다 */
   playNotes?: string[];
+  /** 이 곡을 치는 방식 — 「스트로크」 또는 「아르페지오 3」 */
+  playStyle?: string;
   /** 안내줄 오른쪽 끝에 놓을 것(악보보기 버튼 등) */
   headerRight?: React.ReactNode;
   currentBar: number;
@@ -110,6 +112,7 @@ export function ChordScore({
   chords,
   strums,
   playNotes,
+  playStyle,
   headerRight,
   currentBar,
   time,
@@ -177,6 +180,7 @@ export function ChordScore({
         timeSignature={timeSignature}
         strum={pattern ? null : strum}
         playNotes={playNotes}
+        playStyle={playStyle}
         onPickStrum={pattern ? undefined : onPickStrum}
         right={headerRight}
       >
@@ -373,21 +377,30 @@ export function ChordScore({
                               opacity={changed ? 0.85 : 0.35}
                             />
                           )}
-                          {changed && chord && rank < 2 && (
-                            <text
-                              x={nameX} y={CHORD_Y}
-                              textAnchor={nameAnchor} fontSize={chordFont} fontWeight="700"
-                              fill="currentColor"
-                            >
-                              {svgLabel(
-                                labelFor(
-                                  transposeRoot(chord.root, transpose),
-                                  chord.quality,
-                                  flats,
-                                ),
-                              )}
-                            </text>
-                          )}
+                          {/* 코드가 없는 자리(N.C.)는 이름을 적지 않는다 —
+                              잡을 것이 없다는 뜻인데 코드처럼 읽힌다 */}
+                          {changed &&
+                            chord &&
+                            rank < 2 &&
+                            labelFor(
+                              transposeRoot(chord.root, transpose),
+                              chord.quality,
+                              flats,
+                            ) !== "N.C." && (
+                              <text
+                                x={nameX} y={CHORD_Y}
+                                textAnchor={nameAnchor} fontSize={chordFont} fontWeight="700"
+                                fill="currentColor"
+                              >
+                                {svgLabel(
+                                  labelFor(
+                                    transposeRoot(chord.root, transpose),
+                                    chord.quality,
+                                    flats,
+                                  ),
+                                )}
+                              </text>
+                            )}
                         </g>
                       );
                     })}

@@ -150,3 +150,19 @@ input.seekbar::-moz-range-thumb {
   border-radius: 50%;
   background: currentColor;
 }
+
+/* 지금 소리 나는 음표. 진행 커서와 같은 색으로 물들여, 여러 음이
+   붙어 있는 자리에서도 어느 음을 짚을 차례인지 한눈에 보이게 한다.
+   음표는 path·ellipse 등으로 그려져 자식까지 함께 칠한다. */
+.abc-playing,
+.abc-playing * {
+  fill: #dc2626 !important;
+  stroke: #dc2626 !important;
+}
+
+/* 마디 번호. 셋잇단표(3)·운지 숫자와 섞이지 않게 색을 달리한다.
+   악보는 검정이므로 번호만 옅은 파랑으로 물러나 앉힌다. */
+.abcjs-bar-number {
+  fill: #2563eb !important;
+  opacity: 0.75;
+}

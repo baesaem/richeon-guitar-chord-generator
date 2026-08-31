@@ -89,6 +89,8 @@ interface Props {
   musicKey: string;
   timeSignature: string;
   playNotes?: string[];
+  /** 이 곡을 치는 방식 — 「스트로크」 또는 「아르페지오 3」 */
+  playStyle?: string;
   headerRight?: React.ReactNode;
   onSeek?: (t: number) => void;
   /** 한 번에 보일 줄 수 */
@@ -151,6 +153,7 @@ export function SheetScore({
   musicKey,
   timeSignature,
   playNotes,
+  playStyle,
   headerRight,
   onSeek,
   lines = 2,
@@ -274,6 +277,7 @@ export function SheetScore({
         musicKey={musicKey}
         timeSignature={timeSignature}
         playNotes={playNotes}
+        playStyle={playStyle}
         right={headerRight}
       >
         <ViewSteppers

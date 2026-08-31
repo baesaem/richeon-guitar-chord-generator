@@ -218,6 +218,21 @@ export const fitSheetImage = (id: string) =>
     json<AnalysisResult>,
   );
 
+/**
+ * 박을 고르게 하거나 빠르기를 절반·두 배로 다시 본다.
+ *
+ * 박 찾기가 곡 한가운데서 잣대를 바꾸면 마디 길이가 들쭉날쭉해진다 —
+ * 「그건 너」는 열여덟째 마디까지 1.4초, 열아홉째부터 2.9초였다.
+ * "even"이 그런 자리를 메우거나 덜어 낸다. 8분음표를 박으로 세어
+ * 마디가 절반이 된 곡은 "half"로 마디를 두 배 길게 본다.
+ */
+export const fixBeats = (id: string, mode: "even" | "half" | "double") =>
+  fetch(`${apiBase()}/api/results/${id}/beats`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  }).then(json<AnalysisResult>);
+
 export const dropSheetImage = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}/sheet`, { method: "DELETE" }).then(
     json<AnalysisResult>,

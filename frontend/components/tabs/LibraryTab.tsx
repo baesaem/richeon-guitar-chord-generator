@@ -50,8 +50,8 @@ interface Props {
    * 곡을 다시 분석한다. 분석을 고치면 새로 분석해야 반영되는데,
    * 곡마다 주소를 다시 넣게 할 수는 없다. YouTube 곡만 가능하다.
    */
-  /** 다시 분석. refetch면 음원부터 새로 받는다 */
-  onReanalyze?: (item: ResultSummary, refetch: boolean) => void;
+  /** 다시 분석. refetch면 음원부터 새로 받고, newUrl이 있으면 그 주소의 음원으로 새로 분석한다 */
+  onReanalyze?: (item: ResultSummary, refetch: boolean, newUrl?: string) => void;
   /** 지금 다른 분석이 돌고 있다. 두 번 눌러 줄 세우지 않게 잠근다 */
   analyzing?: boolean;
   /** 탭이 보일 때만 목록을 새로 읽는다 */
@@ -97,6 +97,8 @@ export function LibraryTab({
     "folder" | "deleteFolder" | "renameFolder" | null
   >(null);
   const [refetching, setRefetching] = useState<ResultSummary | null>(null);
+  /** 음원교체 창에 넣은 새 유튜브 주소. 비우면 같은 영상을 다시 받는다 */
+  const [refetchUrl, setRefetchUrl] = useState("");
   // 삭제 확인. server가 true면 서버 캐시에서 지우는 것이다
   const [confirmDelete, setConfirmDelete] = useState<{
     item: ResultSummary;
@@ -796,13 +798,43 @@ export function LibraryTab({
       )}
 
       {refetching && (
-        <AskConfirm
-          title="음원교체"
-          message="음원을 새로 받아 처음부터 분석합니다. 시간이 걸립니다."
-          confirmLabel="교체"
-          onConfirm={() => onReanalyze?.(refetching, true)}
-          onClose={() => setRefetching(null)}
-        />
+        /* 음원교체 — 어떤 음원으로 바꿀지 먼저 받는다.
+           예전에는 묻지 않고 같은 영상을 다시 받기만 했는데, 정작 바꾸고
+           싶은 것은 「다른 영상」인 경우가 많았다(음질이 나쁘거나 지워짐). */
+        <Popup title="음원교체" width="max-w-sm" onClose={() => setRefetching(null)}>
+          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+            새 유튜브 주소를 넣으면 그 음원으로 분석합니다(새 곡으로 목록에
+            생깁니다). 비워 두면 같은 영상을 새로 받아 처음부터 분석합니다.
+            시간이 걸립니다.
+          </p>
+          <input
+            className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-900"
+            placeholder="새 유튜브 주소 (선택)"
+            value={refetchUrl}
+            onChange={(e) => setRefetchUrl(e.target.value)}
+          />
+          <div className="mt-2 flex gap-1.5">
+            <button
+              className="flex-1 rounded bg-black py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-black"
+              onClick={() => {
+                onReanalyze?.(refetching, true, refetchUrl.trim() || undefined);
+                setRefetching(null);
+                setRefetchUrl("");
+              }}
+            >
+              {refetchUrl.trim() ? "이 주소로 분석" : "같은 영상 다시 받기"}
+            </button>
+            <button
+              className="rounded bg-gray-100 px-3 py-1.5 text-xs dark:bg-gray-800"
+              onClick={() => {
+                setRefetching(null);
+                setRefetchUrl("");
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </Popup>
       )}
 
       <Copyright />

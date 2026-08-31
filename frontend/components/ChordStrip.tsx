@@ -167,6 +167,8 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
       if (x < -80 || x > w + 80) continue;
 
       const text = labelFor(transposeRoot(chord.root, transpose), chord.quality, flats);
+      // 코드가 없는 자리는 비워 둔다 — 「N.C.」라 적으면 잡을 코드처럼 읽힌다
+      if (text === "N.C.") continue;
       const tw = measureLabel(text);
       const boxW = tw + 12;
       const boxY = rulerH + 2;

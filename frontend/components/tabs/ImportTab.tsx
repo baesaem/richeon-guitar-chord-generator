@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
 import { RecordTab } from "@/components/tabs/RecordTab";
@@ -44,6 +44,14 @@ interface Props {
   separate: boolean;
   /** 관리자 모드일 때만 드라이브 폴더 관리 링크를 보여준다 */
   adminMode: boolean;
+  /** 악보(ABC) 등록 창을 연다. 곡이 열려 있어야 붙일 수 있다 */
+  onAbc?: () => void;
+  /** 지금 열려 있는 곡 이름. 없으면 먼저 곡을 고르라고 안내한다 */
+  abcSong?: string;
+  /** 악보 만들기 창이 열려 있는가. 열려 있으면 이 뷰가 그 창이 된다 */
+  abcOpen?: boolean;
+  /** 악보 만들기 창의 내용(머리줄 + AI 악보생성기) */
+  abcStudio?: React.ReactNode;
   /**
    * 탭을 열자마자 펼칠 카드. 홈의 「기타반」 바로가기가 쓴다.
    * 탭이 바뀔 때 이 컴포넌트가 다시 마운트되므로 초기값으로 충분하다.
@@ -104,12 +112,18 @@ export function ImportTab({
   busy,
   separate,
   adminMode,
+  onAbc,
+  abcSong,
+  abcOpen,
+  abcStudio,
   autoOpen,
   onAnalyzeUrl,
   onAnalyzeFile,
   onAnalyzeWithAi,
 }: Props) {
   const [url, setUrl] = useState("");
+  /** 오디오 음원 등록 — 카드를 누르면 이 입력을 대신 연다 */
+  const audioInputRef = useRef<HTMLInputElement>(null);
   // 반주·보컬 트랙도 저장할지. 기기 공간을 아끼려는 사람은 끈다
   const [wantInst, setWantInst] = useState(true);
   const [wantVocals, setWantVocals] = useState(false);
@@ -376,10 +390,16 @@ export function ImportTab({
     );
   };
 
+  // 악보를 만드는 동안에는 이 뷰가 통째로 그 창이 된다. 카드 목록으로는
+  // 「← 등록 화면」으로 돌아온다 — 창을 따로 띄우지 않아 자리를 잃지 않는다.
+  if (abcOpen && abcStudio) {
+    return <div className="flex h-full min-h-0 flex-col p-3">{abcStudio}</div>;
+  }
+
   return (
     <div className="h-full space-y-3 overflow-y-auto p-4">
       <header>
-        <h2 className="text-lg font-bold md:hidden">음원받기</h2>
+        <h2 className="text-lg font-bold">음원등록</h2>
         {/* 서버 상태는 관리자에게만. 수강생 화면에는 서버 이야기를 하지 않는다. */}
         {adminMode && (
           <p className="text-sm text-gray-500">
@@ -397,32 +417,9 @@ export function ImportTab({
         </p>
       )}
 
-      {/* ---- 방식 카드: 수강생이 주로 쓰는 순서(반 → 음원 → YouTube) ----
-           초급·중급은 나가는 곡이 달라 폴더를 따로 둔다 */}
-      {CLASSES.map((c) => (
-        <Card
-          key={c.id}
-          icon={
-            <svg
-              viewBox="0 0 24 24"
-              className="h-6 w-6 text-gray-600 dark:text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <path d="M12 11v6M9 14l3 3 3-3" />
-            </svg>
-          }
-          title={c.name}
-          description="곡 목록에서 필요한 곡을 골라 음원목록에 담습니다"
-          onClick={() => setOpen(c.id)}
-        />
-      ))}
-
+      {/* ---- 방식 카드 ----
+           반별 곡 받기는 홈 대시보드의 「음원받기」로 옮겼다. 여기는
+           음원을 새로 들여오는 길만 둔다. */}
       <Card
         icon={
           <svg
@@ -440,9 +437,23 @@ export function ImportTab({
             <circle cx="16.5" cy="15" r="2.5" />
           </svg>
         }
-        title="오디오 파일"
-        description="mp3 · wav · m4a · flac · ogg 파일을 분석합니다"
-        onClick={() => setOpen("file")}
+        title="오디오 음원 등록"
+        description="mp3 · wav · m4a · flac · ogg 파일을 골라 등록합니다"
+        onClick={() => audioInputRef.current?.click()}
+      />
+      {/* 카드를 누르면 곧바로 파일 고르기 창이 뜬다 — 파일을 고르는
+          일 하나뿐이라 중간에 창을 한 번 더 띄울 이유가 없다 */}
+      <input
+        ref={audioInputRef}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        disabled={busy}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) onAnalyzeFile(f);
+        }}
       />
 
       {!health && hasLocalLlm() && (
@@ -476,9 +487,40 @@ export function ImportTab({
               <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
             </svg>
           }
-          title="YouTube 주소"
-          description="영상 주소를 붙여넣어 코드를 분석합니다"
+          title="YouTube 음원 등록"
+          description="영상 주소를 붙여넣어 음원을 등록하고 코드를 분석합니다"
           onClick={() => setOpen("youtube")}
+        />
+      )}
+
+      {/* 악보(ABC) 등록 — 음원과 짝이 되는 악보를 곡에 붙인다.
+          MuseScore 파일·AI 채보·붙여넣기 모두 이 자리에서 한다. */}
+      {onAbc && (
+        <Card
+          icon={
+            <svg
+              viewBox="0 0 24 24"
+              className="h-6 w-6 text-gray-600 dark:text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              {/* 오선과 음표 */}
+              <path d="M3 6h18M3 10h18M3 14h18M3 18h18" />
+              <circle cx="8" cy="16" r="2" fill="currentColor" stroke="none" />
+              <path d="M10 16V7l6-1.5V14" />
+            </svg>
+          }
+          title="ABC 악보 생성 등록"
+          description={
+            abcSong
+              ? `음원·참고 악보·코드로 악보를 만듭니다 — 「${abcSong}」에 실립니다`
+              : "음원 링크·참고 악보·코드를 넣어 새 악보를 만듭니다"
+          }
+          onClick={onAbc}
         />
       )}
 
@@ -616,26 +658,6 @@ export function ImportTab({
           >
             AI로 만들기
           </button>
-        </Popup>
-      )}
-
-      {/* ---- 오디오 파일 모달 ---- */}
-      {open === "file" && (
-        <Popup title="오디오 파일" onClose={() => setOpen(null)}>
-          <input
-            type="file"
-            accept="audio/*"
-            className="block w-full text-sm"
-            disabled={busy}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) {
-                setOpen(null);
-                onAnalyzeFile(f);
-              }
-            }}
-          />
-          <p className="mt-2 text-[11px] text-gray-500">mp3 · wav · m4a · flac · ogg</p>
         </Popup>
       )}
 

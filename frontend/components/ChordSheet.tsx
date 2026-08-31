@@ -1,13 +1,14 @@
 "use client";
 
 import { ViewSteppers } from "@/components/ViewSteppers";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChordLabel } from "@/components/ChordLabel";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { EDIT_HOLD_MS } from "@/lib/editChords";
 import { labelFor, transposeRoot } from "@/lib/notation";
 import { useLongPress } from "@/lib/useLongPress";
+import { useSmoothTime } from "@/lib/useSmoothTime";
 import type { Chord } from "@/lib/types";
 
 interface Props {
@@ -26,9 +27,24 @@ interface Props {
   /** 한 줄에 놓을 칸 수. 0이면 자동(좁으면 4칸, 넓으면 8칸) */
   perRow?: number;
   onPerRow?: (n: number) => void;
+  /**
+   * 한 번에 보여줄 줄 수. 0이면 곡 전체를 늘어놓는다.
+   *
+   * 연습실에서는 몇 줄만 띄운다 — 백 마디를 다 늘어놓으면 지금 자리를
+   * 눈으로 찾아야 하고, 아래에 가사를 놓을 자리도 없다.
+   */
+  visibleRows?: number;
   /** 코드 싱크(초) */
   sync?: number;
   onSync?: (sec: number) => void;
+  /**
+   * 지금 재생 위치(초). 주면 지금 마디 안에서 진행바가 지나간다.
+   *
+   * 칸이 물드는 것만으로는 마디의 어디쯤인지 알 수 없다 — 네 박 중
+   * 몇 박째인지 보여야 따라 칠 수 있다.
+   */
+  time?: number;
+  getTime?: () => number;
 }
 
 interface Span {
@@ -68,13 +84,40 @@ export function ChordSheet({
   onPerRow,
   sync,
   onSync,
+  time,
+  getTime,
+  visibleRows = 0,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
+  const now = useSmoothTime(time ?? 0, getTime);
+
+  /* 몇 줄만 띄우려면 한 줄에 몇 칸인지 알아야 한다. perRow가 0이면
+     CSS가 넓이를 보고 정하므로(4칸·8칸) 같은 눈금을 여기서도 본다 */
+  const [wideCols, setWideCols] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const on = () => setWideCols(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  const cols = perRow || (wideCols ? 8 : 4);
+  const rowCount = Math.ceil(bars.length / cols);
+  /* 지금 줄이 늘 맨 위에 온다(타브와 같은 규칙) — 눈이 한 자리를 본다.
+     곡 끝에서는 마지막 줄들이 보이도록 더 내려가지 않는다 */
+  const firstRow = visibleRows
+    ? Math.min(
+        Math.max(Math.floor(Math.max(currentBar, 0) / cols), 0),
+        Math.max(rowCount - visibleRows, 0),
+      )
+    : 0;
+  const lastRow = visibleRows ? firstRow + visibleRows - 1 : rowCount - 1;
 
   useEffect(() => {
-    if (!follow) return;
+    // 몇 줄만 띄울 때는 화면이 알아서 따라가므로 스크롤할 것이 없다
+    if (!follow || visibleRows) return;
     activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [currentBar, follow]);
+  }, [currentBar, follow, visibleRows]);
 
   return (
     <div>
@@ -97,6 +140,8 @@ export function ChordSheet({
       style={perRow ? { gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` } : undefined}
     >
       {bars.map((bar, i) => {
+        const row = Math.floor(i / cols);
+        if (row < firstRow || row > lastRow) return null;
         const active = i === currentBar;
         const spans = spansOf(bar, chords);
         const beatCount = bar.beatTimes.length || 1;
@@ -109,6 +154,12 @@ export function ChordSheet({
             key={bar.number}
             innerRef={active ? activeRef : undefined}
             active={active}
+            // 지금 마디 안에서 몇 박째인지 — 시각을 받았을 때만
+            progress={
+              active && time !== undefined && bar.end > bar.start
+                ? Math.min(Math.max((now - bar.start) / (bar.end - bar.start), 0), 1)
+                : undefined
+            }
             onSeek={onSeek ? () => onSeek(bar.start) : undefined}
             onEdit={onEditBar ? () => onEditBar(i) : undefined}
           >
@@ -173,12 +224,15 @@ export function ChordSheet({
 function BarCell({
   innerRef,
   active,
+  progress,
   onSeek,
   onEdit,
   children,
 }: {
   innerRef?: React.Ref<HTMLDivElement>;
   active: boolean;
+  /** 이 마디를 얼마나 지났는지(0~1). 지금 마디에만 준다 */
+  progress?: number;
   onSeek?: () => void;
   onEdit?: () => void;
   children: React.ReactNode;
@@ -202,6 +256,13 @@ function BarCell({
         <span
           className="pointer-events-none absolute inset-y-0 left-0 bg-[var(--accent)] opacity-25"
           style={{ width: `${press.progress * 100}%` }}
+        />
+      )}
+      {/* 진행바. 칸 바탕이 검게 뒤집히므로 붉은 선이 가장 잘 보인다 */}
+      {progress !== undefined && (
+        <span
+          className="pointer-events-none absolute inset-y-0 w-[2px] bg-red-500"
+          style={{ left: `${progress * 100}%` }}
         />
       )}
       <span className="relative block">{children}</span>

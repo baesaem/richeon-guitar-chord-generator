@@ -42,13 +42,23 @@ _PROMPT = """이 악보 그림에서 **되돌아 부르는 표시**만 읽어 �
 - 1번·2번 괄호(볼타) — 오선 위에 꺾인 선과 작은 숫자.
   괄호가 **덮고 있는 마디만** 세세요. 대개 한두 마디입니다.
   1번 괄호 안에 끝 도돌이표 𝄇가 들어 있습니다.
+  괄호에 「1.2.」처럼 숫자가 여럿이면 endings에 모두 적으세요: [1, 2]
+- **가사가 몇 절인가**(verses) — 음표 아래 붙은 가사 줄을 세세요.
+  「1. …」 「2. …」 「3. …」처럼 번호가 붙어 있거나, 한 음표 아래
+  가사가 여러 줄로 겹쳐 적혀 있습니다. 줄 수가 곧 절 수입니다.
 - 세뇨 𝄋 · 코다 𝄌 · Fine · To Coda
 - D.S. al Coda, D.C. al Fine 같은 글자
 
+**절 수와 되풀이 횟수는 같습니다.** 가사가 3절이면 그 대목을 세 번
+부릅니다 — times는 3입니다(왕복 두 번). 2절이면 times는 2입니다.
+「1번 괄호·2번 괄호」가 보인다고 무조건 두 번이 아닙니다. 절이 셋인데
+괄호가 둘이면 첫 괄호를 1·2절에 부르고 마지막 괄호를 3절에 부릅니다.
+
 JSON만 답하세요. 없는 항목은 빈 배열로 두세요.
 
-{"start_repeats": [마디번호...],
- "end_repeats": [{"bar": 마디번호, "times": 2}...],
+{"verses": 절 수(가사 줄 수),
+ "start_repeats": [마디번호...],
+ "end_repeats": [{"bar": 마디번호, "times": 절 수}...],
  "voltas": [{"bar": 시작마디번호, "span": 덮는마디수, "endings": [1]}...],
  "markers": [{"bar": 마디번호, "label": "segno"}...],
  "jumps": [{"bar": 마디번호, "to": "segno", "until": "codab", "at": "coda"}...]}
@@ -174,6 +184,13 @@ def to_bars(found: dict, count: int) -> list[ScoreBar]:
         if i:
             bars[i - 1].start_repeat = True
 
+    # 가사 절 수 = 그 대목을 부르는 횟수. 3절이면 세 번(왕복 두 번)이다.
+    try:
+        verses = int(found.get("verses") or 0)
+    except (TypeError, ValueError):
+        verses = 0
+    verses = verses if 2 <= verses <= 6 else 0
+
     for row in found.get("end_repeats") or []:
         i = ok(row.get("bar") if isinstance(row, dict) else row)
         if i:
@@ -183,7 +200,7 @@ def to_bars(found: dict, count: int) -> list[ScoreBar]:
                     times = max(int(row.get("times", 2)), 2)
                 except (TypeError, ValueError):
                     times = 2
-            bars[i - 1].end_repeat = times
+            bars[i - 1].end_repeat = max(times, verses)
 
     for row in found.get("voltas") or []:
         if not isinstance(row, dict):
@@ -235,27 +252,46 @@ def _fix_voltas(bars: list[ScoreBar]) -> None:
     그런다) 두 번째 바퀴가 통째로 날아가 되돌이가 없는 것과 같아진다.
 
     2번 괄호의 길이를 자로 삼는다. 두 괄호는 대개 같은 길이다.
+
+    괄호가 **몇 바퀴째를 맡는가**도 되풀이 횟수에 맞춘다. 가사가 3절인
+    악보는 첫 괄호에 「1.2.」, 마지막 괄호에 「3.」이 적힌다. 이것을
+    1번·2번으로 읽어 두면 셋째 바퀴에 부를 괄호가 없어져, 노래가 2절에서
+    끝나 버린다.
     """
     ends = [i for i, b in enumerate(bars) if b.end_repeat]
     if not ends:
         return
     for end in ends:
+        # 괄호가 없는 악보에 괄호를 만들어 붙이면 안 된다 — 마지막
+        # 바퀴에서 멀쩡한 마디 하나가 통째로 빠진다. 이 되돌이 언저리에
+        # AI가 본 괄호가 있을 때만 자리를 바로잡는다.
+        near = [
+            i
+            for i in range(max(end - 4, 0), min(end + 4, len(bars)))
+            if bars[i].volta
+        ]
+        if not near:
+            continue
+        turns = bars[end].end_repeat          # 이 대목을 부르는 횟수
         second = next(
             (
                 i
                 for i in range(end + 1, min(end + 3, len(bars)))
-                if bars[i].volta and 2 in (bars[i].volta[0] or ())
+                if bars[i].volta
             ),
             None,
         )
         span = bars[second].volta[1] if second is not None else 1
         span = max(min(span, 4), 1)
         first = max(end - span + 1, 0)
-        # 되돌이 구간 안에 있던 1번 괄호는 지우고 제자리에 다시 세운다
+        # 되돌이 구간 안에 있던 앞 괄호는 지우고 제자리에 다시 세운다
         for i, b in enumerate(bars):
-            if b.volta and 1 in (b.volta[0] or ()) and i <= end:
+            if b.volta and i <= end:
                 b.volta = None
-        bars[first].volta = ((1,), span)
+        # 앞 괄호는 마지막 바퀴를 뺀 모든 바퀴, 뒤 괄호는 마지막 바퀴
+        bars[first].volta = (tuple(range(1, turns)), span)
+        if second is not None:
+            bars[second].volta = ((turns,), bars[second].volta[1])
 
 
 def read(pages, images: list[bytes]) -> dict:

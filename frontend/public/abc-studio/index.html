@@ -1,0 +1,3149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 악보 생성기</title>
+<script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/abcjs-audio.css">
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f3ee; --panel: #ffffff; --ink: #2b2620; --accent: #8a5a2b;
+    --accent2: #b07c3f; --line: #e2dcd2; --ok: #2e7d32; --err: #c62828;
+  }
+  /* 기타교실 안에서 열리면 그 앱의 테마(배경·글자·강조색)를 그대로 쓴다.
+     바깥이 다크·세피아로 바뀌면 이 창도 함께 바뀐다 — 창 하나만
+     다른 색으로 남으면 붙여 놓은 티가 난다. */
+  html.embedded {
+    --bg: var(--host-bg, #f5f3ee);
+    --ink: var(--host-ink, #2b2620);
+    --accent: var(--host-accent, #8a5a2b);
+    --accent2: var(--host-accent, #b07c3f);
+    /* 패널·경계선은 배경 위에 옅게 얹어 어떤 테마에서도 층이 보인다 */
+    --panel: color-mix(in srgb, var(--host-ink, #2b2620) 5%, var(--host-bg, #fff));
+    --line: color-mix(in srgb, var(--host-ink, #2b2620) 18%, transparent);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--ink); }
+  header {
+    background: linear-gradient(135deg, #3e3226, #6b4f2e);
+    color: #f7f1e6; padding: 14px 20px; display: flex; align-items: baseline; gap: 12px;
+    flex-wrap: nowrap; overflow: hidden;
+  }
+  header h1 { font-size: 1.35rem; letter-spacing: .03em; white-space: nowrap; flex-shrink: 0; }
+  header span { font-size: .8rem; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 20px 96px; display: grid; gap: 16px; }
+  section.tab { display: grid; gap: 16px; }
+  section.tab.hidden { display: none; }
+  /* 연주기: 영상·컨트롤은 고정, 악보창만 스크롤 */
+  body.playerLock { overflow: hidden; height: 100vh; }
+  body.playerLock main {
+    height: calc(100vh - var(--hdrH, 60px)); padding: 12px 20px 56px;
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  body.playerLock #tab-player { flex: 1; grid-template-rows: auto auto 1fr; min-height: 0; }
+  body.playerLock #scorePanel { overflow-y: auto; min-height: 0; }
+  body.playerLock #videoPanel, body.playerLock #settingsPanel { flex-shrink: 0; }
+  /* 접기: display:none으로 지우면 유튜브가 재생을 멈춘다 — 크기만 줄여 감춘다 */
+  #ytWrap.folded { aspect-ratio: auto; height: 1px; opacity: 0; pointer-events: none; margin: 0; }
+  #videoPanel.folded {
+    padding: 0; border: none; height: 1px; overflow: hidden;
+    background: transparent; margin: -8px 0 -16px;
+  }
+  #bottomMenu {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    display: flex; background: #3e3226; box-shadow: 0 -2px 10px rgba(0,0,0,.25);
+  }
+  #bottomMenu button {
+    flex: 1; background: transparent; color: #cfc4b2; border-radius: 0;
+    padding: 14px 0; font-size: .95rem;
+  }
+  #bottomMenu button:hover { background: #55432c; }
+  #bottomMenu button.active { background: #8a5a2b; color: #fff; font-weight: 600; }
+  #ytWrap {
+    position: relative; width: 100%; max-width: 760px; margin: 0 auto;
+    aspect-ratio: 16/9; background: #000; border-radius: 8px; overflow: hidden;
+  }
+  #ytWrap.hidden { display: none; }
+  #ytWrap iframe, #ytWrap > div { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+  /* 코드재생기 스타일 재생 줄 */
+  .seekrow { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .playCircle {
+    width: 40px; height: 40px; border-radius: 50%; background: #2b2620; color: #fff;
+    font-size: .9rem; padding: 0; flex-shrink: 0; line-height: 1;
+  }
+  .playCircle:hover { background: #55432c; }
+  .clock { font-size: .78rem; color: #8a7f70; font-variant-numeric: tabular-nums; min-width: 38px; text-align: center; }
+  #ytSeek { flex: 1; min-width: 120px; accent-color: var(--accent); }
+  .stepGroup { display: flex; align-items: center; gap: 3px; font-size: .78rem; }
+  .stepLabel { color: #9a8f80; }
+  .stepBtn { background: #e8e2d6; color: var(--ink); border-radius: 4px; padding: 2px 7px; font-weight: bold; font-size: .85rem; }
+  .stepBtn:hover { background: #dcd2bf; }
+  .stepBtn.on { background: var(--ink); color: #fff; }
+  .stepBtn.on:hover { background: #453d33; }
+  .stepVal { min-width: 36px; text-align: center; font-variant-numeric: tabular-nums; }
+  .playCircle.sub { width: 32px; height: 32px; font-size: .75rem; background: #55432c; }
+  .stepBtn.big { padding: 6px 14px; font-size: 1.05rem; }
+  /* 연주설정 팝업 */
+  #settingsModal {
+    position: fixed; inset: 0; z-index: 100; background: rgba(43,38,32,.45);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #settingsModal.hidden { display: none; }
+  .modalBox {
+    background: var(--panel); border-radius: 12px; padding: 16px 18px;
+    width: min(92vw, 380px); max-height: 84vh; overflow-y: auto;
+    box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  }
+  .modalTitle { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-bottom: 8px; }
+  .secTitle { font-size: .85rem; font-weight: 600; color: var(--accent); margin: 12px 0 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .secTitle:first-of-type { border-top: none; padding-top: 0; }
+  .hintText { font-size: .72rem; color: #9a8f80; margin-bottom: 4px; line-height: 1.4; }
+  .pillGrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 4px; }
+  .pillGrid button { padding: 6px 0; font-size: .8rem; border-radius: 5px; background: #efe9df; color: var(--ink); }
+  .pillGrid button.on { background: var(--ink); color: #fff; font-weight: 600; }
+  /* 알림 줄은 글자색만 바꾸면 어두운 테마에서 잘 보이지 않는다.
+     바탕을 채운 띠로 만들어 어느 테마에서나 또렷하게 읽히게 한다. */
+  #status {
+    position: fixed; bottom: 56px; left: 10px; right: 10px; z-index: 49;
+    text-align: center; padding: 10px 14px; border-radius: 10px;
+    background: #45403a; color: #fff; font-weight: 600;
+    box-shadow: 0 3px 12px rgba(0,0,0,.28);
+  }
+  #status:empty { display: none; }
+  /* 채보 검증 결과 — 편집 화면 맨 위 */
+  #verifyBox { margin: 8px 0 10px; padding: 9px 12px; border-radius: 8px; font-size: .82rem; line-height: 1.5; }
+  #verifyBox.ok   { background: #e6f4e8; color: #1f5c2a; }
+  #verifyBox.warn { background: #fdf3dd; color: #7a5a12; }
+  #verifyBox.err  { background: #fbe5e2; color: #8f2318; }
+  #verifyBox ul { margin: 4px 0 0 18px; padding: 0; }
+  #verifyBox li.warn { opacity: .8; }
+
+  /* 만드는 동안 알림 띠 위에서 빛이 흐른다 — 몇 분 걸리는 일이라
+     글자만 두면 멈춘 줄 알고 다른 단추를 누르게 된다 */
+  #genProgress {
+    position: fixed; bottom: 50px; left: 0; right: 0; z-index: 50;
+    height: 3px; overflow: hidden; background: rgba(0,0,0,.15);
+  }
+  #genProgress i {
+    display: block; width: 35%; height: 100%; background: var(--accent);
+    animation: genSlide 1.1s ease-in-out infinite;
+  }
+  @keyframes genSlide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
+
+  /* ---- 임베드: 하드코딩된 색을 테마 변수로 덮어쓴다 ---- */
+  .embedded #bottomMenu { background: var(--host-bar, var(--panel)); }
+  /* 임베드에서는 바깥 앱의 메뉴바가 이미 아래에 있다 — 이 줄은 얇게 */
+  .embedded #bottomMenu button { padding: 7px 0; font-size: .82rem; }
+  .embedded body.playerLock main { padding-bottom: 40px; }
+  .embedded #bottomMenu button { color: color-mix(in srgb, var(--ink) 60%, transparent); }
+  .embedded #bottomMenu button:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .embedded #bottomMenu button.active { background: var(--accent); color: var(--bg); }
+  .embedded .playCircle { background: var(--ink); color: var(--bg); }
+  .embedded .playCircle:hover { background: color-mix(in srgb, var(--ink) 80%, var(--accent)); }
+  .embedded .playCircle.sub { background: color-mix(in srgb, var(--ink) 65%, transparent); }
+  .embedded .stepBtn,
+  .embedded button.ghost,
+  .embedded .pillGrid button { background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink); }
+  .embedded .stepBtn:hover,
+  .embedded button.ghost:hover,
+  .embedded .pillGrid button:hover { background: color-mix(in srgb, var(--ink) 18%, transparent); }
+  .embedded .stepBtn.on,
+  .embedded .pillGrid button.on { background: var(--ink); color: var(--bg); }
+  /* 코드 칸도 악보와 같은 흰 종이 — 한 줄의 악보와 그 코드가 같은
+     종이 위에 있어야 어느 줄을 고치는지 눈이 헷갈리지 않는다 */
+  .embedded .blockTa { background: #fff; color: #333; border-color: #d5d5d5; }
+  .embedded .blockTa:focus { background: #fff; color: #000; border-color: var(--accent); }
+  .embedded .headerTa { background: #f4f4f4; color: #333; }
+  .embedded .sysBlock { border-bottom-color: var(--line); }
+  .embedded #dropzone { border-color: color-mix(in srgb, var(--accent) 50%, transparent); color: color-mix(in srgb, var(--ink) 65%, transparent); }
+  .embedded #dropzone.drag { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .embedded input, .embedded textarea { background: var(--panel); color: var(--ink); border-color: var(--line); }
+  .embedded .abcjs-inline-audio { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  /* 악보만은 늘 흰 종이에 검은 음표 — 종이는 테마를 타지 않는다 */
+  .embedded #score { background: #fff; color: #000; border-radius: 6px; }
+  .embedded .sysBlock { background: #fff; border-radius: 6px; padding: 4px 6px 6px; border-bottom: none; margin-bottom: 8px; }
+  .embedded .sysBlock > div:first-child { background: #fff; color: #000; }
+  /* 악보 줄과 그 코드 사이를 조금 띄운다 — 붙어 있으면 가사와 코드가
+     한 덩어리로 보여 어디까지가 악보인지 헷갈린다 */
+  .embedded .sysBlock .blockTa { margin-top: 5px; }
+  /* 글꼴도 바깥 앱을 따른다 — 본문은 리천 앱과 같은 산세리프,
+     ABC 코드는 그 앱의 고정폭 글꼴(Geist Mono)을 그대로 쓴다 */
+  .embedded body,
+  .embedded button,
+  .embedded input,
+  .embedded textarea { font-family: var(--host-font, Arial, Helvetica, sans-serif); }
+  .embedded .blockTa,
+  .embedded #abcSource,
+  .embedded #chordInput { font-family: var(--host-mono, ui-monospace, Consolas, monospace); }
+
+  /* 임베드 모드(기타교실 연습실 안): 자체 헤더를 숨긴다 */
+  .embedded header, .embedded footer { display: none; }
+  .embedded body.playerLock main { height: 100vh; padding-top: 8px; }
+  /* 임베드에서는 연주·저장을 바깥 앱이 맡는다 — 악보생성·편집만 남긴다 */
+  .embedded #bottomMenu button[data-tab="player"],
+  .embedded #bottomMenu button[data-tab="file"] { display: none; }
+  .embedded #embedSave { display: block; background: #2e7d32; color: #fff; font-weight: 600; }
+  .embedded #embedSave:hover { background: #256628; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  label.small { font-size: .82rem; color: #6d6459; }
+  input[type=text], input[type=password] {
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: .88rem; flex: 1; min-width: 200px;
+  }
+  button {
+    padding: 9px 16px; border: none; border-radius: 6px; background: var(--accent); color: #fff;
+    font-size: .9rem; cursor: pointer; transition: background .15s;
+  }
+  button:hover { background: var(--accent2); }
+  button:disabled { background: #c9c1b4; cursor: default; }
+  button.ghost { background: #efe9df; color: var(--ink); }
+  button.ghost:hover { background: #e4dccd; }
+  #dropzone {
+    border: 2px dashed #c9b998; border-radius: 10px; padding: 34px; text-align: center;
+    color: #7d6f58; cursor: pointer; transition: background .15s;
+  }
+  #dropzone.drag { background: #f3ead9; }
+  #dropzone strong { color: var(--accent); }
+  #preview { max-width: 100%; max-height: 420px; display: none; margin: 12px auto 0; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  #status { font-size: .86rem; line-height: 1.45; min-height: 1.4em; }
+  #status.ok  { background: #1f7a35; color: #fff; }
+  #status.err { background: #b3261e; color: #fff; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #abcSource { width: 100%; height: 260px; font-family: Consolas, monospace; font-size: .85rem; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+  .sysBlock { margin-bottom: 6px; padding-bottom: 8px; border-bottom: 1px dotted #e8e2d6; }
+  .blockTa {
+    width: 100%; font-family: Consolas, monospace; font-size: .8rem; line-height: 1.45;
+    overflow: hidden; resize: none;
+    border: 1px dashed #d8cbb5; border-radius: 5px; background: #fbfaf7;
+    padding: 6px 9px; resize: vertical; color: #6b5b43;
+  }
+  .blockTa:focus { outline: 2px solid var(--accent2); background: #fff; color: var(--ink); }
+  .headerTa { border-style: solid; background: #f3efe7; }
+  .blockErr { color: var(--err); font-size: .8rem; }
+  .abcjs-highlight { fill: #d17b00 !important; stroke: #d17b00 !important; }
+  #score { background: #fff; overflow-x: auto; }
+  #score svg { max-width: 100%; }
+  h2 { font-size: 1rem; margin-bottom: 10px; color: #55483a; }
+  /* 재생 커서 & 음표 하이라이트 */
+  .abcjs-cursor { stroke: #c62828; stroke-width: 2.5; opacity: .85; }
+  #score .note-highlight { fill: #c62828 !important; stroke: #c62828 !important; }
+  #audio { margin-bottom: 10px; }
+  .abcjs-inline-audio { background: #efe9df; border-radius: 6px; }
+  .abcjs-inline-audio .abcjs-btn { background: transparent; }
+  .abcjs-inline-audio .abcjs-btn:hover { background: #e4dccd; }
+  .abcjs-inline-audio .abcjs-midi-progress-background { background: #d8cbb5; }
+  .abcjs-inline-audio .abcjs-midi-progress-indicator { background: var(--accent); }
+  .hidden { display: none; }
+  footer { text-align: center; font-size: .78rem; color: #9a8f80; padding: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎸 리천 기타연습실</h1>
+  <span>AI 악보 생성 · 기타 연주 연습 · v9</span>
+</header>
+<main>
+
+<!-- ═══ 🤖 악보생성 탭 ═══ -->
+<section id="tab-generate" class="tab hidden">
+  <!-- API 키는 설정에 넣어 둔 것을 쓴다. 임베드로 열리면 바깥 앱의
+       키를 그대로 받아 오므로 여기서 다시 물을 이유가 없다. -->
+  <div class="panel hidden" id="keyPanel">
+    <div class="row">
+      <label class="small">Gemini API 키</label>
+      <input type="password" id="apiKey" placeholder="AIza...">
+      <label class="small">모델</label>
+      <input type="text" id="model" value="gemini-3.6-flash" style="max-width:180px; flex:0 1 auto;">
+      <button class="ghost" id="saveKey">키 저장</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <!-- ① 음원 — 채보의 기준이 되는 실제 소리 -->
+    <div class="secTitle" style="border-top:none; padding-top:0;">① 음원 (영상 링크)</div>
+    <div class="row">
+      <input type="text" id="audioUrlInput" placeholder="유튜브 URL (예: https://youtu.be/...) — 이 음원을 기준으로 채보합니다">
+      <button class="ghost" id="audioFileBtn">🎵 음원 파일</button>
+      <input type="file" id="audioFileInput" accept="audio/*" class="hidden">
+      <span class="small" id="audioInfo"></span>
+    </div>
+
+    <!-- ② 참고 악보 — 가사·코드·구조를 읽어 온다 -->
+    <div class="secTitle">② 참고용 악보 (선택)</div>
+    <div id="dropzone">
+      <strong>악보 파일을 여기에 드래그</strong>하거나 클릭해서 선택하세요<br>
+      <small>PDF · PNG · JPG · MuseScore(.mscz) · MusicXML(.xml·.mxl)<br>MuseScore·MusicXML 파일은 AI 없이 그대로 악보로 옮깁니다</small>
+      <input type="file" id="fileInput" accept=".pdf,.mscz,.mscx,.xml,.musicxml,.mxl,image/*" class="hidden">
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <input type="text" id="urlInput" placeholder="또는 파일 URL 입력 (예: ./샘플악보.pdf)">
+      <button class="ghost" id="loadUrl">URL 불러오기</button>
+      <button class="ghost hidden" id="restoreBtn">🕘 마지막 악보 열기</button>
+    </div>
+    <img id="preview" alt="악보 미리보기">
+    <canvas id="pdfCanvas" class="hidden"></canvas>
+
+    <!-- ③ 코드 진행 — 아는 코드를 적어 두면 그대로 얹는다 -->
+    <div class="secTitle">③ 코드 진행 (선택)</div>
+    <p class="hintText">한 줄에 한 마디씩, 또는 「G | Em | C | D」처럼 적으세요. 비워 두면 AI가 음원에서 코드를 딴 대로 적습니다.</p>
+    <textarea id="chordInput" rows="3" style="width:100%; font-family:Consolas,monospace; font-size:.82rem; border:1px solid var(--line); border-radius:6px; padding:8px;" placeholder="G | Em | C | D&#10;G | Em | Am7 | D7"></textarea>
+
+    <div class="row" style="margin-top:12px; justify-content:center;">
+      <button id="analyzeBtn">🎼 생성</button>
+      <label class="small" style="display:flex; align-items:center; gap:5px;">
+        <input type="checkbox" id="useAi">
+        🤖 AI로 채보 (PDF·사진 악보나 음원에서 따려면 켜세요.
+        MuseScore·MusicXML 파일은 끈 채로 그대로 옮겨집니다)
+      </label>
+      <label class="small" style="display:flex; align-items:center; gap:5px;">
+        <input type="checkbox" id="audioFirst">
+        🎧 음원 기준으로 새로 채보 (견본 악보가 음원과 다를 때만 켜세요)
+      </label>
+      <label class="small" style="display:flex; align-items:center; gap:5px;">
+        <input type="checkbox" id="hqMode">
+        🎯 고정밀 채보 (유튜브 음원을 구간별로 정밀 분석, 5~10분 소요 —
+        견본 악보를 넣어 두면 코드·가사를 견본에서 가져옵니다)
+      </label>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 🎸 연주기 탭: 위 유튜브 영상, 아래 코드진행·악보 ═══ -->
+<section id="tab-player" class="tab">
+  <div class="panel" id="videoPanel" style="padding-top:12px;">
+    <div id="ytWrap" class="hidden"><div id="ytPlayer"></div></div>
+    <input type="hidden" id="ytOffset" value="0">
+  </div>
+
+  <!-- ⚙ 설정 컨테이너: 싱크·연주설정·미디 -->
+  <div class="panel" id="settingsPanel">
+    <div class="row">
+      <span class="stepGroup">
+        <span class="stepLabel">음원</span>
+        <button class="stepBtn src on" id="srcVideo" title="유튜브 원곡을 재생합니다">영상</button>
+        <button class="stepBtn src" id="srcVocal" title="멜로디(보컬 라인)만 재생 — 반주 없이">보컬</button>
+        <button class="stepBtn src" id="srcAccomp" title="코드 반주만 재생 — 멜로디는 직접 연주">반주</button>
+        <button class="stepBtn src" id="srcMidi" title="미디(멜로디+반주)를 재생합니다">미디</button>
+      </span>
+      <span class="stepGroup">
+        <span class="stepLabel">싱크</span>
+        <button class="stepBtn" id="syncMinus" title="화면을 늦춥니다 — 커서가 노래보다 이를 때">－</button>
+        <span class="stepVal" id="syncVal">0.0</span>
+        <button class="stepBtn" id="syncPlus" title="화면을 당깁니다 — 커서가 노래보다 늦을 때">＋</button>
+      </span>
+      <button class="stepBtn" id="ytHideBtn" title="영상을 접어 악보를 넓게 봅니다">🔽 영상</button>
+      <span class="stepGroup">
+        <span class="stepLabel">음높이</span>
+        <button class="stepBtn" id="pitchMinus" title="반음 내림 — 악보 표기와 소리가 함께 바뀜">－</button>
+        <span class="stepVal" id="pitchVal" title="누르면 0으로 초기화" style="cursor:pointer;">0</span>
+        <button class="stepBtn" id="pitchPlus" title="반음 올림 — 악보 표기와 소리가 함께 바뀜">＋</button>
+      </span>
+      <span class="stepGroup">
+        <span class="stepLabel">빠르기</span>
+        <button class="stepBtn" id="rateMinus" title="느리게 (영상·미디 함께)">－</button>
+        <span class="stepVal" id="rateVal" title="누르면 1×로 초기화" style="cursor:pointer; min-width:44px;">1×</span>
+        <button class="stepBtn" id="ratePlus" title="빠르게 (영상·미디 함께)">＋</button>
+      </span>
+      <button class="ghost" id="settingsBtn" title="구간반복·커서 템포">🎚 연주설정<span id="settingsDot" class="hidden" style="color:var(--accent);"> ●</span></button>
+    </div>
+    <div class="seekrow">
+      <button id="ytBegin" class="playCircle sub" title="처음으로 (반복 중이면 A 지점)">⏮</button>
+      <button id="ytToggle" class="playCircle" aria-label="재생" title="재생 / 일시정지">▶</button>
+      <button id="ytEnd" class="playCircle sub" title="끝으로">⏭</button>
+      <span class="clock" id="ytCur">0:00</span>
+      <input type="range" id="ytSeek" min="0" max="1" step="0.1" value="0">
+      <span class="clock" id="ytDur">0:00</span>
+    </div>
+    <div id="audio" class="hidden"></div>
+  </div>
+
+  <!-- 악보 (이 창만 스크롤) -->
+  <div class="panel" id="scorePanel">
+    <div id="score"></div>
+  </div>
+</section>
+
+<!-- ═══ ✏️ 편집 탭 ═══ -->
+<section id="tab-edit" class="tab hidden">
+  <div class="panel">
+    <!-- 고치는 중에도 언제든 다시 훑을 수 있게 — 자동 검증은 채보
+         직후 한 번뿐이라, 손댄 뒤의 상태는 이 단추로 확인한다 -->
+    <div style="text-align:right; margin-bottom:6px;">
+      <button class="ghost" id="verifyBtn">🔍 악보 검증</button>
+      <button class="ghost" id="fixBtn">🔧 자동 고침</button>
+    </div>
+    <div id="verifyBox" class="hidden"></div>
+    <div id="inlineWrap"></div>
+  </div>
+</section>
+
+<!-- ═══ 💾 저장 탭 ═══ -->
+<section id="tab-file" class="tab hidden">
+  <div class="panel">
+    <div class="row">
+      <button class="ghost" id="printBtn">🖨 인쇄</button>
+      <button class="ghost" id="downloadAbc">💾 ABC 저장</button>
+      <button class="ghost" id="downloadMidi">🎹 MIDI 저장</button>
+      <button class="ghost hidden" id="restoreBtn2">🕘 마지막 악보 열기</button>
+    </div>
+  </div>
+</section>
+
+<div id="status"></div>
+<textarea id="abcSource" class="hidden" spellcheck="false"></textarea>
+
+<!-- 연주설정 팝업 (리천 코드재생기 스타일) -->
+<div id="settingsModal" class="hidden">
+  <div class="modalBox">
+    <div class="modalTitle">연주설정 <button id="settingsClose" class="ghost" style="padding:4px 10px;">✕</button></div>
+
+    <div class="secTitle">구간 반복 <span id="loopInfo"></span></div>
+    <div class="row" style="gap:6px; margin-bottom:4px;">
+      <button class="ghost" id="loopA" style="flex:1;">지금을 시작(A)으로</button>
+      <button class="ghost" id="loopB" style="flex:1;">지금을 끝(B)으로</button>
+      <button class="ghost" id="loopOff" style="flex:0.6;">해제</button>
+    </div>
+    <p class="hintText">영상 재생이 B에 닿으면 A로 되돌아갑니다 — 어려운 구간 반복 연습</p>
+
+    <div class="secTitle">커서 템포 보정</div>
+    <label class="small">음원 BPM <input type="number" id="ytBpm" value="0" step="1" style="width:64px; padding:4px;" title="0 = 악보 템포 그대로. 커서가 점점 밀리면 실제 곡 BPM 입력"></label>
+  </div>
+</div>
+</main>
+
+<nav id="bottomMenu">
+  <button data-tab="player" class="active">🎸 연주기</button>
+  <button data-tab="generate">🤖 악보생성</button>
+  <button data-tab="edit">✏️ 편집</button>
+  <button data-tab="file">💾 저장</button>
+  <!-- 악보생성 화면에서만 나온다. 「AI로 악보 생성」 단추는 참고 악보
+       미리보기 아래에 있어 스크롤해야 닿는다 — 여기 하나를 더 둔다 -->
+  <button id="genMenuBtn" class="hidden">🤖 생성</button>
+  <!-- 기타교실 안에서 열렸을 때만 보인다 — 만든 악보를 그 곡에 싣는다 -->
+  <button id="embedSave" class="hidden">✅ 이 곡에 저장</button>
+</nav>
+<!-- 만드는 동안 흐르는 띠. 글자만으로는 살아 있는지 알 수 없다 -->
+<div id="genProgress" class="hidden"><i></i></div>
+<footer>API 키는 이 브라우저의 localStorage에만 저장됩니다 · 개인용 로컬 앱</footer>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+const $ = id => document.getElementById(id);
+
+// ==== 임베드 모드: 기타교실(리천 기타교실) 안에 iframe으로 들어갈 때 ====
+// ?embed=1 이면 자체 헤더·연주기·저장 탭을 감추고, 악보생성·편집만 남긴다.
+// 만든 악보는 「이 곡에 저장」으로 바깥 앱의 곡에 실린다.
+const EMBEDDED = new URLSearchParams(location.search).get('embed') === '1';
+if (EMBEDDED) document.documentElement.classList.add('embedded');
+let refPages = [];     // 참고 악보를 그림(JPEG base64)으로 바꾼 것들
+let refAbc = '';       // 그대로 옮겨 온 참고 악보(ABC 글자)
+let scoreFile = null;  // 받아 둔 MuseScore·MusicXML 파일 — 「생성」 때 옮긴다
+/* OMR(Audiveris)로 그림 악보를 읽는 길은 시험 끝에 걷어냈다.
+   스트로크 리듬 빗금을 음표로 잘못 읽고 한글 가사를 아예 못 읽어,
+   이 앱이 다루는 악보(코드·가사 딸린 가요 악보)에는 쓸 수 없었다.
+   서버 창구(/api/omr)는 남아 있지만 화면에서는 부르지 않는다. */
+let synthControl = null;
+
+// ---- API key persistence ----
+// 임베드가 아니면(혼자 쓰는 앱) 키 칸을 내보인다. 임베드일 때는 바깥
+// 앱(기타교실)이 설정에 넣어 둔 키를 보내 주므로 칸 자체를 감춘다.
+if (!EMBEDDED) $('keyPanel').classList.remove('hidden');
+$('apiKey').value = localStorage.getItem('gemini_key') || '';
+$('saveKey').onclick = () => {
+  localStorage.setItem('gemini_key', $('apiKey').value.trim());
+  setStatus('키가 저장되었습니다.', 'ok');
+};
+
+function setStatus(msg, cls = '', busy = false) {
+  const el = $('status');
+  el.className = cls;
+  el.innerHTML = (busy ? '<span class="spinner"></span>' : '') + msg;
+}
+
+// ---- file handling ----
+const dz = $('dropzone');
+dz.onclick = () => $('fileInput').click();
+dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
+dz.ondragleave = () => dz.classList.remove('drag');
+dz.ondrop = e => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); };
+$('fileInput').onchange = e => { if (e.target.files[0]) handleFile(e.target.files[0]); };
+$('loadUrl').onclick = async () => {
+  const url = $('urlInput').value.trim();
+  if (!url) return;
+  try {
+    setStatus('파일 다운로드 중…', '', true);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const name = url.split('/').pop() || 'file';
+    const mime = blob.type || (name.endsWith('.pdf') ? 'application/pdf' : 'image/png');
+    handleFile(new File([blob], name, { type: mime }));
+  } catch (err) { setStatus('URL 로드 실패: ' + err.message, 'err'); }
+};
+
+/* ==== MuseScore(.mscz/.mscx) → ABC ==================================
+ * 제대로 된 MuseScore 파일에는 음높이·길이·가사·코드가 이미 자료로
+ * 들어 있다. 그래서 AI로 채보할 까닭이 없고, 그대로 옮겨 적기만 하면 된다.
+ * .mscz는 zip이라 브라우저의 DecompressionStream으로 직접 푼다.
+ */
+
+async function unzipEntries(buf) {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= 0 && i > u8.length - 66000; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('압축을 풀 수 없는 파일입니다');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const out = {};
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    const compSize = dv.getUint32(p + 20, true);
+    const nameLen = dv.getUint16(p + 28, true);
+    const extraLen = dv.getUint16(p + 30, true);
+    const commentLen = dv.getUint16(p + 32, true);
+    const localAt = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nameLen));
+    const lNameLen = dv.getUint16(localAt + 26, true);
+    const lExtraLen = dv.getUint16(localAt + 28, true);
+    const dataAt = localAt + 30 + lNameLen + lExtraLen;
+    const raw = u8.subarray(dataAt, dataAt + compSize);
+    if (method === 0) out[name] = raw;
+    else {
+      const ds = new DecompressionStream('deflate-raw');
+      const ab = await new Response(new Blob([raw]).stream().pipeThrough(ds)).arrayBuffer();
+      out[name] = new Uint8Array(ab);
+    }
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}
+
+const MS_DUR = { '64th': 0.25, '32nd': 0.5, '16th': 1, eighth: 2, quarter: 4, half: 8, whole: 16 };
+const MS_TPC = { 13: 'F', 14: 'C', 15: 'G', 16: 'D', 17: 'A', 18: 'E', 19: 'B' };
+const MS_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const MS_SHARP = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+const MS_FLAT = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+const MS_KEY = { '-5': 'Db', '-4': 'Ab', '-3': 'Eb', '-2': 'Bb', '-1': 'F', 0: 'C', 1: 'G', 2: 'D', 3: 'A', 4: 'E', 5: 'B' };
+
+function msTpc(tpc) {
+  let alter = 0, t = tpc;
+  while (t > 19) { t -= 7; alter++; }
+  while (t < 13) { t += 7; alter--; }
+  return { letter: MS_TPC[t] || 'C', alter };
+}
+function msKeyDefaults(sig) {
+  const d = {};
+  for (const l of 'ABCDEFG') d[l] = 0;
+  if (sig > 0) for (let i = 0; i < sig; i++) d[MS_SHARP[i]] = 1;
+  if (sig < 0) for (let i = 0; i < -sig; i++) d[MS_FLAT[i]] = -1;
+  return d;
+}
+function msPitch(letter, alter, midi, accState, keyDef) {
+  const octave = Math.floor((midi - alter - MS_PC[letter]) / 12) - 1;
+  return abcPitch(letter, alter, octave, accState, keyDef);
+}
+/** 계이름·올림내림·옥타브를 ABC 음표 글자로. 조표에 없는 음에만 임시표를 붙인다 */
+function abcPitch(letter, alter, octave, accState, keyDef) {
+  const key = letter + octave;
+  const cur = key in accState ? accState[key] : keyDef[letter];
+  let acc = '';
+  if (alter !== cur) {
+    acc = alter === 1 ? '^' : alter === -1 ? '_' : alter === 2 ? '^^' : alter === -2 ? '__' : '=';
+    accState[key] = alter;
+  }
+  let n = letter;
+  if (octave >= 5) { n = n.toLowerCase(); for (let i = 6; i <= octave; i++) n += "'"; }
+  else { for (let i = octave; i < 4; i++) n += ','; }
+  return acc + n;
+}
+const msLen = (u) => (u === 1 ? '' : Number.isInteger(u) ? String(u) : u * 2 + '/2');
+
+function msChordName(h) {
+  if (!h || !h.root) return '';
+  const r = msTpc(+h.root);
+  let name = r.letter + (r.alter === 1 ? '#' : r.alter === -1 ? 'b' : '');
+  if (h.name) name += h.name;
+  if (h.base) {
+    const b = msTpc(+h.base);
+    name += '/' + b.letter + (b.alter === 1 ? '#' : b.alter === -1 ? 'b' : '');
+  }
+  return name;
+}
+
+/** MuseScore <text>의 알맹이. 글꼴·굵기 표시를 걷어낸다.
+ *  4.x는 <text><font size="11"></font><font face="…"></font>사</text>처럼
+ *  적어, 첫 「<」에서 끊어 읽으면 글자가 하나도 남지 않는다. */
+function msText(block) {
+  const m = block.match(/<text>([\s\S]*?)<\/text>/);
+  if (!m) return '';
+  return m[1].replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').trim();
+}
+
+function msParseStaff(body, octaveShift) {
+  const measures = [];
+  for (const mm of body.matchAll(/<Measure([^>]*)>([\s\S]*?)<\/Measure>/g)) {
+    let content = mm[2];
+    // MuseScore 3·4는 성부를 <voice>로 감싼다. 첫 성부만 옮긴다 —
+    // 둘째 성부까지 담으면 같은 자리에 음이 겹쳐 적힌다.
+    const voices = [...content.matchAll(/<voice>([\s\S]*?)<\/voice>/g)];
+    if (voices.length) content = voices[0][1];
+
+    const events = [];
+    let pendingHarmony = null, pendingGrace = [];
+    // 조표·박자표는 MuseScore 판마다 <voice> 안에도 밖에도 놓이므로
+    // 성부를 가리지 않고 마디 전체에서 읽는다.
+    const keysig = mm[2].includes('<KeySig>')
+      ? +((mm[2].match(/<KeySig>[\s\S]*?<(?:accidental|concertKey)>(-?\d+)/) || [0, 0])[1])
+      : null;
+    const tsm = mm[2].match(/<TimeSig>[\s\S]*?<sigN>(\d+)[\s\S]*?<sigD>(\d+)/);
+    const timesig = tsm ? tsm[1] + '/' + tsm[2] : null;
+    // 셋잇단음표는 <Tuplet>…<endTuplet/> 사이에 놓인 음들이다.
+    // 이걸 놓치면 마디가 넘쳐 박자가 어긋난다.
+    let tup = null;
+    // abcjs는 「(3:2:2」의 마지막 숫자(묶음에 든 음표 수)를 무시하고
+    // 언제나 앞의 세 음을 셋잇단으로 친다. 그래서 4분음표처럼 긴 음은
+    // 기준음(8분음표) 여럿을 타이로 이은 모양으로 쪼개 개수를 맞춘다.
+    const closeTuplet = () => {
+      if (!tup || !tup.events.length) { tup = null; return; }
+      const base = MS_DUR[tup.base] || Math.min(...tup.events.map((e) => e.units));
+      const out = [];
+      for (const ev of tup.events) {
+        const k = Math.round(ev.units / base);
+        if (k <= 1) { out.push(ev); continue; }
+        for (let i = 0; i < k; i++) {
+          out.push(i === 0
+            ? Object.assign({}, ev, { units: base, forceTie: ev.type === 'note' })
+            : Object.assign({}, ev, {
+                units: base, harmony: null, lyrics: [], grace: [],
+                forceTie: ev.type === 'note' && i < k - 1,
+              }));
+        }
+      }
+      if (out.length === tup.actual) {
+        out[0].tuplet = '(' + tup.actual + ':' + tup.normal + ' ';
+        events.length = tup.at;
+        events.push(...out);
+      } else {
+        // 기준음으로 나눠떨어지지 않는 묶음 — 표준 표기대로 적어 둔다
+        tup.events[0].tuplet = '(' + tup.actual + ':' + tup.normal + ':' + tup.events.length + ' ';
+      }
+      tup = null;
+    };
+    for (const e of content.matchAll(/<(Harmony|Chord|Rest|Tuplet)>([\s\S]*?)<\/\1>|<endTuplet\s*\/>/g)) {
+      const tag = e[1], inner = e[2];
+      if (!tag) { closeTuplet(); continue; }
+      if (tag === 'Tuplet') {
+        closeTuplet();
+        tup = {
+          actual: +((inner.match(/<actualNotes>(\d+)/) || [])[1] || 3),
+          normal: +((inner.match(/<normalNotes>(\d+)/) || [])[1] || 2),
+          base: (inner.match(/<baseNote>([^<]+)/) || [])[1],
+          at: events.length,
+          events: [],
+        };
+        continue;
+      }
+      if (tag === 'Harmony') {
+        pendingHarmony = {
+          root: (inner.match(/<root>(-?\d+)/) || [])[1],
+          name: (inner.match(/<name>([^<]*)/) || [])[1] || '',
+          base: (inner.match(/<base>(-?\d+)/) || [])[1],
+        };
+      } else {
+        const dt = (inner.match(/<durationType>([^<]+)/) || [])[1];
+        const dots = +((inner.match(/<dots>(\d+)/) || [])[1] || 0);
+        let units;
+        if (dt === 'measure') {
+          const f = inner.match(/<duration>(\d+)\/(\d+)/) || [];
+          units = f[1] ? (16 * +f[1]) / +f[2] : 16;
+        } else {
+          units = MS_DUR[dt] || 4;
+          if (dots === 1) units *= 1.5;
+          if (dots === 2) units *= 1.75;
+        }
+        if (tag === 'Rest') {
+          const ev = { type: 'rest', units, notes: [], lyrics: [], harmony: pendingHarmony };
+          events.push(ev);
+          if (tup) tup.events.push(ev);
+        } else {
+          const notes = [...inner.matchAll(/<Note>([\s\S]*?)<\/Note>/g)].map((nm) => ({
+            midi: +(nm[1].match(/<pitch>(\d+)/) || [0, 0])[1] + octaveShift,
+            tpc: +(nm[1].match(/<tpc>(-?\d+)/) || [0, 14])[1],
+            // 붙임줄은 시작하는 음에만 표시한다. MuseScore는 끝나는 음에도
+            // 같은 Spanner를 적어 두므로, <next>가 있는 것만 시작으로 본다.
+            tie: [...nm[1].matchAll(/<Spanner type="Tie">([\s\S]*?)<\/Spanner>/g)]
+              .some((s) => s[1].includes('<next>')),
+          }));
+          // 꾸밈음은 마디의 박을 차지하지 않는다 — 뒤따르는 음에 붙여 둔다
+          if (/<(?:grace\d+(?:after)?|appoggiatura|acciaccatura)\s*\/>/.test(inner)) {
+            pendingGrace.push(...notes);
+            continue;
+          }
+          const lyr = [];
+          for (const lm of inner.matchAll(/<Lyrics>([\s\S]*?)<\/Lyrics>/g)) {
+            const verse = +((lm[1].match(/<no>(\d+)/) || [])[1] || 0);
+            let text = msText(lm[1]);
+            const syl = (lm[1].match(/<syllabic>([^<]*)/) || [])[1];
+            if (syl === 'begin' || syl === 'middle') text += '-';
+            if (verse < 6) lyr[verse] = text;      // 절은 여섯 절까지
+          }
+          const ev = { type: 'note', units, notes, lyrics: lyr, harmony: pendingHarmony, grace: pendingGrace };
+          pendingGrace = [];
+          events.push(ev);
+          if (tup) tup.events.push(ev);
+        }
+        pendingHarmony = null;
+      }
+    }
+    closeTuplet();
+
+    /* 세뇨·코다·D.S. 같은 진행 지시.
+       어느 표시가 무슨 구실인지는 이름표(label)만으로는 알 수 없다 —
+       악보마다 다르게 붙는다. <Jump>가 jumpTo·playUntil·continueAt로
+       제가 쓸 표시를 이름으로 가리키므로, 여기서는 있는 그대로 모아 두고
+       마디를 다 읽은 뒤 msApplyJumpMarks()에서 판단한다. */
+    const markers = [...mm[2].matchAll(/<Marker>([\s\S]*?)<\/Marker>/g)].map((k) => ({
+      label: (k[1].match(/<label>([^<]*)/) || [])[1] || '',
+      text: ((k[1].match(/<text>(?:<sym>[^<]*<\/sym>)?([^<]*)/) || [])[1] || '').trim(),
+      style: (k[1].match(/<style>([^<]*)/) || [])[1] || '',
+    }));
+    let jump = null;
+    for (const k of mm[2].matchAll(/<Jump>([\s\S]*?)<\/Jump>/g)) {
+      jump = {
+        text: ((k[1].match(/<text>([^<]*)/) || [])[1] || 'D.S.').trim(),
+        jumpTo: (k[1].match(/<jumpTo>([^<]*)/) || [])[1] || 'start',
+        playUntil: (k[1].match(/<playUntil>([^<]*)/) || [])[1] || '',
+        continueAt: (k[1].match(/<continueAt>([^<]*)/) || [])[1] || '',
+      };
+    }
+
+    const barType = (mm[2].match(/<BarLine>[\s\S]*?<subtype>([^<]+)/) || [])[1] || '';
+
+    measures.push({
+      events, markStart: '', markEnd: '', barType, markers, jump,
+      keysig, timesig,
+      startRepeat: /<startRepeat/.test(mm[2]),
+      endRepeat: /<endRepeat/.test(mm[2]),
+      volta: (mm[2].match(/<Volta[\s\S]*?<endings>(\d+)/) || [])[1] || null,
+    });
+  }
+  return measures;
+}
+
+/**
+ * 진행 지시를 악보 기호로 바꿔 마디에 붙인다.
+ *
+ * <Jump>가 「어디로 되돌아가(jumpTo) 어디까지 치고(playUntil) 어디서
+ * 이어가라(continueAt)」를 표시 이름으로 가리킨다. 이름표를 넘겨짚지 않고
+ * 그 가리킴을 그대로 따라간다 — 악보마다 이름 붙이는 버릇이 다르다.
+ */
+function msApplyJumpMarks(measures) {
+  const at = (label) => (label
+    ? measures.findIndex((m) => (m.markers || []).some((k) => k.label === label))
+    : -1);
+  const jm = measures.findIndex((m) => m.jump);
+  const jp = jm >= 0 ? measures[jm].jump : null;
+  const segnoAt = jp && jp.jumpTo && jp.jumpTo !== 'start' ? at(jp.jumpTo) : -1;
+  const untilAt = jp ? at(jp.playUntil) : -1;
+  const goOnAt = jp ? at(jp.continueAt) : -1;
+
+  measures.forEach((m, i) => {
+    m.markStart = '';
+    m.markEnd = '';
+    for (const k of m.markers || []) {
+      const isFine = k.label === 'fine' || /fine/i.test(k.text);
+      if (i === segnoAt || k.label === 'segno' || k.label === 'varsegno') {
+        m.markStart += '!segno!';
+      } else if (i === goOnAt || k.label === 'codab') {
+        m.markStart += '!coda!';              // 코다 구역이 시작하는 자리
+      } else if (isFine) {
+        m.markEnd += '!fine!';
+      } else if (i === untilAt || k.label === 'coda' || k.label === 'varcoda') {
+        // 코다로 빠져나가는 자리 — 기호와 「To Coda」 글자를 함께
+        m.markEnd += '!coda!"^' + (k.text || 'To Coda') + '"';
+      }
+    }
+  });
+
+  if (jp && jm >= 0) {
+    // abcjs가 아는 정식 기호로 적는다. 글자로만 적으면 악보에 작은
+    // 주석으로 붙어 진행 지시로 보이지 않는다.
+    const base = !jp.jumpTo || jp.jumpTo === 'start' ? 'D.C.' : 'D.S.';
+    const kind = jp.continueAt ? 'alcoda'
+      : (/fine/i.test(jp.playUntil || '') || /fine/i.test(jp.text || '')) ? 'alfine'
+      : '';
+    measures[jm].markEnd += '!' + base + kind + '!';
+  }
+  return measures;
+}
+
+function msMeasureToAbc(meas, state) {
+  if (meas.keysig !== null && meas.keysig !== state.sig) {
+    state.sig = meas.keysig;
+    state.keyChange = MS_KEY[state.sig] || 'C';
+  }
+  if (meas.timesig && meas.timesig !== state.meter) {
+    state.meter = meas.timesig;
+    state.meterChange = meas.timesig;      // 곡 도중에 박자가 바뀌는 곡이 있다
+  }
+  const keyDef = msKeyDefaults(state.sig);
+  const accState = {};
+  const toks = [];
+  const syls = [];                          // 절마다 한 줄
+  for (const ev of meas.events) {
+    let t = '';
+    if (ev.harmony && ev.harmony.root) t += '"' + msChordName(ev.harmony) + '" ';
+    if (ev.tuplet) t += ev.tuplet;
+    if (ev.grace && ev.grace.length)
+      t += '{' + ev.grace.map((g) => {
+        const { letter, alter } = msTpc(g.tpc);
+        return msPitch(letter, alter, g.midi, accState, keyDef);
+      }).join('') + '}';
+    if (ev.type === 'rest') t += 'z' + msLen(ev.units);
+    else {
+      const ns = ev.notes.map((n) => {
+        const { letter, alter } = msTpc(n.tpc);
+        return msPitch(letter, alter, n.midi, accState, keyDef);
+      });
+      const body = ns.length > 1 ? '[' + ns.join('') + ']' : ns[0];
+      t += body + msLen(ev.units) + (ev.forceTie || ev.notes.some((n) => n.tie) ? '-' : '');
+      for (let v = 0; v < state.verses; v++) {
+        (syls[v] = syls[v] || []).push((ev.lyrics && ev.lyrics[v]) || '*');
+      }
+    }
+    toks.push(t);
+  }
+  if (toks.length) {
+    if (meas.markStart) toks[0] = meas.markStart + toks[0];
+    if (meas.markEnd) toks[toks.length - 1] = meas.markEnd + toks[toks.length - 1];
+  }
+  return { music: toks.join(' '), syls };
+}
+
+/** MuseScore XML 한 장을 ABC로 옮긴다 */
+function msczXmlToAbc(xml) {
+  // 뒤에 무엇이 오는지로 가르지 않는다 — 4.x는 마지막 보표 뒤에
+  // <SystemLocks>를 적어, 「다음 보표나 </Score>가 뒤따른다」는 조건이
+  // 어긋나면서 악보를 통째로 못 찾았다. 마디가 든 덩이면 음악 보표다.
+  const staffBlocks = [...xml.matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>/g)]
+    .filter((m) => m[2].includes('<Measure'));
+  if (!staffBlocks.length) throw new Error('악보에서 마디를 찾지 못했습니다');
+
+  // 악보에 인쇄된 머리글(VBox)이 먼저다. metaTag에는 「이름 없는 악보」
+  // 「작곡가 / 편곡가」 같은 뮤즈스코어 기본값이 남아 있는 일이 흔하다.
+  const heads = [...xml.matchAll(/<Text>([\s\S]*?)<\/Text>/g)];
+  const headText = (style) => {
+    const hit = heads.find((h) => h[1].includes('<style>' + style + '</style>'));
+    return hit ? msText(hit[1]) : '';
+  };
+  const title = headText('title')
+    || (xml.match(/<metaTag name="workTitle">([^<]*)/) || [])[1] || '';
+  const composer = headText('composer')
+    || (xml.match(/<metaTag name="composer">([^<]*)/) || [])[1] || '';
+  const tempoM = xml.match(/<tempo>([\d.]+)/);
+  const bpm = tempoM ? Math.round(+tempoM[1] * 60) : 0;
+  // 어느 보표가 노래 가락인가 — 곡마다 다르다. 타브 보표는 건너뛰고,
+  // 가사가 붙은 보표를 먼저, 없으면 음표가 있는 첫 보표를 쓴다.
+  const partInfo = {};
+  let staffNo = 0;
+  for (const p of xml.matchAll(/<Part[ >][\s\S]*?<\/Part>/g)) {
+    // 4.x는 <Part> 안의 <Staff>에 id를 적지 않는다. 나온 차례가 곧
+    // 보표 번호다 — 이것을 놓치면 기타 보표(G8vb)를 알아보지 못해
+    // 악보가 한 옥타브 낮게 그려진다.
+    for (const s of p[0].matchAll(/<Staff(?: id="(\d+)")?>([\s\S]*?)<\/Staff>/g)) {
+      partInfo[s[1] || ++staffNo] = {
+        tab: /<StaffType group="tablature"/.test(s[2]),
+        clef: (s[2].match(/<defaultClef>([^<]+)/) || [])[1] || '',
+      };
+    }
+  }
+  const usable = staffBlocks.filter((m) => !(partInfo[m[1]] || {}).tab && m[2].includes('<Note>'));
+  const pool = usable.length ? usable : staffBlocks;
+  const chosen = pool.find((m) => m[2].includes('<Lyrics>')) || pool[0];
+
+  // 기타 보표(G8vb)는 소리보다 한 옥타브 높게 적는다. 소리나는 높이를
+  // 그대로 옮기면 인쇄된 악보보다 한 옥타브 낮게 그려진다.
+  const clef = (chosen[2].match(/<Clef>[\s\S]*?<concertClefType>([^<]+)/) || [])[1]
+    || (partInfo[chosen[1]] || {}).clef || '';
+  const octaveShift = clef === 'G8vb' ? 12 : clef === 'G8va' ? -12 : 0;
+
+  // 조표·박자표는 고른 보표의 첫 마디에서 읽는다. 첫 마디에 없으면
+  // 다장조·4/4로 보고, 뒤에 나오는 것은 곡 도중의 바뀜으로 다룬다.
+  const firstMeas = (chosen[2].match(/<Measure[^>]*>[\s\S]*?<\/Measure>/) || [''])[0];
+  const firstTs = firstMeas.match(/<TimeSig>[\s\S]*?<sigN>(\d+)[\s\S]*?<sigD>(\d+)/)
+    || xml.match(/<TimeSig>[\s\S]*?<sigN>(\d+)[\s\S]*?<sigD>(\d+)/) || [0, '4', '4'];
+  const sigN = firstTs[1], sigD = firstTs[2];
+  const firstKey = +((firstMeas.match(/<KeySig>[\s\S]*?<(?:accidental|concertKey)>(-?\d+)/) || [0, 0])[1]);
+
+  const verses = Math.max(1, ...[...chosen[2].matchAll(/<Lyrics>[\s\S]*?<no>(\d+)/g)]
+    .map((m) => +m[1] + 1), chosen[2].includes('<Lyrics>') ? 1 : 0);
+
+  // 악보는 원본(견본) 그대로 적는다. 달세뇨·코다 되돌이는 펼치지 않고,
+  // 재생할 때 abcPlayOrder()가 진행 순서를 따로 만들어 따라간다.
+  const staff = msApplyJumpMarks(msParseStaff(chosen[2], octaveShift));
+  const st = { sig: firstKey, keyChange: null, meter: sigN + '/' + sigD, meterChange: null, verses };
+  const lines = [];
+  for (let i = 0; i < staff.length; i += 4) {
+    const chunk = [], sylsAll = [];
+    for (let j = i; j < Math.min(i + 4, staff.length); j++) {
+      const meas = staff[j];
+      const pre = (meas.startRepeat ? '|: ' : '') + (meas.volta ? '[' + meas.volta + ' ' : '');
+      const bar = meas.endRepeat ? ' :|'
+        : meas.barType === 'double' ? ' ||'
+        : meas.barType === 'end' ? ' |]'
+        : ' |';
+      st.keyChange = null;
+      st.meterChange = null;
+      const r = msMeasureToAbc(meas, st);
+      chunk.push(pre
+        + (st.keyChange ? '[K:' + st.keyChange + '] ' : '')
+        + (st.meterChange ? '[M:' + st.meterChange + '] ' : '')
+        + r.music + bar);
+      for (let v = 0; v < verses; v++)
+        (sylsAll[v] = sylsAll[v] || []).push(...(r.syls[v] || []));
+    }
+    let block = chunk.join('');
+    for (let v = 0; v < verses; v++)
+      if ((sylsAll[v] || []).some((x) => x !== '*')) block += '\nw: ' + sylsAll[v].join(' ');
+    lines.push(block);
+  }
+  return 'X:1\n' +
+    'T:' + (title || '제목 없음') + '\n' +
+    (composer ? 'C:' + composer + '\n' : '') +
+    'M:' + sigN + '/' + sigD + '\n' +
+    'L:1/16\n' +
+    (bpm ? 'Q:1/4=' + bpm + '\n' : '') +
+    'K:' + (MS_KEY[firstKey] || 'C') + '\n' +
+    lines.join('\n') + '\n';
+}
+
+/** .mscz(zip) 또는 .mscx(XML) 바이트에서 ABC를 만든다 */
+async function msczToAbc(buf, fileName) {
+  if (/\.mscx$/i.test(fileName)) return msczXmlToAbc(new TextDecoder().decode(buf));
+  const files = await unzipEntries(buf);
+  const name = Object.keys(files).find((n) => /\.mscx$/i.test(n));
+  if (!name) throw new Error('mscz 안에서 악보(.mscx)를 찾지 못했습니다');
+  return msczXmlToAbc(new TextDecoder().decode(files[name]));
+}
+
+/* ==== MusicXML(.xml/.musicxml/.mxl) → ABC ============================
+ * MuseScore가 아닌 프로그램(Finale·Sibelius·MuseScore 내보내기)에서 오는
+ * 표준 악보 형식이다. 여기에도 음높이·길이·가사·코드가 다 들어 있어
+ * AI 없이 그대로 옮긴다.
+ */
+
+const MX_TYPE = {
+  breve: 32, whole: 16, half: 8, quarter: 4, eighth: 2,
+  '16th': 1, '32nd': 0.5, '64th': 0.25,
+};
+const MX_KEY_MAJOR = {
+  '-7': 'Cb', '-6': 'Gb', '-5': 'Db', '-4': 'Ab', '-3': 'Eb', '-2': 'Bb', '-1': 'F',
+  0: 'C', 1: 'G', 2: 'D', 3: 'A', 4: 'E', 5: 'B', 6: 'F#', 7: 'C#',
+};
+const MX_KEY_MINOR = {
+  '-7': 'Abm', '-6': 'Ebm', '-5': 'Bbm', '-4': 'Fm', '-3': 'Cm', '-2': 'Gm', '-1': 'Dm',
+  0: 'Am', 1: 'Em', 2: 'Bm', 3: 'F#m', 4: 'C#m', 5: 'G#m', 6: 'D#m', 7: 'A#m',
+};
+
+const mxTag = (s, name) => {
+  const m = s.match(new RegExp('<' + name + '(?:\\s[^>]*)?>([\\s\\S]*?)</' + name + '>'));
+  return m ? m[1] : null;
+};
+const mxNum = (s, name, dflt) => {
+  const v = mxTag(s, name);
+  return v === null || v.trim() === '' ? dflt : Number(v);
+};
+const mxAttr = (s, name, attr) => {
+  const m = s.match(new RegExp('<' + name + '[^>]*\\b' + attr + '="([^"]*)"'));
+  return m ? m[1] : null;
+};
+
+/** 코드 이름: <harmony>의 root와 kind를 사람이 읽는 이름으로 */
+function mxChordName(h) {
+  const step = mxTag(h, 'root-step');
+  if (!step) return '';
+  const alter = mxNum(h, 'root-alter', 0);
+  let name = step + (alter === 1 ? '#' : alter === -1 ? 'b' : alter === 2 ? '##' : alter === -2 ? 'bb' : '');
+  // kind의 text가 있으면 그 표기를 그대로 쓴다(악보에 적힌 대로)
+  const kindText = mxAttr(h, 'kind', 'text');
+  const kind = (mxTag(h, 'kind') || '').trim();
+  const KIND = {
+    major: '', minor: 'm', augmented: '+', diminished: 'dim',
+    'dominant': '7', 'major-seventh': 'maj7', 'minor-seventh': 'm7',
+    'diminished-seventh': 'dim7', 'half-diminished': 'm7b5',
+    'major-sixth': '6', 'minor-sixth': 'm6', 'dominant-ninth': '9',
+    'suspended-fourth': 'sus4', 'suspended-second': 'sus2', 'power': '5',
+  };
+  name += kindText !== null ? kindText : (kind in KIND ? KIND[kind] : kind ? kind : '');
+  const bass = mxTag(h, 'bass-step');
+  if (bass) {
+    const ba = mxNum(h, 'bass-alter', 0);
+    name += '/' + bass + (ba === 1 ? '#' : ba === -1 ? 'b' : '');
+  }
+  return name;
+}
+
+/** MusicXML 한 장을 ABC로 옮긴다 */
+function musicXmlToAbc(xml) {
+  if (/<score-timewise/.test(xml))
+    throw new Error('score-timewise 형식은 아직 옮기지 못합니다');
+
+  const parts = [...xml.matchAll(/<part\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/part>/g)];
+  if (!parts.length) throw new Error('악보에서 파트를 찾지 못했습니다');
+  // 노래 가락이 있는 파트를 고른다 — 가사가 붙은 쪽을 먼저, 없으면 첫 파트
+  const chosen = parts.find((p) => /<lyric[\s>]/.test(p[2])) || parts[0];
+  const body = chosen[2];
+
+  const title = (mxTag(xml, 'movement-title') || mxTag(xml, 'work-title') || '').trim();
+  const composer = (xml.match(/<creator[^>]*type="composer"[^>]*>([^<]*)/) || [])[1] || '';
+  const bpm = Math.round(Number(mxAttr(xml, 'sound', 'tempo') || mxAttr(xml, 'per-minute', '') || 0)
+    || Number((xml.match(/<per-minute>([\d.]+)/) || [])[1] || 0));
+
+  const measures = [...body.matchAll(/<measure\b[^>]*>([\s\S]*?)<\/measure>/g)].map((m) => m[1]);
+  if (!measures.length) throw new Error('악보에서 마디를 찾지 못했습니다');
+
+  // 첫 마디에서 조표·박자를 읽는다
+  const first = measures[0];
+  const fifths = mxNum(first, 'fifths', 0);
+  const mode = (mxTag(first, 'mode') || 'major').trim();
+  const keyName = (mode === 'minor' ? MX_KEY_MINOR : MX_KEY_MAJOR)[String(fifths)] || 'C';
+  const beats = mxNum(first, 'beats', 4);
+  const beatType = mxNum(first, 'beat-type', 4);
+  // 옥타브를 옮겨 적는 보표(기타는 G8vb) — 인쇄된 자리에 맞춘다
+  const clefOct = mxNum(first, 'clef-octave-change', 0);
+
+  let divisions = mxNum(first, 'divisions', 1) || 1;
+  const st = { sig: fifths, keyDef: null, verses: 0 };
+
+  // 절 수: lyric의 number가 가장 큰 것
+  for (const m of body.matchAll(/<lyric\b[^>]*number="(\d+)"/g))
+    st.verses = Math.max(st.verses, Number(m[1]));
+  if (!st.verses && /<lyric[\s>]/.test(body)) st.verses = 1;
+
+  const keyDefaults = (sig) => msKeyDefaults(sig);
+
+  const out = [];
+  let meterNow = beats + '/' + beatType;
+  let keyNow = keyName;
+
+  for (const raw of measures) {
+    const d = mxNum(raw, 'divisions', 0);
+    if (d) divisions = d;
+
+    // 마디 안에서 조표·박자가 바뀌면 그 자리에 적는다
+    let pre = '';
+    const mFifths = raw.includes('<key') ? mxNum(raw, 'fifths', null) : null;
+    if (mFifths !== null && mFifths !== st.sig) {
+      st.sig = mFifths;
+      const km = (mxTag(raw, 'mode') || 'major').trim();
+      keyNow = (km === 'minor' ? MX_KEY_MINOR : MX_KEY_MAJOR)[String(mFifths)] || 'C';
+      pre += '[K:' + keyNow + '] ';
+    }
+    if (raw.includes('<time')) {
+      const b = mxNum(raw, 'beats', null), bt = mxNum(raw, 'beat-type', null);
+      if (b && bt && b + '/' + bt !== meterNow) { meterNow = b + '/' + bt; pre += '[M:' + meterNow + '] '; }
+    }
+
+    const keyDef = keyDefaults(st.sig);
+    const accState = {};
+    const toks = [];
+    const syls = [];
+    let pendingHarmony = '';
+    let tup = null;                       // 지금 묶고 있는 잇단음표
+    const events = [];
+
+    const closeTuplet = () => {
+      if (!tup || !tup.events.length) { tup = null; return; }
+      const base = Math.min(...tup.events.map((e) => e.units));
+      const parts2 = [];
+      for (const ev of tup.events) {
+        const k = Math.round(ev.units / base);
+        if (k <= 1) { parts2.push(ev); continue; }
+        for (let i = 0; i < k; i++)
+          parts2.push(Object.assign({}, ev, {
+            units: base,
+            harmony: i === 0 ? ev.harmony : '',
+            lyrics: i === 0 ? ev.lyrics : [],
+            forceTie: ev.type === 'note' && i < k - 1,
+          }));
+      }
+      // abcjs는 「(3」 뒤의 세 음을 셋잇단으로 친다 — 개수를 맞춰 준다
+      if (parts2.length === tup.actual) {
+        parts2[0].tuplet = '(' + tup.actual + ':' + tup.normal + ' ';
+        events.length = tup.at;
+        events.push(...parts2);
+      } else {
+        tup.events[0].tuplet = '(' + tup.actual + ':' + tup.normal + ':' + tup.events.length + ' ';
+      }
+      tup = null;
+    };
+
+    // 마디 안의 요소를 차례대로 읽는다
+    const re = /<(harmony|note|backup|forward)\b[^>]*>([\s\S]*?)<\/\1>/g;
+    let mm;
+    while ((mm = re.exec(raw))) {
+      const tag = mm[1], inner = mm[2];
+      if (tag === 'harmony') { pendingHarmony = mxChordName(inner); continue; }
+      // backup은 다른 성부로 되돌아가는 것이다. 첫 성부만 옮기므로 거기서 멈춘다
+      if (tag === 'backup') break;
+      if (tag === 'forward') continue;
+      // 다른 성부(voice 2 이상)는 건너뛴다 — 같은 자리에 겹쳐 적히면 못 읽는다
+      const voice = mxTag(inner, 'voice');
+      if (voice && voice.trim() !== '1' && events.length) continue;
+
+      const isGrace = /<grace\b/.test(inner);
+      const isChordNote = /<chord\s*\/>/.test(inner);
+      const isRest = /<rest\b/.test(inner);
+      const type = (mxTag(inner, 'type') || '').trim();
+      const dots = (inner.match(/<dot\s*\/>/g) || []).length;
+
+      // 길이: 적힌 음표값을 먼저 쓴다(잇단음표는 실제 길이가 3분의 2라
+      // 그대로 쓰면 그릴 수 없는 길이가 된다)
+      let units;
+      if (type && MX_TYPE[type] !== undefined) {
+        units = MX_TYPE[type];
+        if (dots === 1) units *= 1.5;
+        else if (dots === 2) units *= 1.75;
+      } else {
+        const dur = mxNum(inner, 'duration', 0);
+        units = (dur / divisions) * 4;
+      }
+      if (isRest && !type) {
+        const dur = mxNum(inner, 'duration', 0);
+        units = dur ? (dur / divisions) * 4 : (16 * beats) / beatType;
+      }
+
+      if (isGrace) continue;              // 꾸밈음은 박을 차지하지 않는다 — 건너뛴다
+
+      // 잇단음표 묶음
+      const tm = mxTag(inner, 'time-modification');
+      const tupStart = /<tuplet[^>]*type="start"/.test(inner);
+      const tupStop = /<tuplet[^>]*type="stop"/.test(inner);
+      if (tm && tupStart) {
+        closeTuplet();
+        tup = {
+          actual: mxNum(tm, 'actual-notes', 3),
+          normal: mxNum(tm, 'normal-notes', 2),
+          at: events.length,
+          events: [],
+        };
+      }
+
+      if (isChordNote && events.length) {
+        // 같은 자리에 쌓이는 음 — 앞 음표에 붙인다
+        const step = mxTag(inner, 'step'), oct = mxNum(inner, 'octave', 4);
+        if (step) events[events.length - 1].notes.push({
+          step, alter: mxNum(inner, 'alter', 0), octave: oct + clefOct,
+        });
+        if (tupStop) closeTuplet();
+        continue;
+      }
+
+      const lyrics = [];
+      for (const lm of inner.matchAll(/<lyric\b([^>]*)>([\s\S]*?)<\/lyric>/g)) {
+        const no = Number((lm[1].match(/number="(\d+)"/) || [0, 1])[1]) - 1;
+        let text = (mxTag(lm[2], 'text') || '').trim();
+        const syl = (mxTag(lm[2], 'syllabic') || '').trim();
+        if (syl === 'begin' || syl === 'middle') text += '-';
+        if (no >= 0 && no < 6) lyrics[no] = text;
+      }
+
+      const ev = {
+        type: isRest ? 'rest' : 'note',
+        units,
+        notes: isRest ? [] : [{
+          step: mxTag(inner, 'step') || 'C',
+          alter: mxNum(inner, 'alter', 0),
+          octave: mxNum(inner, 'octave', 4) + clefOct,
+        }],
+        tie: /<tie[^>]*type="start"/.test(inner) || /<tied[^>]*type="start"/.test(inner),
+        harmony: pendingHarmony,
+        lyrics,
+      };
+      pendingHarmony = '';
+      events.push(ev);
+      if (tup) tup.events.push(ev);
+      if (tupStop) closeTuplet();
+    }
+    closeTuplet();
+
+    // 이벤트를 ABC 글자로
+    for (const ev of events) {
+      let t = '';
+      if (ev.harmony) t += '"' + ev.harmony + '" ';
+      if (ev.tuplet) t += ev.tuplet;
+      if (ev.type === 'rest') t += 'z' + msLen(ev.units);
+      else {
+        const ns = ev.notes.map((n) =>
+          abcPitch(n.step, n.alter, n.octave, accState, keyDef));
+        const bodyTxt = ns.length > 1 ? '[' + ns.join('') + ']' : ns[0];
+        t += bodyTxt + msLen(ev.units) + (ev.forceTie || ev.tie ? '-' : '');
+        for (let v = 0; v < Math.max(st.verses, 1); v++)
+          (syls[v] = syls[v] || []).push((ev.lyrics && ev.lyrics[v]) || '*');
+      }
+      toks.push(t);
+    }
+
+    // 진행 기호 — 세뇨·코다·D.S.·피네
+    let markStart = '', markEnd = '';
+    if (/<segno\s*\/>/.test(raw)) markStart += '!segno!';
+    if (/<coda\s*\/>/.test(raw)) {
+      // tocoda로 빠져나가는 자리인지, 코다 구역이 시작하는 자리인지
+      if (/tocoda=/.test(raw)) markEnd += '!coda!"^To Coda"';
+      else markStart += '!coda!';
+    }
+    if (/tocoda=/.test(raw) && !/<coda\s*\/>/.test(raw)) markEnd += '!coda!"^To Coda"';
+    if (/fine=/.test(raw)) markEnd += '!fine!';
+    /* 「al Coda」인지 「al Fine」인지는 sound 속성이 말해 주지 않는다 —
+       악보에 적힌 글자(<words>)에 들어 있다. 그것을 읽어 가른다. */
+    const words = [...raw.matchAll(/<words[^>]*>([^<]*)<\/words>/g)]
+      .map((w) => w[1]).join(' ');
+    const alCoda = /coda/i.test(words);
+    const alFine = /fine/i.test(words) || /fine=/.test(raw);
+    if (/dalsegno=/.test(raw))
+      markEnd += alCoda ? '!D.S.alcoda!' : alFine ? '!D.S.alfine!' : '!D.S.!';
+    else if (/dacapo=/.test(raw))
+      markEnd += alCoda ? '!D.C.alcoda!' : alFine ? '!D.C.alfine!' : '!D.C.!';
+
+    if (toks.length) {
+      if (markStart) toks[0] = markStart + toks[0];
+      if (markEnd) toks[toks.length - 1] = markEnd + toks[toks.length - 1];
+    }
+
+    // 세로줄·도돌이·1·2번 괄호
+    const startRepeat = /<repeat[^>]*direction="forward"/.test(raw);
+    const endRepeat = /<repeat[^>]*direction="backward"/.test(raw);
+    /* 1·2번 괄호가 시작하는 자리는 왼쪽 세로줄에 적힌다. 오른쪽 세로줄의
+       것은 앞 마디를 닫는 표시라, 이 마디의 시작으로 잘못 읽으면 안 된다. */
+    const leftBar = (raw.match(/<barline[^>]*location="left"[\s\S]*?<\/barline>/) || [])[0] || '';
+    const ending = (leftBar.match(/<ending[^>]*number="([\d, ]+)"[^>]*type="start"/) || [])[1];
+    const barStyle = (raw.match(/<bar-style>([^<]+)/) || [])[1] || '';
+    const bar = endRepeat ? ' :|'
+      : barStyle === 'light-light' ? ' ||'
+      : barStyle === 'light-heavy' ? ' |]'
+      : ' |';
+
+    out.push(
+      (startRepeat ? '|: ' : '') +
+      (ending ? '[' + ending.trim().split(/[, ]+/)[0] + ' ' : '') +
+      pre + toks.join(' ') + bar,
+      syls,
+    );
+  }
+
+  // 네 마디씩 한 줄로 묶고, 절마다 w: 줄을 붙인다
+  const lines = [];
+  for (let i = 0; i < out.length; i += 8) {          // out은 [마디, 가사] 짝
+    const chunk = [];
+    const all = [];
+    for (let j = i; j < Math.min(i + 8, out.length); j += 2) {
+      chunk.push(out[j]);
+      const s = out[j + 1] || [];
+      for (let v = 0; v < Math.max(st.verses, 1); v++)
+        (all[v] = all[v] || []).push(...(s[v] || []));
+    }
+    let block = chunk.join('');
+    for (let v = 0; v < Math.max(st.verses, 1); v++)
+      if ((all[v] || []).some((x) => x !== '*')) block += '\nw: ' + all[v].join(' ');
+    lines.push(block);
+  }
+
+  return 'X:1\n' +
+    'T:' + (title || '제목 없음') + '\n' +
+    (composer ? 'C:' + composer.trim() + '\n' : '') +
+    'M:' + beats + '/' + beatType + '\n' +
+    'L:1/16\n' +
+    (bpm ? 'Q:1/4=' + bpm + '\n' : '') +
+    'K:' + keyName + '\n' +
+    lines.join('\n') + '\n';
+}
+
+/** .mxl(zip) 또는 .xml/.musicxml 바이트에서 ABC를 만든다 */
+async function musicXmlFileToAbc(buf, fileName) {
+  if (/\.mxl$/i.test(fileName)) {
+    const files = await unzipEntries(buf);
+    const name = Object.keys(files)
+      .filter((n) => /\.(xml|musicxml)$/i.test(n) && !/^META-INF\//i.test(n))
+      .sort((a, b) => files[b].length - files[a].length)[0];
+    if (!name) throw new Error('mxl 안에서 악보(.xml)를 찾지 못했습니다');
+    return musicXmlToAbc(new TextDecoder().decode(files[name]));
+  }
+  return musicXmlToAbc(new TextDecoder().decode(buf));
+}
+
+/**
+ * 참고 악보를 받아 「그림」으로 바꿔 둔다.
+ *
+ * PDF를 그대로 보내면 AI가 "Unable to process input image"로 물러서는
+ * 일이 있다. 우리 손으로 쪽마다 그려서 JPEG로 보내면 어떤 파일이든
+ * 같은 모양이 되어 그런 실수가 없다. 여러 쪽짜리 악보도 다 담는다.
+ */
+async function handleFile(file) {
+  const buf = await file.arrayBuffer();
+
+  /* MuseScore·MusicXML에는 음높이·길이·가사·코드가 이미 자료로 들어 있어
+     AI로 다시 알아맞힐 까닭이 없다. 다만 넣는 순간 옮기지는 않는다 —
+     코드 진행이나 음원을 마저 적기도 전에 화면이 바뀌면 놀란다.
+     여기서는 받아만 두고, 「생성」을 누를 때 옮긴다. */
+  if (/\.(mscz|mscx|xml|musicxml|mxl)$/i.test(file.name)) {
+    const kind = /\.(mscz|mscx)$/i.test(file.name) ? 'MuseScore' : 'MusicXML';
+    scoreFile = { buf, name: file.name, kind };
+    refPages = [];
+    refAbc = '';
+    $('preview').style.display = 'none';
+    setStatus(`${kind} 악보를 받았습니다 (${file.name}) — 「생성」을 누르면 옮깁니다.`, 'ok');
+    return;
+  }
+
+  const isPdf =
+    (file.type || '').includes('pdf') || file.name.toLowerCase().endsWith('.pdf');
+  refPages = [];
+  refAbc = '';
+  scoreFile = null;
+  setStatus(`악보를 읽는 중… (${file.name})`, '', true);
+
+  try {
+    if (isPdf) {
+      const pdf = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
+      // 여러 쪽이면 앞의 여섯 쪽까지. 그보다 긴 악보는 드물고,
+      // 다 보내면 요청이 지나치게 무거워진다.
+      const pages = Math.min(pdf.numPages, 6);
+      for (let n = 1; n <= pages; n++) {
+        const page = await pdf.getPage(n);
+        const vp = page.getViewport({ scale: 2 });   // 글자가 뭉개지지 않을 만큼
+        const canvas = document.createElement('canvas');
+        canvas.width = vp.width; canvas.height = vp.height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        refPages.push(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
+        if (n === 1) { $('preview').src = canvas.toDataURL('image/jpeg', 0.7); }
+      }
+      setStatus(`악보 준비 완료: ${file.name} · ${pages}쪽`, 'ok');
+    } else {
+      // 그림도 한 번 다시 그려 보낸다 — heic·webp처럼 AI가 모르는
+      // 형식이 섞여 들어와도 여기서 흔한 JPEG가 된다.
+      const url = URL.createObjectURL(file);
+      const im = new Image();
+      await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = url; });
+      const scale = Math.min(1, 2200 / Math.max(im.width, im.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(im.width * scale);
+      canvas.height = Math.round(im.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(im, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      refPages.push(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
+      $('preview').src = canvas.toDataURL('image/jpeg', 0.7);
+      setStatus(`악보 준비 완료: ${file.name}`, 'ok');
+    }
+    $('preview').style.display = 'block';
+  } catch (e) {
+    refPages = [];
+    $('preview').style.display = 'none';
+    setStatus('악보를 읽지 못했습니다: ' + e.message, 'err');
+  }
+}
+
+function arrayBufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk)
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  return btoa(binary);
+}
+
+// ---- 참고 음원 (유튜브 URL 또는 오디오 파일) ----
+let audioData = null;   // { mime, base64 }
+$('audioFileBtn').onclick = () => $('audioFileInput').click();
+$('audioFileInput').onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const buf = await f.arrayBuffer();
+  audioData = { mime: f.type || 'audio/mpeg', base64: arrayBufferToBase64(buf) };
+  $('audioInfo').textContent = `♪ ${f.name}`;
+  $('audioUrlInput').value = '';
+};
+$('audioUrlInput').oninput = () => {
+  if ($('audioUrlInput').value.trim()) { audioData = null; $('audioInfo').textContent = ''; }
+  localStorage.setItem('audio_url', $('audioUrlInput').value.trim());
+};
+$('audioUrlInput').value = localStorage.getItem('audio_url') || '';
+
+// ---- Gemini analysis ----
+// 악보에 그려진 진행 기호 — 이걸 빼먹으면 곡의 얼개가 통째로 사라진다
+const PROMPT_REPEATS = `- 되돌이표와 진행 기호를 빠짐없이 옮길 것:
+  · 도돌이 시작 |:  · 도돌이 끝 :|  · 양쪽 도돌이 ::
+  · 1번 괄호 [1  · 2번 괄호 [2  (예: |: ... |[1 ... :|[2 ... |)
+  · 겹세로줄 ||  · 끝세로줄 |]
+  · 세뇨 !segno!  · 코다 !coda!  · 피네 !fine!
+  · D.C./D.S./To Coda 는 "^D.S. al Coda" 처럼 따옴표 글자로 마디 끝 음표 앞에
+- 반복 구간을 풀어 쓰지 말고 견본 악보에 적힌 기호 그대로 적을 것`;
+
+// 견본 악보를 준 경우 — 새로 채보하지 말고 그 악보를 그대로 옮긴다
+const PROMPT_FOLLOW_SCORE = `첨부한 것은 이미 완성된 악보입니다.
+새로 채보하지 말고, 이 악보에 적힌 그대로 ABC notation으로 옮겨 주세요.
+
+규칙:
+- 음표의 음정·음길이·쉼표를 악보에 그려진 그대로 옮길 것. 임의로 고치거나 다듬지 말 것
+- 마디 수와 마디 나눔을 악보와 똑같이 맞출 것
+${PROMPT_REPEATS}
+- 헤더: T:(제목), C:(작곡가), M:(박자), L:(기본음길이), K:(조성), 악보에 템포가 적혀 있으면 Q:
+- 조표는 악보에 그려진 조표 그대로. 중간 전조는 새 줄에 K: 를 단독으로
+- 코드 심볼은 악보에 적힌 그대로 "C" 처럼 따옴표로, 가사는 각 행 아래 w: 줄로
+- 셋잇단음표는 (3 로, 붙임줄은 - 로 표시
+- 응답은 곡 끝까지 완성된 ABC notation 코드 블록 하나만 출력 (설명 없이)`;
+
+const PROMPT_SCORE_ONLY = PROMPT_FOLLOW_SCORE;
+
+const PROMPT_WITH_AUDIO = `첨부한 참고 자료와 음원은 같은 곡입니다.
+실제 음원을 기준으로 정확하게 채보해서 ABC notation으로 변환해 주세요.
+
+규칙:
+- 음원에서 들리는 실제 멜로디의 음정과 리듬을 최우선 기준으로 삼을 것 (악보 파일은 코드·가사·구조 참고용)
+- 헤더: T:(제목), C:(작곡가), M:(박자), L:(기본음길이), Q:(음원의 실제 템포, 예: Q:1/4=72), K:(조성)
+- 실제 음원의 조성이 악보와 다르면 음원 기준으로
+- 코드는 "Bb" 같은 따옴표 심볼, 가사는 각 행 아래 w: 줄
+- 전조가 있으면 마디 안이 아니라 새 줄에 K: 를 단독으로 쓸 것
+${PROMPT_REPEATS}
+- 응답은 곡 끝까지 완성된 ABC notation 코드 블록 하나만 출력 (설명 금지)`;
+
+/** 사용자가 적어 둔 코드 진행을 프롬프트 뒤에 붙인다 */
+function chordHint() {
+  const t = ($('chordInput').value || '').trim();
+  if (!t) return '';
+  return `\n\n이 곡의 코드 진행입니다. 마디 순서대로 이 코드를 악보에 적어 주세요(들은 것과 다르면 이쪽을 따릅니다):\n${t}`;
+}
+
+/** 모델 이름 정리 — "models/gemini-…"로 적어 두는 곳이 있어 앞가지를 뗀다 */
+function cleanModel(name) {
+  // 「models/models/…」처럼 앞가지가 겹쳐 저장된 것도 있어 여러 번 뗀다
+  return (name || '').trim().replace(/^(models\/)+/, '') || 'gemini-3.6-flash';
+}
+
+// Gemini API 공통 호출
+/* 만드는 중에 그만두기 위한 손잡이. 답이 오지 않는 때가 있어
+   시간 제한도 함께 건다 — 없으면 화면이 끝없이 「진행 중」에 머문다. */
+let genAbort = null;
+let GEN_TIMEOUT_MS = 180000;   // 3분 — 이보다 오래 걸리면 오류로 끝낸다
+
+/**
+ * 시간 제한을 걸어 부르고 답까지 받아 온다.
+ *
+ * fetch는 머리글만 오면 끝난다 — 본문은 그 뒤로 몇 분씩 걸릴 수 있어,
+ * 본문을 다 읽을 때까지 제한을 풀지 않는다. 이걸 놓쳐서 제한을 걸고도
+ * 화면이 끝없이 「진행 중」에 머물렀다.
+ */
+async function genJson(url, body) {
+  genAbort = new AbortController();
+  const timer = setTimeout(() => genAbort.abort(), GEN_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: genAbort.signal,
+    });
+    return { res, json: await res.json() };
+  } finally {
+    clearTimeout(timer);
+    genAbort = null;
+  }
+}
+
+async function geminiGen(key, model, parts, maxTokens = 16000) {
+  model = cleanModel(model);
+  const { res, json } = await genJson(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    { contents: [{ parts }], generationConfig: { temperature: 0, maxOutputTokens: maxTokens } });
+  if (!res.ok) throw new Error(json.error?.message || ('HTTP ' + res.status));
+  return (json.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+}
+
+// 고정밀 채보: 곡 정보 분석 → 50초 구간별 채보(pro 모델) → 합치기
+async function analyzeHQ(key, youtubeUrl) {
+  /* 견본 악보(그림·ABC)가 붙어 있으면 구간마다 함께 넘긴다.
+     코드·가사·구조는 귀보다 견본이 정확하다 — 음정·리듬만 음원에서 딴다. */
+  const refParts = [];
+  for (const page of refPages)
+    refParts.push({ inline_data: { mime_type: 'image/jpeg', data: page } });
+  if (refAbc)
+    refParts.push({ text: '아래는 이 곡의 견본 악보를 ABC로 정확히 옮긴 것입니다:\n\n' + refAbc });
+  const refNote = refParts.length
+    ? `\n첨부한 견본 악보를 참고하세요. 이 구간에 해당하는 부분의 코드·가사·마디 구조는 견본을 따르고, 음정과 리듬은 음원에서 들리는 대로 적으세요.`
+    : '';
+
+  setStatus('[1/3] 곡 길이·템포·조성 분석 중…', '', true);
+  const metaText = await geminiGen(key, 'gemini-3.6-flash', [
+    { file_data: { file_uri: youtubeUrl } },
+    { text: `이 곡을 분석해서 JSON만 출력: {"duration_sec": 곡 전체 길이(정수 초), "bpm": 템포, "meter": "4/4" 같은 박자, "key": "Bb" 같은 조성, "title": "곡 제목", "artist": "가수", "vocal_start_sec": 보컬 시작 초}` }
+  ]);
+  const meta = JSON.parse(metaText.match(/\{[\s\S]*\}/)[0]);
+
+  const SEG = 50;
+  const segs = [];
+  for (let t = 0; t < meta.duration_sec; t += SEG) segs.push([t, Math.min(t + SEG, meta.duration_sec)]);
+
+  const bodies = [];
+  let prevTail = '';
+  for (let i = 0; i < segs.length; i++) {
+    const [s, e] = segs[i];
+    setStatus(`[2/3] 구간 ${i + 1}/${segs.length} (${s}~${e}초) 정밀 채보 중… 구간당 1~2분 걸립니다.`, '', true);
+    const contPrompt = prevTail ? `\n직전 구간의 마지막 부분 (이어지도록 하되 중복 채보 금지):\n${prevTail}` : '';
+    let body = null, lastErr = null;
+    for (let attempt = 0; attempt < 3 && body === null; attempt++) {
+      try {
+        body = await geminiGen(key, 'gemini-pro-latest', [
+          ...refParts,
+          { file_data: { file_uri: youtubeUrl }, video_metadata: { start_offset: s + 's', end_offset: e + 's' } },
+          { text: `이 음원은 '${meta.title}'(${meta.artist}, ${meta.meter}, 약 ${meta.bpm}bpm)이며 이 음원의 조성은 ${meta.key}입니다.
+지정된 구간(${s}초~${e}초)의 **보컬 멜로디**를 한 음도 빠짐없이 정확하게 채보하세요.
+음원을 반복해서 듣는다고 생각하고 각 음의 음정과 길이를 신중하게 판단하세요.
+중요: 반드시 ${meta.key} 조성 기준 음이름으로 표기하세요. 다른 조성으로의 표기 금지.${refNote}${contPrompt}
+
+출력 형식: ABC notation 본문만 (X:,T:,M:,L:,K: 등 헤더 절대 금지), L:1/16 기준, 마디는 | 로 구분, 4~5마디마다 줄바꿈.
+코드를 "C" "Am7" 형태로 마디 위에, 가사는 각 행 아래 w: 줄로.
+보컬 없는 전주/간주는 z16 쉼표 마디로. 코드블록 하나만 출력, 설명 금지.` + chordHint() }
+        ], 16000);
+      } catch (err) {
+        lastErr = err;
+        setStatus(`[2/3] 구간 ${i + 1} 재시도 중… (${err.message.slice(0, 60)})`, '', true);
+        await new Promise(r => setTimeout(r, 20000));
+      }
+    }
+    if (body === null) throw lastErr || new Error('구간 채보 실패');
+    const m = body.match(/```(?:abc)?\s*\n([\s\S]*?)```/);
+    // 구간 결과에 섞여 들어온 헤더·코드펜스 제거
+    const clean = (m ? m[1] : body)
+      .split('\n')
+      .filter(l => !/^\s*(```|X:|T:|C:|M:|L:|Q:|K:)/.test(l))
+      .join('\n').trim();
+    bodies.push(clean);
+    const lines = clean.split('\n').filter(l => l.trim() && !l.startsWith('w:') && !l.startsWith('%'));
+    prevTail = lines.slice(-2).join('\n');
+  }
+
+  setStatus('[3/3] 악보 합치는 중…', '', true);
+  return `X:1
+T:${meta.title}
+C:${meta.artist}
+M:${meta.meter}
+L:1/16
+Q:1/4=${meta.bpm}
+K:${meta.key}
+` + bodies.join('\n');
+}
+
+/** 받아 둔 MuseScore·MusicXML 파일을 ABC로 옮긴다 (한 번만) */
+async function convertScoreFile() {
+  if (refAbc || !scoreFile) return refAbc;
+  setStatus(`${scoreFile.kind} 악보를 옮기는 중…`, '', true);
+  refAbc = /\.(mscz|mscx)$/i.test(scoreFile.name)
+    ? await msczToAbc(scoreFile.buf, scoreFile.name)
+    : await musicXmlFileToAbc(scoreFile.buf, scoreFile.name);
+  return refAbc;
+}
+
+$('analyzeBtn').onclick = async () => {
+  /* AI를 쓸지는 켜고 끈다.
+     MuseScore·MusicXML 파일은 음높이·길이·가사·코드가 이미 자료로 들어
+     있어 AI가 필요 없다. 그림 악보나 음원에서 따야 할 때만 AI를 켠다. */
+  if (!$('useAi').checked) {
+    if (!scoreFile && !refAbc) {
+      setStatus('AI 없이 옮길 수 있는 것은 MuseScore(.mscz)·MusicXML(.xml) 파일뿐입니다. '
+        + 'PDF·사진 악보는 그림이라 「AI로 채보」를 켜 주세요.', 'err');
+      return;
+    }
+    $('analyzeBtn').disabled = true;
+    try {
+      const abc = await convertScoreFile();
+      $('abcSource').value = abc;
+      renderScore(abc);
+      switchTab('edit');
+      setStatus(`${scoreFile ? scoreFile.kind : ''} 악보를 그대로 옮겼습니다 (AI 사용 안 함).`, 'ok');
+      showVerify(verifyAbc(abc));   // 옮긴 것도 훑는다 — 파일 자체가 어긋난 때가 있다
+    } catch (e) {
+      setStatus('악보를 옮기지 못했습니다: ' + e.message, 'err');
+    } finally {
+      $('analyzeBtn').disabled = false;
+    }
+    return;
+  }
+  // AI로 다듬을 때도 받아 둔 악보를 먼저 옮겨 참고로 넘긴다
+  if (scoreFile && !refAbc) {
+    try { await convertScoreFile(); }
+    catch (e) { setStatus('악보를 옮기지 못했습니다: ' + e.message, 'err'); return; }
+  }
+  const key = $('apiKey').value.trim();
+  if (!key) {
+    setStatus(
+      EMBEDDED
+        ? 'Gemini API 키가 없습니다 — 기타교실 설정 탭의 「AI 연결」에서 키를 넣어 주세요.'
+        : '먼저 Gemini API 키를 입력하세요.', 'err');
+    return;
+  }
+  // 음원과 참고 악보 중 하나만 있어도 만든다
+  if (!refPages.length && !refAbc && !scoreFile && !audioData && !$('audioUrlInput').value.trim()) {
+    setStatus('음원(영상 링크)이나 참고용 악보 중 하나는 넣어 주세요.', 'err');
+    return;
+  }
+  if ($('hqMode').checked) {
+    const yt = $('audioUrlInput').value.trim();
+    if (!yt) { setStatus('고정밀 채보는 유튜브 URL이 필요합니다. 참고 음원 칸에 입력하세요.', 'err'); return; }
+    $('analyzeBtn').disabled = true;
+    try {
+      // 받아 둔 MuseScore·MusicXML이 있으면 먼저 옮겨 견본으로 삼는다
+      if (scoreFile && !refAbc) await convertScoreFile();
+      const abc = await analyzeHQ(key, yt);
+      $('abcSource').value = abc;
+      renderScore(abc);
+      const hqIssues = verifyAbc(abc);
+      showVerify(hqIssues);
+      if (hqIssues.some((i) => i.level === 'err')) {
+        switchTab('edit');
+        setStatus('고정밀 채보를 마쳤지만 검증에서 고칠 곳이 나왔습니다.', 'err');
+      } else {
+        switchTab('player');
+        setStatus('고정밀 채보 완료! 검증 통과.', 'ok');
+      }
+    } catch (err) {
+      setStatus('고정밀 채보 실패: ' + err.message, 'err');
+    } finally {
+      $('analyzeBtn').disabled = false;
+    }
+    return;
+  }
+  const model = cleanModel($('model').value);
+  const youtubeUrl = $('audioUrlInput').value.trim();
+  // 견본 악보를 줬으면 그걸 옮겨 적는 것이 일이다. 음원까지 같이 들려주면
+  // AI가 제 귀를 믿고 딴 악보를 그려 온다 — 그래서 이때는 음원을 빼고 보낸다.
+  const hasRef = refPages.length > 0 || !!refAbc;
+  const followScore = hasRef && !$('audioFirst').checked;
+  const hasAudio = !followScore && !!(youtubeUrl || audioData);
+  $('analyzeBtn').disabled = true;
+  /* 지나간 초를 세어 보여 준다. 한 줄짜리 안내만 띄워 두면 1분 넘게
+     아무 기척이 없어 「멈췄나」 싶어 다른 단추를 누르게 된다. */
+  const waiting = followScore
+    ? 'AI가 견본 악보를 그대로 옮기는 중입니다'
+    : hasAudio
+      ? 'AI가 참고 음원을 들으며 악보를 채보하는 중입니다'
+      : 'AI가 악보를 분석하는 중입니다';
+  let waited = 0;
+  setStatus(waiting + '… (보통 1~2분)', '', true);
+  $('genProgress').classList.remove('hidden');
+  $('genMenuBtn').textContent = '⏳ 만드는 중';
+  const waitTimer = setInterval(() => {
+    waited += 5;
+    setStatus(`${waiting}… ${waited}초 지남 (보통 1~2분)`, '', true);
+  }, 5000);
+  const doneWaiting = () => {
+    clearInterval(waitTimer);
+    $('genProgress').classList.add('hidden');
+    $('genMenuBtn').textContent = '🤖 생성';
+  };
+  try {
+    const parts = [];
+    for (const page of refPages)
+      parts.push({ inline_data: { mime_type: 'image/jpeg', data: page } });
+    // MuseScore에서 옮겨 온 악보가 있으면 그림 대신 글자로 넘긴다
+    if (refAbc)
+      parts.push({ text: (followScore
+        ? '아래는 견본 악보를 ABC로 옮긴 것입니다. 이것을 바탕으로 다듬어 주세요.'
+        : '아래는 견본 악보를 ABC로 옮긴 것입니다. 이 악보를 바탕으로 삼고, 음원과 다른 부분만 고쳐 주세요.'
+      ) + '\n\n' + refAbc });
+    if (hasAudio) {
+      if (youtubeUrl) parts.push({ file_data: { file_uri: youtubeUrl } });
+      else if (audioData) parts.push({ inline_data: { mime_type: audioData.mime, data: audioData.base64 } });
+    }
+    parts.push({ text: (followScore ? PROMPT_FOLLOW_SCORE : hasAudio ? PROMPT_WITH_AUDIO : PROMPT_SCORE_ONLY) + chordHint() });
+    const { res, json } = await genJson(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+      { contents: [{ parts }], generationConfig: { temperature: 0.1, maxOutputTokens: 32000 } });
+    if (!res.ok) throw new Error(json.error?.message || ('HTTP ' + res.status));
+    const text = (json.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+    const abc = extractAbc(text);
+    if (!abc) throw new Error('응답에서 ABC 악보를 찾지 못했습니다.');
+    doneWaiting();
+    $('abcSource').value = abc;
+    renderScore(abc);
+    /* 만들자마자 기계가 훑는다. 어긋난 곳이 있으면 연주 화면 대신
+       편집 화면을 열어 무엇이 틀렸는지부터 보여 준다 — 틀린 악보로
+       연주부터 하면 커서가 어긋난 까닭을 사람이 찾아 헤매게 된다. */
+    const issues = verifyAbc(abc);
+    showVerify(issues);
+    if (issues.some((i) => i.level === 'err')) {
+      switchTab('edit');
+      setStatus('악보를 만들었지만 검증에서 고칠 곳이 나왔습니다 — 위 목록을 보고 다듬어 주세요.', 'err');
+    } else {
+      switchTab('player');
+      setStatus('악보 생성 완료! 검증 통과 — 「저장」을 누르면 곡에 붙습니다.', 'ok');
+    }
+  } catch (err) {
+    doneWaiting();
+    setStatus('분석 실패: ' + (err.name === 'AbortError'
+      ? `${Math.round(GEN_TIMEOUT_MS / 60000)}분이 지나도 답이 오지 않아 그만두었습니다 — `
+        + '악보가 여러 쪽이면 쪽수를 줄이거나, 잠시 뒤 다시 해 보세요.'
+      : err.message === 'Failed to fetch'
+        ? '요청을 보내지 못했습니다 — 모델 이름이나 인터넷 연결을 확인하세요.'
+        : err.message), 'err');
+  } finally {
+    doneWaiting();
+    $('analyzeBtn').disabled = false;
+  }
+};
+
+function extractAbc(text) {
+  // 여러 코드블록 중 X: 헤더가 있는 가장 긴 것을 선택
+  const fences = [...text.matchAll(/```(?:abc)?\s*\n([\s\S]*?)```/g)].map(m => m[1].trim());
+  const candidates = fences.filter(f => /^X:/m.test(f));
+  if (candidates.length) return candidates.sort((a, b) => b.length - a.length)[0];
+  // 코드블록이 없으면 X: 부터 끝까지
+  const idx = text.search(/^X:/m);
+  if (idx >= 0) return text.slice(idx).replace(/```/g, '').trim();
+  return null;
+}
+
+// ---- render & playback (커서가 음표 위를 따라가는 미디 재생) ----
+// 커서 위치 기억 — 악보가 다시 그려져도 커서가 사라지지 않게 복원
+let curPos = null;
+function ensureCursor() {
+  const svg = document.querySelector('#score svg');
+  if (!svg) return null;
+  let cur = svg.querySelector('.abcjs-cursor');
+  if (!cur) {
+    cur = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    cur.setAttribute('class', 'abcjs-cursor');
+    svg.appendChild(cur);
+    if (curPos) {
+      cur.setAttribute('x1', curPos.x); cur.setAttribute('x2', curPos.x);
+      cur.setAttribute('y1', curPos.y); cur.setAttribute('y2', curPos.y + curPos.h);
+    }
+  }
+  return cur;
+}
+function moveCursor(left, top, height) {
+  const cur = ensureCursor();
+  if (!cur) return null;
+  curPos = { x: left - 2, y: top, h: height };
+  cur.setAttribute('x1', curPos.x); cur.setAttribute('x2', curPos.x);
+  cur.setAttribute('y1', curPos.y); cur.setAttribute('y2', curPos.y + curPos.h);
+  return cur;
+}
+/* 악보창(스크롤 컨테이너) 안에서만 커서 따라 스크롤 — 나머지 화면은 고정.
+   커서가 아래로 흘러내리지 않도록 화면 위쪽 1/3 부근에 붙여 둔다:
+   위 10% ~ 아래 45%를 벗어나면 바로 되돌린다. */
+let scrollTarget = null, scrollAt = 0;
+function scrollCursorIntoView(cur) {
+  const box = $('scorePanel');
+  if (!box) return;
+  const h = box.clientHeight;
+  const br = box.getBoundingClientRect();
+  const rel = cur.getBoundingClientRect().top - br.top;   // 창 위에서 커서까지
+  if (rel >= h * 0.10 && rel <= h * 0.45) return;         // 편한 위치면 그대로
+  const want = Math.max(0, Math.min(box.scrollTop + rel - h * 0.28, box.scrollHeight - h));
+  const now = performance.now();
+  // 부드러운 스크롤이 진행되는 동안 같은 목표로 반복 호출되는 것을 막는다
+  if (scrollTarget !== null && Math.abs(want - scrollTarget) < 8 && now - scrollAt < 700) return;
+  scrollTarget = want; scrollAt = now;
+  box.scrollTo({ top: want, behavior: 'smooth' });
+}
+
+const cursorControl = {
+  beatSubdivisions: 2,
+  onStart() {
+    this.cursor = ensureCursor();
+  },
+  onEvent(ev) {
+    if (!ev || (ev.measureStart && ev.left === null)) return;
+    // 미디/반주 모드: 통합 트랜스포트의 시계·슬라이더 갱신
+    if (srcMode !== 'video' && typeof ev.milliseconds === 'number') {
+      const sec = ev.milliseconds / 1000;
+      $('ytCur').textContent = clockFmt(sec);
+      if (sec > midiDurSec) midiDurSec = sec;
+      if (!seekDragging) { $('ytSeek').max = Math.max(midiDurSec, 1); $('ytSeek').value = sec; }
+    }
+    if (accompMode) return;   // 반주 모드: 커서는 움직이지 않음
+    // 되돌이가 있으면 소리는 펼친 악보에서 난다 — 그 시각에 해당하는
+    // 견본 악보의 음표를 찾아 그 자리에 커서를 찍는다.
+    if (jumpTimeline && typeof ev.milliseconds === 'number') {
+      const hit = timingAt(jumpTimeline, ev.milliseconds);
+      if (hit) ev = hit;
+    }
+    // 다성부(2단) 악보: 1단(멜로디, abcjs-v0) 음표 이벤트만 커서 이동 — 2단 음표로 튀는 것 방지
+    if (multiVoice && ev.elements) {
+      const isMelody = ev.elements.some(g => g.some(el =>
+        ((el.getAttribute && el.getAttribute('class')) || '').includes('abcjs-v0')));
+      if (!isMelody) return;
+    }
+    // 이전 하이라이트 해제 후 현재 음표 강조
+    document.querySelectorAll('#score .note-highlight')
+      .forEach(el => el.classList.remove('note-highlight'));
+    if (ev.elements) for (const group of ev.elements)
+      for (const el of group) el.classList.add('note-highlight');
+    // 진행 커서 이동 (재렌더로 사라졌으면 자동 복원)
+    const cur = moveCursor(ev.left, ev.top, ev.height);
+    if (cur && activeTab === 'player') scrollCursorIntoView(cur);
+  },
+  onFinished() {
+    if (srcMode !== 'video') { midiPlaying = false; $('ytToggle').textContent = '▶'; }
+    document.querySelectorAll('#score .note-highlight')
+      .forEach(el => el.classList.remove('note-highlight'));
+  }
+};
+
+let synthTimer = null;
+let jumpTimeline = null;  // 달세뇨·코다를 따라간 진행 시각표 (없으면 null)
+let lastHl = null;        // 지금 색을 입혀 둔 음표 (같은 것에 두 번 칠하지 않게)
+let synthDirty = false;   // 오디오 갱신 대기 중 표시
+let lastVisualObj = null; // 마지막 재생용 렌더 (이조 변경 시 재사용)
+let multiVoice = false;   // 다성부(2단 이상) 여부 — 커서·음소거 제어용
+let currentHeader = [];   // 헤더 줄들 (K: 까지)
+let currentBlocks = [];   // 악보 시스템(줄) 단위 블록: 음표줄 + 딸린 w: 가사줄
+let activeTab = 'player'; // 현재 하단 메뉴 탭
+// 연주설정 상태 (코드재생기에서 가져옴)
+let playRate = parseFloat(localStorage.getItem('play_rate')) || 1;   // 빠르기
+let pitchShift = parseInt(localStorage.getItem('pitch_shift'), 10) || 0; // 음높이(반음)
+let loopAB = null;        // 구간 반복 {a, b}
+// 통합 트랜스포트: 음원 소스 선택
+let srcMode = 'video';    // 'video' | 'accomp' | 'midi'
+let accompMode = false;   // 반주 전용 재생 중 (커서 숨김)
+let lastPlayAbc = '';     // 재생용(1단) ABC — 반주 변환의 원본
+let midiDurSec = 0;       // 미디 총 길이(슬라이더용)
+let midiPlaying = false;
+
+function setupSynth(visualObj, isAccomp, playAbcText) {
+  if (!ABCJS.synth.supportsAudio()) {
+    setStatus('이 브라우저는 오디오 재생을 지원하지 않습니다.', 'err');
+    return Promise.resolve();
+  }
+  if (!synthControl) {
+    synthControl = new ABCJS.synth.SynthController();
+    synthControl.load('#audio', cursorControl, {
+      displayLoop: true, displayRestart: true, displayPlay: true,
+      displayProgress: true, displayWarp: true
+    });
+  } else {
+    try { synthControl.pause(); } catch (e) {}   // 재생 중 재설정 시 소리·커서 분리 방지
+  }
+  if (!isAccomp) { lastVisualObj = visualObj; accompMode = false; }
+  synthDirty = false;
+  midiPlaying = false;
+  // 달세뇨·코다는 abcjs가 소리로 따라가지 못한다. 화면은 견본 그대로 두고,
+  // 소리만 진행 차례대로 펼친 악보로 낸다 (보이지 않는 곳에 그린다).
+  let soundObj = visualObj;
+  if (!isAccomp && playAbcText) {
+    const un = unrolledPlayAbc(playAbcText);
+    if (un) try {
+      let box = $('hiddenScore');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'hiddenScore';
+        box.style.cssText = 'position:absolute; left:-99999px; top:0; width:800px;';
+        document.body.appendChild(box);
+      }
+      soundObj = ABCJS.renderAbc(box, un, {})[0];
+    } catch (e) { soundObj = visualObj; }
+  }
+  // 음높이: 표기는 visualTranspose(syncFull), 소리는 midiTranspose
+  // 보컬 모드는 코드 반주를 끄고 멜로디만
+  return synthControl.setTune(soundObj, false, { chordsOff: srcMode === 'vocal', midiTranspose: pitchShift })
+    .then(() => {
+      try { synthControl.setWarp(playRate * 100); } catch (e) {}
+      try {
+        if (!soundObj.noteTimings || !soundObj.noteTimings.length) soundObj.setTiming();
+        midiDurSec = soundObj.getTotalTime() / playRate;
+      } catch (e) { midiDurSec = 0; }
+    })
+    .catch(e => setStatus('오디오 준비 실패: ' + e.message, 'err'));
+}
+
+// 다성부 악보 → 1단(멜로디)만 남긴 재생용 ABC (소리·커서·화면 완전 동기화)
+function melodyOnlyAbc(abc) {
+  return abc.split('\n').filter(l =>
+    !/^%%score/.test(l) &&
+    !/^V:(?!1\b)/.test(l) &&
+    !/^\[V:(?!1\])/.test(l)
+  ).join('\n');
+}
+
+/* ── 진행 순서 (도돌이표·달세뇨·코다) ────────────────────────────────
+   abcjs는 도돌이표 |: :| 만 연주에 반영하고, 세뇨·코다 되돌이는 그리기만
+   한다. 악보는 견본 그대로 두어야 하므로, 여기서 실제 연주할 마디 차례를
+   따로 만들어 진행바가 그 차례를 따라가게 한다. */
+
+/* ==== 채보 검증 =======================================================
+ * 채보한 악보를 그대로 믿지 않는다. AI가 딴 것이든 파일에서 옮긴 것이든
+ * 마디가 넘치거나 가사 수가 어긋나는 일이 잦다 — 눈으로는 잘 보이지 않고
+ * 연주를 걸어야 드러난다. 그래서 만들자마자 기계가 먼저 훑는다.
+ */
+
+/** 한 마디 글에서 음표 수를 센다(쉼표 뺀다, 겹음 [CEG]는 하나) */
+function abcCountNotes(text) {
+  let n = 0;
+  for (let i = 0; i < text.length; ) {
+    const c = text[i];
+    if (c === '"' || c === '!') {                 // 코드 이름·장식기호는 건너뛴다
+      const e = text.indexOf(c, i + 1);
+      i = e < 0 ? text.length : e + 1;
+      continue;
+    }
+    if (c === '[' && /^\[[A-Za-z]:/.test(text.slice(i, i + 3))) {
+      const e = text.indexOf(']', i);
+      i = e < 0 ? text.length : e + 1;
+      continue;
+    }
+    if (c === '[') {                              // 겹음 한 덩어리
+      const e = text.indexOf(']', i);
+      n++;
+      i = e < 0 ? text.length : e + 1;
+      continue;
+    }
+    if (/[A-Ga-g]/.test(c)) { n++; i++; continue; }
+    i++;
+  }
+  return n;
+}
+
+/**
+ * 채보한 악보를 훑어 어긋난 곳을 모은다.
+ *
+ * 돌려주는 것: [{ level: 'err'|'warn', msg, at }]
+ *   err  — 연주가 어긋나는 것 (마디 길이, 짝 없는 기호)
+ *   warn — 살펴볼 만한 것 (가사 수, 코드 없음)
+ */
+function verifyAbc(abc) {
+  const out = [];
+  const add = (level, msg, at) => out.push({ level, msg, at });
+
+  // ── 1) 문법: abcjs가 읽으며 내는 경고
+  let tune = null;
+  try {
+    const box = document.createElement('div');
+    box.style.display = 'none';
+    document.body.appendChild(box);
+    tune = ABCJS.renderAbc(box, abc, {})[0];
+    box.remove();
+  } catch (e) {
+    add('err', 'ABC를 읽지 못했습니다: ' + e.message);
+    return out;
+  }
+  for (const w of (tune.warnings || []).slice(0, 5))
+    add('err', '문법: ' + String(w).replace(/<[^>]*>/g, '').slice(0, 90));
+
+  // ── 2) 마디 길이가 박자와 맞는가
+  //     첫 마디(못갖춘마디)와 마지막 마디는 짧아도 옳다 — 짝을 이룬다.
+  let meter = 1;
+  let m = 0, sum = 0, mult = 1, left = 0;
+  const bad = [];
+  const measures = [];
+  for (const line of tune.lines || []) {
+    if (!line.staff) continue;
+    for (const v of line.staff[0].voices) for (const el of v) {
+      if (el.el_type === 'meter' && el.num && el.den) meter = el.num / el.den;
+      else if (el.el_type === 'note') {
+        if (el.startTriplet) { mult = el.tripletMultiplier; left = el.startTriplet; }
+        sum += (el.duration || 0) * (left > 0 ? mult : 1);
+        if (left > 0 && --left === 0) mult = 1;
+      } else if (el.el_type === 'bar') {
+        if (sum > 0.0001) { measures.push({ n: ++m, sum, meter }); }
+        sum = 0;
+      }
+    }
+  }
+  if (sum > 0.0001) measures.push({ n: ++m, sum, meter });
+  for (const x of measures) {
+    if (Math.abs(x.sum - x.meter) < 0.002) continue;
+    // 못갖춘마디(첫)와 그 짝(마지막)은 짧을 수 있다 — 넘치는 것은 늘 잘못
+    if ((x.n === 1 || x.n === measures.length) && x.sum < x.meter) continue;
+    bad.push(x);
+  }
+  for (const x of bad.slice(0, 8))
+    add('err', `${x.n}마디 길이가 ${(x.sum / x.meter * 100).toFixed(0)}%입니다`
+      + ` (박자 ${Math.round(x.meter * 4)}/4 기준)`, x.n);
+  if (bad.length > 8) add('err', `…그 밖에 ${bad.length - 8}마디가 더 어긋납니다`);
+
+  // ── 3) 가사 음절 수가 음표 수와 맞는가
+  const lines = abc.split('\n');
+  let musicLine = null;
+  for (const raw of lines) {
+    if (/^[A-Za-z]:/.test(raw) || /^%/.test(raw)) {
+      if (/^w:/.test(raw) && musicLine !== null) {
+        const syl = raw.slice(2).trim().split(/\s+/).filter(Boolean).length;
+        if (syl && musicLine && syl !== musicLine.notes)
+          add('warn', `가사 ${syl}자가 음표 ${musicLine.notes}개와 맞지 않습니다`
+            + ` (${musicLine.no}번째 악보 줄)`);
+      }
+      continue;
+    }
+    if (!raw.trim()) continue;
+    musicLine = {
+      no: (musicLine ? musicLine.no : 0) + 1,
+      notes: raw.split(/[|]/).reduce((a, seg) => a + abcCountNotes(seg), 0),
+    };
+  }
+
+  // ── 4) 진행 기호의 짝
+  const has = (re) => re.test(abc);
+  const jump = /!D\.\s*[SC]\.[^!]*!|"[^"]*D\.\s*[SC]\.[^"]*"/.test(abc);
+  const segno = has(/!segno!/);
+  const codas = (abc.match(/!coda!/g) || []).length;
+  const toCoda = /"[^"]*[Tt]o\s*[Cc]oda[^"]*"/.test(abc);
+  if (jump && /D\.\s*S\./.test(abc) && !segno)
+    add('err', 'D.S.가 있는데 돌아갈 세뇨(!segno!)가 없습니다 — 곡 처음으로 돌아갑니다');
+  if (/al\s*coda|alcoda/i.test(abc)) {
+    if (!toCoda) add('err', 'al Coda인데 빠져나갈 「To Coda」 표시가 없습니다');
+    if (codas < 2 && !(codas === 1 && !toCoda))
+      add('err', '코다 기호(!coda!)가 모자랍니다 — 빠져나갈 자리와 코다 구간 두 곳에 있어야 합니다');
+  }
+  if (/al\s*fine|alfine/i.test(abc) && !has(/!fine!/))
+    add('err', 'al Fine인데 !fine! 표시가 없습니다');
+  const open = (abc.match(/\|:/g) || []).length;
+  const close = (abc.match(/:\|/g) || []).length;
+  if (close > open) add('warn', `도돌이 끝(:|)이 ${close}개인데 시작(|:)은 ${open}개입니다 — 곡 처음으로 돌아갑니다`);
+
+  // ── 5) 알맹이가 있는가
+  if (!/"[^"]+"/.test(abc)) add('warn', '코드 이름이 하나도 없습니다');
+  if (!/^w:/m.test(abc)) add('warn', '가사가 없습니다');
+  if (measures.length < 4) add('warn', `마디가 ${measures.length}개뿐입니다 — 곡이 끊긴 것은 아닌지 보세요`);
+
+  return out;
+}
+
+/** 검증 결과를 편집 화면 위에 펼친다 */
+function showVerify(issues) {
+  const box = $('verifyBox');
+  if (!box) return;
+  if (!issues.length) {
+    box.className = 'ok';
+    box.innerHTML = '<b>검증 통과</b> — 마디 길이·가사 수·진행 기호에 어긋난 곳이 없습니다.';
+    box.classList.remove('hidden');
+    return;
+  }
+  const errs = issues.filter((i) => i.level === 'err');
+  box.className = errs.length ? 'err' : 'warn';
+  box.innerHTML =
+    `<b>검증: ${errs.length ? `고칠 곳 ${errs.length}` : '살펴볼 곳'}${
+      issues.length - errs.length ? ` · 살펴볼 곳 ${issues.length - errs.length}` : ''}</b>`
+    + '<ul>' + issues.slice(0, 12).map((i) =>
+      `<li class="${i.level}">${i.msg}</li>`).join('') + '</ul>';
+  box.classList.remove('hidden');
+}
+
+/* ==== 자동 고침 ======================================================
+ * 검증이 짚은 어긋남을 고친다. 두 단계다:
+ *  1) 기계 — 셈만으로 답이 하나인 것 (모자란 마디는 쉼표로 채우고,
+ *     넘치는 마디는 끝 쉼표를 줄이고, 가사 수를 맞춘다)
+ *  2) AI — 판단이 필요한 것 (세뇨·코다 자리 같은). 문제 목록을 주고
+ *     「이것만 최소한으로 고치라」고 시킨다.
+ */
+
+/** 따옴표·장식·줄 안 지시를 건너뛰며 소리(음표·쉼표)가 있는지 본다 */
+function abcHasSound(text) {
+  for (let i = 0; i < text.length; ) {
+    const c = text[i];
+    if (c === '"' || c === '!') {
+      const e = text.indexOf(c, i + 1);
+      i = e < 0 ? text.length : e + 1;
+      continue;
+    }
+    if (c === '[' && /^\[[A-Za-z]:/.test(text.slice(i, i + 3))) {
+      const e = text.indexOf(']', i);
+      i = e < 0 ? text.length : e + 1;
+      continue;
+    }
+    if (/[A-Ga-gz]/.test(c)) return true;
+    i++;
+  }
+  return false;
+}
+
+/** 한 악보 줄을 마디 토막으로 쪼갠다. 각 토막의 글과 줄 안 위치를 준다 */
+function abcLineSegments(line) {
+  const segs = [];
+  let start = 0, text = '';
+  for (let i = 0; i < line.length; ) {
+    const c = line[i];
+    if (c === '"' || c === '!') {
+      const e = line.indexOf(c, i + 1);
+      const seg = line.slice(i, e < 0 ? line.length : e + 1);
+      text += seg; i += seg.length;
+      continue;
+    }
+    if (c === '[' && /^\[[A-Za-z]:/.test(line.slice(i, i + 3))) {
+      const e = line.indexOf(']', i);
+      const seg = line.slice(i, e < 0 ? line.length : e + 1);
+      text += seg; i += seg.length;
+      continue;
+    }
+    const bar = line.slice(i).match(/^(:\|:|::|\|:|:\||\|\]|\|\||\|)/);
+    if (bar) {
+      segs.push({ start, end: i, text });
+      i += bar[1].length;
+      start = i; text = '';
+      continue;
+    }
+    text += c; i++;
+  }
+  segs.push({ start, end: line.length, text });
+  return segs.filter((s) => abcHasSound(s.text));
+}
+
+/** 마디마다 실제 길이와 그 자리의 박자 — abcjs가 세 준다 */
+function abcMeasureSums(abc) {
+  const box = document.createElement('div');
+  box.style.display = 'none';
+  document.body.appendChild(box);
+  let tune;
+  try { tune = ABCJS.renderAbc(box, abc, {})[0]; }
+  finally { box.remove(); }
+  let meter = 1, sum = 0, mult = 1, left = 0;
+  const out = [];
+  for (const line of tune.lines || []) {
+    if (!line.staff) continue;
+    for (const v of line.staff[0].voices) for (const el of v) {
+      if (el.el_type === 'meter' && el.num && el.den) meter = el.num / el.den;
+      else if (el.el_type === 'note') {
+        if (el.startTriplet) { mult = el.tripletMultiplier; left = el.startTriplet; }
+        sum += (el.duration || 0) * (left > 0 ? mult : 1);
+        if (left > 0 && --left === 0) mult = 1;
+      } else if (el.el_type === 'bar') {
+        if (sum > 0.0001) out.push({ sum, meter });
+        sum = 0;
+      }
+    }
+  }
+  if (sum > 0.0001) out.push({ sum, meter });
+  return out;
+}
+
+/** L: 헤더의 기본 음길이 (온음표=1 기준 분수) */
+function abcUnitLen(abc) {
+  const m = abc.match(/^L:\s*1\/(\d+)/m);
+  return m ? 1 / Number(m[1]) : 1 / 8;
+}
+
+/**
+ * 기계로 고친다. { abc, notes } — notes는 무엇을 고쳤는지 문장들.
+ * 셈이 어긋나 마디를 짚을 수 없으면 길이는 건드리지 않는다.
+ */
+function autoFixAbc(abc) {
+  const notes = [];
+  const L = abcUnitLen(abc);
+  const lines = abc.split('\n');
+
+  // 악보 줄들을 걷는다 — 헤더(K:까지)와 w:·% 줄은 마디가 없다
+  let headerEnd = 0;
+  for (let i = 0; i < lines.length; i++)
+    if (/^K:/.test(lines[i])) { headerEnd = i + 1; break; }
+  const musicLineIdx = [];
+  for (let i = headerEnd; i < lines.length; i++) {
+    const l = lines[i];
+    if (!l.trim() || /^(w:|W:|%|[A-Za-z]:)/.test(l)) continue;
+    musicLineIdx.push(i);
+  }
+
+  // 줄마다 마디 토막을 뜨고, 전체 차례를 매긴다
+  const perLine = musicLineIdx.map((i) => ({ i, segs: abcLineSegments(lines[i]) }));
+  const flat = [];
+  for (const pl of perLine)
+    for (const seg of pl.segs) flat.push({ line: pl.i, seg });
+
+  let sums = [];
+  try { sums = abcMeasureSums(abc); } catch (e) { /* 문법이 깨졌으면 아래서 드러난다 */ }
+
+  if (sums.length === flat.length && sums.length > 1) {
+    /* 마디 길이 고치기 — 뒤에서부터 고쳐야 앞 토막의 위치가 안 밀린다 */
+    for (let k = flat.length - 1; k >= 0; k--) {
+      const { sum, meter } = sums[k];
+      const diff = meter - sum;
+      if (Math.abs(diff) < 0.002) continue;
+      // 못갖춘마디(첫)와 마지막이 짧은 것은 옳다 — 두지 않고 넘어간다
+      if (diff > 0 && (k === 0 || k === flat.length - 1)) continue;
+      const { line, seg } = flat[k];
+      if (diff > 0) {
+        // 모자란다 — 쉼표로 채운다. L 단위로 떨어질 때만 손댄다
+        const units = diff / L;
+        const whole = Math.round(units);
+        if (Math.abs(units - whole) > 0.01 || whole < 1) continue;
+        lines[line] = lines[line].slice(0, seg.end)
+          + ' z' + (whole === 1 ? '' : whole)
+          + lines[line].slice(seg.end);
+        notes.push(`${k + 1}마디: 모자란 만큼 쉼표를 채웠습니다`);
+      } else {
+        // 넘친다 — 끝이 쉼표면 그만큼 줄인다. 음표를 깎는 것은 판단이라 안 한다
+        const body = lines[line].slice(seg.start, seg.end);
+        const m = body.match(/z(\d+)?\s*$/);
+        if (!m) continue;
+        const restUnits = m[1] ? Number(m[1]) : 1;
+        const overUnits = Math.round(-diff / L);
+        if (Math.abs(-diff / L - overUnits) > 0.01) continue;
+        if (restUnits < overUnits) continue;       // 쉼표를 다 지워도 남으면 포기
+        const left = restUnits - overUnits;
+        const newBody = body.replace(/z(\d+)?\s*$/,
+          left === 0 ? '' : 'z' + (left === 1 ? '' : left) + ' ');
+        lines[line] = lines[line].slice(0, seg.start) + newBody + lines[line].slice(seg.end);
+        notes.push(`${k + 1}마디: 넘친 만큼 끝 쉼표를 줄였습니다`);
+      }
+    }
+  }
+
+  /* 가사 수 맞추기 — 모자라면 * 를 채우고, 끝의 군더더기 * 는 걷는다.
+     글자를 지우는 것은 판단이라 하지 않는다. */
+  let lastMusic = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (musicLineIdx.includes(i)) { lastMusic = i; continue; }
+    if (!/^w:/.test(lines[i]) || lastMusic < 0) continue;
+    const noteCount = abcLineSegments(lines[lastMusic])
+      .reduce((a, s) => a + abcCountNotes(s.text), 0);
+    const syls = lines[i].slice(2).trim().split(/\s+/).filter(Boolean);
+    if (!noteCount || !syls.length) continue;
+    if (syls.length < noteCount) {
+      lines[i] = 'w: ' + syls.concat(Array(noteCount - syls.length).fill('*')).join(' ');
+      notes.push(`가사 줄: 모자란 자리를 * 로 채웠습니다`);
+    } else if (syls.length > noteCount) {
+      let trimmed = [...syls];
+      while (trimmed.length > noteCount && trimmed[trimmed.length - 1] === '*')
+        trimmed.pop();
+      if (trimmed.length !== syls.length) {
+        lines[i] = 'w: ' + trimmed.join(' ');
+        notes.push(`가사 줄: 끝의 군더더기 * 를 걷었습니다`);
+      }
+    }
+  }
+
+  return { abc: lines.join('\n'), notes };
+}
+
+/**
+ * 남은 문제를 AI에게 시킨다 — 문제만 최소 수정, 나머지는 그대로.
+ * 견본 악보(그림·ABC)가 있으면 함께 넘긴다. 세뇨·코다가 어디 있는지는
+ * 셈으로 알 수 없고 견본을 봐야 하기 때문이다.
+ */
+async function fixAbcWithAi(abc, issues) {
+  const key = $('apiKey').value.trim();
+  if (!key) throw new Error('AI로 고치려면 Gemini API 키가 필요합니다');
+  const model = cleanModel($('model').value);
+  const list = issues.map((i) => '- ' + i.msg).join('\n');
+  const parts = [];
+  for (const page of refPages)
+    parts.push({ inline_data: { mime_type: 'image/jpeg', data: page } });
+  if (refAbc)
+    parts.push({ text: '아래는 견본 악보를 ABC로 정확히 옮긴 것입니다. 고칠 때 이것을 기준으로 삼으세요.\n\n' + refAbc });
+  const hasRef = refPages.length > 0 || !!refAbc;
+  parts.push({ text:
+`아래 ABC 악보를 검증했더니 이런 문제가 나왔습니다:
+${list}
+
+이 문제들만 고쳐 주세요. 규칙:${hasRef ? '\n- 첨부한 견본 악보와 견주어, 견본에 적힌 대로 고칠 것 (기호 자리·마디 수·음길이의 기준은 견본이다)' : ''}
+- 문제와 무관한 음표·가사·코드는 한 글자도 바꾸지 말 것
+- 마디 수를 늘리거나 줄이지 말 것
+- 진행 기호가 문제면: D.S.가 돌아갈 자리에 !segno! 를, 코다로 빠져나가는 마디 끝에 !coda!"^To Coda" 를, 코다 구간 첫머리에 !coda! 를 두는 식으로 제자리에 놓을 것
+- 응답은 고친 ABC 전체를 코드블록 하나로만 출력 (설명 금지)
+
+\`\`\`abc
+${abc}
+\`\`\`` });
+  const { res, json } = await genJson(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    {
+      contents: [{ parts }],
+      generationConfig: { temperature: 0, maxOutputTokens: 32000 },
+    });
+  if (!res.ok) throw new Error(json.error?.message || ('HTTP ' + res.status));
+  const text = (json.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+  const fixed = extractAbc(text);
+  if (!fixed) throw new Error('응답에서 고친 악보를 찾지 못했습니다');
+  return fixed;
+}
+
+/** 본문을 마디로 쪼갠다. 가사·주석 줄은 재생과 무관하므로 뺀다 */
+function abcMeasures(abc) {
+  const lines = abc.split('\n');
+  let i = 0;
+  for (; i < lines.length; i++) if (/^K:/.test(lines[i])) { i++; break; }
+  const body = lines.slice(i).filter((l) => l.trim() && !/^(w:|W:|%)/.test(l)).join(' ');
+
+  const out = [];
+  let buf = '', startRepeat = false;
+  const close = (bar) => {
+    let text = buf.trim();
+    buf = '';
+    let volta = null;
+    const v = text.match(/^\[(\d+)[-,.\d]*\s*/);       // 1·2번 괄호
+    if (v) { volta = +v[1]; text = text.slice(v[0].length); }
+    if (/[A-Ga-gz]/.test(text))
+      out.push({ text, volta, startRepeat, endRepeat: /^:/.test(bar) });
+    startRepeat = /:$/.test(bar);
+  };
+  for (let k = 0; k < body.length; ) {
+    const c = body[k];
+    // 따옴표 글자·장식기호·[K: 같은 줄 안 지시는 통째로 건너뛴다
+    if (c === '"' || c === '!') {
+      const e = body.indexOf(c, k + 1);
+      const seg = body.slice(k, e < 0 ? body.length : e + 1);
+      buf += seg; k += seg.length; continue;
+    }
+    if (c === '[' && /^\[[A-Za-z]:/.test(body.slice(k, k + 3))) {
+      const e = body.indexOf(']', k);
+      const seg = body.slice(k, e < 0 ? body.length : e + 1);
+      buf += seg; k += seg.length; continue;
+    }
+    const bar = body.slice(k).match(/^(:\|:|::|\|:|:\||\|\]|\|\||\|)/);
+    if (bar) { close(bar[1]); k += bar[1].length; continue; }
+    buf += c; k++;
+  }
+  close('');
+  return out;
+}
+
+/**
+ * 마디 차례를 두 가지로 만든다.
+ *  noJump  — abcjs가 실제로 소리내는 차례 (도돌이표·볼타까지만)
+ *  withJump — 달세뇨·다카포·코다까지 따라간 진짜 연주 차례
+ */
+function abcOrders(abc) {
+  const ms = abcMeasures(abc);
+  if (!ms.length) return null;
+  const txt = ms.map((m) => m.text);
+  // 진행 지시는 정식 기호(!D.S.alcoda! 등)로도, 따옴표 글자로도 올 수 있다
+  const JUMP_RE = /!D\.\s*[SC]\.[^!]*!|"[^"]*D\.\s*[SC]\.[^"]*"/;
+  const segno = txt.findIndex((t) => /!segno!/.test(t));
+  const codaMarks = [];
+  txt.forEach((t, i) => { if (/!coda!/.test(t)) codaMarks.push(i); });
+  let toCoda = txt.findIndex((t) => /"[^"]*[Tt]o\s*[Cc]oda[^"]*"/.test(t));
+  let coda = -1;
+  if (codaMarks.length >= 2) {
+    // 코다 기호가 둘이면 앞의 것이 빠져나가는 자리, 뒤의 것이 코다 구역
+    if (toCoda < 0) toCoda = codaMarks[0];
+    coda = codaMarks[codaMarks.length - 1];
+  } else if (codaMarks.length === 1 && codaMarks[0] !== toCoda) {
+    coda = codaMarks[0];
+  }
+  const fine = txt.findIndex((t) => /!fine!|"[^"]*[Ff]ine[^"]*"/.test(t));
+  const jump = txt.findIndex((t) => JUMP_RE.test(t));
+
+  const walk = (useJump) => {
+    const order = [];
+    const doneEnd = new Set();
+    let i = 0, repStart = 0, pass = 1, jumped = false, alFine = false, guard = 0;
+    let back = false;                   // 도돌이표를 타고 되돌아온 참인가
+    while (i >= 0 && i < ms.length && guard++ < ms.length * 8) {
+      const m = ms[i];
+      // 앞에서 걸어 들어왔을 때만 회차를 1로 되돌린다. 되돌아온 것까지
+      // 1로 치면 1번 괄호만 되풀이하고 2번 괄호로 넘어가지 못한다.
+      if (m.startRepeat && !back) { repStart = i; pass = 1; }
+      back = false;
+      if (m.volta && m.volta !== pass) { i++; continue; }
+      order.push(i);
+      if (m.endRepeat && !doneEnd.has(i)) { doneEnd.add(i); pass++; i = repStart; back = true; continue; }
+      if (useJump && i === jump && !jumped) {
+        jumped = true;
+        alFine = /alfine|al\s*fine/i.test(txt[i]) || (coda < 0 && fine >= 0);
+        i = /D\.\s*C\./i.test(txt[i]) ? 0 : segno >= 0 ? segno : 0;
+        continue;                       // 되돌아온 뒤에는 도돌이표를 다시 잡지 않는다
+      }
+      if (useJump && jumped && !alFine && i === toCoda && coda >= 0) { i = coda; continue; }
+      if (useJump && jumped && alFine && i === fine) break;
+      i++;
+    }
+    return order;
+  };
+  return { measures: ms, noJump: walk(false), withJump: walk(true) };
+}
+
+/** 되돌이를 따라간 차례로 진행바 시각표를 다시 만든다. 바꿀 것이 없으면 null */
+function jumpTimings(vo, abc) {
+  const raw = (vo.noteTimings || []).filter((ev) =>
+    ev && typeof ev.milliseconds === 'number' && ev.left !== null && ev.left !== undefined);
+  let o = null;
+  try { o = abcOrders(abc); } catch (e) { return null; }
+  if (!o || !raw.length || o.withJump.join() === o.noJump.join()) return null;
+
+  const seq = [];
+  for (const ev of raw) { if (!seq.length || ev.measureStart) seq.push([]); seq[seq.length - 1].push(ev); }
+  // 셈이 어긋나면(악보 문법이 특이하면) 손대지 않는다 — 커서가 망가지느니 그대로
+  if (Math.abs(seq.length - o.noJump.length) > 1) return null;
+
+  const first = new Map();
+  o.noJump.forEach((d, k) => { if (seq[k] && !first.has(d)) first.set(d, seq[k]); });
+  const out = [];
+  let t = 0;
+  for (const d of o.withJump) {
+    const evs = first.get(d);
+    if (!evs || !evs.length) continue;
+    const base = evs[0].milliseconds;
+    const dur = evs[0].millisecondsPerMeasure
+      || (evs[evs.length - 1].milliseconds - base) || 0;
+    for (const e of evs) out.push(Object.assign({}, e, { milliseconds: t + (e.milliseconds - base) }));
+    t += dur;
+  }
+  return out.length ? out : null;
+}
+
+/** 되돌이를 따라간 차례로 펼친 소리용 ABC (화면에는 쓰지 않는다) */
+function unrolledPlayAbc(abc) {
+  let o = null;
+  try { o = abcOrders(abc); } catch (e) { return null; }
+  if (!o || o.withJump.join() === o.noJump.join()) return null;
+  const lines = abc.split('\n');
+  const header = [];
+  for (const l of lines) { header.push(l); if (/^K:/.test(l)) break; }
+  const body = o.withJump.map((i) =>
+    o.measures[i].text.replace(/!(segno|coda|fine)!/g, '').replace(/"\^[^"]*"/g, '')
+  ).join(' | ') + ' |]';
+  return header.join('\n') + '\n' + body + '\n';
+}
+
+/** 시각표에서 이 시각에 울리는 음표를 찾는다 */
+function timingAt(list, ms) {
+  let lo = 0, hi = list.length - 1, best = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (list[mid].milliseconds <= ms) { best = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  return best >= 0 ? list[best] : null;
+}
+
+function parseAbc(abc) {
+  const lines = abc.split('\n');
+  const header = [], blocks = [];
+  let inHeader = true;
+  for (const l of lines) {
+    if (inHeader) {
+      header.push(l);
+      if (/^K:/.test(l)) inHeader = false;   // K:가 헤더의 끝
+      continue;
+    }
+    if (/^\s*$/.test(l)) continue;
+    if (/^(w:|W:|%)/.test(l) && blocks.length) blocks[blocks.length - 1] += '\n' + l;
+    else blocks.push(l);
+  }
+  return { header, blocks };
+}
+
+const fullAbc = () => currentHeader.join('\n') + '\n' + currentBlocks.join('\n');
+const miniHeader = () => currentHeader.filter(l => /^(X:|M:|L:|K:)/.test(l)).join('\n');
+
+function renderBlock(i) {
+  const div = document.getElementById('sys-' + i);
+  if (!div) return;
+  try {
+    ABCJS.renderAbc(div, miniHeader() + '\n' + currentBlocks[i], {
+      responsive: 'resize', add_classes: true, selectTypes: false, paddingtop: 0, paddingbottom: 0,
+      format: { gchordfont: 'sans-serif 12 bold' }
+    });
+  } catch (e) {
+    div.innerHTML = '<div class="blockErr">이 줄 문법 오류: ' + e.message + '</div>';
+  }
+}
+
+/** 글이 늘어난 만큼 칸도 늘린다 — 칸 안에 스크롤바가 생기지 않게 */
+function fitTextarea(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
+// 인라인 편집 뷰: 각 악보 줄 바로 아래 그 줄의 ABC 코드
+function buildInline() {
+  const wrap = $('inlineWrap');
+  wrap.innerHTML = '';
+  const hint = document.createElement('div');
+  hint.className = 'small';
+  hint.style.cssText = 'margin:4px 0; font-size:.72rem; opacity:.75; line-height:1.35;';
+  hint.textContent = '✏️ 각 악보 줄 바로 아래의 ABC 코드를 고치면 그 줄이 즉시 다시 그려집니다 (아래 첫 칸은 제목·조성 등 헤더)';
+  wrap.append(hint);
+  const hd = document.createElement('textarea');
+  hd.id = 'headerTa'; hd.className = 'blockTa headerTa'; hd.spellcheck = false;
+  hd.value = currentHeader.join('\n');
+  hd.rows = currentHeader.length;
+  hd.oninput = () => { fitTextarea(hd); scheduleBlockUpdate(-1); };
+  requestAnimationFrame(() => fitTextarea(hd));
+  wrap.append(hd);
+  currentBlocks.forEach((b, i) => {
+    const blk = document.createElement('div'); blk.className = 'sysBlock';
+    const sc = document.createElement('div'); sc.id = 'sys-' + i;
+    const ta = document.createElement('textarea');
+    ta.id = 'blockTa-' + i; ta.className = 'blockTa'; ta.spellcheck = false;
+    ta.value = b;
+    ta.rows = b.split('\n').length;
+    ta.oninput = () => { fitTextarea(ta); scheduleBlockUpdate(i); };
+    blk.append(sc, ta);
+    wrap.append(blk);
+    requestAnimationFrame(() => fitTextarea(ta));
+    renderBlock(i);
+  });
+}
+
+const blockTimers = {};
+function scheduleBlockUpdate(i) {
+  clearTimeout(blockTimers[i]);
+  blockTimers[i] = setTimeout(() => {
+    if (i === -1) {
+      currentHeader = document.getElementById('headerTa').value.split('\n');
+      currentBlocks.forEach((_, j) => renderBlock(j));   // 헤더(조성 등) 바뀌면 전 줄 갱신
+    } else {
+      currentBlocks[i] = document.getElementById('blockTa-' + i).value;
+      renderBlock(i);
+    }
+    syncFull();
+  }, 400);
+}
+
+// 전체 악보(#score) 재렌더 + 저장 + 오디오 갱신
+function syncFull() {
+  const abc = fullAbc();
+  $('abcSource').value = abc;
+  localStorage.setItem('last_abc', abc);
+  multiVoice = (abc.match(/^V:/gm) || []).length > 1;
+  const playAbc = multiVoice ? melodyOnlyAbc(abc) : abc;   // 재생 화면·소리는 1단만
+  lastPlayAbc = playAbc;
+  try {
+    const vo = ABCJS.renderAbc('score', playAbc, {
+      responsive: 'resize', add_classes: true, selectTypes: false,
+      visualTranspose: pitchShift,
+      format: { titlefont: 'serif 20', gchordfont: 'sans-serif 12 bold' }
+    })[0];
+    // 달세뇨·코다가 있으면 진행 차례를 따로 짜 둔다 (악보는 견본 그대로)
+    // 소리가 준비되기 전에도 커서가 이 악보를 짚어야 한다
+    if (srcMode !== 'accomp') lastVisualObj = vo;
+    try {
+      if (!vo.noteTimings || !vo.noteTimings.length) vo.setTiming();
+      jumpTimeline = jumpTimings(vo, playAbc);
+    } catch (e) { jumpTimeline = null; }
+    lastHl = null;      // 다시 그렸으니 옛 음표 노드는 사라졌다
+    // 재생 전에도 진행바는 늘 보인다 — 지금 자리(처음이면 시작점)에 세워 둔다
+    cursorToMs(Math.max(0, seekMsFor(+$('ytSeek').value || 0)));
+    clearTimeout(synthTimer);
+    synthDirty = true;
+    // 반주 모드 중엔 자동 재튜닝이 반주 트랙을 덮어쓰지 않게 보류
+    if (srcMode !== 'accomp') synthTimer = setTimeout(() => setupSynth(vo, false, playAbc), 600);
+  } catch (e) { /* 편집 중 일시적 문법 오류 무시 */ }
+}
+
+function renderScore(abc) {
+  const parsed = parseAbc(abc);
+  currentHeader = parsed.header;
+  currentBlocks = parsed.blocks;
+  buildInline();
+  syncFull();
+}
+
+// 하단 메뉴 탭 전환
+function switchTab(name) {
+  // 임베드에는 연주기·저장 탭이 없다. 그쪽으로 보내면 빈 화면이 된다
+  if (EMBEDDED && (name === 'player' || name === 'file')) name = 'edit';
+  activeTab = name;
+  for (const sec of document.querySelectorAll('section.tab'))
+    sec.classList.toggle('hidden', sec.id !== 'tab-' + name);
+  for (const b of document.querySelectorAll('#bottomMenu button'))
+    b.classList.toggle('active', b.dataset.tab === name);
+  // 「생성」은 악보생성 화면에서만 쓸모가 있다
+  $('genMenuBtn').classList.toggle('hidden', name !== 'generate');
+  // 연주기 진입 시 보이는 크기로 재렌더 + 오디오 재연결 (커서 좌표 어긋남 방지)
+  // 연주기에서만 화면 고정(악보창만 스크롤)
+  document.body.classList.toggle('playerLock', name === 'player');
+  const hdr = document.querySelector('header');
+  if (hdr) document.body.style.setProperty('--hdrH', hdr.getBoundingClientRect().height + 'px');
+  if (name === 'player' && currentBlocks.length) syncFull();
+}
+// 아래 메뉴의 「생성」 — 화면 어디에 있든 한 번에 닿는다.
+// 만드는 중이면 아무 일도 하지 않는다. 시간이 넘으면 저절로 오류로 끝난다.
+$('genMenuBtn').onclick = () => { if (!genAbort) $('analyzeBtn').click(); };
+
+// 영상 보기/감추기 — 감추면 악보가 그만큼 넓어진다
+function setVideoFolded(folded) {
+  $('ytWrap').classList.toggle('folded', folded);
+  $('videoPanel').classList.toggle('folded', folded);   // 패널 여백도 함께 접기
+  $('ytHideBtn').textContent = folded ? '🔼 영상' : '🔽 영상';
+  $('ytHideBtn').title = folded ? '영상을 다시 봅니다' : '영상을 접어 악보를 넓게 봅니다';
+  localStorage.setItem('video_folded', folded ? '1' : '0');
+}
+document.querySelectorAll('#bottomMenu button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+// ==== 실제 음원(유튜브)과 동기화된 커서 재생 ====
+let ytPlayer = null, ytTimer = null;
+const ytVideoId = url => { const m = url.match(/(?:youtu\.be\/|[?&]v=)([\w-]{6,})/); return m ? m[1] : null; };
+function ensureYtApi(cb) {
+  if (window.YT && YT.Player) return cb();
+  const s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.append(s);
+  window.onYouTubeIframeAPIReady = cb;
+}
+function scoreQpm() {
+  const m = $('abcSource').value.match(/^Q:\s*1\/4\s*=\s*(\d+)/m);
+  return m ? +m[1] : 120;
+}
+/** 지금 쓸 진행 시각표 — 달세뇨·코다가 있으면 그 차례대로 짠 것 */
+function playTimings() {
+  if (jumpTimeline && jumpTimeline.length) return jumpTimeline;
+  const vo = lastVisualObj;
+  if (!vo) return [];
+  if (!vo.noteTimings || !vo.noteTimings.length) { try { vo.setTiming(); } catch (e) { return []; } }
+  return (vo.noteTimings || []).filter(ev =>
+    ev && typeof ev.milliseconds === 'number' && ev.left !== null && ev.left !== undefined);
+}
+
+/**
+ * 악보 위 진행바를 이 시각(악보 기준 ms)에 옮긴다.
+ * 재생 중이든 멈춰 있든, 슬라이더를 끌 때든 모두 이 하나를 쓴다.
+ */
+function cursorToMs(ms, timings) {
+  timings = timings || playTimings();
+  if (!timings.length || !ensureCursor() || !(ms >= 0)) return;
+  let i = -1;
+  for (let k = 0; k < timings.length; k++) { if (timings[k].milliseconds <= ms) i = k; else break; }
+  if (i < 0) i = 0;
+  const ev = timings[i], nx = timings[i + 1];
+  let x = ev.left;
+  // 같은 줄일 때만 음표 사이를 이어 그린다 (줄이 바뀌면 튀지 않게)
+  if (nx && nx.top === ev.top && nx.milliseconds > ev.milliseconds) {
+    const f = Math.min(Math.max((ms - ev.milliseconds) / (nx.milliseconds - ev.milliseconds), 0), 1);
+    x = ev.left + (nx.left - ev.left) * f;
+  }
+  if (lastHl !== ev) {
+    lastHl = ev;
+    document.querySelectorAll('#score .note-highlight').forEach(el => el.classList.remove('note-highlight'));
+    if (ev.elements) for (const g of ev.elements) for (const el of g) el.classList.add('note-highlight');
+  }
+  const cur = moveCursor(x, ev.top, ev.height);
+  if (cur) scrollCursorIntoView(cur);
+}
+
+/** 슬라이더의 초를 악보 시각(ms)으로 바꾼다 */
+function seekMsFor(sec) {
+  if (srcMode === 'video') {
+    const off = parseFloat($('ytOffset').value) || 0;
+    const recBpm = parseFloat($('ytBpm').value) || 0;
+    const factor = recBpm > 0 ? recBpm / scoreQpm() : 1;
+    return (sec + off) * 1000 * factor;
+  }
+  // 미디: 슬라이더는 실제 흐른 초, 시각표는 원 템포 기준
+  return sec * 1000 * playRate;
+}
+
+function startYtCursor() {
+  const vo = lastVisualObj;
+  if (!vo) return;
+  if (!vo.noteTimings || !vo.noteTimings.length) vo.setTiming();
+  const timings = playTimings();
+  if (!ensureCursor() || !timings.length) return;
+  stopYtCursor();
+
+  /* 유튜브의 getCurrentTime()은 초당 몇 번만 갱신되어 계단식으로 움직인다.
+     그대로 쓰면 커서가 뚝뚝 끊긴다 — 값이 그대로면 시계로 이어 붙이고,
+     새 값이 오면 거기에 맞춘다. (리천 코드재생기 useSmoothTime 방식) */
+  let lastRaw = -1, lastWall = 0;
+  const smoothTime = () => {
+    const raw = ytPlayer.getCurrentTime();
+    if (typeof raw !== 'number') return 0;
+    const now = performance.now();
+    if (raw !== lastRaw) { lastRaw = raw; lastWall = now; return raw; }
+    if (ytPlayer.getPlayerState && ytPlayer.getPlayerState() !== 1) return raw;
+    return raw + ((now - lastWall) / 1000) * playRate;
+  };
+
+  const frame = () => {
+    ytTimer = requestAnimationFrame(frame);
+    if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+    const off = parseFloat($('ytOffset').value) || 0;
+    const recBpm = parseFloat($('ytBpm').value) || 0;
+    const factor = recBpm > 0 ? recBpm / scoreQpm() : 1;
+    const t = smoothTime();
+    // 구간 반복: B에 닿으면 A로
+    if (loopAB && t > loopAB.b) { ytPlayer.seekTo(loopAB.a, true); return; }
+    $('ytCur').textContent = clockFmt(t);
+    if (!seekDragging && ytPlayer.getDuration) {
+      const d = ytPlayer.getDuration();
+      $('ytSeek').max = Math.max(d, 1);
+      $('ytSeek').value = t;
+      $('ytDur').textContent = clockFmt(d);
+    }
+    const ms = (t + off) * 1000 * factor;   // 싱크 + = 화면(커서)을 당김
+    if (ms < 0) return;
+    cursorToMs(ms, timings);
+  };
+  ytTimer = requestAnimationFrame(frame);
+}
+function stopYtCursor() {
+  if (ytTimer) { cancelAnimationFrame(ytTimer); ytTimer = null; }
+}
+let loadedVid = null, seekDragging = false;
+const clockFmt = t => {
+  if (!Number.isFinite(t) || t < 0) t = 0;
+  return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+};
+
+function initYtPlayer(vid, autoplay) {
+  $('ytWrap').classList.remove('hidden');
+  ensureYtApi(() => {
+    if (ytPlayer && ytPlayer.loadVideoById) {
+      if (loadedVid !== vid) {
+        loadedVid = vid;
+        if (autoplay) ytPlayer.loadVideoById(vid); else ytPlayer.cueVideoById(vid);
+      }
+      if (autoplay) { ytPlayer.playVideo(); startYtCursor(); }
+      return;
+    }
+    loadedVid = vid;
+    ytPlayer = new YT.Player('ytPlayer', {
+      videoId: vid,
+      playerVars: { playsinline: 1, rel: 0 },
+      events: {
+        onReady: e => {
+          try { e.target.setPlaybackRate(playRate); } catch (err) {}
+          if (autoplay) { e.target.playVideo(); startYtCursor(); }
+          try { $('ytDur').textContent = clockFmt(e.target.getDuration()); } catch (err) {}
+        },
+        onStateChange: e => {
+          $('ytToggle').textContent = e.data === 1 ? '❚❚' : '▶';
+          if (e.data === 1 && !ytTimer) startYtCursor();
+          if (e.data === 0) stopYtCursor();
+        }
+      }
+    });
+  });
+}
+
+// ==== 통합 트랜스포트: [영상][반주][미디] 어느 소스든 같은 버튼으로 ====
+function toggleVideo() {
+  const vid = ytVideoId(($('audioUrlInput').value || '').trim());
+  if (!vid) { setStatus('악보생성 탭의 참고 음원 칸에 유튜브 URL을 입력하세요.', 'err'); switchTab('generate'); return; }
+  try { synthControl && synthControl.pause(); } catch (e) {}
+  if (activeTab !== 'player') switchTab('player');
+  if (!ytPlayer || loadedVid !== vid) { initYtPlayer(vid, true); return; }
+  const st = ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -1;
+  if (st === 1) ytPlayer.pauseVideo();
+  else { ytPlayer.playVideo(); if (!ytTimer) startYtCursor(); }
+}
+function toggleMidi() {
+  if (ytPlayer && ytPlayer.pauseVideo) try { ytPlayer.pauseVideo(); } catch (e) {}
+  if (midiPlaying) {
+    try { synthControl.pause(); } catch (e) {}
+    midiPlaying = false;
+    $('ytToggle').textContent = '▶';
+    return;
+  }
+  const start = () => {
+    if (synthControl) synthControl.play();
+    midiPlaying = true;
+    $('ytToggle').textContent = '❚❚';
+  };
+  if (srcMode === 'accomp' && !accompMode) playAccomp().then(start);
+  else if (synthDirty && lastVisualObj) { clearTimeout(synthTimer); setupSynth(lastVisualObj).then(start); }
+  else start();
+}
+$('ytToggle').onclick = () => (srcMode === 'video' ? toggleVideo() : toggleMidi());
+
+// 탐색 슬라이더 (영상/미디 공용) — 끄는 동안 악보의 진행바도 같이 움직인다
+$('ytSeek').oninput = () => {
+  seekDragging = true;
+  const v = +$('ytSeek').value;
+  $('ytCur').textContent = clockFmt(v);
+  cursorToMs(seekMsFor(v));
+};
+$('ytSeek').onchange = () => {
+  const v = +$('ytSeek').value;
+  if (srcMode === 'video') {
+    if (ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(v, true);
+  } else if (synthControl && midiDurSec > 0) {
+    try { synthControl.seek(v / midiDurSec); } catch (e) {}
+  }
+  seekDragging = false;
+  cursorToMs(seekMsFor(v));   // 멈춰 있어도 옮긴 자리에 커서를 둔다
+};
+
+// 싱크 스텝퍼 (0.1초, 코드재생기와 동일)
+function setSyncOffset(v) {
+  v = Math.round(v * 10) / 10;
+  $('ytOffset').value = v;
+  $('syncVal').textContent = (v > 0 ? '+' : '') + v.toFixed(1);
+  localStorage.setItem('sync_off', v);
+  // 멈춰 있을 때도 진행바가 바로 따라와야 한다 — 안 그러면 재생을
+  // 걸어 보기 전에는 얼마나 옮겼는지 눈으로 가릴 수 없다
+  cursorToMs(Math.max(0, seekMsFor(+$('ytSeek').value || 0)));
+}
+setSyncOffset(parseFloat(localStorage.getItem('sync_off')) || 0);
+$('ytBpm').value = localStorage.getItem('rec_bpm') || 0;
+$('ytBpm').onchange = () => {
+  localStorage.setItem('rec_bpm', $('ytBpm').value);
+  refreshSettingsUi();
+  cursorToMs(Math.max(0, seekMsFor(+$('ytSeek').value || 0)));   // 진행바도 함께
+};
+$('syncMinus').onclick = () => setSyncOffset((parseFloat($('ytOffset').value) || 0) - 0.1);
+$('syncPlus').onclick = () => setSyncOffset((parseFloat($('ytOffset').value) || 0) + 0.1);
+
+// 영상 보기/감추기 버튼
+$('ytHideBtn').onclick = () => setVideoFolded(!$('ytWrap').classList.contains('folded'));
+
+// 페이지를 열면 음원 영상이 항상 미리 떠 있게 (재생은 버튼으로)
+{
+  const savedVid = ytVideoId((localStorage.getItem('audio_url') || '').trim());
+  if (savedVid) initYtPlayer(savedVid, false);
+  if (localStorage.getItem('video_folded') === '1') setVideoFolded(true);
+}
+
+// ==== 연주설정: 음높이·빠르기·구간반복 (코드재생기에서 가져옴) ====
+const RATES = [0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
+
+function refreshSettingsUi() {
+  $('pitchVal').textContent = (pitchShift > 0 ? '+' : '') + pitchShift;
+  $('rateVal').textContent = playRate + '×';
+  $('loopInfo').textContent = loopAB ? `· ${clockFmt(loopAB.a)} ~ ${clockFmt(loopAB.b)} 사용 중` : '';
+  $('settingsDot').classList.toggle('hidden', !loopAB && !(parseFloat($('ytBpm').value) > 0));
+}
+
+function applyRate(r) {
+  playRate = r;
+  localStorage.setItem('play_rate', playRate);
+  if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(playRate);
+  if (synthControl) {
+    const wasPlaying = midiPlaying;
+    try { synthControl.setWarp(playRate * 100); } catch (e) {}
+    // setWarp은 재생을 멈춘다 — 재생 중이었다면 이어서 계속 (진행바·상태 유지)
+    if (wasPlaying && srcMode !== 'video') setTimeout(() => {
+      try { synthControl.play(); midiPlaying = true; $('ytToggle').textContent = '❚❚'; } catch (e) {}
+    }, 120);
+  }
+  refreshSettingsUi();
+}
+const rateIdx = () => { const i = RATES.indexOf(playRate); return i === -1 ? RATES.indexOf(1) : i; };
+$('rateMinus').onclick = () => applyRate(RATES[Math.max(rateIdx() - 1, 0)]);
+$('ratePlus').onclick = () => applyRate(RATES[Math.min(rateIdx() + 1, RATES.length - 1)]);
+$('rateVal').onclick = () => applyRate(1);
+
+function setPitch(v) {
+  pitchShift = Math.max(-11, Math.min(11, v));
+  localStorage.setItem('pitch_shift', pitchShift);
+  refreshSettingsUi();
+  if (!currentBlocks.length) return;
+  const wasPlaying = midiPlaying, atSec = +$('ytSeek').value;
+  syncFull();                              // 악보 표기 + 미디 소리 함께 이동
+  if (srcMode === 'accomp') { clearTimeout(synthTimer); playAccompPrepare().then(resume); }
+  else if (wasPlaying && srcMode !== 'video') setTimeout(resume, 800);
+  function resume() {
+    if (!wasPlaying) return;
+    try {
+      if (midiDurSec > 0) synthControl.seek(Math.min(atSec / midiDurSec, 0.999));
+      synthControl.play(); midiPlaying = true; $('ytToggle').textContent = '❚❚';
+    } catch (e) {}
+  }
+}
+$('pitchMinus').onclick = () => setPitch(pitchShift - 1);
+$('pitchPlus').onclick = () => setPitch(pitchShift + 1);
+$('pitchVal').onclick = () => setPitch(0);
+
+$('loopA').onclick = () => {
+  const t = (ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
+  const end = loopAB ? loopAB.b : ((ytPlayer && ytPlayer.getDuration) ? ytPlayer.getDuration() : t + 10);
+  loopAB = { a: t, b: Math.max(end, t + 1) };
+  refreshSettingsUi();
+};
+$('loopB').onclick = () => {
+  const t = (ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
+  const a = Math.min(loopAB ? loopAB.a : 0, Math.max(t - 1, 0));
+  loopAB = { a, b: Math.max(t, a + 1) };   // B는 A보다 최소 1초 뒤
+  refreshSettingsUi();
+};
+$('loopOff').onclick = () => { loopAB = null; refreshSettingsUi(); };
+
+$('settingsBtn').onclick = () => { refreshSettingsUi(); $('settingsModal').classList.remove('hidden'); };
+$('settingsClose').onclick = () => $('settingsModal').classList.add('hidden');
+$('settingsModal').onclick = e => { if (e.target === $('settingsModal')) $('settingsModal').classList.add('hidden'); };
+
+// 처음으로 · 끝으로 — 슬라이더와 악보의 진행바를 함께 옮긴다
+function seekTo(sec) {
+  if (srcMode === 'video') { if (ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(sec, true); }
+  else if (synthControl && midiDurSec > 0) {
+    try { synthControl.seek(Math.min(Math.max(sec / midiDurSec, 0), 0.999)); } catch (e) {}
+  }
+  $('ytSeek').value = sec;
+  $('ytCur').textContent = clockFmt(sec);
+  cursorToMs(seekMsFor(sec));
+}
+$('ytBegin').onclick = () => seekTo(loopAB ? loopAB.a : 0);
+$('ytEnd').onclick = () => {
+  const d = srcMode === 'video'
+    ? ((ytPlayer && ytPlayer.getDuration) ? ytPlayer.getDuration() : 0)
+    : midiDurSec;
+  seekTo(Math.max(d - 1, 0));
+};
+
+// ==== 음원 소스 선택: [영상][반주][미디] ====
+function setSrc(mode) {
+  srcMode = mode;
+  $('srcVideo').classList.toggle('on', mode === 'video');
+  $('srcVocal').classList.toggle('on', mode === 'vocal');
+  $('srcAccomp').classList.toggle('on', mode === 'accomp');
+  $('srcMidi').classList.toggle('on', mode === 'midi');
+  // 전환 시 재생 모두 정지, 트랜스포트 초기화
+  try { synthControl && synthControl.pause(); } catch (e) {}
+  if (ytPlayer && ytPlayer.pauseVideo) try { ytPlayer.pauseVideo(); } catch (e) {}
+  midiPlaying = false;
+  $('ytToggle').textContent = '▶';
+  if (mode === 'video') {
+    if (ytPlayer && ytPlayer.getDuration) { $('ytDur').textContent = clockFmt(ytPlayer.getDuration()); $('ytSeek').max = Math.max(ytPlayer.getDuration(), 1); }
+  } else {
+    $('ytDur').textContent = clockFmt(midiDurSec);
+    $('ytSeek').max = Math.max(midiDurSec, 1); $('ytSeek').value = 0; $('ytCur').textContent = '0:00';
+  }
+}
+$('srcVideo').onclick = () => setSrc('video');
+$('srcVocal').onclick = () => { setSrc('vocal'); accompMode = false; if (lastVisualObj) setupSynth(lastVisualObj); };
+$('srcMidi').onclick = () => { setSrc('midi'); accompMode = false; if (lastVisualObj) setupSynth(lastVisualObj); };
+$('srcAccomp').onclick = () => { setSrc('accomp'); playAccompPrepare(); };
+
+// 반주 전용 ABC: 코드·마디는 유지하고 음표만 쉼표로 (gchord 반주만 남음)
+function accompAbc(abc) {
+  return abc.split('\n').map(line => {
+    if (/^%%/.test(line) || /^[A-Za-z]:/.test(line)) {
+      if (/^w:/i.test(line)) return null;   // 가사 제거
+      return line;                          // 헤더 유지
+    }
+    // 음악 줄: 코드("...")와 인라인 필드([K:...])는 보존
+    return line.split(/("[^"]*"|\[[A-Z]:[^\]]*\])/g).map((seg, i) => {
+      if (i % 2 === 1) return seg;
+      return seg
+        .replace(/\[[^\]\s"]+\](\d*\/?\d*)-?/g, 'z$1')            // 화음 → 쉼표
+        .replace(/[_^=]*[A-Ga-g][,']*(\d*\/?\d*)-?/g, 'z$1');     // 음표 → 쉼표
+    }).join('');
+  }).filter(l => l !== null).join('\n');
+}
+let accompHost = null;
+function playAccompPrepare() {
+  if (!lastPlayAbc) return Promise.resolve();
+  if (!accompHost) {
+    accompHost = document.createElement('div');
+    accompHost.style.display = 'none';
+    document.body.append(accompHost);
+  }
+  try {
+    const vo = ABCJS.renderAbc(accompHost, accompAbc(lastPlayAbc), {})[0];
+    const p = setupSynth(vo, true);
+    accompMode = true;
+    return p;
+  } catch (e) {
+    setStatus('반주 생성 실패: ' + e.message, 'err');
+    return Promise.resolve();
+  }
+}
+const playAccomp = playAccompPrepare;
+refreshSettingsUi();
+
+// ==== 화면 크기 변경 시 진행바(커서) 위치 재연동 ====
+// abcjs가 리사이즈로 악보를 다시 그리면 커서 좌표가 옛 레이아웃 기준이 됨 → 재동기화
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (activeTab !== 'player' || !currentBlocks.length) return;
+    if (srcMode === 'video') {
+      // 영상은 계속 재생 — 새 레이아웃 좌표로 커서 타이밍만 다시 계산
+      syncFull();
+      if (ytTimer) { stopYtCursor(); startYtCursor(); }
+    } else if (srcMode === 'accomp') {
+      // 반주 모드는 커서를 쓰지 않음 — 소리 유지, 악보만 abcjs가 알아서 재배치
+    } else {
+      // 미디/보컬: 위치 기억 → 재렌더 → 같은 위치에서 이어 재생
+      const wasPlaying = midiPlaying;
+      const sec = +$('ytSeek').value;
+      syncFull();
+      if (wasPlaying) setTimeout(() => {
+        const frac = midiDurSec > 0 ? Math.min(sec / midiDurSec, 0.999) : 0;
+        try {
+          synthControl.seek(frac);
+          synthControl.play();
+          midiPlaying = true;
+          $('ytToggle').textContent = '❚❚';
+        } catch (e) {}
+      }, 900);
+    }
+  }, 400);
+});
+
+// 디버그 핸들
+window.__dbg = { cc: cursorControl, synth: () => synthControl };
+// (미디 전용 버튼은 통합 트랜스포트로 대체됨)
+
+// 마지막 악보 복원 (API 재호출 없이)
+function restoreLast(silent) {
+  const abc = localStorage.getItem('last_abc');
+  if (!abc) return;
+  $('abcSource').value = abc;
+  renderScore(abc);
+  switchTab('player');
+  if (!silent) setStatus('마지막 악보를 불러왔습니다.', 'ok');
+}
+if (localStorage.getItem('last_abc')) {
+  $('restoreBtn').classList.remove('hidden');
+  $('restoreBtn2').classList.remove('hidden');
+}
+$('restoreBtn').onclick = () => restoreLast(false);
+$('restoreBtn2').onclick = () => restoreLast(false);
+// 앱 시작 시 마지막 악보 자동 로드 (연습 앱이므로 바로 연주 화면)
+if (!EMBEDDED) restoreLast(true);
+
+// ==== 임베드: 바깥 앱(기타교실)과 악보 주고받기 ====
+if (EMBEDDED) {
+  switchTab('generate');            // 들어오자마자 악보생성 화면
+  // 바깥에서 곡 정보를 보내 준다 — 이미 붙어 있던 악보와 그 곡의 음원
+  window.addEventListener('message', e => {
+    const msg = e.data;
+    if (!msg || msg.type !== 'abc-init') return;
+    // 바깥 앱의 테마 색을 그대로 받아 쓴다 (다크·세피아 등)
+    if (msg.theme) {
+      const r = document.documentElement.style;
+      if (msg.theme.font) r.setProperty('--host-font', msg.theme.font);
+      if (msg.theme.mono) r.setProperty('--host-mono', msg.theme.mono);
+      r.setProperty('--host-bg', msg.theme.bg);
+      r.setProperty('--host-ink', msg.theme.ink);
+      r.setProperty('--host-accent', msg.theme.accent);
+      r.setProperty('--host-bar', msg.theme.bar);
+    }
+    // 바깥 앱 설정에 넣어 둔 Gemini 키를 그대로 쓴다
+    if (msg.apiKey) {
+      $('apiKey').value = msg.apiKey;
+      localStorage.setItem('gemini_key', msg.apiKey);
+    }
+    // 바깥 앱은 "models/gemini-…"처럼 앞가지를 붙여 두기도 한다.
+    // 우리 주소는 .../models/{모델}이라 그대로 쓰면 models가 겹친다.
+    if (msg.model) $('model').value = msg.model.replace(/^models\//, '');
+    // 곡을 열고 들어왔으면 그 곡의 음원을, 새로 만들러 왔으면 빈 칸을.
+    // 앞서 만든 곡의 주소가 남아 있으면 엉뚱한 음원으로 채보하게 된다.
+    if (typeof msg.youtube === 'string') {
+      $('audioUrlInput').value = msg.youtube;
+      if (msg.youtube) localStorage.setItem('audio_url', msg.youtube);
+      audioData = null;
+      $('audioInfo').textContent = '';
+    }
+    if (msg.abc && msg.abc.trim()) {
+      $('abcSource').value = msg.abc;
+      renderScore(msg.abc);
+      switchTab('edit');            // 고칠 악보가 있으면 편집부터
+    }
+    if (msg.title) setStatus(`「${msg.title}」의 악보를 만듭니다.`, 'ok');
+  });
+  // 준비됐음을 알린다 — 바깥이 이때 곡 정보를 보낸다
+  parent.postMessage({ type: 'abc-ready' }, '*');
+
+  $('embedSave').onclick = () => {
+    const abc = $('abcSource').value.trim();
+    // 만드는 중에 눌렀다면 그렇게 알린다. 「저장할 악보가 없습니다」로
+    // 덮어 버리면 만들던 일까지 엎어진 줄 알고 다시 누르게 된다.
+    if ($('analyzeBtn').disabled) {
+      setStatus('아직 악보를 만드는 중입니다. 끝나면 저장할 수 있어요.', '', true);
+      return;
+    }
+    if (!abc) { setStatus('저장할 악보가 없습니다. 먼저 악보를 만들거나 붙여넣으세요.', 'err'); return; }
+    /* 저장 앞에 한 번 더 훑는다. 틀린 악보를 곡에 실으면 연습실
+       진행바가 어긋나는데, 그때는 무엇이 잘못인지 찾기 어렵다.
+       다만 저장을 막지는 않는다 — 두 번 누르면 그대로 저장된다. */
+    const issues = verifyAbc(abc);
+    const errs = issues.filter((i) => i.level === 'err');
+    if (errs.length && !embedSaveArmed) {
+      embedSaveArmed = true;
+      showVerify(issues);
+      switchTab('edit');
+      setStatus(`검증에서 고칠 곳 ${errs.length}곳이 나왔습니다 — 그래도 저장하려면 한 번 더 누르세요.`, 'err');
+      return;
+    }
+    embedSaveArmed = false;
+    parent.postMessage({ type: 'abc-save', abc, youtube: $('audioUrlInput').value.trim() }, '*');
+  };
+}
+/* 검증 경고를 보고도 저장하겠다는 뜻인지 — 두 번 누름으로 가린다 */
+let embedSaveArmed = false;
+
+// 편집 화면의 「악보 검증」 — 언제든 지금 상태를 다시 훑는다
+$('verifyBtn').onclick = () => {
+  const abc = $('abcSource').value.trim();
+  if (!abc) { setStatus('검증할 악보가 없습니다.', 'err'); return; }
+  embedSaveArmed = false;                  // 고쳤을 테니 저장 확인도 처음부터
+  showVerify(verifyAbc(abc));
+};
+
+/* 「자동 고침」은 두 단계다. 한 번 누르면 기계가 셈으로 고치고,
+   그래도 남는 문제(세뇨·코다 자리 같은 판단거리)는 한 번 더 누르면
+   AI가 견본 악보를 보며 고친다 — 뜻하지 않은 AI 호출이 없게 나눴다. */
+let fixArmed = false;
+$('fixBtn').onclick = async () => {
+  const abc = $('abcSource').value.trim();
+  if (!abc) { setStatus('고칠 악보가 없습니다.', 'err'); return; }
+  embedSaveArmed = false;
+
+  if (!fixArmed) {
+    const { abc: fixed, notes } = autoFixAbc(abc);
+    if (fixed !== abc) {
+      $('abcSource').value = fixed;
+      renderScore(fixed);
+    }
+    const issues = verifyAbc(fixed);
+    showVerify(issues);
+    const errs = issues.filter((i) => i.level === 'err').length;
+    if (!errs) {
+      setStatus(notes.length
+        ? `기계로 ${notes.length}곳을 고쳤습니다 — 검증 통과.`
+        : '고칠 곳이 없습니다 — 검증 통과.', 'ok');
+    } else {
+      fixArmed = true;
+      setStatus(`기계로 ${notes.length}곳을 고쳤지만 ${errs}곳이 남았습니다 — `
+        + 'AI로 마저 고치려면 「자동 고침」을 한 번 더 누르세요'
+        + (refPages.length || refAbc ? ' (견본 악보를 기준으로 고칩니다)' : '') + '.', 'err');
+    }
+    return;
+  }
+
+  fixArmed = false;
+  $('fixBtn').disabled = true;
+  setStatus('AI가 남은 문제를 고치는 중입니다… (1분 안팎)', '', true);
+  try {
+    const issues = verifyAbc(abc).filter((i) => i.level === 'err');
+    const fixed = await fixAbcWithAi(abc, issues);
+    $('abcSource').value = fixed;
+    renderScore(fixed);
+    const after = verifyAbc(fixed);
+    showVerify(after);
+    const left = after.filter((i) => i.level === 'err').length;
+    setStatus(left
+      ? `AI가 고쳤지만 ${left}곳이 아직 남았습니다 — 위 목록을 보고 손으로 다듬어 주세요.`
+      : 'AI 고침 완료 — 검증 통과.', left ? 'err' : 'ok');
+  } catch (e) {
+    setStatus('AI 고침 실패: ' + e.message, 'err');
+  } finally {
+    $('fixBtn').disabled = false;
+  }
+};
+$('printBtn').onclick = () => window.print();
+$('downloadMidi').onclick = () => {
+  try {
+    let midi = ABCJS.synth.getMidiFile($('abcSource').value, { midiOutputType: 'encoded' });
+    if (Array.isArray(midi)) midi = midi[0];
+    const a = document.createElement('a');
+    a.href = midi;
+    a.download = 'score.mid';
+    a.click();
+  } catch (e) { setStatus('MIDI 생성 실패: ' + e.message, 'err'); }
+};
+$('downloadAbc').onclick = () => {
+  const blob = new Blob([$('abcSource').value], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'score.abc';
+  a.click();
+};
+</script>
+</body>
+</html>

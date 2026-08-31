@@ -159,6 +159,18 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/**
+ * 일부 값만 최신 설정 위에 얹어 저장한다.
+ *
+ * 비동기 작업(지연 측정 등)이 끝난 뒤 저장할 때는 반드시 이쪽을 쓴다.
+ * 시작할 때 들고 있던 settings 스냅샷으로 통째 저장하면, 그 사이에 바뀐
+ * 다른 설정(관리자 모드 등)을 옛 값으로 되돌려 버린다 — 실제로 관리자
+ * 모드가 열 때마다 풀리던 원인이었다.
+ */
+export function patchSettings(partial: Partial<Settings>): void {
+  write({ ...read(), ...partial });
+}
+
 function write(next: Settings): void {
   cached = next;
   try {

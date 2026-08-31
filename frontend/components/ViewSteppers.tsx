@@ -35,6 +35,10 @@ export function ViewSteppers({
   /**
    * 악보를 음원 위에서 한 마디씩 미는 손잡이(강사님).
    *
+   * delta는 마디밀기(barOffset)에 더할 값이다. 커서는 그 반대로 움직인다
+   * — +1이면 커서가 한 마디 왼쪽으로 간다. 단추의 화살표는 커서 쪽을
+   * 가리키므로 여기서 부호가 뒤집혀 들어온다.
+   *
    * 싱크와 나란히 있어야 한다 — 어긋난 것이 한 마디인지 반 박인지는
    * 눌러 보며 가리는 일이라, 두 손잡이가 떨어져 있으면 오가야 한다.
    */
@@ -68,14 +72,24 @@ export function ViewSteppers({
         </span>
       )}
 
-      {/* 악보를 한 마디씩 앞뒤로. 음원과 어긋났을 때 강사님이 맞춘다 */}
+      {/* 한 마디씩 앞뒤로. 음원과 어긋났을 때 강사님이 맞춘다.
+          화살표는 「커서」가 갈 쪽을 가리킨다 — 속으로 세는 마디밀기는
+          그 반대라서 부호를 뒤집어 넘긴다. */}
       {onShiftBar && (
         <span className="flex items-center gap-px">
           <span className="text-gray-400">마디</span>
-          <button className={STEP} onClick={() => onShiftBar(-1)} title="악보를 한 마디 앞으로">
+          <button
+            className={STEP}
+            onClick={() => onShiftBar(1)}
+            title="커서를 한 마디 왼쪽으로 — 커서가 노래보다 이르게 갈 때"
+          >
             ◀
           </button>
-          <button className={STEP} onClick={() => onShiftBar(1)} title="악보를 한 마디 뒤로">
+          <button
+            className={STEP}
+            onClick={() => onShiftBar(-1)}
+            title="커서를 한 마디 오른쪽으로 — 커서가 노래보다 늦게 갈 때"
+          >
             ▶
           </button>
         </span>

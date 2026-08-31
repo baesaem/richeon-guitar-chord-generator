@@ -8,6 +8,7 @@ import {
   dropScore,
   dropSheetImage,
   fitSheetImage,
+  fixBeats,
   moveSheetImage,
   putSongSetup,
   readSheetImage,
@@ -44,6 +45,19 @@ export function ScoreAttach({
   /** 방금 기준값으로 적었다는 표시. 잠깐 보였다 사라진다 */
   const [kept, setKept] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 마디 길이와 들쭉날쭉한 정도. 박 사이가 가운데값에서 15% 넘게
+  // 벗어난 자리를 센다 — 그런 자리가 곧 진행 바가 튀는 자리다.
+  const beatGaps = result.beats
+    .slice(1)
+    .map((b, i) => b.t - result.beats[i].t)
+    .filter((g) => g > 0);
+  const beatUnit = beatGaps.length
+    ? [...beatGaps].sort((a, b) => a - b)[Math.floor(beatGaps.length / 2)]
+    : 0;
+  const wobble = beatUnit
+    ? beatGaps.filter((g) => Math.abs(g - beatUnit) > beatUnit * 0.15).length
+    : 0;
 
   const score = result.score as ScoreData | null | undefined;
   const align = result.score_align as ScoreAlign | null | undefined;
@@ -104,6 +118,26 @@ export function ScoreAttach({
       onResult(await readSheetImage(result.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : "읽지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * 박을 고르게 하거나 빠르기를 절반·두 배로 다시 본다.
+   *
+   * 박 찾기는 곡 한가운데서 잣대를 바꾸기도 한다 — 그러면 마디 길이가
+   * 들쭉날쭉해져 진행 바가 갑자기 느려진다. 「박 고르기」가 그 자리를
+   * 메우거나 덜어 낸다. 8분음표를 박으로 세어 마디가 절반이 된 곡은
+   * 「마디 ×2」로 바로잡는다 — 어느 쪽이 옳은지는 악보를 봐야 안다.
+   */
+  const beatFix = async (mode: "even" | "half" | "double") => {
+    setBusy(true);
+    setError(null);
+    try {
+      onResult(await fixBeats(result.id, mode));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "고치지 못했습니다");
     } finally {
       setBusy(false);
     }
@@ -289,6 +323,43 @@ export function ScoreAttach({
               </select>
             </>
           )}
+        </span>
+      )}
+
+      {beatUnit > 0 && (
+        <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
+          · 마디 {(beatUnit * 4).toFixed(2)}초
+          {wobble > 0 && (
+            <span className="text-amber-600" title="이 자리에서 진행 바가 튑니다">
+              (들쭉날쭉 {wobble}곳)
+            </span>
+          )}
+          {wobble > 0 && (
+            <button
+              className="rounded bg-amber-200/70 px-1.5 py-0.5 font-semibold disabled:opacity-40 dark:bg-amber-800/60"
+              disabled={busy || !online}
+              onClick={() => void beatFix("even")}
+              title="벌어진 곳에 박을 끼워 넣고 좁은 곳은 덜어 마디를 고르게 합니다"
+            >
+              박 고르기
+            </button>
+          )}
+          <button
+            className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+            disabled={busy || !online}
+            onClick={() => void beatFix("half")}
+            title="8분음표를 박으로 세어 마디가 절반이 된 곡. 마디를 두 배 길게 봅니다"
+          >
+            마디 ×2
+          </button>
+          <button
+            className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+            disabled={busy || !online}
+            onClick={() => void beatFix("double")}
+            title="마디가 악보보다 두 배 길 때. 마디를 절반으로 봅니다"
+          >
+            마디 ÷2
+          </button>
         </span>
       )}
 

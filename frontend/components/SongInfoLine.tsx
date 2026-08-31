@@ -13,6 +13,7 @@ import type { StrumChoice } from "@/lib/strumLibrary";
 export function SongInfoLine({
   musicKey,
   timeSignature,
+  playStyle,
   strum,
   playNotes,
   onPickStrum,
@@ -21,6 +22,8 @@ export function SongInfoLine({
 }: {
   musicKey: string;
   timeSignature: string;
+  /** 이 곡을 치는 방식 — 「스트로크」 또는 「아르페지오 3」 */
+  playStyle?: string;
   /** 이 곡에 어울리는 스트로크. 없으면 자리를 비운다 */
   strum?: StrumChoice | null;
   /** 연주설정에서 바꾼 것들(카포·빠르기 등) */
@@ -48,6 +51,13 @@ export function SongInfoLine({
         <span className="shrink-0">
           {spellKey(musicKey) || "조성 미상"} · {timeSignature}
         </span>
+        {/* 스트로크인지 아르페지오인지. 조성·박자와 나란히 — 곡의 성격을
+            읽는 자리가 한군데여야 어느 화면에서도 같은 곳을 본다 */}
+        {playStyle && (
+          <span className="shrink-0 text-[14px] font-bold text-gray-800 roomy:text-[17px] dark:text-gray-100">
+            {playStyle}
+          </span>
+        )}
         {/* 이 곡에 어울리는 스트로크. 눌러서 다른 패턴으로 바꾼다 */}
         {strum && (
           <button

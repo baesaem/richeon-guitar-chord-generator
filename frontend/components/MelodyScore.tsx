@@ -108,6 +108,8 @@ interface Props {
    */
   getTime?: () => number;
   playNotes?: string[];
+  /** 이 곡을 치는 방식 — 「스트로크」 또는 「아르페지오 3」 */
+  playStyle?: string;
   headerRight?: React.ReactNode;
   currentBar: number;
   flats: boolean;
@@ -151,6 +153,7 @@ export function MelodyScore({
   time: rawTime,
   getTime,
   playNotes,
+  playStyle,
   headerRight,
   currentBar,
   flats,
@@ -267,6 +270,7 @@ export function MelodyScore({
         musicKey={musicKey}
         timeSignature={timeSignature}
         playNotes={playNotes}
+        playStyle={playStyle}
         right={headerRight}
       >
         {onSolfege && (

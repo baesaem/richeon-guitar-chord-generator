@@ -14,6 +14,13 @@ export type Tab =
 interface Props {
   tab: Tab;
   onChange: (tab: Tab) => void;
+  /** 음원등록은 강사님 일 — 수강생 메뉴에서는 숨긴다 */
+  adminMode?: boolean;
+}
+
+/** 지금 권한으로 보이는 메뉴 항목 */
+export function navItemsFor(adminMode: boolean | undefined) {
+  return NAV_ITEMS.filter((item) => item.id !== "import" || adminMode);
 }
 
 /** 주메뉴 항목. 폰의 아래 탭과 태블릿·PC의 왼쪽 사이드바가 함께 쓴다 */
@@ -25,7 +32,7 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: "player",
-    label: "연주기",
+    label: "연습실",
     icon: (
       <>
         {/* 악보대 위의 재생 — 지금 곡을 큰 화면으로 편다 */}
@@ -33,6 +40,17 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
         <path d="M3 8h18" />
         <path d="M10.5 11v4l3.5-2z" />
         <path d="M12 17v3M8.5 20h7" />
+      </>
+    ),
+  },
+  {
+    id: "lesson",
+    label: "강의실",
+    icon: (
+      <>
+        {/* 펼친 책 — 따로 듣는 강좌를 모아 두는 자리 */}
+        <path d="M12 6.5C10.5 5 8.5 4.5 4 4.5v13c4.5 0 6.5.5 8 2 1.5-1.5 3.5-2 8-2v-13c-4.5 0-6.5.5-8 2z" />
+        <path d="M12 6.5v13" />
       </>
     ),
   },
@@ -48,22 +66,12 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: "lesson",
-    label: "공부방",
-    icon: (
-      <>
-        {/* 펼친 책 — 따로 듣는 강좌를 모아 두는 자리 */}
-        <path d="M12 6.5C10.5 5 8.5 4.5 4 4.5v13c4.5 0 6.5.5 8 2 1.5-1.5 3.5-2 8-2v-13c-4.5 0-6.5.5-8 2z" />
-        <path d="M12 6.5v13" />
-      </>
-    ),
-  },
-  {
     id: "import",
-    label: "음원받기",
+    label: "음원등록",
     icon: (
+      /* 위로 올리는 화살표 — 곡을 앱에 「등록」하는 방향이다 */
       <>
-        <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />
+        <path d="M12 13.5v-10M8.5 7 12 3.5 15.5 7" />
         <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
       </>
     ),
@@ -103,13 +111,14 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 /** 화면 맨 아래 탭 막대. 폰에서 엄지로 누르는 자리라 세로 여백을 넉넉히 둔다.
  *  테마 강조색이 활성 탭에 물든다. 넓은 화면에서는 왼쪽 사이드바가
  *  대신하므로 숨는다(md 이상). */
-export function BottomNav({ tab, onChange }: Props) {
+export function BottomNav({ tab, onChange, adminMode }: Props) {
+  const items = navItemsFor(adminMode);
   return (
     <nav className="shrink-0 bg-[var(--bar-bg)] shadow-[0_-4px_16px_rgba(0,0,0,0.07)] roomy:hidden">
       {/* 강조색 헤어라인 */}
       <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_45%,transparent)] to-transparent" />
       <div className="flex">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const active = item.id === tab;
           return (
             <button
