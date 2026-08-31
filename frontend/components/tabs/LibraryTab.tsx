@@ -369,28 +369,50 @@ export function LibraryTab({
       let dir: Awaited<ReturnType<typeof pickSaveFolder>> = null;
       try {
         dir = await pickSaveFolder();
-      } catch {
-        return; // 사용자가 폴더 선택을 닫았다. 내보내기 취소
+      } catch (e) {
+        // 창을 닫은 것은 취소다. 그 밖의 까닭은 화면에 적는다 —
+        // 조용히 돌아서면 단추가 고장 난 것처럼 보인다.
+        const why = (e as Error).message;
+        if (why !== "cancelled") setError(`전체 내보내기: ${why}`);
+        return;
+      }
+      if (!dir) {
+        flash(
+          `${items.length}곡을 한 파일씩 내려받습니다. ` +
+            "브라우저가 「여러 파일 받기」를 물으면 허용해 주세요.",
+        );
       }
 
-      setWorking("전체 내보내는 중");
       let count = 0;
+      // 한 곡이 깨져도 멈추지 않는다 — 스무 곡을 내보내다 하나가
+      // 어긋났다고 나머지 열아홉 곡을 잃으면 곤란하다
+      const failed: string[] = [];
       for (const item of items) {
-        const result = await freshest(item.id);
-        const bundle = await makeBundle(result);
-        if (dir) {
-          await writeBundleTo(dir, bundle);
-        } else {
-          downloadBundle(bundle);
-          // 연속 다운로드를 너무 몰아치면 브라우저가 일부를 흘린다
-          await new Promise((r) => setTimeout(r, 400));
+        setWorking(`전체 내보내는 중 (${count + failed.length + 1}/${items.length})`);
+        try {
+          const result = await freshest(item.id);
+          const bundle = await makeBundle(result);
+          if (dir) {
+            await writeBundleTo(dir, bundle);
+          } else {
+            downloadBundle(bundle);
+            // 연속 다운로드를 너무 몰아치면 브라우저가 일부를 흘린다
+            await new Promise((r) => setTimeout(r, 400));
+          }
+          count += 1;
+        } catch (e) {
+          failed.push(`${item.title || item.id}(${(e as Error).message})`);
         }
-        count += 1;
+      }
+      const tail = failed.length ? ` · ${failed.length}곡 실패: ${failed.join(", ")}` : "";
+      if (count === 0 && failed.length) {
+        setError(`전체 내보내기 실패${tail}`);
+        return;
       }
       flash(
-        dir
+        (dir
           ? `${count}곡을 고른 폴더에 저장했습니다.`
-          : `${count}곡을 각각의 파일로 내보냈습니다.`,
+          : `${count}곡을 각각의 파일로 내보냈습니다.`) + tail,
       );
     } catch (e) {
       setError((e as Error).message);

@@ -358,6 +358,10 @@ interface DirHandle {
  * 저장할 폴더를 한 번 묻는다. 지원하지 않는 브라우저면 null —
  * 부를 쪽이 한 파일씩 내려받기로 물러난다. 사용자가 창을 닫으면
  * "cancelled"를 던진다.
+ *
+ * 창을 닫은 것과 **막힌 것**을 가른다. 예전에는 무엇이 잘못되든 모두
+ * "cancelled"로 삼켜, 폴더 고르기가 막힌 브라우저에서는 단추를 눌러도
+ * 아무 일도 일어나지 않았다 — 「전체 내보내기가 안 된다」는 말이 그것이다.
  */
 export async function pickSaveFolder(): Promise<DirHandle | null> {
   const w = window as unknown as {
@@ -366,8 +370,20 @@ export async function pickSaveFolder(): Promise<DirHandle | null> {
   if (!w.showDirectoryPicker) return null;
   try {
     return await w.showDirectoryPicker({ mode: "readwrite" });
-  } catch {
-    throw new Error("cancelled");
+  } catch (e) {
+    const err = e as { name?: string; message?: string };
+    if (err?.name === "AbortError") throw new Error("cancelled");
+    if (err?.name === "SecurityError")
+      throw new Error(
+        "브라우저가 폴더 고르기를 막았습니다. 단추를 다시 한 번 눌러 주세요.",
+      );
+    if (err?.name === "NotAllowedError")
+      throw new Error(
+        "그 폴더에는 쓸 수 없습니다. 바탕화면이나 문서 아래 폴더를 골라 주세요.",
+      );
+    throw new Error(
+      `폴더를 고르지 못했습니다: ${err?.message || err?.name || "알 수 없는 까닭"}`,
+    );
   }
 }
 
