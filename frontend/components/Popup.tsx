@@ -29,7 +29,9 @@ export function Popup({
         /* 창도 테마를 따른다. 흰 종이로 박아 두었더니 어두운 테마에서
            흰 바탕에 흰 글자가 되어 아무것도 안 보였다 — 다크 짝을
            걷어내면서 함께 사라진 것이다. */
-        className={`flex max-h-[85dvh] w-full ${width} flex-col rounded-xl bg-[var(--background)] text-[var(--foreground)] shadow-xl`}
+        /* 테두리를 두른다. 어두운 테마에서는 창 바탕과 뒤 화면이 둘 다
+           검어 그림자만으로는 창의 가장자리가 보이지 않는다. */
+        className={`flex max-h-[85dvh] w-full ${width} flex-col rounded-xl border border-[var(--panel-line)] bg-[var(--background)] text-[var(--foreground)] shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 제목줄은 고정. 긴 창(연주설정)을 내려도 이름과 닫기가 남는다 */}

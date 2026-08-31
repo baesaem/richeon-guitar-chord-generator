@@ -30,7 +30,7 @@ export function Working({
       role="status"
       aria-live="polite"
     >
-      <div className="w-full max-w-[220px] rounded-2xl bg-[var(--background)] p-5 text-center text-[var(--foreground)] shadow-xl">
+      <div className="w-full max-w-[220px] rounded-2xl border border-[var(--panel-line)] bg-[var(--background)] p-5 text-center text-[var(--foreground)] shadow-xl">
         <span
           className="mx-auto mb-3 block h-9 w-9 animate-spin rounded-full border-[3px] border-[var(--accent)] border-t-transparent"
           aria-hidden="true"
