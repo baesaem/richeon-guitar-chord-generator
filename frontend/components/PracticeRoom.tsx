@@ -81,6 +81,7 @@ function Step({
   width = "w-9",
   minusTitle,
   plusTitle,
+  show = "flex",
 }: {
   label: string;
   value: string;
@@ -90,13 +91,15 @@ function Step({
   width?: string;
   minusTitle?: string;
   plusTitle?: string;
+  /** 어느 화면에서 보일지. 폰에서 감출 것은 "hidden big:flex" */
+  show?: string;
 }) {
   const btn =
     "select-none touch-none rounded bg-gray-200/70 px-1 font-bold leading-5 text-gray-900 dark:bg-gray-700 dark:text-gray-100";
   const minusHold = useHold(onMinus);
   const plusHold = useHold(onPlus);
   return (
-    <span className="flex shrink-0 items-center gap-0.5 text-[11px]">
+    <span className={`${show} shrink-0 items-center gap-0.5 text-[11px]`}>
       <span className="text-gray-400">{label}</span>
       <button className={btn} {...minusHold} title={minusTitle}>
         －
@@ -373,6 +376,9 @@ export function PracticeRoom({
               이 덩이 안에서만 옆으로 밀린다. */}
               <span className="flex min-w-0 shrink items-center gap-x-2 overflow-x-auto">
                 <Step
+                  /* 폰에서는 감춘다 — 같은 것이 연주설정 창에 있고,
+                     좁은 화면에서는 손잡이 줄이 악보 자리를 먹는다 */
+                  show="hidden big:flex"
                   label="싱크"
                   value={`${sync > 0 ? "+" : ""}${sync.toFixed(1)}`}
                   onMinus={() => onSync(Math.round((sync - 0.1) * 10) / 10)}
@@ -401,6 +407,7 @@ export function PracticeRoom({
                   />
                 )}
                 <Step
+                  show="hidden big:flex"
                   label="음높이"
                   value={pitch > 0 ? `+${pitch}` : String(pitch)}
                   onMinus={() => onPitch(Math.max(pitch - 1, -11))}
@@ -411,6 +418,7 @@ export function PracticeRoom({
                   plusTitle="반음 올림 (카포 자리)"
                 />
                 <Step
+                  show="hidden big:flex"
                   label="빠르기"
                   value={`${rate}×`}
                   onMinus={() => onRate(RATES[Math.max(rateIdx() - 1, 0)])}
