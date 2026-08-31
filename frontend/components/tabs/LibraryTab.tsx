@@ -264,6 +264,9 @@ export function LibraryTab({
     try {
       await ensureDriveReady(setWorking);
       let done = 0;
+      const failed: string[] = [];
+      const titleOf = (id: string) =>
+        device?.find((d) => d.id === id)?.title || id;
       for (const id of ids) {
         setWorking(`드라이브에 올리는 중 (${done + 1}/${ids.length})`);
         // 어느 곡에서, 어느 걸음에서 어긋났는지 적어 준다. 「500」 한
@@ -298,11 +301,24 @@ export function LibraryTab({
               ),
           );
         } catch (e) {
-          throw new Error(`${id} — ${step}에서 막혔습니다: ${(e as Error).message}`);
+          /* 한 곡이 막혀도 나머지는 올린다.
+             열세 곡을 올리다 첫 곡에서 멈추면 「전체 올리기가 안 된다」가
+             된다 — 실제로 개별 올리기는 되는데 전체만 안 되는 꼴이었다. */
+          failed.push(
+            `${titleOf(id)} — ${step}에서 막힘(${(e as Error).message})`,
+          );
+          continue;
         }
         done += 1;
       }
-      flash(`${done}곡을 ${klass.name} 폴더에 올렸습니다.`);
+      if (done === 0 && failed.length) {
+        setError(`올리지 못했습니다 · ${failed.join(" · ")}`);
+        return;
+      }
+      flash(
+        `${done}곡을 ${klass.name} 폴더에 올렸습니다.` +
+          (failed.length ? ` · ${failed.length}곡 실패: ${failed.join(" · ")}` : ""),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
