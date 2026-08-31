@@ -62,6 +62,54 @@ app.add_middleware(
 )
 
 
+class PrivateNetwork:
+    """https 화면이 이 PC의 서버를 부를 수 있게 한다.
+
+    크롬은 바깥 https 쪽(gita.richeon.kr)에서 집 안 주소(127.0.0.1)를
+    부를 때 먼저 「사설망에 물어도 되느냐」고 예비 질문을 보낸다
+    (Access-Control-Request-Private-Network). 서버가 「그러라」고
+    답하지 않으면 요청 자체를 막는다 — 설치한 앱이 「분석 서버에
+    연결되지 않았습니다」라고 한 것이 이것이다.
+
+    스탈렛의 CORS는 이 예비 질문을 모르고 400으로 되받는다. 그래서
+    가장 바깥에서 우리가 먼저 받아 답한다. 여는 것은 이 PC의 서버뿐이고,
+    무엇을 열지는 아래 CORS가 그대로 가린다.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("method") != "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+        headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+        if headers.get("access-control-request-private-network") != "true":
+            await self.app(scope, receive, send)
+            return
+
+        origin = headers.get("origin", "*")
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    (b"access-control-allow-origin", origin.encode()),
+                    (b"access-control-allow-methods", b"*"),
+                    (b"access-control-allow-headers", b"*"),
+                    (b"access-control-allow-private-network", b"true"),
+                    (b"access-control-max-age", b"600"),
+                    (b"content-length", b"0"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": b""})
+
+
+# CORS보다 뒤에 얹어야 바깥에서 먼저 받는다
+app.add_middleware(PrivateNetwork)
+
+
 def _guard_id(result_id: str) -> None:
     """경로 조작 차단. id는 videoId 또는 파일 해시라 구분자가 들어갈 일이 없다."""
     if "/" in result_id or "\\" in result_id or ".." in result_id:
