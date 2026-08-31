@@ -25,6 +25,7 @@ import {
   setAbcOffset,
   type AbcEntry,
 } from "@/lib/abcStore";
+import { clearDirty, listDirty, markDirty } from "@/lib/dirty";
 import { ScoreAttach } from "@/components/ScoreAttach";
 import { SheetScore, type SheetData } from "@/components/SheetScore";
 import { sheetChords } from "@/lib/sheetChords";
@@ -58,8 +59,7 @@ import { SettingsTab } from "@/components/tabs/SettingsTab";
 import {
   analyzeUpload,
   analyzeUrl,
-  putChords,
-  putLyrics,
+  putResult,
   tidyLyrics,
   reanalyze,
   getHealth,
@@ -232,15 +232,38 @@ export default function Home() {
   // 기타반 곡은 자동으로 담지 않는다 - 수강생이 음원받기의
   // 기타반 목록에서 필요한 곡만 골라 받는다.
   useEffect(() => {
-    getHealth()
-      .then((h) => {
-        setHealth(h);
-        setBackendDown(false);
-      })
-      .catch(() => {
-        setHealth(null);
-        setBackendDown(true);
-      });
+    /* 서버가 살아나는 순간을 잡으려고 주기적으로 살핀다.
+       살아나면, 꺼진 사이 기기에만 적힌 곡(명단)을 통째로 밀어 넣어
+       두 벌을 같게 만든다 — 실시간 동기화의 나머지 절반이다. */
+    let alive = true;
+    const check = () =>
+      getHealth()
+        .then(async (h) => {
+          if (!alive) return;
+          setHealth(h);
+          setBackendDown(false);
+          for (const id of listDirty()) {
+            const local = await getLocal(id).catch(() => null);
+            if (!local) {
+              clearDirty(id);
+              continue;
+            }
+            await putResult(local)
+              .then(() => clearDirty(id))
+              .catch(() => {});
+          }
+        })
+        .catch(() => {
+          if (!alive) return;
+          setHealth(null);
+          setBackendDown(true);
+        });
+    check();
+    const timer = setInterval(check, 20000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
   }, [settings.apiBase]);
 
   // 테마 적용: html에 .dark 클래스를 붙였다 뗀다. system이면 기기 설정을 따라간다.
@@ -598,6 +621,23 @@ export default function Home() {
    * 고른 근음을 원래 조성으로 되돌려 저장한다.
    */
   /**
+   * 고친 결과를 서버에도 밀어 넣는다 — 실시간 동기화의 절반.
+   *
+   * 기기에는 이미 적혔다(기기가 원본). 서버가 살아 있으면 그 자리에서
+   * 통째로 보내고, 꺼져 있거나 보내다 실패하면 명단에 적어 두었다가
+   * 서버가 돌아오는 순간 밀어 넣는다(아래 flushDirty).
+   */
+  const pushToServer = (next: AnalysisResult) => {
+    if (!health) {
+      markDirty(next.id);
+      return;
+    }
+    putResult(next)
+      .then(() => clearDirty(next.id))
+      .catch(() => markDirty(next.id));
+  };
+
+  /**
    * 서버가 돌려준 결과를 받아들인다 — 화면과 **기기 저장을 함께** 고친다.
    *
    * 악보 맞춤·AI 되돌이 읽기·기준값 저장은 서버에서 이루어지고 결과만
@@ -634,7 +674,7 @@ export default function Home() {
     const next = { ...result, chords };
     setResult(next);
     await saveLocal(next).catch(() => {});
-    if (health) await putChords(next.id, next.chords).catch(() => {});
+    pushToServer(next);
   };
 
   /**
@@ -666,7 +706,7 @@ export default function Home() {
     const next = { ...result, lyrics: rows };
     setResult(next);
     await saveLocal(next).catch(() => {});
-    if (health) await putLyrics(next.id, rows).catch(() => {});
+    pushToServer(next);
   };
 
   /** 편집에서 고르고 있는 가사 줄. 옆에 마디 옮기기 단추가 붙는다 */
@@ -695,7 +735,7 @@ export default function Home() {
     const next = { ...result, lyrics: rows, lyrics_manual: true };
     setResult(next);
     await saveLocal(next).catch(() => {});
-    if (health) await putLyrics(next.id, rows).catch(() => {});
+    pushToServer(next);
   };
 
   /**
@@ -725,7 +765,7 @@ export default function Home() {
     const next = { ...result, lyrics: rows, lyrics_manual: true };
     setResult(next);
     await saveLocal(next).catch(() => {});
-    if (health) await putLyrics(next.id, rows).catch(() => {});
+    pushToServer(next);
     // 넣자마자 글자를 적게 창을 연다
     const put = rows.findIndex((l) => l.t === at && l.text === "새 줄");
     setPickLyric(put);
@@ -757,7 +797,7 @@ export default function Home() {
     const next = { ...result, lyrics: rows, lyrics_manual: true };
     setResult(next);
     await saveLocal(next).catch(() => {});
-    if (health) await putLyrics(next.id, rows).catch(() => {});
+    pushToServer(next);
   };
 
   /** 이 시각이 몇 번째 마디인가(1부터). 가사 앞에 적어 준다 */
@@ -810,7 +850,7 @@ export default function Home() {
     const next = { ...result, lyrics: rows, lyrics_manual: true };
     setResult(next);
     await saveLocal(next).catch(() => {});
-    if (health) await putLyrics(next.id, rows).catch(() => {});
+    pushToServer(next);
   };
 
   /**
@@ -834,7 +874,7 @@ export default function Home() {
     const next = { ...result, lyrics: rows, lyrics_manual: true };
     setResult(next);
     await saveLocal(next).catch(() => {});
-    if (health) await putLyrics(next.id, rows).catch(() => {});
+    pushToServer(next);
     // 방금 넣은 줄을 바로 고치게 연다
     setEditLyric(rows.findIndex((l) => l.t === +time.toFixed(2)));
   };
@@ -869,7 +909,7 @@ export default function Home() {
     const next = { ...result, chords: prev };
     setResult(next);
     await saveLocal(next).catch(() => {});
-    if (health) await putChords(next.id, next.chords).catch(() => {});
+    pushToServer(next);
   };
 
   const openSaved = async (id: string): Promise<boolean> => {

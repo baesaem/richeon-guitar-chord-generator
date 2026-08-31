@@ -991,6 +991,21 @@ async def put_sheet(
     return result
 
 
+@app.put("/api/results/{result_id}")
+async def put_result(result_id: str, body: AnalysisResult) -> dict:
+    """기기 사본을 통째로 받아 적는다 — 기기가 원본이다.
+
+    서버가 꺼진 사이에 고친 코드·가사·싱크는 기기에만 남는다. 앱이
+    서버를 다시 만나면 이 길로 밀어 넣어 두 벌을 같게 만든다.
+    항목별 길(putLyrics 따위)로는 빠지는 항목이 생겨 통째로 받는다.
+    """
+    _guard_id(result_id)
+    if body.id != result_id:
+        raise HTTPException(400, "곡 번호가 다릅니다")
+    save_result(body)
+    return {"ok": True}
+
+
 @app.put("/api/results/{result_id}/setup")
 async def put_setup(result_id: str, body: dict) -> AnalysisResult:
     """강사님이 맞춰 둔 연주설정을 이 곡의 기준값으로 적어 둔다.

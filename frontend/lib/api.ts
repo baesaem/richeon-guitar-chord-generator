@@ -224,6 +224,17 @@ export const putSongSetup = (id: string, setup: object) =>
  * 가까운가를 재면 악보를 얼마나 밀어야 하는지 알 수 있다. 한 마디
  * 통째로 옮기는 일은 사람이 ◀ ▶로 한다 — 이것은 한 마디 안에서만 다듬는다.
  */
+/**
+ * 기기 사본을 서버에 통째로 밀어 넣는다 — 기기가 원본이다.
+ * 항목별 길(putLyrics 따위)은 빠지는 항목이 생겨 통째로 보낸다.
+ */
+export const putResult = (result: AnalysisResult) =>
+  fetch(`${apiBase()}/api/results/${result.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(result),
+  }).then(json<{ ok: boolean }>);
+
 export const fitSheetImage = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}/sheet/fit`, { method: "POST" }).then(
     json<AnalysisResult>,
