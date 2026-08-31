@@ -219,12 +219,21 @@ export function LibraryTab({
    *
    * 서버에 닿지 못하면(수강생 기기·서버 꺼짐) 기기 것을 쓴다.
    */
+  /**
+   * 내보내기·올리기가 쓸 곡. **기기 사본이 원본이다.**
+   *
+   * 예전에는 서버 것을 먼저 썼다 — 악보 맞춤이 서버에서 이루어지던
+   * 때의 버릇이다. 그러나 고치는 일은 모두 기기에 먼저 적히고, 서버가
+   * 꺼진 사이의 수정은 기기에만 있다. 서버 것을 먼저 쓰면 그런 수정이
+   * 빠진 옛것이 올라간다. 기기에 없는 곡(서버에만 있는 곡)만 서버에서
+   * 가져온다.
+   */
   const freshest = async (id: string) => {
+    const local = await getLocal(id).catch(() => null);
+    if (local) return local;
     const mine = await getResult(id).catch(() => null);
-    if (mine) return mine;
-    const local = await getLocal(id);
-    if (!local) throw new Error("곡을 찾지 못했습니다");
-    return local;
+    if (!mine) throw new Error("곡을 찾지 못했습니다");
+    return mine;
   };
 
   /**

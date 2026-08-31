@@ -597,6 +597,19 @@ export default function Home() {
    * 카포를 올려 둔 상태에서도 화면에 보이는 이름으로 고를 수 있어야 하니,
    * 고른 근음을 원래 조성으로 되돌려 저장한다.
    */
+  /**
+   * 서버가 돌려준 결과를 받아들인다 — 화면과 **기기 저장을 함께** 고친다.
+   *
+   * 악보 맞춤·AI 되돌이 읽기·기준값 저장은 서버에서 이루어지고 결과만
+   * 돌아온다. 화면만 바꾸고 기기 사본을 안 고치면 두 벌이 어긋나기
+   * 시작한다 — 「어느 쪽이 원본인가」 하는 혼란이 여기서 났다.
+   * 기기 사본이 원본이다. 서버 것이 오면 즉시 기기에 적는다.
+   */
+  const adoptResult = (r: AnalysisResult) => {
+    setResult(r);
+    void saveLocal(r).catch(() => {});
+  };
+
   const applyChordEdit = async (
     barIndex: number,
     change: { root: string; quality: string } | null,
@@ -1876,7 +1889,7 @@ export default function Home() {
                             <div className="pb-1 pt-1.5">
                               <ScoreAttach
                                 result={result}
-                                onResult={setResult}
+                                onResult={adoptResult}
                                 online={!!health}
                               />
                             </div>
@@ -1899,7 +1912,7 @@ export default function Home() {
                       <div className="pb-1 pt-1.5">
                         <ScoreAttach
                           result={result}
-                          onResult={setResult}
+                          onResult={adoptResult}
                           online={!!health}
                         />
                       </div>
