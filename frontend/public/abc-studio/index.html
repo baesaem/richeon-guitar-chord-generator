@@ -204,14 +204,14 @@
   button.ghost { background: #efe9df; color: var(--ink); }
   button.ghost:hover { background: #e4dccd; }
   #dropzone {
-    border: 2px dashed #c9b998; border-radius: 10px; padding: 34px; text-align: center;
+    border: 2px dashed #c9b998; border-radius: 10px; padding: 14px; text-align: center;
     color: #7d6f58; cursor: pointer; transition: background .15s;
   }
   #dropzone.drag, #scorezone.drag { background: #f3ead9; }
   #dropzone strong, #scorezone strong { color: var(--accent); }
   /* 악보 파일 칸은 「그대로 옮기는」 자리라 한 겹 또렷하게 둔다 */
   #scorezone {
-    border: 2px dashed var(--accent); border-radius: 10px; padding: 26px;
+    border: 2px dashed var(--accent); border-radius: 10px; padding: 14px;
     text-align: center; color: #7d6f58; cursor: pointer; transition: background .15s;
     background: color-mix(in srgb, var(--accent) 6%, transparent);
   }
@@ -271,11 +271,16 @@
   </div>
 
   <div class="panel">
-    <!-- ① 음원 — 채보의 기준이 되는 실제 소리 -->
-    <div class="secTitle" style="border-top:none; padding-top:0;">① 음원 (영상 링크)</div>
+    <!-- ① 음원 — 채보의 기준이 되는 실제 소리.
+         제목줄 오른쪽에 단추를 붙여 한 줄을 아낀다 -->
+    <div class="secTitle" style="border-top:none; padding-top:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span>① 음원 (영상 링크)</span>
+      <span style="flex:1"></span>
+      <button class="ghost" id="audioFileBtn" style="font-size:.8rem; padding:5px 9px;">🎵 음원 파일</button>
+      <button class="ghost hidden" id="restoreBtn" style="font-size:.8rem; padding:5px 9px;">🕘 마지막 악보 열기</button>
+    </div>
     <div class="row">
       <input type="text" id="audioUrlInput" placeholder="유튜브 URL (예: https://youtu.be/...) — 이 음원을 기준으로 채보합니다">
-      <button class="ghost" id="audioFileBtn">🎵 음원 파일</button>
       <input type="file" id="audioFileInput" accept="audio/*" class="hidden">
       <span class="small" id="audioInfo"></span>
     </div>
@@ -297,9 +302,6 @@
       <small>PDF · PNG · JPG</small>
       <input type="file" id="fileInput" accept=".pdf,image/*" class="hidden">
     </div>
-    <div class="row" style="margin-top:8px;">
-      <button class="ghost hidden" id="restoreBtn">🕘 마지막 악보 열기</button>
-    </div>
     <img id="preview" alt="악보 미리보기">
     <canvas id="pdfCanvas" class="hidden"></canvas>
 
@@ -308,7 +310,7 @@
     <p class="hintText">한 줄에 한 마디씩, 또는 「G | Em | C | D」처럼 적으세요. 비워 두면 AI가 음원에서 코드를 딴 대로 적습니다.</p>
     <textarea id="chordInput" rows="3" style="width:100%; font-family:Consolas,monospace; font-size:.82rem; border:1px solid var(--line); border-radius:6px; padding:8px;" placeholder="G | Em | C | D&#10;G | Em | Am7 | D7"></textarea>
 
-    <div class="row" style="margin-top:12px; justify-content:center;">
+    <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px; width:fit-content; margin-left:auto; margin-right:auto;">
       <label class="small" style="display:flex; align-items:center; gap:5px;">
         <input type="checkbox" id="useAi">
         🤖 AI로 채보 (PDF·사진 악보나 음원에서 따려면 켜세요.
@@ -441,9 +443,6 @@
   <button data-tab="generate">📥 악보입력</button>
   <button data-tab="edit">✏️ 편집</button>
   <button data-tab="file">💾 저장</button>
-  <!-- 악보생성 화면에서만 나온다. 「AI로 악보 생성」 단추는 참고 악보
-       미리보기 아래에 있어 스크롤해야 닿는다 — 여기 하나를 더 둔다 -->
-  <button id="genMenuBtn" class="hidden">🤖 생성</button>
   <!-- 기타교실 안에서 열렸을 때만 보인다 — 만든 악보를 그 곡에 싣는다 -->
   <button id="embedSave" class="hidden">✅ 저장</button>
 </nav>
@@ -1711,7 +1710,7 @@ $('analyzeBtn').onclick = async () => {
   let waited = 0;
   setStatus(waiting + '… (보통 1~2분)', '', true);
   $('genProgress').classList.remove('hidden');
-  $('genMenuBtn').textContent = '⏳ 만드는 중';
+  $('analyzeBtn').textContent = '⏳ 만드는 중';
   const waitTimer = setInterval(() => {
     waited += 5;
     setStatus(`${waiting}… ${waited}초 지남 (보통 1~2분)`, '', true);
@@ -1719,7 +1718,7 @@ $('analyzeBtn').onclick = async () => {
   const doneWaiting = () => {
     clearInterval(waitTimer);
     $('genProgress').classList.add('hidden');
-    $('genMenuBtn').textContent = '🤖 생성';
+    $('analyzeBtn').textContent = '🎼 생성';
   };
   try {
     const parts = [];
@@ -2617,8 +2616,6 @@ function switchTab(name) {
     sec.classList.toggle('hidden', sec.id !== 'tab-' + name);
   for (const b of document.querySelectorAll('#bottomMenu button'))
     b.classList.toggle('active', b.dataset.tab === name);
-  // 「생성」은 악보생성 화면에서만 쓸모가 있다
-  $('genMenuBtn').classList.toggle('hidden', name !== 'generate');
   // 연주기 진입 시 보이는 크기로 재렌더 + 오디오 재연결 (커서 좌표 어긋남 방지)
   // 연주기에서만 화면 고정(악보창만 스크롤)
   document.body.classList.toggle('playerLock', name === 'player');
@@ -2626,9 +2623,6 @@ function switchTab(name) {
   if (hdr) document.body.style.setProperty('--hdrH', hdr.getBoundingClientRect().height + 'px');
   if (name === 'player' && currentBlocks.length) syncFull();
 }
-// 아래 메뉴의 「생성」 — 화면 어디에 있든 한 번에 닿는다.
-// 만드는 중이면 아무 일도 하지 않는다. 시간이 넘으면 저절로 오류로 끝난다.
-$('genMenuBtn').onclick = () => { if (!genAbort) $('analyzeBtn').click(); };
 
 // 영상 보기/감추기 — 감추면 악보가 그만큼 넓어진다
 function setVideoFolded(folded) {
