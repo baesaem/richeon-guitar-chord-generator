@@ -109,8 +109,6 @@ interface Props {
    */
   getTime?: () => number;
   playNotes?: string[];
-  /** 안내줄 아래 한 줄. 뽑아낸 멜로디임을 밝히는 데 쓴다 */
-  note?: string;
   /** 안내줄에 함께 적을 스트로크. 모든 플레이 화면이 같은 것을 보인다 */
   strum?: StrumChoice | null;
   onPickStrum?: () => void;
@@ -159,7 +157,6 @@ export function MelodyScore({
   time: rawTime,
   getTime,
   playNotes,
-  note,
   strum,
   onPickStrum,
   playStyle,
@@ -315,9 +312,6 @@ export function MelodyScore({
           .filter(Boolean)
           .join(" · ")}
       </SongInfoLine>
-      {note && (
-        <p className="px-2 pb-1 text-[11px] text-amber-700">{note}</p>
-      )}
 
       {shown.map(([lineIndex, line]) => {
         const hasActive = line.some((_, i) => lineIndex * per + i === barIndex);
