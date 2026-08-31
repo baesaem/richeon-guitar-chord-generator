@@ -79,6 +79,10 @@ export function SettingsTab({ settings, onChange, health }: Props) {
     }
   };
   const [testing, setTesting] = useState(false);
+  /* 주소 칸을 펴 두었는가.
+     서버가 붙어 있으면 손댈 일이 없는 자리다 — 접어 두고 「연결됨」만
+     알린다. 연결이 끊겼을 때만 저절로 펴, 고칠 것을 바로 손대게 한다. */
+  const [showAddr, setShowAddr] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(
     null,
   );
@@ -362,7 +366,29 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       <LlmSettingsCard online={!!health} />
 
       <section className="mb-5">
-        <div className="mb-1.5 text-sm font-medium">분석 서버 주소</div>
+        <div className="mb-1.5 flex items-center gap-2">
+          <span className="text-sm font-medium">분석 서버</span>
+          {health ? (
+            <span className="text-[11px] font-medium text-green-700">
+              연결됨 · {settings.apiBase || "이 페이지와 같은 주소"}
+            </span>
+          ) : (
+            <span className="text-[11px] font-medium text-red-700">
+              연결 안 됨
+            </span>
+          )}
+          {health && (
+            <button
+              className="ml-auto text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
+              onClick={() => setShowAddr((v) => !v)}
+            >
+              {showAddr ? "접기" : "주소 바꾸기"}
+            </button>
+          )}
+        </div>
+        {/* 연결이 되어 있으면 접어 둔다. 끊겼으면 묻지 않고 편다 */}
+        {(!health || showAddr) && (
+        <>
         <input
           className="w-full rounded border px-3 py-2.5 text-sm"
           placeholder="예: http://192.168.1.199:8000"
@@ -409,9 +435,12 @@ export function SettingsTab({ settings, onChange, health }: Props) {
         )}
 
         <p className="mt-1 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-          비워 두면 이 페이지와 같은 주소의 서버를 씁니다(집 안에서 쓰는 방식).
-          외부에 올린 화면에서 집 서버를 쓰려면 여기에 서버 주소를 넣으세요.
+          강사님 PC에서 도는 서버 주소가 처음부터 적혀 있습니다
+          (http://127.0.0.1:8000). 다른 PC의 서버를 쓰려면 그 주소로 바꾸고,
+          비우면 이 페이지와 같은 주소의 서버를 찾습니다.
         </p>
+        </>
+        )}
       </section>
 
       <section className="mb-5">

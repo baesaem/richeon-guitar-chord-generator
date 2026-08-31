@@ -80,12 +80,19 @@ export const DEFAULT_SETTINGS: Settings = {
   notation: "auto",
   view: "wave",
   videoCompact: false,
-  apiBase: "",
+  /* 분석 서버 주소.
+   *
+   * 비워 두면 화면과 같은 주소의 서버를 찾는데, 배포된 앱
+   * (gita.richeon.kr)에는 서버가 없어 늘 「연결되지 않았습니다」가 됐다.
+   * 강사님 PC에서 도는 서버 주소를 처음부터 적어 둔다 — 수강생 기기는
+   * 이 주소로 아무것도 찾지 못하지만, 서버가 필요한 일 자체가 없다.
+   */
+  apiBase: "http://127.0.0.1:8000",
   autoSave: true,
   theme: "system",
   showGrid: true,
   sheetZoom: 0,
-  settingsVersion: 1,
+  settingsVersion: 2,
   chordPerLine: 4,
   gridPerRow: 0,
   solfege: false,
@@ -145,6 +152,20 @@ function read(): Settings {
       };
       // 바로 적어 둔다. 안 그러면 다음에 열 때 또 옮기려 들어, 손수
       // 4마디로 고른 분의 값을 도로 0으로 되돌린다.
+      localStorage.setItem(KEY, JSON.stringify(value));
+    }
+
+    /* 판 2: 분석 서버 주소를 비워 두던 것을 기본 주소로 채운다.
+       비어 있던 분만 옮긴다 — 손수 다른 주소를 넣어 둔 분의 값은
+       건드리지 않는다. */
+    if (saved && (saved.settingsVersion ?? 1) < 2) {
+      value = {
+        ...value,
+        apiBase: value.apiBase?.trim()
+          ? value.apiBase
+          : DEFAULT_SETTINGS.apiBase,
+        settingsVersion: 2,
+      };
       localStorage.setItem(KEY, JSON.stringify(value));
     }
   } catch {
