@@ -100,7 +100,10 @@ function Card({
       onClick={onClick}
       className="flex w-full items-center gap-3 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] p-4 text-left"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white">
+      {/* 아이콘 판은 늘 흰 종이다(유튜브 로고가 그 위에서만 제 색으로
+          보인다). 그래서 그 위 아이콘 색은 테마를 따르면 안 된다 —
+          어두운 테마에서 흰 아이콘이 흰 판에 얹혀 사라졌다. */}
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white text-neutral-800 [&_svg]:text-inherit">
         {icon}
       </span>
       <span className="min-w-0">
@@ -513,7 +516,7 @@ export function ImportTab({
             icon={
               <svg
                 viewBox="0 0 24 24"
-                className="h-6 w-6 text-[var(--foreground)]"
+                className="h-6 w-6"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth={1.8}
@@ -550,7 +553,7 @@ export function ImportTab({
               icon={
                 <svg
                   viewBox="0 0 24 24"
-                  className="h-6 w-6 text-[var(--foreground)]"
+                  className="h-6 w-6"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={1.8}
@@ -596,7 +599,7 @@ export function ImportTab({
               icon={
                 <svg
                   viewBox="0 0 24 24"
-                  className="h-6 w-6 text-[var(--foreground)]"
+                  className="h-6 w-6"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={1.8}
