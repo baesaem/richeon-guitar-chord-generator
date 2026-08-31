@@ -279,7 +279,7 @@
     <div id="dropzone">
       <strong>악보 파일을 여기에 드래그</strong>하거나 클릭해서 선택하세요<br>
       <small>PDF · PNG · JPG · MuseScore(.mscz) · MusicXML(.xml·.mxl)<br>MuseScore·MusicXML 파일은 AI 없이 그대로 악보로 옮깁니다</small>
-      <input type="file" id="fileInput" accept=".pdf,.mscz,.mscx,.xml,.musicxml,.mxl,image/*" class="hidden">
+      <input type="file" id="fileInput" accept=".abc,.pdf,.mscz,.mscx,.xml,.musicxml,.mxl,image/*" class="hidden">
     </div>
     <div class="row" style="margin-top:8px;">
       <input type="text" id="urlInput" placeholder="또는 파일 URL 입력 (예: ./샘플악보.pdf)">
@@ -1296,6 +1296,27 @@ async function handleFile(file) {
      AI로 다시 알아맞힐 까닭이 없다. 다만 넣는 순간 옮기지는 않는다 —
      코드 진행이나 음원을 마저 적기도 전에 화면이 바뀌면 놀란다.
      여기서는 받아만 두고, 「생성」을 누를 때 옮긴다. */
+  /* 이미 ABC로 적힌 악보. 옮길 것이 없으니 그대로 편집칸에 올린다 —
+     다른 데서 만들어 온 악보를 붙이는 가장 짧은 길이다. */
+  if (/\.(abc|txt)$/i.test(file.name)) {
+    const text = new TextDecoder().decode(buf);
+    if (!/^X:/m.test(text)) {
+      setStatus('ABC 악보가 아닙니다 (X: 로 시작하는 줄이 없습니다).', 'err');
+      return;
+    }
+    scoreFile = null;
+    refPages = [];
+    refAbc = '';
+    $('preview').style.display = 'none';
+    const abc = text.trim();
+    $('abcSource').value = abc;
+    renderScore(abc);
+    showVerify(verifyAbc(abc));
+    switchTab('edit');
+    setStatus(`ABC 악보를 읽었습니다 (${file.name}). 확인 후 저장하세요.`, 'ok');
+    return;
+  }
+
   if (/\.(mscz|mscx|xml|musicxml|mxl)$/i.test(file.name)) {
     const kind = /\.(mscz|mscx)$/i.test(file.name) ? 'MuseScore' : 'MusicXML';
     scoreFile = { buf, name: file.name, kind };
