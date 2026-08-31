@@ -3592,7 +3592,7 @@ function NoMelody({ admin }: { admin: boolean }) {
   return (
     <div className="rounded-lg border border-dashed border-[var(--panel-line)] bg-[var(--panel)] px-4 py-6 text-center">
       <div className="text-sm font-semibold text-[var(--foreground)]">
-        이 음원은 멜로디 악보를 지원하지 않습니다
+        이 음원은 멜로디 악보를 제공하지 않습니다
       </div>
       {/* 관리자에게는 붙이는 단추들이 바로 위에 있어 설명이 군말이다 —
           수강생에게만 무엇을 하면 되는지 적는다 */}
