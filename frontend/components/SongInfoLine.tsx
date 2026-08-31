@@ -41,7 +41,7 @@ export function SongInfoLine({
     /* 스크롤 밖에 붙여 둔다 — 싱크·마디 조절이 이 줄에 있는데, 악보를
        내리다 보면 줄이 위로 사라져 조절할 수가 없었다. 스크롤이 없는
        화면(재생 화면)에서는 sticky가 아무 일도 하지 않는다. */
-    <div className="sticky top-0 z-10 flex items-center gap-x-1.5 bg-[var(--background)] py-1 text-[11px] text-gray-500 roomy:gap-x-2.5 roomy:text-[14px]">
+    <div className="sticky top-0 z-10 flex items-center gap-x-1.5 bg-[var(--background)] py-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] roomy:gap-x-2.5 roomy:text-[14px]">
       <div
         className="flex min-w-0 flex-1 items-center gap-x-2 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none" }}
@@ -54,19 +54,19 @@ export function SongInfoLine({
         {/* 스트로크인지 아르페지오인지. 조성·박자와 나란히 — 곡의 성격을
             읽는 자리가 한군데여야 어느 화면에서도 같은 곳을 본다 */}
         {playStyle && (
-          <span className="shrink-0 text-[14px] font-bold text-gray-800 roomy:text-[17px] dark:text-gray-100">
+          <span className="shrink-0 text-[14px] font-bold text-[var(--foreground)] roomy:text-[17px]">
             {playStyle}
           </span>
         )}
         {/* 이 곡에 어울리는 스트로크. 눌러서 다른 패턴으로 바꾼다 */}
         {strum && (
           <button
-            className="shrink-0 text-gray-700 underline decoration-dotted underline-offset-2 dark:text-gray-300"
+            className="shrink-0 text-[var(--foreground)] underline decoration-dotted underline-offset-2"
             onClick={onPickStrum}
             title={`${strum.why} · ${strum.pattern.hint}`}
           >
             <StrumCells pattern={strum.pattern} />
-            <span className="ml-1 text-gray-400">{strum.pattern.name}</span>
+            <span className="ml-1 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{strum.pattern.name}</span>
           </button>
         )}
         {playNotes?.map((note) => (

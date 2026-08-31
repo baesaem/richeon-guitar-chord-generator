@@ -77,7 +77,7 @@ export function ChordsTab() {
               "flex-1 whitespace-nowrap rounded px-0.5 py-2 text-[13px]",
               page === value
                 ? "bg-black text-white dark:bg-white dark:text-black"
-                : "bg-gray-100 dark:bg-gray-800",
+                : "bg-[var(--panel)]",
             ].join(" ")}
           >
             {label}
@@ -107,14 +107,14 @@ export function ChordsTab() {
               "rounded py-1.5 text-xs",
               q.value === quality
                 ? "bg-black text-white dark:bg-white dark:text-black"
-                : "bg-gray-100 dark:bg-gray-800",
+                : "bg-[var(--panel)]",
             ].join(" ")}
           >
             {q.label}
           </button>
         ))}
       </div>
-      <p className="mb-3 text-[11px] text-gray-500">
+      <p className="mb-3 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         {picked.full} 코드 ({picked.label})
       </p>
 
@@ -125,7 +125,7 @@ export function ChordsTab() {
             <div key={root} className="flex flex-col items-center">
               {/* 검은건반은 두 이름을 함께 적는다. 악보마다 표기가 달라
                   C♯로 적힌 곡과 D♭로 적힌 곡이 같은 자리라는 것을 알아야 한다 */}
-              <div className="text-center text-[11px] leading-none text-gray-400">
+              <div className="text-center text-[11px] leading-none text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 {BOTH[root] ?? " "}
               </div>
               <div className="text-sm font-bold">
@@ -141,7 +141,7 @@ export function ChordsTab() {
         })}
       </div>
 
-      <p className="mt-4 text-[11px] leading-relaxed text-gray-400">
+      <p className="mt-4 text-[11px] leading-relaxed text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         점 안의 숫자는 손가락 번호입니다(1 검지 · 2 중지 · 3 약지 · 4 새끼).
         ○는 개방현, ×는 소리 내지 않는 줄입니다. 오픈 코드는 표준 운지를 쓰고,
         나머지는 E폼·A폼 바레를 해당 프렛으로 옮겨 만듭니다.

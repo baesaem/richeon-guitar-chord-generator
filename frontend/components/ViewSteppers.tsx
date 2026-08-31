@@ -12,7 +12,7 @@
 
 /** 한 칸씩 옮기는 작은 단추. 악보가 밀려 내려가지 않게 작게 만든다 */
 const STEP =
-  "rounded bg-gray-200/70 px-1 font-bold leading-4 text-gray-900 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-100 roomy:px-1.5 roomy:leading-5";
+  "rounded bg-[var(--chip)] px-1 font-bold leading-4 text-[var(--foreground)] disabled:opacity-30 roomy:px-1.5 roomy:leading-5";
 
 export function ViewSteppers({
   sync,
@@ -50,7 +50,7 @@ export function ViewSteppers({
     <span className="flex shrink-0 items-center gap-1 text-[10px] roomy:text-[12px]">
       {onSync && (
         <span className="flex items-center gap-px">
-          <span className="text-gray-400">싱크</span>
+          <span className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">싱크</span>
           <button
             className={STEP}
             onClick={() => onSync(Math.round(((sync ?? 0) - 0.1) * 10) / 10)}
@@ -77,7 +77,7 @@ export function ViewSteppers({
           그 반대라서 부호를 뒤집어 넘긴다. */}
       {onShiftBar && (
         <span className="flex items-center gap-px">
-          <span className="text-gray-400">마디</span>
+          <span className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">마디</span>
           <button
             className={STEP}
             onClick={() => onShiftBar(1)}

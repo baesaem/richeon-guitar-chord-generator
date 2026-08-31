@@ -144,10 +144,10 @@ export function GuitarLore() {
         {HISTORY.map((h) => (
           <li
             key={h.title}
-            className="rounded-lg border border-gray-200 p-2.5 dark:border-gray-700"
+            className="rounded-lg border border-[var(--panel-line)] p-2.5"
           >
             <div className="mb-0.5 text-[13px] font-bold">{h.title}</div>
-            <p className="text-[11px] leading-snug text-gray-500">{h.body}</p>
+            <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{h.body}</p>
           </li>
         ))}
       </ul>
@@ -157,7 +157,7 @@ export function GuitarLore() {
       <div className="mb-3 mt-1 overflow-x-auto">
         <table className="w-full min-w-[300px] text-left text-xs">
           <thead>
-            <tr className="text-[10px] text-gray-400">
+            <tr className="text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               <th className="py-1 font-normal">번호</th>
               <th className="font-normal">이름</th>
               <th className="font-normal">영어</th>
@@ -166,11 +166,11 @@ export function GuitarLore() {
           </thead>
           <tbody>
             {PARTS.map((p) => (
-              <tr key={p.no} className="border-t border-gray-200 dark:border-gray-800">
+              <tr key={p.no} className="border-t border-[var(--panel-line)]">
                 <td className="py-1.5 font-bold text-[var(--accent)]">{p.no}</td>
                 <td className="font-medium">{p.ko}</td>
-                <td className="text-gray-500">{p.en}</td>
-                <td className="text-gray-500">{p.role}</td>
+                <td className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{p.en}</td>
+                <td className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{p.role}</td>
               </tr>
             ))}
           </tbody>
@@ -182,10 +182,10 @@ export function GuitarLore() {
         {KINDS.map((k) => (
           <li
             key={k.name}
-            className="rounded-lg border border-gray-200 p-2.5 dark:border-gray-700"
+            className="rounded-lg border border-[var(--panel-line)] p-2.5"
           >
             <div className="mb-0.5 text-[13px] font-bold">{k.name}</div>
-            <p className="text-[11px] leading-snug text-gray-500">{k.body}</p>
+            <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{k.body}</p>
           </li>
         ))}
       </ul>
@@ -195,14 +195,14 @@ export function GuitarLore() {
         {BRANDS.map((b) => (
           <li
             key={b.name}
-            className="rounded-lg border border-gray-200 p-2.5 dark:border-gray-700"
+            className="rounded-lg border border-[var(--panel-line)] p-2.5"
           >
             <div className="mb-0.5 text-[13px] font-bold">{b.name}</div>
-            <p className="text-[11px] leading-snug text-gray-500">{b.body}</p>
+            <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{b.body}</p>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[10px] leading-snug text-gray-400">
+      <p className="mt-2 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         브랜드보다 중요한 것은 내 손에 맞는 넥과 관리 상태입니다. 중고를
         살 때는 넥 휨과 줄 높이를 꼭 확인하세요.
       </p>

@@ -30,16 +30,16 @@ export function Working({
       role="status"
       aria-live="polite"
     >
-      <div className="w-full max-w-[220px] rounded-2xl bg-white p-5 text-center shadow-xl dark:bg-gray-900">
+      <div className="w-full max-w-[220px] rounded-2xl bg-white p-5 text-center shadow-xl">
         <span
           className="mx-auto mb-3 block h-9 w-9 animate-spin rounded-full border-[3px] border-[var(--accent)] border-t-transparent"
           aria-hidden="true"
         />
         <p className="text-sm font-medium">{label}</p>
-        {note && <p className="mt-0.5 truncate text-[11px] text-gray-500">{note}</p>}
+        {note && <p className="mt-0.5 truncate text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{note}</p>}
         {progress !== undefined && (
           <>
-            <div className="mt-3 h-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-[var(--chip)]">
               <div
                 className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
                 style={{ width: `${Math.max(3, Math.round(progress * 100))}%` }}
@@ -52,7 +52,7 @@ export function Working({
         )}
         {onCancel && (
           <button
-            className="mt-3 w-full rounded-lg bg-gray-100 py-2 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            className="mt-3 w-full rounded-lg bg-[var(--panel)] py-2 text-xs font-medium text-[var(--foreground)]"
             onClick={onCancel}
           >
             멈추기

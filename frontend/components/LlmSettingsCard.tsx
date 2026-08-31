@@ -58,7 +58,7 @@ function ProviderPicker({
             "flex-1 rounded py-1.5 text-[11px] disabled:opacity-40",
             current === p.id
               ? "bg-[var(--accent)] text-white"
-              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+              : "bg-[var(--panel)] text-[var(--foreground)]",
           ].join(" ")}
           onClick={() => onPick(p.base)}
         >
@@ -92,7 +92,7 @@ function ModelPicker({
 
   if (options.length === 0) {
     return (
-      <div className="w-full rounded border px-3 py-2 text-xs text-gray-500">
+      <div className="w-full rounded border px-3 py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         {value || "연결 확인을 누르면 채워집니다"}
       </div>
     );
@@ -209,13 +209,13 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
   const input =
     "w-full rounded border px-3 py-2 text-xs";
   const btn =
-    "shrink-0 whitespace-nowrap rounded bg-gray-100 px-3 py-1.5 text-xs " +
-    "disabled:opacity-40 dark:bg-gray-800";
+    "shrink-0 whitespace-nowrap rounded bg-[var(--panel)] px-3 py-1.5 text-xs " +
+    "disabled:opacity-40";
 
   return (
     <section className="mb-5">
       <div className="mb-1.5 text-sm font-medium">가사 도우미 (AI)</div>
-      <p className="mb-2 text-[11px] leading-snug text-gray-500">
+      <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         영상 제목에서 가수·곡명을 가려내 가사를 더 잘 찾습니다. 한국 가요가
         가사 목록에 영문으로 올라 있어 한글로는 안 찾히는 경우를 메웁니다.
         코드 인식에는 쓰지 않습니다.
@@ -252,7 +252,7 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
           </button>
         </div>
       ) : (
-        <p className="mb-2 rounded bg-gray-50 px-2 py-1.5 text-[11px] text-gray-500 dark:bg-gray-800">
+        <p className="mb-2 rounded bg-[var(--panel)] px-2 py-1.5 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           키가 없어 이 기능은 꺼져 있습니다. 나머지 기능은 그대로 동작합니다.
         </p>
       )}
@@ -297,7 +297,7 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
           연결 확인
         </button>
       </div>
-      <p className="mt-1 text-[10px] leading-snug text-gray-400">
+      <p className="mt-1 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         연결 확인을 누르면 쓸 수 있는 모델을 물어 가장 새 것으로 맞춥니다.
       </p>
 
@@ -331,7 +331,7 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
 
       {online && (
       <details className="mt-1.5">
-        <summary className="cursor-pointer text-[11px] text-gray-500">
+        <summary className="cursor-pointer text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           주소 직접 넣기 (OpenAI 호환)
         </summary>
         <div className="mt-1.5 flex gap-1.5">
@@ -351,7 +351,7 @@ export function LlmSettingsCard({ online }: { online: boolean }) {
             적용
           </button>
         </div>
-        <p className="mt-1 text-[10px] leading-snug text-gray-400">
+        <p className="mt-1 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           위 두 서비스 말고도 OpenAI 호환 API면 무엇이든 됩니다. 내 PC에서
           돌리는 모델도 주소만 바꾸면 쓸 수 있습니다.
         </p>
@@ -462,7 +462,7 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
           </button>
         </div>
       ) : (
-        <p className="mb-2 rounded bg-gray-50 px-2 py-1.5 text-[11px] leading-snug text-gray-500 dark:bg-gray-800">
+        <p className="mb-2 rounded bg-[var(--panel)] px-2 py-1.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           키를 넣으면 이 기기에만 저장되고, 가사를 찾을 때만 씁니다. 넣지
           않아도 가사 찾기는 동작합니다 — 한국 가요를 덜 찾을 뿐입니다.
         </p>
@@ -507,7 +507,7 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
           연결 확인
         </button>
       </div>
-      <p className="mt-1 text-[10px] leading-snug text-gray-400">
+      <p className="mt-1 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         연결 확인을 누르면 쓸 수 있는 모델을 물어 가장 새 것으로 맞춥니다.
       </p>
 
@@ -522,7 +522,7 @@ function LocalKeyForm({ input, btn }: { input: string; btn: string }) {
         </p>
       )}
 
-      <p className="mt-1.5 text-[10px] leading-snug text-gray-400">
+      <p className="mt-1.5 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         키는 이 브라우저에만 남습니다. 여럿이 쓰는 기기라면 넣지 마세요.
       </p>
 

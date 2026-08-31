@@ -53,10 +53,10 @@ export function LyricEditor({
       />
 
       <div className="mt-2 flex items-center gap-2">
-        <span className="text-[11px] text-gray-500">시작</span>
+        <span className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">시작</span>
         <span className="tabular-nums text-sm font-medium">{clock(start)}</span>
         <button
-          className="ml-auto rounded bg-gray-100 px-2 py-1 text-[11px] dark:bg-gray-800"
+          className="ml-auto rounded bg-[var(--panel)] px-2 py-1 text-[11px]"
           onClick={() => setStart(now)}
         >
           지금 자리({clock(now)})로
@@ -153,17 +153,17 @@ export function LyricRow({
       )}
       <span className="relative flex items-center gap-2">
         {label && (
-          <span className="w-16 shrink-0 pt-0.5 text-[10px] tabular-nums text-gray-400">
+          <span className="w-16 shrink-0 pt-0.5 text-[10px] tabular-nums text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             {label}
           </span>
         )}
         {/* 시작 마디. 고른 줄에서는 －＋로 옮긴다 — 이 줄부터 아래가
             함께 움직인다(가사는 앞뒤 순서가 정해져 있다) */}
         {bar !== undefined && (
-          <span className="flex shrink-0 items-center gap-0.5 text-[10px] tabular-nums text-gray-400">
+          <span className="flex shrink-0 items-center gap-0.5 text-[10px] tabular-nums text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             {selected && onBar && (
               <button
-                className="rounded bg-gray-200/80 px-1 text-[11px] font-bold leading-4 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                className="rounded bg-[var(--chip)] px-1 text-[11px] font-bold leading-4 text-[var(--foreground)]"
                 title="이 줄부터 아래를 한 마디 앞으로"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -176,7 +176,7 @@ export function LyricRow({
             <span className="w-7 text-center">{bar}마디</span>
             {selected && onBar && (
               <button
-                className="rounded bg-gray-200/80 px-1 text-[11px] font-bold leading-4 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                className="rounded bg-[var(--chip)] px-1 text-[11px] font-bold leading-4 text-[var(--foreground)]"
                 title="이 줄부터 아래를 한 마디 뒤로"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -196,7 +196,7 @@ export function LyricRow({
                 그대로 있다 — 자막이 한 줄씩 밀려 붙었을 때 쓴다 */}
             {onGrab && (
               <button
-                className="cursor-grab touch-none rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] text-gray-600 active:cursor-grabbing dark:bg-gray-700 dark:text-gray-300"
+                className="cursor-grab touch-none rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] text-[var(--foreground)] active:cursor-grabbing"
                 title="잡고 끌어 가사 자리 바꾸기"
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -211,7 +211,7 @@ export function LyricRow({
                 넣으므로 뒤 가사가 밀리지 않는다 */}
             {onAddAfter && (
               <button
-                className="rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                className="rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--foreground)]"
                 title="이 줄 다음에 새 줄을 넣습니다"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -225,7 +225,7 @@ export function LyricRow({
                 갈렸을 때 도로 잇는다 */}
             {onMergeDown && (
               <button
-                className="rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                className="rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--foreground)]"
                 title="아랫줄을 이 줄에 붙입니다"
                 onClick={(e) => {
                   e.stopPropagation();

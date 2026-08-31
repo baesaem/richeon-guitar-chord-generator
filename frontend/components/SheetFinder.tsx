@@ -98,7 +98,7 @@ export function SheetFinder({
     return (
       <>
         <Working label="악보 찾는 중" note="웹에서 이 곡의 코드 악보를 찾습니다" />
-        <p className="py-4 text-center text-xs text-gray-400">악보 찾는 중…</p>
+        <p className="py-4 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">악보 찾는 중…</p>
       </>
     );
   }
@@ -113,13 +113,13 @@ export function SheetFinder({
       {items && items.length > 0 && (
         <>
           <div className="mb-2 flex items-start gap-2">
-            <p className="min-w-0 flex-1 text-[11px] leading-snug text-gray-500">
+            <p className="min-w-0 flex-1 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               <span className="font-medium">{query}</span> 로 찾은 결과입니다.
               {foundAt > 0 && ` (${when(foundAt)})`}
             </p>
             {online && (
               <button
-                className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] disabled:opacity-40 dark:bg-gray-800"
+                className="shrink-0 rounded bg-[var(--panel)] px-2 py-1 text-[11px] disabled:opacity-40"
                 disabled={busy}
                 onClick={search}
               >
@@ -134,7 +134,7 @@ export function SheetFinder({
                   href={hit.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
+                  className="flex items-center gap-2 rounded border border-[var(--panel-line)] px-2.5 py-1.5"
                   onClick={(e) => {
                     // 새 창이 막힌 환경에서는 눌러도 아무 일이 없다.
                     // 우리가 직접 열고, 막히면 이 창에서 연다.
@@ -146,9 +146,9 @@ export function SheetFinder({
                     <span className="block truncate text-xs font-medium">
                       {hit.title}
                     </span>
-                    <span className="block text-[11px] text-gray-500">{hit.site}</span>
+                    <span className="block text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{hit.site}</span>
                   </span>
-                  <span className="shrink-0 text-gray-400">↗</span>
+                  <span className="shrink-0 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">↗</span>
                 </a>
               </li>
             ))}
@@ -158,12 +158,12 @@ export function SheetFinder({
 
       {items && items.length === 0 && !error && (
         <div className="mb-2 flex items-center gap-2">
-          <p className="min-w-0 flex-1 text-[11px] text-gray-500">
+          <p className="min-w-0 flex-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             찾은 페이지가 없습니다. 아래에서 직접 찾아보세요.
           </p>
           {online && (
             <button
-              className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] disabled:opacity-40 dark:bg-gray-800"
+              className="shrink-0 rounded bg-[var(--panel)] px-2 py-1 text-[11px] disabled:opacity-40"
               disabled={busy}
               onClick={search}
             >
@@ -184,7 +184,7 @@ export function SheetFinder({
 function SiteLinks({ query }: { query: string }) {
   return (
     <>
-      <p className="mb-1 text-[11px] font-medium text-gray-500">직접 찾아보기</p>
+      <p className="mb-1 text-[11px] font-medium text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">직접 찾아보기</p>
       <ul className="space-y-1 pb-2">
         {SHEET_SOURCES.map((src) => (
           <li key={src.name}>
@@ -192,7 +192,7 @@ function SiteLinks({ query }: { query: string }) {
               href={src.url(query)}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
+              className="flex items-center gap-2 rounded border border-[var(--panel-line)] px-2.5 py-1.5"
               onClick={(e) => {
                 e.preventDefault();
                 openLink(src.url(query));
@@ -200,11 +200,11 @@ function SiteLinks({ query }: { query: string }) {
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-xs font-medium">{src.name}</span>
-                <span className="block text-[11px] leading-snug text-gray-500">
+                <span className="block text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                   {src.note}
                 </span>
               </span>
-              <span className="shrink-0 text-gray-400">↗</span>
+              <span className="shrink-0 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">↗</span>
             </a>
           </li>
         ))}
@@ -246,7 +246,7 @@ function OfflineSheets({ title }: { title: string }) {
 
   return (
     <>
-      <p className="mb-2 text-[11px] leading-snug text-gray-500">
+      <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         검색어 <span className="font-medium">{query}</span>
         {busy && " · AI로 다듬는 중…"}
         {refined && " · AI가 다듬었습니다"}

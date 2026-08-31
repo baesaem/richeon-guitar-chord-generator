@@ -36,7 +36,7 @@ export function Fretboard() {
       <svg
         viewBox={`0 0 ${width} ${height}`}
         style={{ width, maxWidth: "none" }}
-        className="h-auto text-gray-700 dark:text-gray-300"
+        className="h-auto text-[var(--foreground)]"
         role="img"
         aria-label="기타 지판 음 이름표"
       >

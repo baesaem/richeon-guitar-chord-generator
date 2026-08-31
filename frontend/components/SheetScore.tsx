@@ -542,7 +542,7 @@ function SystemRow({
           return (
             <span
               key={`n${bi}`}
-              className="pointer-events-none absolute rounded-sm bg-white/80 px-[1px] text-[7px] font-semibold leading-none text-gray-400 roomy:text-[9px]"
+              className="pointer-events-none absolute rounded-sm bg-white/80 px-[1px] text-[7px] font-semibold leading-none text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] roomy:text-[9px]"
               style={{ left: `${toX(b.x0) * 100}%`, top: 0 }}
             >
               {bi + 1}

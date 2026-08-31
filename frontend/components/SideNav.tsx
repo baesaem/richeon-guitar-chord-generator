@@ -62,7 +62,7 @@ export function SideNav({
                   "flex w-full items-center gap-3 rounded-lg px-3 py-3.5 text-left text-[17px] transition-colors",
                   active
                     ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] font-semibold text-[var(--accent)]"
-                    : "text-gray-500 hover:bg-gray-500/10 dark:text-gray-400",
+                    : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] hover:bg-[var(--panel)]",
                 ].join(" ")}
               >
                 {/* 활성 메뉴는 왼쪽에 강조색 기둥이 선다 */}
@@ -91,7 +91,7 @@ export function SideNav({
         })}
       </ul>
 
-      <p className="px-4 py-3 text-[11px] leading-snug text-gray-400">
+      <p className="px-4 py-3 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         개인 학습·연습용
       </p>
     </nav>

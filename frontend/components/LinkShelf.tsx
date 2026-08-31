@@ -133,11 +133,11 @@ export function LinkShelf({
     <div>
       {busy && <Working label="링크 담는 중" note="영상이면 제목을 알아봅니다" />}
 
-      <p className="mb-2 text-[11px] leading-snug text-gray-500">{blurb}</p>
+      <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{blurb}</p>
 
       {!readOnly && (
         <button
-          className="mb-2 w-full rounded bg-gray-100 py-1.5 text-xs font-medium dark:bg-gray-800"
+          className="mb-2 w-full rounded bg-[var(--panel)] py-1.5 text-xs font-medium"
           onClick={() => openDialog()}
         >
           {addLabel}
@@ -165,7 +165,7 @@ export function LinkShelf({
       )}
 
       {items.length === 0 ? (
-        <p className="py-6 text-center text-xs text-gray-400">
+        <p className="py-6 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           {readOnly
             ? "아직 받은 자료가 없습니다. 위 「새 강좌 가져오기」를 눌러 보세요."
             : "아직 담은 링크가 없습니다. YouTube 강좌나 밴드·블로그 주소를 붙여넣어 보세요."}
@@ -175,7 +175,7 @@ export function LinkShelf({
           {items.map((l) => (
             <li
               key={l.id}
-              className="flex items-center gap-2.5 rounded-lg border border-gray-200 p-2 dark:border-gray-700"
+              className="flex items-center gap-2.5 rounded-lg border border-[var(--panel-line)] p-2"
             >
               {!readOnly && (
                 <input
@@ -194,7 +194,7 @@ export function LinkShelf({
                   <img
                     src={thumbOf(l.videoId)}
                     alt=""
-                    className="h-12 w-20 shrink-0 rounded bg-gray-200 object-cover dark:bg-gray-800"
+                    className="h-12 w-20 shrink-0 rounded bg-[var(--chip)] object-cover"
                     loading="lazy"
                     /* 지워졌거나 비공개가 된 영상은 그림이 없다.
                        깨진 그림 대신 빈 칸으로 둔다 */
@@ -212,11 +212,11 @@ export function LinkShelf({
                     {l.title}
                   </span>
                   {l.note && (
-                    <span className="mt-0.5 block overflow-hidden text-[11px] leading-snug text-gray-500 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                    <span className="mt-0.5 block overflow-hidden text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                       {l.note}
                     </span>
                   )}
-                  <span className="mt-0.5 block truncate text-[10px] text-gray-400">
+                  <span className="mt-0.5 block truncate text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                     {(l as Lecture & { klass?: string }).klass
                       ? `${(l as Lecture & { klass?: string }).klass} · ${l.site}`
                       : l.site}
@@ -226,7 +226,7 @@ export function LinkShelf({
               {!readOnly && (
                 <>
                   <button
-                    className="shrink-0 px-1 text-xs text-gray-500"
+                    className="shrink-0 px-1 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
                     onClick={() => openDialog(l)}
                     aria-label="링크 수정"
                   >
@@ -255,7 +255,7 @@ export function LinkShelf({
             setEditing(null);
           }}
         >
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             YouTube 강좌·밴드·블로그 등 주소를 붙여넣으세요. YouTube 영상은
             제목을 비워 두면 알아서 가져옵니다.
           </p>

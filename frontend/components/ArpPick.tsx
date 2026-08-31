@@ -34,7 +34,7 @@ export function ArpPickModal({
 
   return (
     <Popup title="아르페지오 패턴" width="max-w-xs" onClose={onClose}>
-      <p className="mb-2 text-[11px] leading-snug text-gray-500">
+      <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         <button
           className="font-semibold text-[var(--accent)] underline"
           onClick={() => setNo(rec.no)}
@@ -53,7 +53,7 @@ export function ArpPickModal({
               "rounded py-1 text-xs",
               q.no === no
                 ? "bg-black text-white dark:bg-white dark:text-black"
-                : "bg-gray-100 dark:bg-gray-800",
+                : "bg-[var(--panel)]",
               q.no === rec.no && q.no !== no
                 ? "ring-1 ring-[var(--accent)]"
                 : "",
@@ -68,7 +68,7 @@ export function ArpPickModal({
         <>
           <div className="mb-1 flex items-baseline gap-2">
             <span className="text-sm font-bold">패턴 {p.no}</span>
-            <span className="text-[11px] text-gray-500">
+            <span className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               보기 코드 {p.chords.join(" → ")}
             </span>
             {p.no === rec.no && (
@@ -79,7 +79,7 @@ export function ArpPickModal({
           </div>
           <ArpPatternTab chords={p.chords} seq={p.seq} />
           {p.note && (
-            <p className="text-[11px] leading-snug text-gray-500">{p.note}</p>
+            <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{p.note}</p>
           )}
           <p className="text-[11px] text-[var(--accent)]">♪ {p.songs}</p>
           <button

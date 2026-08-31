@@ -31,7 +31,7 @@ export function StrumPickModal({
 
   return (
     <Popup title="스트로크 패턴" width="max-w-xs" onClose={onClose}>
-      <p className="mb-2 text-[11px] leading-snug text-gray-500">
+      <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         <button
           className="font-semibold text-[var(--accent)] underline"
           onClick={() => setName("")}
@@ -53,7 +53,7 @@ export function StrumPickModal({
                   "w-full rounded border px-2.5 py-1.5 text-left",
                   active
                     ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_9%,transparent)]"
-                    : "border-gray-200 dark:border-gray-700",
+                    : "border-[var(--panel-line)]",
                 ].join(" ")}
                 onClick={() => setName(p.name)}
               >
@@ -66,7 +66,7 @@ export function StrumPickModal({
                     </span>
                   )}
                 </div>
-                <div className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                <div className="mt-0.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                   {p.hint}
                 </div>
               </button>

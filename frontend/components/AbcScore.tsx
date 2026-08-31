@@ -382,7 +382,7 @@ ${abc}`;
         )}
         {!!chordNote?.shift && chordNote.matched > 0 && (
           <span
-            className="text-[11px] text-gray-500"
+            className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
             title="악보가 카포를 쓰도록 옮겨 적혀 있습니다"
           >
             악보가 음원보다 {Math.abs(chordNote.shift)}반음{" "}

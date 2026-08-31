@@ -137,7 +137,7 @@ export function ArpPatternTab({ chords, seq }: { chords: string[]; seq: string[]
 export function ArpeggioGuide() {
   return (
     <div>
-      <p className="mb-3 text-[11px] leading-snug text-gray-500">
+      <p className="mb-3 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         아르페지오는 코드를 한 번에 긁지 않고 한 줄씩 나눠 뜯는 주법입니다.
         기타반 유인물 「아르페지오 모음 1·2」의 패턴과 곡 배정을 그대로
         옮기고, 유인물 밖의 표준 패턴을 뒤에 더했습니다. 연주설정의
@@ -148,7 +148,7 @@ export function ArpeggioGuide() {
       <div className="mb-1.5 overflow-x-auto">
         <table className="w-full min-w-[260px] text-center text-xs">
           <thead>
-            <tr className="text-[10px] text-gray-400">
+            <tr className="text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               <th className="py-1 font-normal">표기</th>
               <th className="font-normal">손가락</th>
               <th className="font-normal">스페인어</th>
@@ -157,25 +157,25 @@ export function ArpeggioGuide() {
           </thead>
           <tbody>
             {FINGERS.map((f) => (
-              <tr key={f.pima} className="border-t border-gray-200 dark:border-gray-800">
+              <tr key={f.pima} className="border-t border-[var(--panel-line)]">
                 <td className="py-1.5 font-mono text-sm font-bold text-[var(--accent)]">
                   {f.pima}
                 </td>
                 <td className="font-medium">{f.ko}</td>
-                <td className="text-gray-500">{f.es}</td>
-                <td className="text-gray-500">{f.en}</td>
+                <td className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{f.es}</td>
+                <td className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{f.en}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="mb-3 text-[10px] leading-snug text-gray-400">
+      <p className="mb-3 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         새끼손가락은 쓰지 않습니다. 유인물의 T는 p(엄지), r은 a(약지)와 같은
         표기입니다.
       </p>
 
       <h3 className="mb-1 text-sm font-semibold">엄지(p)가 짚는 줄</h3>
-      <p className="mb-1.5 text-[11px] leading-snug text-gray-500">
+      <p className="mb-1.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         엄지는 코드의 근음(가장 낮은 음)이 있는 줄을 뜯습니다. 나머지는
         검지 3번줄 · 중지 2번줄 · 약지 1번줄이 기본입니다.
       </p>
@@ -183,10 +183,10 @@ export function ArpeggioGuide() {
         {BASS_RULE.map((r) => (
           <div
             key={r.string}
-            className="flex-1 rounded border border-gray-200 py-1.5 text-center dark:border-gray-700"
+            className="flex-1 rounded border border-[var(--panel-line)] py-1.5 text-center"
           >
             <div className="text-sm font-bold">{r.chords}</div>
-            <div className="text-[11px] text-gray-500">{r.string}</div>
+            <div className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{r.string}</div>
           </div>
         ))}
       </div>
@@ -196,28 +196,28 @@ export function ArpeggioGuide() {
         {ARP_PATTERNS.map((p) => (
           <li
             key={p.no}
-            className="rounded-lg border border-gray-200 p-2.5 dark:border-gray-700"
+            className="rounded-lg border border-[var(--panel-line)] p-2.5"
           >
             <div className="mb-1 flex items-baseline gap-2">
               <span className="text-sm font-bold">패턴 {p.no}</span>
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 보기 코드 {p.chords.join(" → ")}
               </span>
               {p.extra && (
-                <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800">
+                <span className="rounded bg-[var(--panel)] px-1 py-0.5 text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                   표준 추가
                 </span>
               )}
             </div>
             <ArpPatternTab chords={p.chords} seq={p.seq} />
             {p.note && (
-              <p className="text-[11px] leading-snug text-gray-500">{p.note}</p>
+              <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{p.note}</p>
             )}
             <p className="text-[11px] text-[var(--accent)]">♪ {p.songs}</p>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[10px] leading-snug text-gray-400">
+      <p className="mt-2 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         여섯 줄이 기타 줄이고 맨 위가 1번줄(가는 줄)입니다. 숫자는 누르는
         프렛(0=개방현), 한 칸이 8분음표 하나(4/4 한 마디 = 8칸)입니다. 색이
         든 음이 엄지(p)가 뜯는 근음입니다.

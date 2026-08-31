@@ -144,7 +144,7 @@ export function HomeDashboard({
               {last.title}
             </span>
           </span>
-          <span className="shrink-0 text-[10px] text-gray-500">
+          <span className="shrink-0 text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             {ago(last.at)}
           </span>
         </button>
@@ -169,7 +169,7 @@ export function HomeDashboard({
                 "min-w-0 flex-1 truncate rounded-md py-1 text-[12px] font-medium transition-colors",
                 fetchTab === value
                   ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
-                  : "text-gray-500",
+                  : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]",
               ].join(" ")}
             >
               {label}
@@ -267,20 +267,20 @@ export function HomeDashboard({
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 md:flex-row">
         <section className="rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-3 py-1.5 md:flex md:min-h-0 md:w-[42%] md:shrink-0 md:flex-col">
           <div className="flex shrink-0 items-center justify-between py-1">
-            <h3 className="text-[11px] font-semibold text-gray-500">
+            <h3 className="text-[11px] font-semibold text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               최근 재생
             </h3>
-            <span className="text-[10px] text-gray-400">
+            <span className="text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               내 곡 {songCount ?? "…"}
               {folderCount > 0 && ` · 폴더 ${folderCount}`}
             </span>
           </div>
           {recent.length === 0 ? (
-            <p className="py-3 text-center text-xs text-gray-400">
+            <p className="py-3 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               곡을 열면 여기에 쌓입니다.
             </p>
           ) : rest.length === 0 ? (
-            <p className="py-2 text-center text-[11px] text-gray-400">
+            <p className="py-2 text-center text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               위의 이어듣기가 마지막으로 연 곡입니다.
             </p>
           ) : (
@@ -294,7 +294,7 @@ export function HomeDashboard({
                     <span className="min-w-0 flex-1 truncate text-[13px]">
                       {r.title}
                     </span>
-                    <span className="shrink-0 text-[10px] text-gray-400">
+                    <span className="shrink-0 text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                       {ago(r.at)}
                     </span>
                   </button>
@@ -308,11 +308,11 @@ export function HomeDashboard({
         {songs.length > 0 && (
           <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-3 py-1.5">
             <div className="flex shrink-0 items-center justify-between py-1">
-              <h3 className="text-[11px] font-semibold text-gray-500">
+              <h3 className="text-[11px] font-semibold text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 등록된 음원
               </h3>
               <button
-                className="text-[10px] text-gray-400 underline"
+                className="text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
                 onClick={onLibrary}
               >
                 관리는 음원목록에서
@@ -333,7 +333,7 @@ export function HomeDashboard({
                     <span className="min-w-0 flex-1 truncate text-xs">
                       {s.title || s.id}
                     </span>
-                    <span className="shrink-0 text-[10px] text-gray-400">
+                    <span className="shrink-0 text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                       {spellKey(s.key)} · {Math.floor(s.duration / 60)}:
                       {String(Math.floor(s.duration % 60)).padStart(2, "0")}
                     </span>
@@ -357,7 +357,7 @@ export function HomeDashboard({
             width={64}
           />
           <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-semibold text-gray-500">
+            <span className="block text-[10px] font-semibold text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               오늘의 코드
             </span>
             <span className="block text-xl font-bold leading-tight">
@@ -365,7 +365,7 @@ export function HomeDashboard({
                 label={labelFor(practice.root, practice.quality, false)}
               />
             </span>
-            <span className="block text-[10px] text-gray-400">
+            <span className="block text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               눌러서 코드표 전체 보기
             </span>
           </span>

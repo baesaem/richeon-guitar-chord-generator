@@ -48,7 +48,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
       <h2 className="mb-1 text-lg font-bold md:hidden">편집</h2>
-      <p className="mb-3 text-[11px] leading-snug text-gray-500">
+      <p className="mb-3 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         고칠 곡을 고르세요. 악보에서 마디를 <b>3초 길게 누르면</b>(마우스는
         오른쪽 클릭) 그 마디의 코드를 바꿉니다. 재생하면서 고칠 수 있습니다.
       </p>
@@ -64,7 +64,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
                 "rounded-full px-2.5 py-1 text-xs",
                 current === f.id
                   ? "bg-black text-white dark:bg-white dark:text-black"
-                  : "bg-gray-100 dark:bg-gray-800",
+                  : "bg-[var(--panel)]",
               ].join(" ")}
             >
               {f.label}
@@ -74,9 +74,9 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
       </div>
 
       {songs === null ? (
-        <p className="py-2 text-xs text-gray-400">읽는 중…</p>
+        <p className="py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">읽는 중…</p>
       ) : shown.length === 0 ? (
-        <p className="py-2 text-xs text-gray-400">
+        <p className="py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           {current === "all"
             ? "기기에 저장된 곡이 없습니다. 음원목록에서 먼저 곡을 담으세요."
             : `「${current}」 폴더에 곡이 없습니다.`}
@@ -92,7 +92,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
                 <div className="truncate text-sm font-medium">
                   {song.title || song.id}
                 </div>
-                <div className="mt-0.5 text-[11px] text-gray-500">
+                <div className="mt-0.5 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                   {song.key ? spellKey(song.key) : "조성 미상"} ·{" "}
                   {Math.round(song.bpm)} BPM
                 </div>

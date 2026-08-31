@@ -106,11 +106,11 @@ import { voicingFor } from "@/lib/voicings";
 
 /** 연주기 곡 고르기의 앞·뒤 단추 */
 const SONG_STEP =
-  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-200/70 text-[10px] text-gray-700 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-200";
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--chip)] text-[10px] text-[var(--foreground)] disabled:opacity-30";
 
 /** 전체보기 탭 줄의 되감기·정지·끝으로 단추 */
 const TRANSPORT =
-  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-200/70 text-gray-700 disabled:opacity-40 dark:bg-gray-700 dark:text-gray-200";
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--chip)] text-[var(--foreground)] disabled:opacity-40";
 
 /**
  * 곡 화면을 예전 UI로 볼지.
@@ -1392,7 +1392,7 @@ export default function Home() {
       />
 
       {/* 본문은 화면 폭을 그대로 쓴다. 폰에서만 너무 넓어지지 않게 모은다 */}
-      <div className="mx-auto flex h-full min-w-0 w-full max-w-2xl flex-col sm:max-w-none md:mx-0 md:border-l md:border-gray-200 md:dark:border-gray-800">
+      <div className="mx-auto flex h-full min-w-0 w-full max-w-2xl flex-col sm:max-w-none md:mx-0 md:border-l md:border-[var(--panel-line)] md:">
         {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바. */}
         <header className="shrink-0 bg-[var(--bar-bg)]">
           <div className="flex items-center gap-2.5 px-3 py-2 roomy:gap-3 roomy:px-5 roomy:py-4">
@@ -1459,13 +1459,13 @@ export default function Home() {
             width="max-w-xs"
             onClose={() => setAskExit(false)}
           >
-            <p className="mb-2.5 text-[11px] leading-snug text-gray-500">
+            <p className="mb-2.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               받아 둔 곡과 설정은 그대로 남습니다. 다시 열면 이어서 치실 수
               있습니다.
             </p>
             <div className="space-y-1.5">
               <button
-                className="w-full rounded bg-gray-100 py-2.5 text-sm font-medium dark:bg-gray-800"
+                className="w-full rounded bg-[var(--panel)] py-2.5 text-sm font-medium"
                 onClick={() => setAskExit(false)}
               >
                 돌아가기
@@ -1499,7 +1499,7 @@ export default function Home() {
               setNewSongs([]);
             }}
           >
-            <p className="mb-2.5 text-[11px] leading-snug text-gray-500">
+            <p className="mb-2.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               강사님이 새 자료를 올리거나 고쳤습니다. 받으러 가시겠어요?
             </p>
             <div className="space-y-1.5">
@@ -1540,7 +1540,7 @@ export default function Home() {
                 </button>
               ))}
               <button
-                className="w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
+                className="w-full rounded bg-[var(--panel)] py-2 text-xs"
                 onClick={() => {
                   markLessonsSeen(newLessons.flatMap((l) => l.ids));
                   markSongsSeen(newSongs.flatMap((g) => g.stamp));
@@ -1569,14 +1569,14 @@ export default function Home() {
                 className="mx-auto flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-[var(--background)] shadow-xl sm:max-w-none"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-2 dark:border-gray-800">
+                <div className="flex shrink-0 items-center gap-2 border-b border-[var(--panel-line)] px-3 py-2">
                   <h3 className="min-w-0 flex-1 truncate text-sm font-bold">
                     {result.title || "악보"}
                   </h3>
                   {/* 잘못 고쳤을 때 돌아갈 자리. 고칠 것이 있을 때만 낸다 */}
                   {editMode && undo.length > 0 && (
                     <button
-                      className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] dark:bg-gray-800"
+                      className="shrink-0 rounded bg-[var(--panel)] px-2 py-1 text-[11px]"
                       onClick={undoChordEdit}
                     >
                       되돌리기 {undo.length}
@@ -1619,7 +1619,7 @@ export default function Home() {
                     />
                   )}
                   <button
-                    className="rounded px-2 py-1 text-sm text-gray-500"
+                    className="rounded px-2 py-1 text-sm text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
                     onClick={() => setShowSheet(false)}
                     aria-label="닫기"
                   >
@@ -1630,7 +1630,7 @@ export default function Home() {
                 {/* 곡 고르기. 연주기는 창을 닫지 않고 곡을 옮겨 다니는 자리다 —
                 한 곡 치고 창을 닫았다 다시 여는 것은 번거롭다. */}
                 {songList.length > 1 && (
-                  <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+                  <div className="flex shrink-0 items-center gap-1.5 border-b border-[var(--panel-line)] px-2 py-1.5">
                     <button
                       className={SONG_STEP}
                       disabled={songAt <= 0}
@@ -1643,7 +1643,7 @@ export default function Home() {
                       ◀
                     </button>
                     <select
-                      className="min-w-0 flex-1 truncate rounded bg-gray-100 px-2 py-1 text-[12px] dark:bg-gray-800"
+                      className="min-w-0 flex-1 truncate rounded bg-[var(--panel)] px-2 py-1 text-[12px]"
                       value={result.id}
                       onChange={(e) => {
                         if (e.target.value !== result.id)
@@ -1662,7 +1662,7 @@ export default function Home() {
                         </option>
                       ))}
                     </select>
-                    <span className="shrink-0 text-[11px] tabular-nums text-gray-400">
+                    <span className="shrink-0 text-[11px] tabular-nums text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                       {songAt >= 0
                         ? `${songAt + 1}/${songList.length}`
                         : `−/${songList.length}`}
@@ -1685,7 +1685,7 @@ export default function Home() {
                 재생 단추는 탭 줄에 붙여 둔다 — 이 창이 영상을 가리므로,
                 여기 없으면 창을 닫았다 열었다 하며 재생해야 한다. 줄은
                 스크롤 밖이라 어느 탭에서든 늘 같은 자리에 있다. */}
-                <div className="flex shrink-0 items-center gap-1 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800">
+                <div className="flex shrink-0 items-center gap-1 border-b border-[var(--panel-line)] px-2 py-1.5">
                   {/* 되감기·재생·정지·끝으로. 창이 영상을 가리므로 여기에 둔다 */}
                   <span className="flex shrink-0 items-center gap-0.5">
                     <button
@@ -1808,10 +1808,10 @@ export default function Home() {
                           className={[
                             "flex-1 rounded-md py-1 text-[13px] font-medium transition-colors",
                             disabled
-                              ? "text-gray-300 dark:text-gray-600"
+                              ? "text-[color-mix(in_srgb,var(--foreground)_35%,transparent)]"
                               : sheetTab === value
-                                ? "bg-gray-200/80 text-black dark:bg-gray-700 dark:text-white"
-                                : "text-gray-500",
+                                ? "bg-[var(--chip)] text-black dark:text-white"
+                                : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]",
                           ].join(" ")}
                         >
                           {label}
@@ -1902,7 +1902,7 @@ export default function Home() {
                       headerRight={
                         settings.adminMode ? (
                           <button
-                            className="shrink-0 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                            className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                             onClick={() => openAbcStudio()}
                           >
                             ABC 수정
@@ -1985,7 +1985,7 @@ export default function Home() {
                     <div className="flex flex-col gap-2 p-3">
                       <NoMelody admin={settings.adminMode} />
                       {/* 악보가 없어도 노래는 따라가야 한다 */}
-                      <section className="h-[45dvh] overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                      <section className="h-[45dvh] overflow-hidden rounded-xl border border-[var(--panel-line)]">
                         {lyricsPane}
                       </section>
                     </div>
@@ -2074,7 +2074,7 @@ export default function Home() {
                       )}
                       {editMode && (
                         <button
-                          className="mb-2 w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
+                          className="mb-2 w-full rounded bg-[var(--panel)] py-2 text-xs"
                           onClick={addLyricLine}
                         >
                           + 지금 자리({Math.floor(time / 60)}:
@@ -2083,7 +2083,7 @@ export default function Home() {
                         </button>
                       )}
                       {(result.lyrics ?? []).length === 0 && (
-                        <p className="py-4 text-center text-xs text-gray-400">
+                        <p className="py-4 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                           가사가 없습니다.
                           {editMode
                             ? " 위 단추로 한 줄씩 넣을 수 있습니다."
@@ -2207,7 +2207,7 @@ export default function Home() {
               />
               <div className="space-y-2 px-4">
                 {status && busy && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                     {STAGE_LABEL[status.stage]} ·{" "}
                     {Math.round(status.progress * 100)}%
                   </p>
@@ -2283,7 +2283,7 @@ export default function Home() {
                         </div>
                         {/* 가사는 재생에 맞춰 지금 줄이 따라 올라온다.
                           넓은 화면에서는 오른쪽 기둥에 이미 있으므로 감춘다 */}
-                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 md:hidden dark:border-gray-700">
+                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--panel-line)] md:hidden">
                           {lyricsPane}
                         </section>
                       </div>
@@ -2318,7 +2318,7 @@ export default function Home() {
                         {/* 폰에서는 한 뼘 안에 파형·코드·가사가 다 들어와야
                           한다. 코드 칸을 더 줄이고, 태블릿·PC에서만
                           원래 크기로 돌린다. */}
-                        <section className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-2 py-0.5 big:gap-2 big:px-2.5 big:py-1 dark:border-gray-700 dark:bg-gray-900">
+                        <section className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-2 py-0.5 big:gap-2 big:px-2.5 big:py-1">
                           {curPlay && (
                             <ChordDiagram
                               voicing={voicingFor(
@@ -2337,7 +2337,7 @@ export default function Home() {
                                 ""
                               )}
                             </div>
-                            <div className="text-[10px] text-gray-500 big:mt-0.5 big:text-sm">
+                            <div className="text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] big:mt-0.5 big:text-sm">
                               {nxtPlay ? (
                                 <>
                                   다음 <ChordLabel label={nxtPlay.label} />
@@ -2346,7 +2346,7 @@ export default function Home() {
                                 ""
                               )}
                             </div>
-                            <div className="truncate text-[9px] text-gray-400 big:text-[11px]">
+                            <div className="truncate text-[9px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] big:text-[11px]">
                               {barIdx + 1}/{bars.length}마디
                             </div>
                           </div>
@@ -2354,7 +2354,7 @@ export default function Home() {
                             /* 다음 코드는 그림만으로는 무엇인지 바로 읽히지
                              않는다 — 이름을 그림 위에 적어 둔다 */
                             <div className="flex shrink-0 flex-col items-center gap-0.5">
-                              <div className="text-[10px] font-bold leading-none text-gray-500 big:text-sm">
+                              <div className="text-[10px] font-bold leading-none text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] big:text-sm">
                                 <ChordLabel label={nxtPlay.label} />
                               </div>
                               <ChordDiagram
@@ -2370,7 +2370,7 @@ export default function Home() {
                         </section>
                         {/* 가사는 재생에 맞춰 지금 줄이 따라 올라온다.
                           넓은 화면에서는 오른쪽 기둥에 이미 있으므로 감춘다 */}
-                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 md:hidden dark:border-gray-700">
+                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--panel-line)] md:hidden">
                           {lyricsPane}
                         </section>
                       </div>
@@ -2418,7 +2418,7 @@ export default function Home() {
                         </div>
                         {/* 가사는 재생에 맞춰 지금 줄이 따라 올라온다.
                           넓은 화면에서는 오른쪽 기둥에 이미 있으므로 감춘다 */}
-                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 md:hidden dark:border-gray-700">
+                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--panel-line)] md:hidden">
                           {lyricsPane}
                         </section>
                       </div>
@@ -2445,7 +2445,7 @@ export default function Home() {
                         headerRight={
                           settings.adminMode ? (
                             <button
-                              className="shrink-0 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                              className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                               onClick={() => openAbcStudio()}
                             >
                               ABC 수정
@@ -2461,7 +2461,7 @@ export default function Home() {
                           채보로 가는 문을 한 곳으로 모은다 */}
                           {settings.adminMode && (
                             <button
-                              className="mt-2 rounded bg-gray-200/70 px-2 py-1 text-[11px] font-semibold dark:bg-gray-700"
+                              className="mt-2 rounded bg-[var(--chip)] px-2 py-1 text-[11px] font-semibold"
                               onClick={() => openAbcStudio()}
                             >
                               + ABC 악보 붙이기
@@ -2471,7 +2471,7 @@ export default function Home() {
                         {/* 악보가 없어도 노래는 따라가야 한다 — 빈 칸 대신
                           가사가 재생을 따라 흐른다. 넓은 화면은 오른쪽
                           기둥에 이미 있으므로 폰에서만 보인다 */}
-                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 md:hidden dark:border-gray-700">
+                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--panel-line)] md:hidden">
                           {lyricsPane}
                         </section>
                       </div>
@@ -2552,7 +2552,7 @@ export default function Home() {
                             "rounded px-1.5 py-0.5 text-[11px] font-semibold",
                             roomView === value
                               ? "bg-black text-white dark:bg-white dark:text-black"
-                              : "bg-gray-200/70 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
+                              : "bg-[var(--chip)] text-[var(--foreground)]",
                           ].join(" ")}
                         >
                           {label}
@@ -2595,11 +2595,11 @@ export default function Home() {
                     {/* 오른쪽 기둥 — 영상과 그 아래 가사. 넓은 화면에서는
                   가사를 늘 펼쳐 둔다(노래를 보며 치는 자리라서) */}
                     <div className="flex flex-col md:order-2 md:min-h-0 md:w-[44%] md:shrink-0 roomy:w-[50%] lg:w-[54%] xl:w-[58%] 2xl:w-[62%]">
-                      <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                      <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-[var(--panel-line)]">
                         {/* 곡 이름. 영상 안에도 적혀 있지만 접으면 사라지고, 유튜브가
                     아닌 곡(업로드)에는 아예 없다. 지금 무슨 곡을 보고 있는지는
                     늘 보여야 한다. */}
-                        <div className="flex items-center gap-1.5 border-b border-gray-200 px-2.5 py-1.5 dark:border-gray-700">
+                        <div className="flex items-center gap-1.5 border-b border-[var(--panel-line)] px-2.5 py-1.5">
                           {/* 어디서 온 곡인지 아이콘으로. YouTube면 빨간 재생 딱지,
                       올린 곡이면 음표 */}
                           {result.source === "youtube" ? (
@@ -2648,7 +2648,7 @@ export default function Home() {
 
                       {/* 넓은 화면 전용 가사 — 영상 아래를 채운다. 폰에서는
                   자리가 없어 「가사」 단추로 악보와 자리를 바꿔 쓴다 */}
-                      <section className="mx-2 mb-1.5 mt-1.5 hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900 roomy:flex">
+                      <section className="mx-2 mb-1.5 mt-1.5 hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] roomy:flex">
                         <LyricsPane
                           result={result}
                           time={time + lyricSync - settings.latency}
@@ -2670,11 +2670,11 @@ export default function Home() {
                     {/* 왼쪽 칸 — 악보/파형, 코드 박스, 가사. 넓은 화면에서는
                   이 칸만 따로 스크롤해 영상은 늘 제자리에 있다 */}
                     <div className="flex min-h-0 flex-1 flex-col md:order-1 md:min-w-0 md:overflow-y-auto">
-                      <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                      <section className="mx-2 mt-1.5 shrink-0 overflow-hidden rounded-xl border border-[var(--panel-line)] bg-[var(--panel)]">
                         {/* 타브/파형 세그먼트 + 연주설정·영상접기. 글자 크기를 통일한 한 줄.
                   타브를 왼쪽에 둔다 — 주로 보는 화면이라 손이 먼저 간다. */}
-                        <div className="flex shrink-0 items-center gap-1.5 border-b border-gray-200 px-2 py-1.5 dark:border-gray-800 roomy:gap-2 roomy:px-3 roomy:py-2.5">
-                          <div className="flex min-w-0 flex-1 rounded-lg bg-gray-200/70 p-0.5 dark:bg-gray-800">
+                        <div className="flex shrink-0 items-center gap-1.5 border-b border-[var(--panel-line)] px-2 py-1.5 roomy:gap-2 roomy:px-3 roomy:py-2.5">
+                          <div className="flex min-w-0 flex-1 rounded-lg bg-[var(--chip)] p-0.5">
                             {[
                               // 여섯 줄 타브다. 전체보기와 같은 이름을 쓴다 —
                               // 같은 것을 두 이름으로 부르면 헷갈린다.
@@ -2691,7 +2691,7 @@ export default function Home() {
                                   "min-w-0 flex-1 truncate rounded-md py-1 text-[13px] font-medium transition-colors roomy:py-2.5 roomy:text-[16px]",
                                   boardView === value
                                     ? "bg-white text-black shadow-sm dark:bg-black dark:text-white"
-                                    : "text-gray-500",
+                                    : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]",
                                 ].join(" ")}
                               >
                                 {label}
@@ -2736,7 +2736,7 @@ export default function Home() {
                               "flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-medium roomy:hidden",
                               showLyrics
                                 ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-[var(--accent)]"
-                                : "bg-gray-200/70 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+                                : "bg-[var(--chip)] text-[var(--foreground)]",
                             ].join(" ")}
                             title="가사를 음악에 맞춰 보여줍니다"
                           >
@@ -2763,7 +2763,7 @@ export default function Home() {
                                 videoCompact: !settings.videoCompact,
                               })
                             }
-                            className="flex shrink-0 items-center gap-1 rounded-lg bg-gray-200/70 px-2 py-1.5 text-[13px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300 roomy:gap-1.5 roomy:px-3 roomy:py-2.5 roomy:text-[16px]"
+                            className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--chip)] px-2 py-1.5 text-[13px] font-medium text-[var(--foreground)] roomy:gap-1.5 roomy:px-3 roomy:py-2.5 roomy:text-[16px]"
                             title="영상을 접어 코드에 자리를 넘깁니다"
                           >
                             <svg
@@ -2800,7 +2800,7 @@ export default function Home() {
                                 onPickStrum={() => setShowStrums(true)}
                                 right={
                                   <button
-                                    className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
+                                    className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
                                     onClick={() => {
                                       setEditMode(false);
                                       setShowSheet(true);
@@ -2847,7 +2847,7 @@ export default function Home() {
                             {settings.adminMode && !abcEntry && (
                               <div className="mb-1 text-right">
                                 <button
-                                  className="rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                                  className="rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                                   onClick={() => openAbcStudio()}
                                 >
                                   + ABC 악보 붙이기
@@ -2889,7 +2889,7 @@ export default function Home() {
                                   <>
                                     {settings.adminMode && (
                                       <button
-                                        className="shrink-0 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                                        className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                                         onClick={() => {
                                           setAbcAttach(true);
                                         }}
@@ -2898,7 +2898,7 @@ export default function Home() {
                                       </button>
                                     )}
                                     <button
-                                      className="shrink-0 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                                      className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                                       onClick={() => {
                                         setEditMode(false);
                                         setShowSheet(true);
@@ -2948,7 +2948,7 @@ export default function Home() {
                                 lines={wide ? 3 : 2}
                                 headerRight={
                                   <button
-                                    className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
+                                    className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
                                     onClick={() => {
                                       setEditMode(false);
                                       setShowSheet(true);
@@ -2992,7 +2992,7 @@ export default function Home() {
                                 playStyle={playStyle}
                                 headerRight={
                                   <button
-                                    className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
+                                    className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
                                     onClick={() => {
                                       setEditMode(false);
                                       setShowSheet(true);
@@ -3059,7 +3059,7 @@ export default function Home() {
                               playStyle={playStyle}
                               headerRight={
                                 <button
-                                  className="flex shrink-0 items-center gap-1 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-900 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
+                                  className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
                                   onClick={() => {
                                     setEditMode(false);
                                     setShowSheet(true);
@@ -3133,7 +3133,7 @@ export default function Home() {
                       {/* 가사 보기: 코드 박스와 곡 전체 코드를 감추고 그 자리에 가사를 띄운다.
                   넓은 화면에서는 오른쪽 기둥에 가사가 이미 있으므로 늘 악보 쪽이다 */}
                       {showLyrics && !wide ? (
-                        <section className="mx-2 mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                        <section className="mx-2 mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--panel-line)] bg-[var(--panel)]">
                           <LyricsPane
                             result={result}
                             time={time + lyricSync - settings.latency}
@@ -3152,7 +3152,7 @@ export default function Home() {
                         </section>
                       ) : (
                         <>
-                          <section className="mx-2 mt-1.5 flex shrink-0 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+                          <section className="mx-2 mt-1.5 flex shrink-0 items-center gap-3 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-3 py-1.5">
                             <ChordDiagram
                               voicing={
                                 cur ? voicingFor(cur.root, cur.quality) : null
@@ -3164,11 +3164,11 @@ export default function Home() {
                               <div className="truncate text-3xl font-bold leading-none">
                                 {cur ? <ChordLabel label={cur.label} /> : "—"}
                               </div>
-                              <div className="mt-1 text-xs text-gray-500">
+                              <div className="mt-1 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                                 다음{" "}
                                 {nxt ? <ChordLabel label={nxt.label} /> : "—"}
                               </div>
-                              <div className="mt-0.5 truncate text-[11px] text-gray-400">
+                              <div className="mt-0.5 truncate text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                                 <ChordLabel label={spellKey(result.key)} /> ·{" "}
                                 {Math.round(result.bpm)} BPM ·{" "}
                                 {result.time_signature} · {barIdx + 1}/
@@ -3177,7 +3177,7 @@ export default function Home() {
                             </div>
                             {nxt && (
                               <div className="flex shrink-0 flex-col items-center">
-                                <div className="text-xs font-semibold leading-none text-gray-500">
+                                <div className="text-xs font-semibold leading-none text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                                   <ChordLabel label={nxt.label} />
                                 </div>
                                 <ChordDiagram
@@ -3202,11 +3202,11 @@ export default function Home() {
             ) : (
               /* 아직 고른 곡이 없다 — 연습실은 곡을 받아야 도는 방이다 */
               <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                   홈이나 음원목록에서 곡을 고르면 여기서 연주됩니다.
                 </p>
                 <button
-                  className="rounded bg-gray-200/70 px-3 py-1.5 text-xs font-semibold dark:bg-gray-700"
+                  className="rounded bg-[var(--chip)] px-3 py-1.5 text-xs font-semibold"
                   onClick={() => setTab("home")}
                 >
                   홈으로
@@ -3236,14 +3236,14 @@ export default function Home() {
               abcOpen={abcAttach}
               abcStudio={
                 <>
-                  <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 pb-2 dark:border-gray-700">
+                  <div className="flex shrink-0 items-center gap-2 border-b border-[var(--panel-line)] pb-2">
                     <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                       악보 만들기
                       {result ? ` · ${result.title || result.id}` : ""}
                     </span>
                     {result && abcEntry && (
                       <button
-                        className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] text-red-600 dark:bg-gray-800"
+                        className="shrink-0 rounded bg-[var(--panel)] px-2 py-1 text-[11px] text-red-600"
                         onClick={() => {
                           removeAbc(result.id);
                           setAbcEntry(null);
@@ -3254,7 +3254,7 @@ export default function Home() {
                       </button>
                     )}
                     <button
-                      className="shrink-0 rounded bg-gray-200/70 px-2 py-1 text-[11px] font-semibold dark:bg-gray-700"
+                      className="shrink-0 rounded bg-[var(--chip)] px-2 py-1 text-[11px] font-semibold"
                       onClick={() => setAbcAttach(false)}
                     >
                       ← 등록 화면
@@ -3492,11 +3492,11 @@ function FullscreenButton() {
  */
 function NoMelody({ admin }: { admin: boolean }) {
   return (
-    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center dark:border-gray-700 dark:bg-gray-900/40">
-      <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+    <div className="rounded-lg border border-dashed border-[var(--panel-line)] bg-[var(--panel)] px-4 py-6 text-center">
+      <div className="text-sm font-semibold text-[var(--foreground)]">
         이 음원은 멜로디 악보를 지원하지 않습니다
       </div>
-      <p className="mt-1.5 text-[12px] leading-5 text-gray-500">
+      <p className="mt-1.5 text-[12px] leading-5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         {admin
           ? "위 줄의 「악보 그림 붙이기」로 PDF·사진을, 「악보 붙이기」로 .mscz·MusicXML을 붙이면 멜로디가 나옵니다."
           : "악보가 붙은 음원을 받으시면 이 자리에 멜로디가 나옵니다. 타브와 파형은 그대로 쓰실 수 있습니다."}

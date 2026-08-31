@@ -42,6 +42,9 @@
 :root {
   --panel: color-mix(in srgb, var(--foreground) 5%, var(--background));
   --panel-line: color-mix(in srgb, var(--foreground) 14%, var(--background));
+  /* 눌리는 것(단추·칩). 상자보다 한 단계 진해 손이 갈 자리로 보인다 */
+  --chip: color-mix(in srgb, var(--foreground) 12%, var(--background));
+  --chip-on: color-mix(in srgb, var(--foreground) 20%, var(--background));
 }
 
 @theme inline {

@@ -206,7 +206,7 @@ export function ChordScore({
           <div key={lineIndex} ref={hasActive ? activeRef : undefined}>
             <svg
               viewBox={`0 0 ${VB_W} ${ROW_H}`}
-              className="w-full text-gray-900 dark:text-gray-100"
+              className="w-full text-[var(--foreground)]"
               role="img"
               aria-label={`${lineIndex * per + 1}마디부터`}
             >

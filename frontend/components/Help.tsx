@@ -23,7 +23,7 @@ const HELP: Record<string, HelpPage> = {
     title: "홈",
     items: [
       ["처음이라면", "① 음원받기에서 기타반 곡을 받고 ② 음원목록에서 곡을 열어 ③ 악보를 보며 함께 연주합니다."],
-      ["새 강좌 알림", "강사님이 공부방에 자료를 올리면 앱을 열 때 알려 드립니다. 「받으러 가기」를 누르면 그 반 강의실이 열립니다."],
+      ["새 강좌 알림", "강사님이 강의실에 자료를 올리면 앱을 열 때 알려 드립니다. 「받으러 가기」를 누르면 그 반 강의실이 열립니다."],
       ["이어듣기", "마지막으로 듣던 곡을 한 번에 다시 엽니다."],
       ["기타반 카드", "초급·중급 반의 곡 받기로 바로 갑니다."],
       ["최근 재생 · 오늘의 코드", "곡 이름을 누르면 그 곡이, 코드 그림을 누르면 코드표가 열립니다."],
@@ -64,7 +64,7 @@ const HELP: Record<string, HelpPage> = {
     ],
   },
   lesson: {
-    title: "공부방",
+    title: "강의실",
     items: [
       ["초급 · 중급", "강사님이 올린 그 반의 강좌·자료입니다. 「새 강좌 가져오기」를 누르면 공유 폴더에서 받아 옵니다."],
       ["모두(초급,중급)", "두 반 자료를 한 목록으로 봅니다. 줄마다 어느 반 것인지 적혀 있습니다."],
@@ -116,7 +116,7 @@ export function HelpButton({ tab, playing }: { tab: Tab; playing: boolean }) {
   return (
     <>
       <button
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-400/60 text-[13px] font-bold text-gray-500 dark:border-gray-500 dark:text-gray-300"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--panel-line)] text-[13px] font-bold text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
         onClick={() => setOpen(true)}
         aria-label="도움말"
         title="도움말"
@@ -129,13 +129,13 @@ export function HelpButton({ tab, playing }: { tab: Tab; playing: boolean }) {
             {help.items.map(([head, body]) => (
               <li key={head}>
                 <div className="text-[13px] font-bold">{head}</div>
-                <p className="mt-0.5 text-xs leading-snug text-gray-500">
+                <p className="mt-0.5 text-xs leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                   {body}
                 </p>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-[10px] leading-snug text-gray-400">
+          <p className="mt-3 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             보고 있는 화면에 맞는 도움말이 열립니다. 다른 메뉴의 도움말은 그
             메뉴로 간 뒤 ?를 누르세요.
           </p>

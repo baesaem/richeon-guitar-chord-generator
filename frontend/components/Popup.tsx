@@ -26,14 +26,14 @@ export function Popup({
       onClick={onClose}
     >
       <div
-        className={`flex max-h-[85dvh] w-full ${width} flex-col rounded-xl bg-white shadow-xl dark:bg-gray-900`}
+        className={`flex max-h-[85dvh] w-full ${width} flex-col rounded-xl bg-white shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 제목줄은 고정. 긴 창(연주설정)을 내려도 이름과 닫기가 남는다 */}
         <div className="flex shrink-0 items-center justify-between px-4 pb-3 pt-4">
           <h3 className="text-base font-bold">{title}</h3>
           <button
-            className="rounded px-2 py-1 text-sm text-gray-500"
+            className="rounded px-2 py-1 text-sm text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
             onClick={onClose}
             aria-label="닫기"
           >

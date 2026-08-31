@@ -23,7 +23,7 @@ import {
 import { openLink } from "@/lib/openLink";
 
 /**
- * 공부방 — 밖에서 보며 배우는 것들.
+ * 강의실 — 밖에서 보며 배우는 것들.
  *
  * 강의실은 강사님이 올린 자료, 내 강좌는 각자 따로 듣는 것. 둘 다
  * 링크를 담아 두고 눌러서 그 자리로 가는 방식이다 — 영상을 앱 안에
@@ -157,7 +157,7 @@ export function LessonTab({
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
       {working && <Working label={working} />}
-      <h2 className="mb-2 text-lg font-bold roomy:hidden">공부방</h2>
+      <h2 className="mb-2 text-lg font-bold roomy:hidden">강의실</h2>
 
       <div className="mb-3 flex gap-1">
         {[
@@ -172,7 +172,7 @@ export function LessonTab({
               "flex-1 whitespace-nowrap rounded px-2 py-2 text-[13px]",
               page === value
                 ? "bg-black text-white dark:bg-white dark:text-black"
-                : "bg-gray-100 dark:bg-gray-800",
+                : "bg-[var(--panel)]",
             ].join(" ")}
           >
             {label}
@@ -200,7 +200,7 @@ export function LessonTab({
             </button>
             {adminMode && online && (
               <button
-                className="rounded bg-gray-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-gray-100 dark:text-black"
+                className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white"
                 onClick={() => setAskFolder("upload")}
                 title="이 반 강의실을 드라이브 폴더에 곧장 올립니다"
               >
@@ -209,7 +209,7 @@ export function LessonTab({
             )}
             {adminMode && (
               <button
-                className="rounded bg-gray-100 px-3 py-1.5 text-xs font-medium dark:bg-gray-800"
+                className="rounded bg-[var(--panel)] px-3 py-1.5 text-xs font-medium"
                 onClick={() => setAskFolder("file")}
                 title="파일로 내려받아 직접 올릴 때 씁니다"
               >
@@ -255,7 +255,7 @@ export function LessonTab({
           width="max-w-xs"
           onClose={() => setAskFolder(null)}
         >
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             {picked.length > 0
               ? `고른 ${picked.length}개를 담습니다.`
               : "이 반 강의실 전체를 담습니다."}{" "}

@@ -95,12 +95,12 @@ function Step({
   show?: string;
 }) {
   const btn =
-    "select-none touch-none rounded bg-gray-200/70 px-1 font-bold leading-5 text-gray-900 dark:bg-gray-700 dark:text-gray-100";
+    "select-none touch-none rounded bg-[var(--chip)] px-1 font-bold leading-5 text-[var(--foreground)]";
   const minusHold = useHold(onMinus);
   const plusHold = useHold(onPlus);
   return (
     <span className={`${show} shrink-0 items-center gap-0.5 text-[11px]`}>
-      <span className="text-gray-400">{label}</span>
+      <span className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{label}</span>
       <button className={btn} {...minusHold} title={minusTitle}>
         －
       </button>
@@ -229,7 +229,7 @@ export function PracticeRoom({
         "rounded px-2 py-0.5 text-[11px] font-semibold disabled:opacity-40",
         stem === value
           ? "bg-black text-white dark:bg-white dark:text-black"
-          : "bg-gray-200/70 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
+          : "bg-[var(--chip)] text-[var(--foreground)]",
       ].join(" ")}
     >
       {label}
@@ -251,7 +251,7 @@ export function PracticeRoom({
                     "w-full truncate rounded px-3 py-2.5 text-left text-sm",
                     s.id === songId
                       ? "bg-[var(--accent)] font-semibold text-white"
-                      : "bg-gray-100 dark:bg-gray-800",
+                      : "bg-[var(--panel)]",
                   ].join(" ")}
                   onClick={() => {
                     setPicking(false);
@@ -271,7 +271,7 @@ export function PracticeRoom({
             폰의 뒤로 가기로도 나간다. 좁은 제목줄은 곡 이름 몫이다. */}
         {/* 이전·다음 곡 — 목록 순서대로 옮겨 다닌다 */}
         <button
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-200/70 text-[10px] text-gray-700 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-200"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--chip)] text-[10px] text-[var(--foreground)] disabled:opacity-30"
           disabled={!onPrevSong}
           title="이전 곡"
           onClick={onPrevSong}
@@ -282,7 +282,7 @@ export function PracticeRoom({
           {title}
         </span>
         <button
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-200/70 text-[10px] text-gray-700 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-200"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--chip)] text-[10px] text-[var(--foreground)] disabled:opacity-30"
           disabled={!onNextSong}
           title="다음 곡"
           onClick={onNextSong}
@@ -293,7 +293,7 @@ export function PracticeRoom({
             곧바로 집어 간다. 곡이 스무 개면 열아홉 번 누를 수는 없다 */}
         {songs && songs.length > 1 && onPickSong && (
           <button
-            className="shrink-0 rounded bg-gray-200/70 px-2 py-1 text-[11px] font-semibold dark:bg-gray-700"
+            className="shrink-0 rounded bg-[var(--chip)] px-2 py-1 text-[11px] font-semibold"
             title="등록된 음원 가운데서 고릅니다"
             onClick={() => setPicking(true)}
           >
@@ -320,13 +320,13 @@ export function PracticeRoom({
               "mx-auto w-full max-w-[min(640px,68vh)] shrink-0 overflow-hidden md:max-w-none",
               videoCompact
                 ? "h-0 border-0"
-                : "rounded-xl border border-gray-200 dark:border-gray-700",
+                : "rounded-xl border border-[var(--panel-line)]",
             ].join(" ")}
           >
             {video}
           </section>
           {lyrics && (
-            <section className="hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 md:flex dark:border-gray-700">
+            <section className="hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--panel-line)] md:flex">
               {lyrics}
             </section>
           )}
@@ -335,7 +335,7 @@ export function PracticeRoom({
         {/* 왼쪽 기둥 — 설정과 악보 */}
         <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:order-1 md:min-w-0">
           {/* 설정 상자 — AI 앱과 같은 배치 */}
-          <section className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-2 dark:border-gray-700 dark:bg-gray-900">
+          <section className="shrink-0 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-2.5 py-2">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               {/* 무엇을 볼지가 먼저다 — 화면을 고른 다음 소리를 고른다 */}
               {viewTabs}
@@ -359,7 +359,7 @@ export function PracticeRoom({
                       ? "영상을 다시 보입니다"
                       : "영상을 감춰 악보를 넓게 봅니다"
                   }
-                  className="shrink-0 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                  className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                 >
                   {videoCompact ? "영상 보기" : "영상 감추기"}
                 </button>
@@ -463,7 +463,7 @@ export function PracticeRoom({
               >
                 ⏭
               </button>
-              <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-500">
+              <span className="w-10 shrink-0 text-right text-xs tabular-nums text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 {clock(now)}
               </span>
               <input
@@ -475,14 +475,14 @@ export function PracticeRoom({
                 value={Math.min(now, duration)}
                 onChange={(e) => onSeek(Number(e.target.value))}
               />
-              <span className="w-10 shrink-0 text-xs tabular-nums text-gray-500">
+              <span className="w-10 shrink-0 text-xs tabular-nums text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 {clock(duration)}
               </span>
             </div>
           </section>
 
           {/* 악보 — 이 칸만 스크롤 */}
-          <section className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700">
+          <section className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border border-[var(--panel-line)]">
             {score}
           </section>
         </div>

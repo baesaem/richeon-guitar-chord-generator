@@ -214,10 +214,10 @@ export function ScoreAttach({
   };
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-gray-500 roomy:text-[13px]">
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] roomy:text-[13px]">
       {score && align ? (
         <>
-          <span className="text-gray-700 dark:text-gray-300">
+          <span className="text-[var(--foreground)]">
             악보 {score.bars.length}마디
             {align.passes.length > 1 ? ` · ${align.passes.length}번 되풀이` : ""}
             {align.shift !== 0
@@ -240,7 +240,7 @@ export function ScoreAttach({
       )}
 
       {sheet && (
-        <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
+        <span className="flex items-center gap-1 text-[var(--foreground)]">
           · 그림 {sheet.bars.length}마디
           {sheet.source === "score" ? (
             " (악보 파일에 맞춤)"
@@ -254,7 +254,7 @@ export function ScoreAttach({
                 (AI가 읽은 되돌이 · {sheet.passes?.[0]?.length ?? 0}마디 부름)
               </span>
               <button
-                className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+                className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
                 disabled={busy || !online}
                 onClick={() => void fitBars()}
                 title="코드가 바뀌는 자리에 마디선을 맞춥니다(한 마디 안에서)"
@@ -262,7 +262,7 @@ export function ScoreAttach({
                 자동 맞추기
               </button>
               <button
-                className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+                className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
                 disabled={busy || !online}
                 onClick={() => void readMarks()}
                 title="AI에게 다시 읽힙니다"
@@ -272,12 +272,12 @@ export function ScoreAttach({
             </>
           ) : (
             <>
-              <span className="text-gray-500">
+              <span className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 · 시작 {sheet.offset > 0 ? "+" : ""}
                 {sheet.offset}마디
               </span>
               <button
-                className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+                className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
                 disabled={busy || !online}
                 onClick={() => void move(sheet.offset - 1, sheet.repeats)}
                 title="악보를 한 마디 앞으로"
@@ -285,7 +285,7 @@ export function ScoreAttach({
                 ◀
               </button>
               <button
-                className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+                className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
                 disabled={busy || !online}
                 onClick={() => void move(sheet.offset + 1, sheet.repeats)}
                 title="악보를 한 마디 뒤로"
@@ -293,7 +293,7 @@ export function ScoreAttach({
                 ▶
               </button>
               <button
-                className="rounded bg-gray-200/70 px-1.5 py-0.5 font-semibold disabled:opacity-40 dark:bg-gray-700"
+                className="rounded bg-[var(--chip)] px-1.5 py-0.5 font-semibold disabled:opacity-40"
                 disabled={busy || !online}
                 onClick={() => void fitBars()}
                 title="코드가 바뀌는 자리에 마디선을 맞춥니다(한 마디 안에서)"
@@ -301,7 +301,7 @@ export function ScoreAttach({
                 자동 맞추기
               </button>
               <button
-                className="rounded bg-gray-200/70 px-1.5 py-0.5 font-semibold disabled:opacity-40 dark:bg-gray-700"
+                className="rounded bg-[var(--chip)] px-1.5 py-0.5 font-semibold disabled:opacity-40"
                 disabled={busy || !online}
                 onClick={() => void readMarks()}
                 title="도돌이표·1·2번 괄호·D.S.를 AI가 읽어 부르는 차례를 폅니다"
@@ -309,7 +309,7 @@ export function ScoreAttach({
                 AI로 되돌이 읽기
               </button>
               <select
-                className="rounded bg-gray-200/70 px-1 py-0.5 dark:bg-gray-700"
+                className="rounded bg-[var(--chip)] px-1 py-0.5"
                 value={sheet.repeats}
                 disabled={busy || !online}
                 onChange={(e) => void move(sheet.offset, Number(e.target.value))}
@@ -327,7 +327,7 @@ export function ScoreAttach({
       )}
 
       {beatUnit > 0 && (
-        <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300">
+        <span className="flex items-center gap-1 text-[var(--foreground)]">
           · 마디 {(beatUnit * 4).toFixed(2)}초
           {wobble > 0 && (
             <span className="text-amber-600" title="이 자리에서 진행 바가 튑니다">
@@ -345,7 +345,7 @@ export function ScoreAttach({
             </button>
           )}
           <button
-            className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+            className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
             disabled={busy || !online}
             onClick={() => void beatFix("half")}
             title="8분음표를 박으로 세어 마디가 절반이 된 곡. 마디를 두 배 길게 봅니다"
@@ -353,7 +353,7 @@ export function ScoreAttach({
             마디 ×2
           </button>
           <button
-            className="rounded bg-gray-200/70 px-1.5 py-0.5 disabled:opacity-40 dark:bg-gray-700"
+            className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
             disabled={busy || !online}
             onClick={() => void beatFix("double")}
             title="마디가 악보보다 두 배 길 때. 마디를 절반으로 봅니다"
@@ -365,7 +365,7 @@ export function ScoreAttach({
 
       <span className="ml-auto flex shrink-0 gap-1.5">
         <button
-          className="rounded bg-gray-200/70 px-2 py-0.5 font-semibold text-gray-900 disabled:opacity-40 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1"
+          className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)] disabled:opacity-40 roomy:px-3 roomy:py-1"
           disabled={busy || !online}
           onClick={() => pickImage.current?.click()}
           title="인쇄된 악보를 그대로 띄우고 그 위로 커서가 지나갑니다"
@@ -374,7 +374,7 @@ export function ScoreAttach({
         </button>
         {sheet && (
           <button
-            className="rounded px-2 py-0.5 text-gray-500 underline decoration-dotted underline-offset-2 disabled:opacity-40"
+            className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
             disabled={busy || !online}
             onClick={detachImage}
           >
@@ -384,7 +384,7 @@ export function ScoreAttach({
         {/* 지금 맞춘 싱크·카포를 이 곡의 기준값으로. 곡 파일에 실려
             수강생에게도 같은 값이 간다 */}
         <button
-          className="rounded bg-gray-200/70 px-2 py-0.5 font-semibold text-gray-900 disabled:opacity-40 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1"
+          className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)] disabled:opacity-40 roomy:px-3 roomy:py-1"
           disabled={busy || !online}
           onClick={() => void keepSetup()}
           title="지금 싱크·카포·주법을 이 곡의 기준으로 적어 둡니다. 수강생도 같은 값으로 시작합니다"
@@ -392,7 +392,7 @@ export function ScoreAttach({
           {kept ? "적어 두었습니다" : "기준값 저장"}
         </button>
         <button
-          className="rounded bg-gray-200/70 px-2 py-0.5 font-semibold text-gray-900 disabled:opacity-40 dark:bg-gray-700 dark:text-gray-100 roomy:px-3 roomy:py-1"
+          className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)] disabled:opacity-40 roomy:px-3 roomy:py-1"
           disabled={busy || !online}
           onClick={() => pick.current?.click()}
           title={online ? "" : "분석 서버에 연결되어야 붙일 수 있습니다"}
@@ -401,7 +401,7 @@ export function ScoreAttach({
         </button>
         {score && (
           <button
-            className="rounded px-2 py-0.5 text-gray-500 underline decoration-dotted underline-offset-2 disabled:opacity-40"
+            className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
             disabled={busy || !online}
             onClick={detach}
           >

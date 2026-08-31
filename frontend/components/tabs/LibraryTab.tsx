@@ -521,11 +521,11 @@ export function LibraryTab({
     <li key={item.id} className="flex items-center gap-2 py-2.5">
       <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(item.id)}>
         <div className="truncate text-sm font-medium">{item.title || item.id}</div>
-        <div className="mt-0.5 text-[11px] text-gray-500">
+        <div className="mt-0.5 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           {item.key ? spellKey(item.key) : "조성 미상"} · {Math.round(item.bpm)} BPM ·{" "}
           {clock(item.duration)}
         </div>
-        <div className="text-[10px] text-gray-400">
+        <div className="text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           {item.source === "youtube" ? "YouTube" : "업로드"} · {when(item.analyzed_at)}
         </div>
       </button>
@@ -533,7 +533,7 @@ export function LibraryTab({
     </li>
   );
 
-  const actionBtn = "shrink-0 px-2 py-1 text-xs text-gray-500";
+  const actionBtn = "shrink-0 px-2 py-1 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]";
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
@@ -541,12 +541,12 @@ export function LibraryTab({
         <h2 className="text-lg font-bold md:hidden">음원목록</h2>
         <div className="flex items-center gap-2">
           <button
-            className="text-xs text-gray-500 underline"
+            className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
             onClick={() => fileRef.current?.click()}
           >
             파일 가져오기
           </button>
-          <button className="text-xs text-gray-500 underline" onClick={reload}>
+          <button className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline" onClick={reload}>
             새로고침
           </button>
         </div>
@@ -573,11 +573,11 @@ export function LibraryTab({
 
       {/* 기기 저장 */}
       <div className="mt-1 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-500">
+        <h3 className="text-xs font-semibold text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           {adminMode ? "기기 저장 · 서버가 꺼져도 유지" : "내 곡"}
           {/* 몇 곡인지 한눈에 — 폴더를 골랐으면 그 폴더의 곡 수다 */}
           {device !== null && (
-            <span className="ml-1 font-normal text-gray-400">
+            <span className="ml-1 font-normal text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               {(currentFolder === "all"
                 ? device
                 : device.filter((i) => assignment[i.id] === currentFolder)
@@ -601,7 +601,7 @@ export function LibraryTab({
                 전체 올리기
               </button>
             )}
-            <button className="text-[11px] text-gray-500 underline" onClick={exportAll}>
+            <button className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline" onClick={exportAll}>
               전체 내보내기
             </button>
           </span>
@@ -618,14 +618,14 @@ export function LibraryTab({
               "rounded-full px-2.5 py-1 text-xs",
               currentFolder === f
                 ? "bg-black text-white dark:bg-white dark:text-black"
-                : "bg-gray-100 dark:bg-gray-800",
+                : "bg-[var(--panel)]",
             ].join(" ")}
           >
             {f === "all" ? "전체" : f}
           </button>
         ))}
         <button
-          className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-xs text-gray-500 dark:border-gray-600"
+          className="rounded-full border border-dashed border-[var(--panel-line)] px-2.5 py-1 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
           onClick={() => setAsking("folder")}
         >
           + 새 폴더
@@ -633,7 +633,7 @@ export function LibraryTab({
         {currentFolder !== "all" && (
           <>
             <button
-              className="px-1.5 py-1 text-xs text-gray-500 underline"
+              className="px-1.5 py-1 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
               onClick={() => setAsking("renameFolder")}
             >
               이름 바꾸기
@@ -649,9 +649,9 @@ export function LibraryTab({
       </div>
 
       {device === null ? (
-        <p className="py-2 text-xs text-gray-400">읽는 중…</p>
+        <p className="py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">읽는 중…</p>
       ) : device.length === 0 ? (
-        <p className="py-2 text-xs text-gray-400">
+        <p className="py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           {adminMode
             ? "아직 없습니다. 아래 서버 목록에서 「저장」을 누르면 여기 담깁니다."
             : "아직 없습니다. 음원받기의 기타반에서 곡을 받으면 여기 담깁니다."}
@@ -669,7 +669,7 @@ export function LibraryTab({
                   {/* 폴더 배정. 모바일 네이티브 선택 UI를 그대로 쓴다 */}
                   {folders.length > 0 && (
                     <select
-                      className="max-w-16 shrink-0 rounded border border-gray-200 bg-transparent px-1 py-1 text-[10px] text-gray-500 dark:border-gray-700"
+                      className="max-w-16 shrink-0 rounded border border-[var(--panel-line)] bg-transparent px-1 py-1 text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
                       value={assignment[item.id] ?? ""}
                       onChange={(e) => {
                         assignFolder(item.id, e.target.value || null);
@@ -724,7 +724,7 @@ export function LibraryTab({
         device.length > 0 &&
         currentFolder !== "all" &&
         device.filter((i) => assignment[i.id] === currentFolder).length === 0 && (
-          <p className="py-2 text-xs text-gray-400">
+          <p className="py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             이 폴더는 비어 있습니다. 곡의 폴더 선택에서 「{currentFolder}」를 고르면
             담깁니다.
           </p>
@@ -739,11 +739,11 @@ export function LibraryTab({
         server.some((i) => !saved.has(i.id))) && (
       <>
       <div className="mt-4 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-500">
+        <h3 className="text-xs font-semibold text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           서버에만 있는 곡
         </h3>
         {server !== null && server.some((i) => !saved.has(i.id)) && (
-          <button className="text-[11px] text-gray-500 underline" onClick={saveAll}>
+          <button className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline" onClick={saveAll}>
             전체 저장
           </button>
         )}
@@ -753,7 +753,7 @@ export function LibraryTab({
           서버에 연결되지 않았습니다. 기기 저장분만 열 수 있습니다.
         </p>
       ) : server === null ? (
-        <p className="py-2 text-xs text-gray-400">읽는 중…</p>
+        <p className="py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">읽는 중…</p>
       ) : (
         <ul className="divide-y divide-gray-200 dark:divide-gray-800">
           {server
@@ -801,7 +801,7 @@ export function LibraryTab({
         </ul>
       )}
 
-      <p className="mt-3 text-[10px] leading-relaxed text-gray-400">
+      <p className="mt-3 text-[10px] leading-relaxed text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         기기 저장 곡 중 YouTube 곡은 서버 없이도 재생과 코드 화면이 모두 동작합니다.
         업로드한 곡은 함께 받은 음원이 기기에 있으면 서버 없이 재생됩니다.
       </p>
@@ -820,7 +820,7 @@ export function LibraryTab({
           return (
             <div className="mt-4">
               <button
-                className="text-[11px] text-gray-500 underline"
+                className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
                 onClick={() => setShowRemoved((v) => !v)}
               >
                 지운 음원 {gone.length}곡 {showRemoved ? "접기" : "보기"}
@@ -926,7 +926,7 @@ export function LibraryTab({
           width="max-w-xs"
           onClose={() => setUploading(null)}
         >
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             「{uploading.label}」을(를) 드라이브 공유 폴더에 올립니다. 같은
             이름 파일이 있으면 갈아 끼웁니다.
           </p>
@@ -986,13 +986,13 @@ export function LibraryTab({
            예전에는 묻지 않고 같은 영상을 다시 받기만 했는데, 정작 바꾸고
            싶은 것은 「다른 영상」인 경우가 많았다(음질이 나쁘거나 지워짐). */
         <Popup title="음원교체" width="max-w-sm" onClose={() => setRefetching(null)}>
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             새 유튜브 주소를 넣으면 그 음원으로 분석합니다(새 곡으로 목록에
             생깁니다). 비워 두면 같은 영상을 새로 받아 처음부터 분석합니다.
             시간이 걸립니다.
           </p>
           <input
-            className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-900"
+            className="w-full rounded border border-[var(--panel-line)] px-2 py-1.5 text-xs"
             placeholder="새 유튜브 주소 (선택)"
             value={refetchUrl}
             onChange={(e) => setRefetchUrl(e.target.value)}
@@ -1009,7 +1009,7 @@ export function LibraryTab({
               {refetchUrl.trim() ? "이 주소로 분석" : "같은 영상 다시 받기"}
             </button>
             <button
-              className="rounded bg-gray-100 px-3 py-1.5 text-xs dark:bg-gray-800"
+              className="rounded bg-[var(--panel)] px-3 py-1.5 text-xs"
               onClick={() => {
                 setRefetching(null);
                 setRefetchUrl("");
@@ -1096,7 +1096,7 @@ function IconButton({
     <button
       className={[
         "shrink-0 rounded p-1.5 disabled:opacity-30",
-        danger ? "text-red-500" : "text-gray-500 dark:text-gray-400",
+        danger ? "text-red-500" : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] dark:text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]",
       ].join(" ")}
       disabled={disabled}
       onClick={onClick}

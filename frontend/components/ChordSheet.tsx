@@ -124,7 +124,7 @@ export function ChordSheet({
       {/* 코드악보·멜로디와 같은 조절. 화면을 옮길 때마다 단추를 새로
           찾게 하지 않는다. 여기서 「마디」는 한 줄에 놓는 칸 수다. */}
       {(onSync || onPerRow) && (
-        <div className="mb-1.5 flex justify-end text-[11px] text-gray-500">
+        <div className="mb-1.5 flex justify-end text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           <ViewSteppers
             sync={sync}
             onSync={onSync}
@@ -249,7 +249,7 @@ function BarCell({
         onSeek || onEdit ? "cursor-pointer select-none" : "",
         active
           ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
-          : "border-gray-200 dark:border-gray-700",
+          : "border-[var(--panel-line)]",
       ].join(" ")}
     >
       {press.progress > 0 && (

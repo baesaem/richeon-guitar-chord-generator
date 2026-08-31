@@ -39,7 +39,7 @@ const PRACTICE = [
 export function StrumGuide() {
   return (
     <div>
-      <p className="mb-3 text-[11px] leading-snug text-gray-500">
+      <p className="mb-3 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         스트로크(스트러밍)는 피크로 여러 줄을 한 번에 긁는 주법입니다.
         연주설정의 「스트로크」에서 곡에 맞는 패턴을 추천받아 고를 수
         있습니다 — 여기서는 기본기와 패턴, 연습 순서를 익힙니다.
@@ -50,16 +50,16 @@ export function StrumGuide() {
         {BASICS.map((b) => (
           <li
             key={b.title}
-            className="rounded-lg border border-gray-200 p-2.5 dark:border-gray-700"
+            className="rounded-lg border border-[var(--panel-line)] p-2.5"
           >
             <div className="mb-0.5 text-[13px] font-bold">{b.title}</div>
-            <p className="text-[11px] leading-snug text-gray-500">{b.body}</p>
+            <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{b.body}</p>
           </li>
         ))}
       </ul>
 
       <h3 className="mb-1 text-sm font-semibold">표준 패턴</h3>
-      <p className="mb-1.5 text-[11px] leading-snug text-gray-500">
+      <p className="mb-1.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         한 칸이 8분음표 하나(4/4 한 마디 = 8칸), ↓·↑이 긋는 방향, ·은
         쉬는 칸입니다.{" "}
         <b className="text-[var(--accent)]">색이 든 화살표</b>가 크게 긋는
@@ -69,16 +69,16 @@ export function StrumGuide() {
         {PATTERNS.map((p) => (
           <li
             key={p.name}
-            className="rounded border border-gray-200 px-2.5 py-1.5 dark:border-gray-700"
+            className="rounded border border-[var(--panel-line)] px-2.5 py-1.5"
           >
             <div className="flex items-baseline gap-2">
               <StrumCells pattern={p} className="text-sm" />
               <span className="text-xs font-medium">{p.name}</span>
-              <span className="ml-auto text-[10px] text-gray-400">
+              <span className="ml-auto text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 {p.bpm[0]}–{p.bpm[1]} BPM
               </span>
             </div>
-            <div className="mt-0.5 text-[11px] leading-snug text-gray-500">
+            <div className="mt-0.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               {p.hint}
             </div>
           </li>
@@ -92,7 +92,7 @@ export function StrumGuide() {
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-[11px] font-bold text-[var(--accent)]">
               {i + 1}
             </span>
-            <p className="text-[12px] leading-snug text-gray-600 dark:text-gray-300">
+            <p className="text-[12px] leading-snug text-[var(--foreground)]">
               {step}
             </p>
           </li>

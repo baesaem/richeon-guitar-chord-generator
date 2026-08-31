@@ -287,7 +287,7 @@ export function MelodyScore({
               "shrink-0 rounded px-1.5 py-0.5",
               solfege
                 ? "bg-[var(--accent)] text-white"
-                : "text-gray-500 underline decoration-dotted underline-offset-2",
+                : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2",
             ].join(" ")}
             onClick={onSolfege}
             title="음표 아래에 도·레·미를 적습니다(원본 악보에는 없습니다)"
@@ -322,7 +322,7 @@ export function MelodyScore({
           <div key={lineIndex} ref={hasActive ? activeRef : undefined}>
             <svg
               viewBox={`0 ${vbTop} ${VB_W} ${ROW_H - vbTop}`}
-              className="w-full text-gray-900 dark:text-gray-100"
+              className="w-full text-[var(--foreground)]"
               role="img"
               aria-label={`${line[0]?.number ?? 1}마디부터`}
             >

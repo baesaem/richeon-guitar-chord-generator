@@ -128,7 +128,7 @@ export function BottomNav({ tab, onChange, adminMode }: Props) {
               className={[
                 // 탭이 6개라 한 칸이 좁다. min-w-0으로 라벨이 칸을 밀어내지 않게 한다.
                 "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 pb-2 pt-1.5 transition-colors",
-                active ? "text-[var(--accent)]" : "text-gray-400",
+                active ? "text-[var(--accent)]" : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]",
               ].join(" ")}
             >
               {/* 활성 탭은 은은한 알약 배경으로 감싼다 */}

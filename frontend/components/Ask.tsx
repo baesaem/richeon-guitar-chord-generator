@@ -79,10 +79,10 @@ export function AskConfirm({
 }) {
   return (
     <Popup title={title} onClose={onClose} width="max-w-xs" layer="z-[60]">
-      <p className="text-sm leading-snug text-gray-600 dark:text-gray-300">{message}</p>
+      <p className="text-sm leading-snug text-[var(--foreground)]">{message}</p>
       <div className="mt-3 flex gap-2">
         <button
-          className="flex-1 rounded bg-gray-100 py-3 text-sm dark:bg-gray-800"
+          className="flex-1 rounded bg-[var(--panel)] py-3 text-sm"
           onClick={onClose}
         >
           취소

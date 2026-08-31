@@ -199,7 +199,7 @@ export function LyricsPane({
 
       {pasting && (
         <Popup title="가사 붙여넣기" onClose={() => setPasting(false)}>
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             가사를 붙여넣으세요. 시간이 적힌 가사(.lrc)나 자막 글이면 그 시각을
             그대로 쓰고, 그냥 가사면 <b>노래에서 실제 부른 자리를 찾아</b> 줄마다
             시각을 붙입니다.
@@ -229,16 +229,16 @@ export function LyricsPane({
 
       {lines.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-3 text-center">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             {busy ? "가사를 찾는 중…" : "이 곡의 가사가 아직 없습니다."}
           </p>
           {!canEdit && (
-            <p className="text-[11px] leading-snug text-gray-400">
+            <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               이 곡에는 가사가 들어 있지 않습니다.
             </p>
           )}
           {canEdit && !online && !hasLocalLlm() && (
-            <p className="text-[11px] leading-snug text-gray-400">
+            <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               설정에서 가사 도우미 키를 넣으면 한국 가요도 잘 찾습니다.
             </p>
           )}
@@ -262,7 +262,7 @@ export function LyricsPane({
                 }}
               />
               <button
-                className="shrink-0 rounded bg-gray-100 px-2 py-1.5 text-xs disabled:opacity-40 dark:bg-gray-800"
+                className="shrink-0 rounded bg-[var(--panel)] px-2 py-1.5 text-xs disabled:opacity-40"
                 disabled={busy || !query.trim()}
                 onClick={() => search(query.trim())}
               >
@@ -270,7 +270,7 @@ export function LyricsPane({
               </button>
             </div>
             <button
-              className="rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
+              className="rounded bg-[var(--panel)] py-2 text-xs"
               onClick={() => setPasting(true)}
             >
               가사 붙여넣기
@@ -290,7 +290,7 @@ export function LyricsPane({
                   "cursor-pointer leading-snug transition-colors",
                   i === index
                     ? "text-base font-bold text-[var(--accent)]"
-                    : "text-sm text-gray-500",
+                    : "text-sm text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]",
                 ].join(" ")}
               >
                 {g.text}
@@ -303,7 +303,7 @@ export function LyricsPane({
               넘어가는 시점은 맞지 않습니다.
             </p>
           )}
-          <div className="flex shrink-0 items-center justify-end gap-2 px-3 pb-1 text-[10px] text-gray-400">
+          <div className="flex shrink-0 items-center justify-end gap-2 px-3 pb-1 text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             <span>{groups.length}묶음 · {lines.length}줄</span>
             {canEdit && (
               <>

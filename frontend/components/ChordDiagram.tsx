@@ -41,7 +41,7 @@ export function ChordDiagram({ voicing, label, width = 132, showFingers = true }
   if (!voicing) {
     return (
       <div
-        className="flex items-center justify-center rounded border border-dashed border-gray-300 text-[10px] text-gray-400"
+        className="flex items-center justify-center rounded border border-dashed border-[var(--panel-line)] text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
         style={{ width, height }}
       >
         운지 없음

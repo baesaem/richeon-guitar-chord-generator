@@ -102,7 +102,7 @@ export function RecordTab({ onRecorded, busy, embedded = false }: Props) {
       {!embedded && (
         <h2 className="mb-1 text-lg font-bold roomy:hidden">마이크로 녹음</h2>
       )}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         스피커로 튼 곡이나 직접 친 연주를 녹음해 코드를 뽑습니다.
       </p>
 
@@ -123,7 +123,7 @@ export function RecordTab({ onRecorded, busy, embedded = false }: Props) {
               disabled={busy}
               className={[
                 "flex h-24 w-24 items-center justify-center rounded-full text-white disabled:opacity-40",
-                recording ? "bg-gray-600" : "bg-red-600",
+                recording ? "bg-[var(--chip-on)]" : "bg-red-600",
               ].join(" ")}
             >
               {recording ? (
@@ -133,14 +133,14 @@ export function RecordTab({ onRecorded, busy, embedded = false }: Props) {
               )}
             </button>
 
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               {busy
                 ? "분석 중…"
                 : recording
                   ? "녹음 중입니다. 다시 누르면 멈추고 분석합니다."
                   : "누르면 녹음이 시작됩니다."}
             </p>
-            <p className="max-w-xs text-center text-[11px] text-gray-400">
+            <p className="max-w-xs text-center text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               코드 인식은 30초 이상 녹음해야 비트와 조성이 안정적으로 잡힙니다.
             </p>
           </>

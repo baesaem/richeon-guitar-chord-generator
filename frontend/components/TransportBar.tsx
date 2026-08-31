@@ -67,7 +67,7 @@ export function SeekBar({
   onToggle,
 }: Pick<Props, "duration" | "time" | "playing" | "onSeek" | "onToggle">) {
   return (
-    <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-1.5 dark:border-gray-800">
+    <div className="flex shrink-0 items-center gap-2 border-b border-[var(--panel-line)] px-3 py-1.5">
       <button
         className="h-9 w-9 shrink-0 rounded-full bg-black text-white dark:bg-white dark:text-black"
         onClick={onToggle}
@@ -75,7 +75,7 @@ export function SeekBar({
       >
         {playing ? "❚❚" : "▶"}
       </button>
-      <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-500">
+      <span className="w-10 shrink-0 text-right text-xs tabular-nums text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         {clock(time)}
       </span>
       <input
@@ -87,7 +87,7 @@ export function SeekBar({
         value={Math.min(time, duration)}
         onChange={(e) => onSeek(Number(e.target.value))}
       />
-      <span className="w-10 shrink-0 text-xs tabular-nums text-gray-500">
+      <span className="w-10 shrink-0 text-xs tabular-nums text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         {clock(duration)}
       </span>
     </div>
@@ -109,7 +109,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
       "rounded px-0 py-1 text-xs",
       active
         ? "bg-black text-white dark:bg-white dark:text-black"
-        : "bg-gray-100 dark:bg-gray-800",
+        : "bg-[var(--panel)]",
     ].join(" ");
 
   const sectionTitle = "mb-1 mt-0 text-xs font-semibold text-[var(--accent)]";
@@ -130,7 +130,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
   return (
     <>
       <button
-        className="flex shrink-0 items-center gap-1 rounded-lg bg-gray-200/70 px-2 py-1.5 text-[13px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300 roomy:gap-1.5 roomy:px-3 roomy:py-2.5 roomy:text-[16px]"
+        className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--chip)] px-2 py-1.5 text-[13px] font-medium text-[var(--foreground)] roomy:gap-1.5 roomy:px-3 roomy:py-2.5 roomy:text-[16px]"
         onClick={() => setOpen(true)}
         title="음높이·빠르기·반복"
       >
@@ -172,7 +172,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
               </button>
             ))}
           </div>
-          <p className="mb-2 text-[11px] text-gray-500">
+          <p className="mb-2 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             기본은 7th·sus 같은 확장 화음을 쉬운 3화음으로 낮춰 보여줍니다.
           </p>
 
@@ -197,11 +197,11 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                   아르페지오{arp > 0 ? ` ${arp}` : ""}
                 </button>
               </div>
-              <p className="mb-2 text-[11px] leading-snug text-gray-500">
+              <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 누르면 이 곡에 맞는 패턴을 추천하고 미리 보여줍니다. 고른
                 패턴대로 악보가 그려집니다.
               </p>
-              <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+              <div className="my-2.5 h-px bg-[var(--chip)]" />
               {arpPick && (
                 <ArpPickModal
                   current={arp}
@@ -234,7 +234,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           </div>
           <div className="mb-2 flex items-center gap-2">
             <button
-              className="h-8 w-8 rounded bg-gray-100 dark:bg-gray-800"
+              className="h-8 w-8 rounded bg-[var(--panel)]"
               onClick={() => props.onTranspose(Math.max(transpose - 1, -11))}
             >
               −
@@ -243,7 +243,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
               <div className="text-xl font-bold leading-tight tabular-nums">
                 {transpose > 0 ? `+${transpose}` : transpose}
               </div>
-              <div className="text-[11px] text-gray-500">
+              <div className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 {transpose === 0
                   ? "원래 조"
                   : transpose > 0
@@ -252,14 +252,14 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
               </div>
             </div>
             <button
-              className="h-8 w-8 rounded bg-gray-100 dark:bg-gray-800"
+              className="h-8 w-8 rounded bg-[var(--panel)]"
               onClick={() => props.onTranspose(Math.min(transpose + 1, 11))}
             >
               +
             </button>
           </div>
 
-          <div className="mb-1 text-[11px] text-gray-500">카포 위치</div>
+          <div className="mb-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">카포 위치</div>
           <div className="mb-2 grid grid-cols-6 gap-1">
             {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((fret) => (
               <button
@@ -272,14 +272,14 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
             ))}
           </div>
           <button
-            className="w-full rounded bg-gray-100 py-1 text-xs dark:bg-gray-800"
+            className="w-full rounded bg-[var(--panel)] py-1 text-xs"
             onClick={() => props.onTranspose(0)}
           >
             초기화
           </button>
 
           {/* ---- 빠르기 ---- */}
-          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className="my-2.5 h-px bg-[var(--chip)]" />
           <div className={sectionTitle}>빠르기{rate !== 1 && ` · ${rate}×`}</div>
           <div className="grid grid-cols-5 gap-1">
             {RATES.map((r) => (
@@ -294,17 +294,17 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           </div>
 
           {/* ---- 반복 (A-B 구간) ---- */}
-          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className="my-2.5 h-px bg-[var(--chip)]" />
           <div className={sectionTitle}>구간 반복{loop && " · 사용 중"}</div>
           <div className="mb-2 grid grid-cols-2 gap-1.5 text-center">
-            <div className="rounded border border-gray-200 p-1.5 dark:border-gray-700">
-              <div className="text-[11px] text-gray-500">시작 (A)</div>
+            <div className="rounded border border-[var(--panel-line)] p-1.5">
+              <div className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">시작 (A)</div>
               <div className="text-base font-bold leading-tight tabular-nums">
                 {loop ? clock(loop.a) : "—"}
               </div>
             </div>
-            <div className="rounded border border-gray-200 p-1.5 dark:border-gray-700">
-              <div className="text-[11px] text-gray-500">끝 (B)</div>
+            <div className="rounded border border-[var(--panel-line)] p-1.5">
+              <div className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">끝 (B)</div>
               <div className="text-base font-bold leading-tight tabular-nums">
                 {loop ? clock(loop.b) : "—"}
               </div>
@@ -312,7 +312,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           </div>
           <div className="flex gap-1.5">
             <button
-              className="flex-1 rounded bg-gray-100 py-1.5 text-xs dark:bg-gray-800"
+              className="flex-1 rounded bg-[var(--panel)] py-1.5 text-xs"
               onClick={() =>
                 props.onLoop({ a: time, b: Math.max(loop?.b ?? duration, time + 1) })
               }
@@ -320,13 +320,13 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
               지금을 시작으로
             </button>
             <button
-              className="flex-1 rounded bg-gray-100 py-1.5 text-xs dark:bg-gray-800"
+              className="flex-1 rounded bg-[var(--panel)] py-1.5 text-xs"
               onClick={() => props.onLoop({ a: Math.min(loop?.a ?? 0, time), b: time })}
             >
               지금을 끝으로
             </button>
             <button
-              className="flex-1 rounded bg-gray-100 py-1.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+              className="flex-1 rounded bg-[var(--panel)] py-1.5 text-xs text-[var(--foreground)]"
               onClick={() => props.onLoop(null)}
             >
               해제
@@ -335,7 +335,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           {/* ---- 음원 분리 ---- */}
           {props.onStem && (
             <>
-              <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+              <div className="my-2.5 h-px bg-[var(--chip)]" />
               <div className={sectionTitle}>
                 음원 분리
                 {props.vocalBusy && (
@@ -365,7 +365,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                   </button>
                 ))}
               </div>
-              <p className="mt-1 text-[11px] text-gray-500">
+              <p className="mt-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 반주는 노래를 지우고, 보컬은 반주를 지웁니다. 처음 한 번은
                 만드는 데 시간이 걸립니다.
               </p>
@@ -380,7 +380,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           {/* ---- 악보에 코드 넣기 ---- */}
           {props.onAutoChords && (
             <>
-              <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+              <div className="my-2.5 h-px bg-[var(--chip)]" />
               <label className="flex items-start gap-2">
                 <input
                   type="checkbox"
@@ -390,7 +390,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                 />
                 <span>
                   <span className="text-sm font-medium">악보에 코드 넣기</span>
-                  <span className="block text-[11px] leading-snug text-gray-500">
+                  <span className="block text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                     멜로디만 그려진 악보에 음원에서 딴 코드를 얹습니다.
                     코드가 이미 적힌 악보에는 켜지 마세요 — 글자가 겹칩니다.
                   </span>
@@ -399,12 +399,12 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
             </>
           )}
 
-          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className="my-2.5 h-px bg-[var(--chip)]" />
 
           {/* ---- 싱크 맞추기 ---- */}
-          <div className="my-2.5 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className="my-2.5 h-px bg-[var(--chip)]" />
           <div className="mb-1 text-sm font-medium">싱크 맞추기</div>
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             소리보다 화면이 빠르면 −, 느리면 +. 블루투스 스피커는 소리가
             늦게 나와 보정이 필요합니다.
           </p>
@@ -415,9 +415,9 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
             ] as const
           ).map(([label, value, set]) => (
             <div key={label} className="mb-1.5 flex items-center gap-1.5">
-              <span className="w-7 shrink-0 text-xs text-gray-500">{label}</span>
+              <span className="w-7 shrink-0 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{label}</span>
               <button
-                className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
+                className="rounded bg-[var(--panel)] px-2 py-1 text-xs"
                 onClick={() => set(Math.round((value - 0.1) * 10) / 10)}
               >
                 −
@@ -427,14 +427,14 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                 {value.toFixed(1)}초
               </span>
               <button
-                className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
+                className="rounded bg-[var(--panel)] px-2 py-1 text-xs"
                 onClick={() => set(Math.round((value + 0.1) * 10) / 10)}
               >
                 +
               </button>
               {value !== 0 && (
                 <button
-                  className="ml-auto text-[11px] text-gray-500 underline"
+                  className="ml-auto text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
                   onClick={() => set(0)}
                 >
                   되돌리기

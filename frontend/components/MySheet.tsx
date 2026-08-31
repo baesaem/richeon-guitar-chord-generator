@@ -106,7 +106,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
   // 서버도 없고 기기에 받아 둔 것도 없으면 할 수 있는 일이 없다
   if (!online && !localUrl) {
     return (
-      <p className="py-4 text-center text-xs leading-relaxed text-gray-500">
+      <p className="py-4 text-center text-xs leading-relaxed text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         받아 둔 악보가 없습니다.
         <br />
         악보를 직접 등록하려면 분석 서버가 필요합니다.
@@ -134,7 +134,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
       <div className="mb-2 flex items-center gap-2">
         {online && (
           <button
-            className="rounded bg-gray-200/70 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40 dark:bg-gray-800"
+            className="rounded bg-[var(--chip)] px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
             disabled={busy}
             onClick={() => fileRef.current?.click()}
           >
@@ -143,7 +143,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
         )}
         {has && (
           <button
-            className="px-2 py-1.5 text-xs text-gray-500 disabled:opacity-40"
+            className="px-2 py-1.5 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] disabled:opacity-40"
             disabled={busy}
             onClick={() => setConfirmRemove(true)}
           >
@@ -161,7 +161,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
           />
         )}
         {online && (
-          <span className="ml-auto text-[10px] text-gray-400">
+          <span className="ml-auto text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             이미지 · PDF · 20MB까지
           </span>
         )}
@@ -171,10 +171,10 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
         <p className="mb-2 rounded bg-red-50 p-2 text-[11px] text-red-700">{error}</p>
       )}
 
-      {has === null && <p className="py-4 text-center text-xs text-gray-400">확인 중…</p>}
+      {has === null && <p className="py-4 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">확인 중…</p>}
 
       {has === false && (
-        <p className="py-6 text-center text-xs leading-relaxed text-gray-500">
+        <p className="py-6 text-center text-xs leading-relaxed text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           등록된 악보가 없습니다.
           <br />
           가지고 있는 악보를 사진으로 찍거나 PDF로 올려 두면
@@ -183,7 +183,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
       )}
 
       {has && (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="rounded-lg border border-[var(--panel-line)]">
           {kind === "image" ? (
             <div className="flex justify-center overflow-auto bg-white p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -210,7 +210,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
               className="h-[70vh] w-full rounded-lg"
               type="application/pdf"
             >
-              <div className="p-4 text-center text-xs text-gray-500">
+              <div className="p-4 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 여기서 열리지 않습니다.{" "}
                 <a
                   href={url}
@@ -228,10 +228,10 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
             </object>
           )}
 
-          <div className="flex items-center gap-2 border-t border-gray-200 px-2 py-1 dark:border-gray-700">
+          <div className="flex items-center gap-2 border-t border-[var(--panel-line)] px-2 py-1">
             {kind === "image" && landscape && (
               <button
-                className="text-[11px] text-gray-500 underline"
+                className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
                 onClick={() => setRotate((v) => !v)}
               >
                 {rotate ? "원래 방향으로" : "세로로 세우기"}
@@ -241,7 +241,7 @@ export function MySheet({ resultId, online }: { resultId: string; online: boolea
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto text-[11px] text-gray-500 underline"
+              className="ml-auto text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
               onClick={(e) => {
                 e.preventDefault();
                 openLink(url);

@@ -136,7 +136,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       "flex-1 rounded py-1 text-xs",
       active
         ? "bg-black text-white dark:bg-white dark:text-black"
-        : "bg-gray-100 dark:bg-gray-800",
+        : "bg-[var(--panel)]",
     ].join(" ");
 
   return (
@@ -146,7 +146,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
       {/* 앱 설치 — 맨 위. 수강생이 처음 받는 안내가 "홈 화면에 앱을
           만드세요"라서, 찾기 쉬운 자리에 있어야 한다 */}
       <section className="mb-5">
-        <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+        <div className="rounded-lg border border-[var(--panel-line)] p-3">
           <div className="mb-1 flex items-center gap-2">
             <span className="text-sm font-medium">앱 설치</span>
             {installed && (
@@ -155,7 +155,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
               </span>
             )}
           </div>
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             홈 화면에 앱으로 설치하면 브라우저 없이 아이콘으로 바로
             열립니다. 재설치는 홈 화면의 아이콘을 지운 뒤 여기서 다시
             설치하면 됩니다.
@@ -168,13 +168,13 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           </button>
           {/* 소개 페이지 — 앱을 남에게 설명할 때 링크로 건넨다 */}
           <button
-            className="mt-1.5 w-full rounded border border-gray-200 py-2 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300"
+            className="mt-1.5 w-full rounded border border-[var(--panel-line)] py-2 text-xs text-[var(--foreground)]"
             onClick={() => openLink("/intro/")}
           >
             앱 소개 보기 (링크로 나눠 주기)
           </button>
           {installMsg && (
-            <p className="mt-1.5 rounded bg-gray-100 px-2 py-1.5 text-[11px] leading-snug text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <p className="mt-1.5 rounded bg-[var(--panel)] px-2 py-1.5 text-[11px] leading-snug text-[var(--foreground)]">
               {installMsg}
             </p>
           )}
@@ -191,7 +191,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           />
           <span>
             <span className="text-sm font-medium">음원 분리 사용</span>
-            <span className="block text-[11px] text-gray-500">
+            <span className="block text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               보컬·드럼을 걷어내면 코드 인식이 정확해지지만 분석이 느려집니다.
             </span>
           </span>
@@ -208,7 +208,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           />
           <span>
             <span className="text-sm font-medium">분석 결과를 기기에 자동 저장</span>
-            <span className="block text-[11px] text-gray-500">
+            <span className="block text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               분석이 끝나면 이 기기(브라우저)에도 저장해, 서버(PC)가 꺼져 있어도
               음원목록에서 열 수 있게 합니다.
             </span>
@@ -235,7 +235,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           />
           <span>
             <span className="text-sm font-medium">관리자 모드</span>
-            <span className="block text-[11px] text-gray-500">
+            <span className="block text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               공유 폴더 관리(드라이브에서 열기·음원 내보내기)와 분석 서버
               설정·상태 메뉴가 보입니다. 켜려면 관리자 번호가 필요합니다.
             </span>
@@ -254,7 +254,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
                 "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs",
                 settings.theme === t.value
                   ? "bg-black text-white dark:bg-white dark:text-black"
-                  : "bg-gray-100 dark:bg-gray-800",
+                  : "bg-[var(--panel)]",
               ].join(" ")}
               onClick={() => set("theme", t.value)}
             >
@@ -267,7 +267,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             </button>
           ))}
         </div>
-        <p className="mt-1 text-[11px] text-gray-500">
+        <p className="mt-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           기기 설정은 휴대폰의 밝게/어둡게 모드를 그대로 따라갑니다.
         </p>
       </section>
@@ -285,7 +285,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             </button>
           ))}
         </div>
-        <p className="mt-1 text-[11px] text-gray-500">
+        <p className="mt-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           한 화면에 보이는 시간 폭을 정합니다. 빠른 곡은 넓게 두면 읽기 편합니다.
         </p>
       </section>
@@ -303,21 +303,21 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             </button>
           ))}
         </div>
-        <p className="mt-1 text-[11px] text-gray-500">
+        <p className="mt-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           자동은 조표를 보고 정합니다. Ab장조면 G#이 아니라 Ab으로 적습니다.
         </p>
       </section>
 
       <section className="mb-5">
         <div className="mb-1.5 text-sm font-medium">기기 지연 보정</div>
-        <p className="mb-2 text-[11px] leading-snug text-gray-500">
+        <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           소리는 화면보다 조금 늦게 납니다. 블루투스 이어폰·스피커는 특히
           늦습니다. 브라우저가 알려 주는 값을 그대로 쓰며, 모든 곡에
           적용됩니다. 인터넷 속도와는 관계가 없습니다.
         </p>
         <div className="flex items-center gap-1.5">
           <button
-            className="rounded bg-gray-100 px-3 py-1.5 text-xs dark:bg-gray-800"
+            className="rounded bg-[var(--panel)] px-3 py-1.5 text-xs"
             onClick={() =>
               set("latency", Math.max(Math.round((settings.latency - 0.02) * 100) / 100, 0))
             }
@@ -328,7 +328,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             {settings.latency.toFixed(2)}초
           </span>
           <button
-            className="rounded bg-gray-100 px-3 py-1.5 text-xs dark:bg-gray-800"
+            className="rounded bg-[var(--panel)] px-3 py-1.5 text-xs"
             onClick={() =>
               set("latency", Math.min(Math.round((settings.latency + 0.02) * 100) / 100, 1))
             }
@@ -336,7 +336,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             +
           </button>
           <button
-            className="ml-auto rounded bg-gray-100 px-2.5 py-1.5 text-[11px] disabled:opacity-40 dark:bg-gray-800"
+            className="ml-auto rounded bg-[var(--panel)] px-2.5 py-1.5 text-[11px] disabled:opacity-40"
             disabled={measuring}
             onClick={async () => {
               setMeasuring(true);
@@ -349,7 +349,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           </button>
         </div>
         {settings.latency === 0 && (
-          <p className="mt-1.5 text-[11px] leading-snug text-gray-400">
+          <p className="mt-1.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             이 브라우저는 값을 알려 주지 않습니다(사파리 등). 소리보다 화면이
             빠르게 느껴지면 +로 조금씩 올려 보세요.
           </p>
@@ -383,7 +383,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           </button>
           {settings.apiBase && (
             <button
-              className="px-2 py-2 text-xs text-gray-500"
+              className="px-2 py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
               onClick={() => set("apiBase", "")}
             >
               비우기
@@ -408,7 +408,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           </p>
         )}
 
-        <p className="mt-1 text-[11px] leading-snug text-gray-500">
+        <p className="mt-1 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           비워 두면 이 페이지와 같은 주소의 서버를 씁니다(집 안에서 쓰는 방식).
           외부에 올린 화면에서 집 서버를 쓰려면 여기에 서버 주소를 넣으세요.
         </p>
@@ -416,7 +416,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
 
       <section className="mb-5">
         <div className="mb-1.5 text-sm font-medium">서버 상태</div>
-        <dl className="rounded border border-gray-200 text-xs dark:border-gray-800">
+        <dl className="rounded border border-[var(--panel-line)] text-xs">
           {[
             ["연결", health ? "정상" : "연결 안 됨"],
             ["연산 장치", health?.device ?? "-"],
@@ -426,14 +426,14 @@ export function SettingsTab({ settings, onChange, health }: Props) {
           ].map(([k, v]) => (
             <div
               key={k}
-              className="flex justify-between border-b border-gray-100 px-3 py-2 last:border-0 dark:border-gray-800"
+              className="flex justify-between border-b border-[var(--panel-line)] px-3 py-2 last:border-0"
             >
-              <dt className="text-gray-500">{k}</dt>
+              <dt className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{k}</dt>
               <dd>{v}</dd>
             </div>
           ))}
         </dl>
-        <p className="mt-1 text-[11px] text-gray-500">
+        <p className="mt-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           연산 장치가 cpu로 나오면 음원 분리와 코드 모델이 느립니다.
         </p>
       </section>
@@ -465,7 +465,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
               비밀번호가 맞지 않습니다.
             </p>
           )}
-          <p className="mt-3 text-[11px] leading-snug text-gray-500">
+          <p className="mt-3 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             한 번 켜면 이 기기에서는 끌 때까지 유지됩니다.
           </p>
           <button

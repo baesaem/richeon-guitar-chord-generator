@@ -98,18 +98,18 @@ function Card({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-left dark:border-gray-700 dark:bg-gray-900"
+      className="flex w-full items-center gap-3 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] p-4 text-left"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-gray-800">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white">
         {icon}
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-bold">{title}</span>
-        <span className="block text-[11px] leading-snug text-gray-500">
+        <span className="block text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           {description}
         </span>
       </span>
-      <span className="ml-auto shrink-0 text-gray-400">›</span>
+      <span className="ml-auto shrink-0 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">›</span>
     </button>
   );
 }
@@ -459,7 +459,7 @@ export function ImportTab({
         </h2>
         {/* 서버 상태는 관리자에게만. 수강생 화면에는 서버 이야기를 하지 않는다. */}
         {adminMode && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             {health
               ? `${health.device} · ${health.pipeline_version}` +
                 (health.youtube_enabled ? "" : " · 업로드 전용")
@@ -513,7 +513,7 @@ export function ImportTab({
             icon={
               <svg
                 viewBox="0 0 24 24"
-                className="h-6 w-6 text-gray-600 dark:text-gray-300"
+                className="h-6 w-6 text-[var(--foreground)]"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth={1.8}
@@ -550,7 +550,7 @@ export function ImportTab({
               icon={
                 <svg
                   viewBox="0 0 24 24"
-                  className="h-6 w-6 text-gray-600 dark:text-gray-300"
+                  className="h-6 w-6 text-[var(--foreground)]"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={1.8}
@@ -596,7 +596,7 @@ export function ImportTab({
               icon={
                 <svg
                   viewBox="0 0 24 24"
-                  className="h-6 w-6 text-gray-600 dark:text-gray-300"
+                  className="h-6 w-6 text-[var(--foreground)]"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={1.8}
@@ -648,7 +648,7 @@ export function ImportTab({
             onClick={() => setOpen("mic")}
           />
 
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             음원 분리 {separate ? "사용" : "안 함"} · 설정 탭에서 바꿀 수
             있습니다.
           </p>
@@ -661,13 +661,13 @@ export function ImportTab({
             <span>{STAGE_LABEL[status.stage]}</span>
             <span>{Math.round(status.progress * 100)}%</span>
           </div>
-          <div className="h-2 w-full rounded bg-gray-200">
+          <div className="h-2 w-full rounded bg-[var(--chip)]">
             <div
               className="h-2 rounded bg-black transition-all dark:bg-white"
               style={{ width: `${status.progress * 100}%` }}
             />
           </div>
-          <p className="text-xs text-gray-500">{status.message}</p>
+          <p className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{status.message}</p>
         </section>
       )}
 
@@ -797,7 +797,7 @@ export function ImportTab({
           width="max-w-xs"
           layer="z-[60]"
         >
-          <p className="mb-2 text-[11px] leading-snug text-gray-500">
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             이미 받아 둔 곡과 내용이 다릅니다. 새 것으로 바꿀까요? 바꾸면 지금
             기기에 있는 것은 없어집니다.
           </p>
@@ -805,10 +805,10 @@ export function ImportTab({
             {pending.changes.map((c) => (
               <li
                 key={c.title}
-                className="rounded bg-gray-50 p-2 dark:bg-gray-800"
+                className="rounded bg-[var(--panel)] p-2"
               >
                 <div className="truncate text-xs font-medium">{c.title}</div>
-                <div className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                <div className="mt-0.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                   {c.notes.join(" · ")}
                 </div>
               </li>
@@ -816,7 +816,7 @@ export function ImportTab({
           </ul>
           <div className="flex gap-2">
             <button
-              className="flex-1 rounded bg-gray-100 py-2.5 text-sm dark:bg-gray-800"
+              className="flex-1 rounded bg-[var(--panel)] py-2.5 text-sm"
               onClick={() => {
                 setPending(null);
                 setSharedNotice("그대로 두었습니다.");
@@ -841,13 +841,13 @@ export function ImportTab({
       {/* ---- 반별 곡 목록 모달 ---- */}
       {klass && (
         <Popup title={klass.name} onClose={() => setOpen(null)}>
-          <p className="mb-1.5 text-[11px] leading-snug text-gray-500">
+          <p className="mb-1.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             필요한 곡을 골라 「받기」를 누르세요. 음원목록(기기 저장)에
             담깁니다.
           </p>
           {/* 분리 트랙은 곡당 4~5MB씩 — 받을지 수강자가 고른다 */}
           <div className="mb-2 space-y-1">
-            <label className="flex items-start gap-1.5 text-[11px] text-gray-600 dark:text-gray-300">
+            <label className="flex items-start gap-1.5 text-[11px] text-[var(--foreground)]">
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -856,7 +856,7 @@ export function ImportTab({
               />
               <span>반주(노래를 뺀 트랙)도 함께 저장</span>
             </label>
-            <label className="flex items-start gap-1.5 text-[11px] text-gray-600 dark:text-gray-300">
+            <label className="flex items-start gap-1.5 text-[11px] text-[var(--foreground)]">
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -865,7 +865,7 @@ export function ImportTab({
               />
               <span>보컬(노래만 남긴 트랙)도 함께 저장</span>
             </label>
-            <p className="text-[10px] text-gray-400">
+            <p className="text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               연주설정의 원음/반주/보컬 전환에 쓰입니다. 끄면 저장 공간을
               아낍니다.
             </p>
@@ -887,18 +887,18 @@ export function ImportTab({
             <>
               <iframe
                 src={`https://drive.google.com/embeddedfolderview?id=${klass.folderId}#list`}
-                className="h-64 w-full rounded border border-gray-200 bg-white dark:border-gray-700"
+                className="h-64 w-full rounded border border-[var(--panel-line)] bg-white"
                 title={`${klass.name} 공유 폴더`}
               />
-              <p className="mt-2 text-[11px] leading-snug text-gray-500">
+              <p className="mt-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 파일을 누르면 드라이브에서 내려받아집니다. 받은 파일은
                 음원목록의 「파일 가져오기」로 담으세요.
               </p>
             </>
           ) : sharedSongs === null && !sharedError ? (
-            <p className="text-xs text-gray-400">목록 불러오는 중…</p>
+            <p className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">목록 불러오는 중…</p>
           ) : sharedSongs !== null && sharedSongs.length === 0 ? (
-            <p className="text-xs text-gray-400">폴더에 아직 곡이 없습니다.</p>
+            <p className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">폴더에 아직 곡이 없습니다.</p>
           ) : (
             <>
               <div className="mb-2 flex items-center gap-1.5">
@@ -910,7 +910,7 @@ export function ImportTab({
                       "flex-1 rounded-full py-1.5 text-xs",
                       filter === f.value
                         ? "bg-black text-white dark:bg-white dark:text-black"
-                        : "bg-gray-100 dark:bg-gray-800",
+                        : "bg-[var(--panel)]",
                     ].join(" ")}
                   >
                     {f.label}
@@ -950,7 +950,7 @@ export function ImportTab({
                         <span className="min-w-0 flex-1 truncate text-sm">
                           {songTitleOf(file.name)}
                           {hasAudio && (
-                            <span className="ml-1.5 text-[10px] text-gray-400">
+                            <span className="ml-1.5 text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                               ♪ 음원
                             </span>
                           )}
@@ -958,7 +958,7 @@ export function ImportTab({
                         <span
                           className={[
                             "shrink-0 text-[11px]",
-                            done ? "text-gray-500" : "text-gray-500",
+                            done ? "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]" : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]",
                           ].join(" ")}
                         >
                           {fetching === file.id
@@ -975,7 +975,7 @@ export function ImportTab({
               {filter === "unfetched" &&
                 sharedSongs !== null &&
                 sharedSongs.every((f) => fetched.has(f.id)) && (
-                  <p className="py-2 text-center text-xs text-gray-400">
+                  <p className="py-2 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                     모두 받았습니다. 「받음」이나 「전체」에서 확인하세요.
                   </p>
                 )}

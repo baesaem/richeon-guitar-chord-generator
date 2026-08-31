@@ -65,11 +65,11 @@ export function ChordPicker({
             <ChordLabel label={label} />
           </div>
           {current && (
-            <div className="mt-0.5 text-[11px] text-gray-500">
+            <div className="mt-0.5 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
               지금: <ChordLabel label={labelFor(current.root, current.quality, flats)} />
             </div>
           )}
-          <p className="mt-1 text-[10px] leading-snug text-gray-400">
+          <p className="mt-1 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             이 마디만 바뀝니다. 앞뒤 마디는 그대로입니다.
           </p>
         </div>
@@ -84,7 +84,7 @@ export function ChordPicker({
               "rounded py-2 text-xs",
               r === root
                 ? "bg-black text-white dark:bg-white dark:text-black"
-                : "bg-gray-100 dark:bg-gray-800",
+                : "bg-[var(--panel)]",
             ].join(" ")}
           >
             <ChordLabel label={labelFor(r, "maj", flats)} />
@@ -101,7 +101,7 @@ export function ChordPicker({
               "rounded py-2 text-xs",
               q.value === quality
                 ? "bg-black text-white dark:bg-white dark:text-black"
-                : "bg-gray-100 dark:bg-gray-800",
+                : "bg-[var(--panel)]",
             ].join(" ")}
           >
             {q.label}
