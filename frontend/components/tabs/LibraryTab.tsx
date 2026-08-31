@@ -93,6 +93,8 @@ export function LibraryTab({
   // 시스템 prompt()/confirm()을 쓰지 않는다. 폰 웹앱에서 막혀 있다.
   // 몇 초 이상 걸리는 일. 화면 한가운데에 알린다
   const [working, setWorking] = useState<string | null>(null);
+  /** 여러 곡 작업을 사람이 멈추었는가. 다음 곡으로 넘어가기 전에 본다 */
+  const stopRef = useRef(false);
   const [asking, setAsking] = useState<
     "folder" | "deleteFolder" | "renameFolder" | null
   >(null);
@@ -276,7 +278,9 @@ export function LibraryTab({
       const failed: string[] = [];
       const titleOf = (id: string) =>
         device?.find((d) => d.id === id)?.title || id;
+      stopRef.current = false;
       for (const id of ids) {
+        if (stopRef.current) break;
         setWorking(`드라이브에 올리는 중 (${done + 1}/${ids.length})`);
         // 어느 곡에서, 어느 걸음에서 어긋났는지 적어 준다. 「500」 한
         // 마디만 남으면 곡이 열 개일 때 무엇을 손봐야 할지 알 수 없다.
@@ -437,8 +441,12 @@ export function LibraryTab({
       // 한 곡이 깨져도 멈추지 않는다 — 스무 곡을 내보내다 하나가
       // 어긋났다고 나머지 열아홉 곡을 잃으면 곤란하다
       const failed: string[] = [];
+      stopRef.current = false;
       for (const item of items) {
+        if (stopRef.current) break;
         setWorking(`전체 내보내는 중 (${count + failed.length + 1}/${items.length})`);
+        // 큰 곡을 잇달아 굳히면 화면이 굳는다 — 곡 사이에 숨 돌릴 틈
+        await new Promise((r) => setTimeout(r, 50));
         try {
           const result = await freshest(item.id);
           const bundle = await makeBundle(result);
@@ -454,7 +462,9 @@ export function LibraryTab({
           failed.push(`${item.title || item.id}(${(e as Error).message})`);
         }
       }
-      const tail = failed.length ? ` · ${failed.length}곡 실패: ${failed.join(", ")}` : "";
+      const tail =
+        (failed.length ? ` · ${failed.length}곡 실패: ${failed.join(", ")}` : "") +
+        (stopRef.current ? " · 사람이 멈춤" : "");
       if (count === 0 && failed.length) {
         setError(`전체 내보내기 실패${tail}`);
         return;
@@ -754,7 +764,14 @@ export function LibraryTab({
       </>
       )}
 
-      {working && <Working label={working} />}
+      {working && (
+        <Working
+          label={working}
+          onCancel={
+            working.includes("/") ? () => (stopRef.current = true) : undefined
+          }
+        />
+      )}
 
       {asking === "folder" && (
         <AskText
