@@ -1051,8 +1051,10 @@ async def fix_beats(result_id: str, body: dict) -> AnalysisResult:
     rows = [b.model_dump() for b in result.beats]
     if mode == "even":
         rows, fixed = beats_even.even(rows)
+        # 이미 고른 박이면 그대로 돌려준다 — 틀림이 아니라 「고칠 것이
+        # 없음」이다. 기기 사본이 뒤처져 있을 때 이 응답이 그것을 맞춘다.
         if not fixed:
-            raise HTTPException(400, "이미 고른 박입니다")
+            return result
     elif mode in ("half", "double"):
         rows = beats_even.scale(rows, 0.5 if mode == "half" else 2)
     else:
