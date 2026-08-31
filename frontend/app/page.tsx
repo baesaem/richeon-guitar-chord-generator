@@ -1922,6 +1922,10 @@ export default function Home() {
                   setTab("import");
                 }}
                 onLibrary={() => setTab("library")}
+                onClassSongs={(classId) => {
+                  setImportCard(classId);
+                  setTab("import");
+                }}
                 adminMode={settings.adminMode}
                 onLesson={(classId) => {
                   setLessonClass(classId);

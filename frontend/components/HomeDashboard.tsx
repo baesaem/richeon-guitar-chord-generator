@@ -19,7 +19,9 @@ interface Props {
   /** 강의실 열기. 반 id나 "mine"(내 강좌)을 넘긴다 */
   onLesson: (classId?: string) => void;
   onChords: () => void;
-  /** 음원등록(반별 받기·직접 가져오기)은 강사님 몫 — 관리자에게만 보인다 */
+  /** 반별 공유 폴더에서 곡 받기. 수강생이 곡을 얻는 유일한 길이다 */
+  onClassSongs: (classId: string) => void;
+  /** 음원을 새로 들여오는 일(직접 가져오기)은 강사님 몫이다 */
   adminMode: boolean;
 }
 
@@ -55,18 +57,19 @@ export function HomeDashboard({
   onLesson,
   onChords,
   adminMode,
+  onClassSongs,
 }: Props) {
   /** 받기 상자의 탭 — 음원과 강좌를 나눠 담는다. 수강생은 강좌만 */
-  const [fetchTab, setFetchTab] = useState<"song" | "lesson">(
-    adminMode ? "song" : "lesson",
-  );
+  const [fetchTab, setFetchTab] = useState<"song" | "lesson">("song");
   const [songCount, setSongCount] = useState<number | null>(null);
   const [folderCount, setFolderCount] = useState(0);
   const [recent, setRecent] = useState<RecentEntry[]>([]);
   /** 등록된 음원 전체. 홈에서 바로 골라 연습실로 간다 */
   const [songs, setSongs] = useState<Awaited<ReturnType<typeof listLocal>>>([]);
   // 날짜로 고르므로 하루 동안 같은 코드가 유지된다
-  const [practice, setPractice] = useState<(typeof PRACTICE)[number] | null>(null);
+  const [practice, setPractice] = useState<(typeof PRACTICE)[number] | null>(
+    null,
+  );
 
   useEffect(() => {
     listLocal()
@@ -137,22 +140,27 @@ export function HomeDashboard({
             <span className="block text-[10px] font-semibold text-[var(--accent)]">
               이어듣기
             </span>
-            <span className="block truncate text-sm font-medium">{last.title}</span>
+            <span className="block truncate text-sm font-medium">
+              {last.title}
+            </span>
           </span>
-          <span className="shrink-0 text-[10px] text-gray-500">{ago(last.at)}</span>
+          <span className="shrink-0 text-[10px] text-gray-500">
+            {ago(last.at)}
+          </span>
         </button>
       )}
 
       {/* 받기 상자 — 음원받기와 강좌받기를 탭으로 나눈다 */}
       <section className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
         <div className="mb-2 flex rounded-lg bg-gray-200/70 p-0.5 dark:bg-gray-800">
+          {/* 음원받기는 수강생에게도 보여야 한다. 감춰 두었더니 곡을
+              받을 길이 아주 없어져, 강사님이 새 곡을 올렸다는 알림을
+              놓치면 그것으로 끝이었다. */}
           {(
-            adminMode
-              ? ([
-                  ["song", "음원받기"],
-                  ["lesson", "강좌받기"],
-                ] as const)
-              : ([["lesson", "강좌받기"]] as const)
+            [
+              ["song", "음원받기"],
+              ["lesson", "강좌받기"],
+            ] as const
           ).map(([value, label]) => (
             <button
               key={value}
@@ -168,7 +176,7 @@ export function HomeDashboard({
             </button>
           ))}
         </div>
-        {fetchTab === "song" && adminMode ? (
+        {fetchTab === "song" ? (
           <div className="grid grid-cols-3 gap-2">
             {CLASSES.map((c) =>
               quick(
@@ -181,20 +189,23 @@ export function HomeDashboard({
                     <path d="M12 11v6M9 14l3 3 3-3" />
                   </>,
                 ),
-                () => onLibrary(),
+                // 강사님은 받아 둔 곡을 음원목록에서 관리한다.
+                // 수강생에게는 그 자리가 곧 받는 자리다.
+                () => (adminMode ? onLibrary() : onClassSongs(c.id)),
                 c.id,
               ),
             )}
-            {quick(
-              "직접 가져오기",
-              icon(
-                <>
-                  <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />
-                  <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-                </>,
-              ),
-              onImport,
-            )}
+            {adminMode &&
+              quick(
+                "직접 가져오기",
+                icon(
+                  <>
+                    <path d="M12 3.5v10M8.5 10 12 13.5 15.5 10" />
+                    <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                  </>,
+                ),
+                onImport,
+              )}
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
@@ -254,73 +265,84 @@ export function HomeDashboard({
       {/* 좁은 화면: 최근 재생 위, 등록된 음원 아래.
           넓은 화면: 두 프레임을 나란히 — 왼쪽 최근 재생, 오른쪽 음원 목록. */}
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 md:flex-row">
-
-      <section className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 md:flex md:min-h-0 md:w-[42%] md:shrink-0 md:flex-col dark:border-gray-700 dark:bg-gray-900">
-        <div className="flex shrink-0 items-center justify-between py-1">
-          <h3 className="text-[11px] font-semibold text-gray-500">최근 재생</h3>
-          <span className="text-[10px] text-gray-400">
-            내 곡 {songCount ?? "…"}
-            {folderCount > 0 && ` · 폴더 ${folderCount}`}
-          </span>
-        </div>
-        {recent.length === 0 ? (
-          <p className="py-3 text-center text-xs text-gray-400">
-            곡을 열면 여기에 쌓입니다.
-          </p>
-        ) : rest.length === 0 ? (
-          <p className="py-2 text-center text-[11px] text-gray-400">
-            위의 이어듣기가 마지막으로 연 곡입니다.
-          </p>
-        ) : (
-          <ul className="divide-y divide-gray-100 md:min-h-0 md:flex-1 md:overflow-y-auto dark:divide-gray-800">
-            {rest.map((r) => (
-              <li key={r.id}>
-                <button
-                  className="flex w-full items-center gap-2 py-2 text-left"
-                  onClick={() => onOpen(r.id)}
-                >
-                  <span className="min-w-0 flex-1 truncate text-[13px]">{r.title}</span>
-                  <span className="shrink-0 text-[10px] text-gray-400">{ago(r.at)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* 등록된 음원 — 누르면 바로 연습실로 간다 */}
-      {songs.length > 0 && (
-        <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+        <section className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 md:flex md:min-h-0 md:w-[42%] md:shrink-0 md:flex-col dark:border-gray-700 dark:bg-gray-900">
           <div className="flex shrink-0 items-center justify-between py-1">
-            <h3 className="text-[11px] font-semibold text-gray-500">등록된 음원</h3>
-            <button className="text-[10px] text-gray-400 underline" onClick={onLibrary}>
-              관리는 음원목록에서
-            </button>
+            <h3 className="text-[11px] font-semibold text-gray-500">
+              최근 재생
+            </h3>
+            <span className="text-[10px] text-gray-400">
+              내 곡 {songCount ?? "…"}
+              {folderCount > 0 && ` · 폴더 ${folderCount}`}
+            </span>
           </div>
-          <ul className="min-h-0 flex-1 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800">
-            {songs.map((s) => (
-              <li key={s.id}>
-                {/* 한 줄짜리 컴팩트 행 — 목록이 화면을 다 먹으면 아래
-                    오늘의 코드·저작권 문구가 밀려난다 */}
-                <button
-                  className="flex w-full items-center gap-1.5 py-1 text-left"
-                  onClick={() => onOpen(s.id)}
-                >
-                  <span className="shrink-0 text-[10px] text-[var(--accent)]">▶</span>
-                  <span className="min-w-0 flex-1 truncate text-xs">
-                    {s.title || s.id}
-                  </span>
-                  <span className="shrink-0 text-[10px] text-gray-400">
-                    {spellKey(s.key)} · {Math.floor(s.duration / 60)}:
-                    {String(Math.floor(s.duration % 60)).padStart(2, "0")}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {recent.length === 0 ? (
+            <p className="py-3 text-center text-xs text-gray-400">
+              곡을 열면 여기에 쌓입니다.
+            </p>
+          ) : rest.length === 0 ? (
+            <p className="py-2 text-center text-[11px] text-gray-400">
+              위의 이어듣기가 마지막으로 연 곡입니다.
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-100 md:min-h-0 md:flex-1 md:overflow-y-auto dark:divide-gray-800">
+              {rest.map((r) => (
+                <li key={r.id}>
+                  <button
+                    className="flex w-full items-center gap-2 py-2 text-left"
+                    onClick={() => onOpen(r.id)}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[13px]">
+                      {r.title}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-gray-400">
+                      {ago(r.at)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
-      )}
 
+        {/* 등록된 음원 — 누르면 바로 연습실로 간다 */}
+        {songs.length > 0 && (
+          <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex shrink-0 items-center justify-between py-1">
+              <h3 className="text-[11px] font-semibold text-gray-500">
+                등록된 음원
+              </h3>
+              <button
+                className="text-[10px] text-gray-400 underline"
+                onClick={onLibrary}
+              >
+                관리는 음원목록에서
+              </button>
+            </div>
+            <ul className="min-h-0 flex-1 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800">
+              {songs.map((s) => (
+                <li key={s.id}>
+                  {/* 한 줄짜리 컴팩트 행 — 목록이 화면을 다 먹으면 아래
+                    오늘의 코드·저작권 문구가 밀려난다 */}
+                  <button
+                    className="flex w-full items-center gap-1.5 py-1 text-left"
+                    onClick={() => onOpen(s.id)}
+                  >
+                    <span className="shrink-0 text-[10px] text-[var(--accent)]">
+                      ▶
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs">
+                      {s.title || s.id}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-gray-400">
+                      {spellKey(s.key)} · {Math.floor(s.duration / 60)}:
+                      {String(Math.floor(s.duration % 60)).padStart(2, "0")}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
       {/* 오늘의 코드 — 매일 하나씩 폼을 익힌다 */}
@@ -339,7 +361,9 @@ export function HomeDashboard({
               오늘의 코드
             </span>
             <span className="block text-xl font-bold leading-tight">
-              <ChordLabel label={labelFor(practice.root, practice.quality, false)} />
+              <ChordLabel
+                label={labelFor(practice.root, practice.quality, false)}
+              />
             </span>
             <span className="block text-[10px] text-gray-400">
               눌러서 코드표 전체 보기

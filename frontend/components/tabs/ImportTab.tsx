@@ -7,7 +7,12 @@ import { RecordTab } from "@/components/tabs/RecordTab";
 import { Popup } from "@/components/Popup";
 import { Working } from "@/components/Working";
 import { openLink } from "@/lib/openLink";
-import { downloadShared, downloadSharedBlob, listShared, type SharedFile } from "@/lib/api";
+import {
+  downloadShared,
+  downloadSharedBlob,
+  listShared,
+  type SharedFile,
+} from "@/lib/api";
 import {
   downloadDirectBlob,
   downloadDirectText,
@@ -16,7 +21,12 @@ import {
 } from "@/lib/driveDirect";
 import { isBundle, openBundle } from "@/lib/bundle";
 import { CLASSES } from "@/lib/classes";
-import { localIds, parseResultsText, saveLocal, saveLocalAudio } from "@/lib/library";
+import {
+  localIds,
+  parseResultsText,
+  saveLocal,
+  saveLocalAudio,
+} from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
 import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
 import {
@@ -157,7 +167,8 @@ export function ImportTab({
   // 공유 폴더 접근 경로: 서버가 있으면 프록시, 없으면(외부 링크 정적 배포)
   // 드라이브 API 직접 조회. 어느 쪽이든 화면(곡 목록)은 똑같다.
   const canList = !!health || hasDriveKey();
-  const fileText = (id: string) => (health ? downloadShared(id) : downloadDirectText(id));
+  const fileText = (id: string) =>
+    health ? downloadShared(id) : downloadDirectText(id);
   const fileBlob = (id: string) =>
     health ? downloadSharedBlob(id) : downloadDirectBlob(id);
 
@@ -167,9 +178,7 @@ export function ImportTab({
     // 반을 바꾸면 앞 반의 목록이 잠깐 보이면 안 된다. 목록 자체를 반
     // 기준으로 담아 두고, 지금 반의 것만 골라 쓴다.
     let alive = true;
-    (health
-      ? listShared(klass.folderId)
-      : listSharedDirect(klass.folderId))
+    (health ? listShared(klass.folderId) : listSharedDirect(klass.folderId))
       .then((files) => {
         if (!alive) return;
         setShared({ folderId: klass.folderId, files });
@@ -188,9 +197,8 @@ export function ImportTab({
   // 곡과 짝을 맞춰, 곡을 받을 때 함께 내려받는다.
   // 지금 열어 둔 반의 목록만 쓴다. 반을 막 바꿨을 때 앞 반의 곡이
   // 스쳐 보이지 않게 한다.
-  const files = shared && klass && shared.folderId === klass.folderId
-    ? shared.files
-    : null;
+  const files =
+    shared && klass && shared.folderId === klass.folderId ? shared.files : null;
   const sharedSongs = files?.filter((f) => isRmlName(f.name)) ?? null;
   // 같은 이름의 음원이 올라와 있는 곡 (목록에 "음원 포함" 표시용)
   const audioBases = new Set(
@@ -228,12 +236,18 @@ export function ImportTab({
   ) => {
     let bundleAudio = false;
     if (isBundle(data)) {
-      const got = await openBundle(data, { inst: wantInst, vocals: wantVocals });
+      const got = await openBundle(data, {
+        inst: wantInst,
+        vocals: wantVocals,
+      });
       bundleAudio = got.includes("음원");
     } else {
       for (const result of results) await saveLocal(result);
     }
-    markFetched(file.id, results.map((r) => r.id));
+    markFetched(
+      file.id,
+      results.map((r) => r.id),
+    );
 
     // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
     // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다. 반주(.inst)가 있으면
@@ -371,8 +385,11 @@ export function ImportTab({
             }
           }
           await refreshFetched();
-          const audioNote = audio + moreAudio > 0 ? ` (음원 ${audio + moreAudio}곡 포함)` : "";
-          setSharedNotice(`${songs + more}곡을 음원목록에 담았습니다.${audioNote}${tail}`);
+          const audioNote =
+            audio + moreAudio > 0 ? ` (음원 ${audio + moreAudio}곡 포함)` : "";
+          setSharedNotice(
+            `${songs + more}곡을 음원목록에 담았습니다.${audioNote}${tail}`,
+          );
         },
       });
       return;
@@ -384,7 +401,9 @@ export function ImportTab({
     }
     const suffix = audio > 0 ? ` (음원 ${audio}곡 포함)` : "";
     setSharedNotice(
-      (songs > 0 ? `${songs}곡을 음원목록에 담았습니다.` : "새로 받을 것이 없습니다.") +
+      (songs > 0
+        ? `${songs}곡을 음원목록에 담았습니다.`
+        : "새로 받을 것이 없습니다.") +
         suffix +
         tail,
     );
@@ -399,7 +418,9 @@ export function ImportTab({
   return (
     <div className="h-full space-y-3 overflow-y-auto p-4">
       <header>
-        <h2 className="text-lg font-bold">음원등록</h2>
+        <h2 className="text-lg font-bold">
+          {adminMode ? "음원등록" : "음원받기"}
+        </h2>
         {/* 서버 상태는 관리자에게만. 수강생 화면에는 서버 이야기를 하지 않는다. */}
         {adminMode && (
           <p className="text-sm text-gray-500">
@@ -413,142 +434,190 @@ export function ImportTab({
 
       {adminMode && health && !health.ffmpeg && (
         <p className="rounded bg-amber-50 p-3 text-sm text-amber-800">
-          ffmpeg / ffprobe를 찾을 수 없습니다. 설치 후 PATH에 추가해야 분석이 가능합니다.
+          ffmpeg / ffprobe를 찾을 수 없습니다. 설치 후 PATH에 추가해야 분석이
+          가능합니다.
         </p>
       )}
+
+      {/* 수강생 화면 — 곡을 받는 길만 둔다.
+          음원을 새로 들여오는 일(파일·유튜브·녹음)은 분석 서버가
+          있어야 하는 강사님 몫이라, 여기 두면 눌러도 되지 않는 카드가
+          늘어설 뿐이다. */}
+      {!adminMode &&
+        CLASSES.map((c) => (
+          <Card
+            key={c.id}
+            icon={
+              <svg
+                viewBox="0 0 24 24"
+                className="h-6 w-6 text-[var(--accent)]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <path d="M12 11v6M9 14l3 3 3-3" />
+              </svg>
+            }
+            title={c.name.replace("강상주민센터 ", "") + " 받기"}
+            description="강사님이 올린 곡을 내려받습니다"
+            onClick={() => setOpen(c.id)}
+          />
+        ))}
 
       {/* ---- 방식 카드 ----
            반별 곡 받기는 홈 대시보드의 「음원받기」로 옮겼다. 여기는
            음원을 새로 들여오는 길만 둔다. */}
-      <Card
-        icon={
-          <svg
-            viewBox="0 0 24 24"
-            className="h-6 w-6 text-gray-600 dark:text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M9 18V6l10-2v11" />
-            <circle cx="6.5" cy="18" r="2.5" />
-            <circle cx="16.5" cy="15" r="2.5" />
-          </svg>
-        }
-        title="오디오 음원 등록"
-        description="mp3 · wav · m4a · flac · ogg 파일을 골라 등록합니다"
-        onClick={() => audioInputRef.current?.click()}
-      />
-      {/* 카드를 누르면 곧바로 파일 고르기 창이 뜬다 — 파일을 고르는
+      {adminMode && (
+        <>
+          <Card
+            icon={
+              <svg
+                viewBox="0 0 24 24"
+                className="h-6 w-6 text-gray-600 dark:text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M9 18V6l10-2v11" />
+                <circle cx="6.5" cy="18" r="2.5" />
+                <circle cx="16.5" cy="15" r="2.5" />
+              </svg>
+            }
+            title="오디오 음원 등록"
+            description="mp3 · wav · m4a · flac · ogg 파일을 골라 등록합니다"
+            onClick={() => audioInputRef.current?.click()}
+          />
+          {/* 카드를 누르면 곧바로 파일 고르기 창이 뜬다 — 파일을 고르는
           일 하나뿐이라 중간에 창을 한 번 더 띄울 이유가 없다 */}
-      <input
-        ref={audioInputRef}
-        type="file"
-        accept="audio/*"
-        className="hidden"
-        disabled={busy}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (f) onAnalyzeFile(f);
-        }}
-      />
+          <input
+            ref={audioInputRef}
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) onAnalyzeFile(f);
+            }}
+          />
 
-      {!health && hasLocalLlm() && (
-        <Card
-          icon={
-            <svg
-              viewBox="0 0 24 24"
-              className="h-6 w-6 text-gray-600 dark:text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
-              <circle cx="12" cy="12" r="3.2" />
-            </svg>
-          }
-          title="AI로 코드 만들기"
-          description="서버 없이 씁니다. 되는 곡이 드물고 실제 녹음과 어긋납니다"
-          onClick={() => setOpen("ai")}
-        />
-      )}
+          {!health && hasLocalLlm() && (
+            <Card
+              icon={
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-6 w-6 text-gray-600 dark:text-gray-300"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+                  <circle cx="12" cy="12" r="3.2" />
+                </svg>
+              }
+              title="AI로 코드 만들기"
+              description="서버 없이 씁니다. 되는 곡이 드물고 실제 녹음과 어긋납니다"
+              onClick={() => setOpen("ai")}
+            />
+          )}
 
-      {health?.youtube_enabled && (
-        <Card
-          icon={
-            <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
-              <rect x="1" y="5" width="22" height="14" rx="4" fill="#FF0000" />
-              <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
-            </svg>
-          }
-          title="YouTube 음원 등록"
-          description="영상 주소를 붙여넣어 음원을 등록하고 코드를 분석합니다"
-          onClick={() => setOpen("youtube")}
-        />
-      )}
+          {health?.youtube_enabled && (
+            <Card
+              icon={
+                <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
+                  <rect
+                    x="1"
+                    y="5"
+                    width="22"
+                    height="14"
+                    rx="4"
+                    fill="#FF0000"
+                  />
+                  <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
+                </svg>
+              }
+              title="YouTube 음원 등록"
+              description="영상 주소를 붙여넣어 음원을 등록하고 코드를 분석합니다"
+              onClick={() => setOpen("youtube")}
+            />
+          )}
 
-      {/* 악보(ABC) 등록 — 음원과 짝이 되는 악보를 곡에 붙인다.
+          {/* 악보(ABC) 등록 — 음원과 짝이 되는 악보를 곡에 붙인다.
           MuseScore 파일·AI 채보·붙여넣기 모두 이 자리에서 한다. */}
-      {onAbc && (
-        <Card
-          icon={
-            <svg
-              viewBox="0 0 24 24"
-              className="h-6 w-6 text-gray-600 dark:text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              {/* 오선과 음표 */}
-              <path d="M3 6h18M3 10h18M3 14h18M3 18h18" />
-              <circle cx="8" cy="16" r="2" fill="currentColor" stroke="none" />
-              <path d="M10 16V7l6-1.5V14" />
-            </svg>
-          }
-          title="ABC 악보 생성 등록"
-          description={
-            abcSong
-              ? `음원·참고 악보·코드로 악보를 만듭니다 — 「${abcSong}」에 실립니다`
-              : "음원 링크·참고 악보·코드를 넣어 새 악보를 만듭니다"
-          }
-          onClick={onAbc}
-        />
-      )}
+          {onAbc && (
+            <Card
+              icon={
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-6 w-6 text-gray-600 dark:text-gray-300"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  {/* 오선과 음표 */}
+                  <path d="M3 6h18M3 10h18M3 14h18M3 18h18" />
+                  <circle
+                    cx="8"
+                    cy="16"
+                    r="2"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <path d="M10 16V7l6-1.5V14" />
+                </svg>
+              }
+              title="ABC 악보 생성 등록"
+              description={
+                abcSong
+                  ? `음원·참고 악보·코드로 악보를 만듭니다 — 「${abcSong}」에 실립니다`
+                  : "음원 링크·참고 악보·코드를 넣어 새 악보를 만듭니다"
+              }
+              onClick={onAbc}
+            />
+          )}
 
-      {/* 마이크 녹음 — 음원을 들여오는 또 하나의 길이라 여기에 둔다.
+          {/* 마이크 녹음 — 음원을 들여오는 또 하나의 길이라 여기에 둔다.
           하단 메뉴 한 자리를 차지할 만큼 자주 쓰지는 않는다 */}
-      <Card
-        icon={
-          <svg
-            viewBox="0 0 24 24"
-            className="h-7 w-7 text-[var(--accent)]"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            <rect x="9" y="2.5" width="6" height="11" rx="3" />
-            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" />
-          </svg>
-        }
-        title="마이크로 녹음"
-        description="스피커로 튼 곡이나 직접 친 연주를 녹음해 분석합니다"
-        onClick={() => setOpen("mic")}
-      />
+          <Card
+            icon={
+              <svg
+                viewBox="0 0 24 24"
+                className="h-7 w-7 text-[var(--accent)]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <rect x="9" y="2.5" width="6" height="11" rx="3" />
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" />
+              </svg>
+            }
+            title="마이크로 녹음"
+            description="스피커로 튼 곡이나 직접 친 연주를 녹음해 분석합니다"
+            onClick={() => setOpen("mic")}
+          />
 
-      <p className="text-xs text-gray-500">
-        음원 분리 {separate ? "사용" : "안 함"} · 설정 탭에서 바꿀 수 있습니다.
-      </p>
+          <p className="text-xs text-gray-500">
+            음원 분리 {separate ? "사용" : "안 함"} · 설정 탭에서 바꿀 수
+            있습니다.
+          </p>
+        </>
+      )}
 
       {status && (
         <section className="space-y-1">
@@ -567,9 +636,13 @@ export function ImportTab({
       )}
 
       {sharedNotice && (
-        <p className="rounded bg-green-50 p-2 text-xs text-green-800">{sharedNotice}</p>
+        <p className="rounded bg-green-50 p-2 text-xs text-green-800">
+          {sharedNotice}
+        </p>
       )}
-      {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && (
+        <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>
+      )}
 
       <Copyright />
 
@@ -613,7 +686,14 @@ export function ImportTab({
               }}
             >
               <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
-                <rect x="1" y="5" width="22" height="14" rx="4" fill="#FF0000" />
+                <rect
+                  x="1"
+                  y="5"
+                  width="22"
+                  height="14"
+                  rx="4"
+                  fill="#FF0000"
+                />
                 <path d="M10 8.8v6.4l5.5-3.2z" fill="#fff" />
               </svg>
             </a>
@@ -635,10 +715,10 @@ export function ImportTab({
       {open === "ai" && (
         <Popup title="AI로 코드 만들기" onClose={() => setOpen(null)}>
           <p className="mb-2 rounded bg-amber-50 px-2 py-2 text-[11px] leading-snug text-amber-800">
-            분석 서버가 없을 때 쓰는 대체 수단입니다. AI가 <b>음원을 듣지
-            않고</b> 아는 코드를 적어 주는 것이라, 되는 곡이 드물고 되더라도
-            전주 길이나 반복 횟수가 실제 녹음과 어긋납니다. 기타반에서
-            받은 곡이 언제나 더 정확합니다.
+            분석 서버가 없을 때 쓰는 대체 수단입니다. AI가{" "}
+            <b>음원을 듣지 않고</b> 아는 코드를 적어 주는 것이라, 되는 곡이
+            드물고 되더라도 전주 길이나 반복 횟수가 실제 녹음과 어긋납니다.
+            기타반에서 받은 곡이 언제나 더 정확합니다.
           </p>
           <input
             className="w-full rounded border px-3 py-3 text-base"
@@ -673,14 +753,21 @@ export function ImportTab({
 
       {/* ---- 바뀐 곡 덮어쓸지 묻기 ---- */}
       {pending && (
-        <Popup title="바뀐 곡이 있습니다" onClose={() => setPending(null)} width="max-w-xs">
+        <Popup
+          title="바뀐 곡이 있습니다"
+          onClose={() => setPending(null)}
+          width="max-w-xs"
+        >
           <p className="mb-2 text-[11px] leading-snug text-gray-500">
-            이미 받아 둔 곡과 내용이 다릅니다. 새 것으로 바꿀까요? 바꾸면
-            지금 기기에 있는 것은 없어집니다.
+            이미 받아 둔 곡과 내용이 다릅니다. 새 것으로 바꿀까요? 바꾸면 지금
+            기기에 있는 것은 없어집니다.
           </p>
           <ul className="mb-3 max-h-48 space-y-1.5 overflow-y-auto">
             {pending.changes.map((c) => (
-              <li key={c.title} className="rounded bg-gray-50 p-2 dark:bg-gray-800">
+              <li
+                key={c.title}
+                className="rounded bg-gray-50 p-2 dark:bg-gray-800"
+              >
                 <div className="truncate text-xs font-medium">{c.title}</div>
                 <div className="mt-0.5 text-[11px] leading-snug text-gray-500">
                   {c.notes.join(" · ")}
@@ -716,7 +803,8 @@ export function ImportTab({
       {klass && (
         <Popup title={klass.name} onClose={() => setOpen(null)}>
           <p className="mb-1.5 text-[11px] leading-snug text-gray-500">
-            필요한 곡을 골라 「받기」를 누르세요. 음원목록(기기 저장)에 담깁니다.
+            필요한 곡을 골라 「받기」를 누르세요. 음원목록(기기 저장)에
+            담깁니다.
           </p>
           {/* 분리 트랙은 곡당 4~5MB씩 — 받을지 수강자가 고른다 */}
           <div className="mb-2 space-y-1">
@@ -764,8 +852,8 @@ export function ImportTab({
                 title={`${klass.name} 공유 폴더`}
               />
               <p className="mt-2 text-[11px] leading-snug text-gray-500">
-                파일을 누르면 드라이브에서 내려받아집니다. 받은 파일은 음원목록의
-                「파일 가져오기」로 담으세요.
+                파일을 누르면 드라이브에서 내려받아집니다. 받은 파일은
+                음원목록의 「파일 가져오기」로 담으세요.
               </p>
             </>
           ) : sharedSongs === null && !sharedError ? (
@@ -774,82 +862,84 @@ export function ImportTab({
             <p className="text-xs text-gray-400">폴더에 아직 곡이 없습니다.</p>
           ) : (
             <>
-            <div className="mb-2 flex items-center gap-1.5">
-              {SHARED_FILTERS.map((f) => (
+              <div className="mb-2 flex items-center gap-1.5">
+                {SHARED_FILTERS.map((f) => (
+                  <button
+                    key={f.value}
+                    onClick={() => setFilter(f.value)}
+                    className={[
+                      "flex-1 rounded-full py-1.5 text-xs",
+                      filter === f.value
+                        ? "bg-black text-white dark:bg-white dark:text-black"
+                        : "bg-gray-100 dark:bg-gray-800",
+                    ].join(" ")}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 지금 보이는 곡을 한 번에. 스무 곡을 하나씩 누르게 하지 않는다 */}
+              {visible.length > 0 && (
                 <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value)}
-                  className={[
-                    "flex-1 rounded-full py-1.5 text-xs",
-                    filter === f.value
-                      ? "bg-black text-white dark:bg-white dark:text-black"
-                      : "bg-gray-100 dark:bg-gray-800",
-                  ].join(" ")}
+                  className="mb-2 w-full rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
+                  disabled={fetching !== null}
+                  // 「다시 받기」로 적힌 자리에서는 무조건 다시 받는다
+                  onClick={() => fetchAll(visible, filter === "fetched")}
                 >
-                  {f.label}
+                  {fetching !== null
+                    ? "받는 중…"
+                    : filter === "fetched"
+                      ? `보이는 ${visible.length}곡 다시 받기`
+                      : `보이는 ${visible.length}곡 모두 받기`}
                 </button>
-              ))}
-            </div>
-
-            {/* 지금 보이는 곡을 한 번에. 스무 곡을 하나씩 누르게 하지 않는다 */}
-            {visible.length > 0 && (
-              <button
-                className="mb-2 w-full rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
-                disabled={fetching !== null}
-                // 「다시 받기」로 적힌 자리에서는 무조건 다시 받는다
-                onClick={() => fetchAll(visible, filter === "fetched")}
-              >
-                {fetching !== null
-                  ? "받는 중…"
-                  : filter === "fetched"
-                    ? `보이는 ${visible.length}곡 다시 받기`
-                    : `보이는 ${visible.length}곡 모두 받기`}
-              </button>
-            )}
-
-            <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-              {visible.map((file) => {
-                const done = fetched.has(file.id);
-                const hasAudio = audioBases.has(rmlBaseOf(file.name));
-                return (
-                  <li key={file.id}>
-                    {/* 받은 곡도 다시 받을 수 있다. 강사님이 코드를 고쳐
-                        올렸을 때 새 것으로 바꿔야 한다 */}
-                    <button
-                      className="flex w-full items-center gap-2 py-2.5 text-left disabled:opacity-50"
-                      disabled={fetching !== null}
-                      onClick={() => fetchShared(file, done)}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-sm">
-                        {songTitleOf(file.name)}
-                        {hasAudio && (
-                          <span className="ml-1.5 text-[10px] text-gray-400">♪ 음원</span>
-                        )}
-                      </span>
-                      <span
-                        className={[
-                          "shrink-0 text-[11px]",
-                          done ? "text-gray-500" : "text-gray-500",
-                        ].join(" ")}
-                      >
-                        {fetching === file.id
-                          ? "받는 중…"
-                          : done
-                            ? "다시 받기"
-                            : "받기"}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            {filter === "unfetched" &&
-              sharedSongs !== null &&
-              sharedSongs.every((f) => fetched.has(f.id)) && (
-                <p className="py-2 text-center text-xs text-gray-400">
-                  모두 받았습니다. 「받음」이나 「전체」에서 확인하세요.
-                </p>
               )}
+
+              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                {visible.map((file) => {
+                  const done = fetched.has(file.id);
+                  const hasAudio = audioBases.has(rmlBaseOf(file.name));
+                  return (
+                    <li key={file.id}>
+                      {/* 받은 곡도 다시 받을 수 있다. 강사님이 코드를 고쳐
+                        올렸을 때 새 것으로 바꿔야 한다 */}
+                      <button
+                        className="flex w-full items-center gap-2 py-2.5 text-left disabled:opacity-50"
+                        disabled={fetching !== null}
+                        onClick={() => fetchShared(file, done)}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm">
+                          {songTitleOf(file.name)}
+                          {hasAudio && (
+                            <span className="ml-1.5 text-[10px] text-gray-400">
+                              ♪ 음원
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          className={[
+                            "shrink-0 text-[11px]",
+                            done ? "text-gray-500" : "text-gray-500",
+                          ].join(" ")}
+                        >
+                          {fetching === file.id
+                            ? "받는 중…"
+                            : done
+                              ? "다시 받기"
+                              : "받기"}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {filter === "unfetched" &&
+                sharedSongs !== null &&
+                sharedSongs.every((f) => fetched.has(f.id)) && (
+                  <p className="py-2 text-center text-xs text-gray-400">
+                    모두 받았습니다. 「받음」이나 「전체」에서 확인하세요.
+                  </p>
+                )}
             </>
           )}
         </Popup>
