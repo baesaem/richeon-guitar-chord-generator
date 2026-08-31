@@ -215,6 +215,35 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
 }
 
 /**
+ * 꾸러미에 이 기기가 아직 갖지 않은 것이 있는가.
+ *
+ * 코드·가사·박만 견주면 「같은 곡」이라 넘겨 버린다 — 악보를 새로 붙여
+ * 다시 올려도 이미 받아 둔 기기에는 영영 가지 않는다. 실제로 ABC 악보를
+ * 실어 보냈는데 수강생 화면은 「악보가 없다」고 했다.
+ *
+ * 무엇이 더 왔는지 사람 말로 돌려준다. 비어 있으면 더 온 것이 없다.
+ */
+export async function bundleAdds(bundle: SongBundle): Promise<string[]> {
+  const id = bundle.result.id;
+  const adds: string[] = [];
+
+  if (bundle.abc?.abc?.trim()) {
+    const mine = getAbc(id);
+    if (!mine?.abc?.trim() || mine.abc !== bundle.abc.abc) adds.push("ABC 악보");
+  }
+  if (bundle.sheetPages?.length) {
+    const first = await getSheetPage(id, 0).catch(() => null);
+    if (!first) adds.push(`악보 그림 ${bundle.sheetPages.length}쪽`);
+  }
+  if (bundle.mySheet) {
+    // 내 악보는 기기마다 다를 수 있어 있고 없고만 본다
+    const first = await getSheetPage(id, 0).catch(() => null);
+    if (!first && !adds.length) adds.push("내 악보");
+  }
+  return adds;
+}
+
+/**
  * 꾸러미를 이 기기에 푼다. 무엇이 들어왔는지 사람 말로 돌려준다.
  *
  * 한 조각이 실패해도 나머지는 들어간다 — 악보 이미지가 깨졌다고 코드까지

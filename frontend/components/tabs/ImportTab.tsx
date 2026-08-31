@@ -19,7 +19,7 @@ import {
   hasDriveKey,
   listSharedDirect,
 } from "@/lib/driveDirect";
-import { isBundle, openBundle } from "@/lib/bundle";
+import { bundleAdds, isBundle, openBundle } from "@/lib/bundle";
 import { CLASSES } from "@/lib/classes";
 import {
   localIds,
@@ -235,12 +235,15 @@ export function ImportTab({
     results: AnalysisResult[],
   ) => {
     let bundleAudio = false;
+    let brought: string[] = [];
     if (isBundle(data)) {
       const got = await openBundle(data, {
         inst: wantInst,
         vocals: wantVocals,
       });
       bundleAudio = got.includes("음원");
+      // 악보가 함께 왔는지 눈에 보이게 알려 준다
+      brought = got.filter((x) => x.includes("악보"));
     } else {
       for (const result of results) await saveLocal(result);
     }
@@ -267,13 +270,18 @@ export function ImportTab({
         markFetched(audioFile.id, [instId]);
       }
     }
-    return { results, withAudio };
+    return { results, withAudio, brought };
   };
 
   /** 담은 뒤 알림 한 줄 */
-  const doneNotice = async (results: AnalysisResult[], withAudio: number) => {
+  const doneNotice = async (
+    results: AnalysisResult[],
+    withAudio: number,
+    brought: string[] = [],
+  ) => {
     await refreshFetched();
-    const suffix = withAudio > 0 ? " (음원 포함)" : "";
+    const parts = [...(withAudio > 0 ? ["음원"] : []), ...brought];
+    const suffix = parts.length ? ` (${parts.join(" · ")} 포함)` : "";
     setSharedNotice(
       results.length === 1
         ? `음원목록에 담았습니다: ${results[0].title || results[0].id}${suffix}`
@@ -301,12 +309,14 @@ export function ImportTab({
           changes,
           apply: async () => {
             const got = await applyShared(file, data, results);
-            await doneNotice(got.results, got.withAudio);
+            await doneNotice(got.results, got.withAudio, got.brought);
           },
         });
         return;
       }
-      if (!force && (await alreadySame(results))) {
+      // 코드가 같아도 악보가 새로 실려 왔으면 「같다」가 아니다
+      const adds = isBundle(data) ? await bundleAdds(data) : [];
+      if (!force && adds.length === 0 && (await alreadySame(results))) {
         /* 같은 곡이면 다시 담지는 않되, 「받았음」으로는 적어 둔다.
            적어 두지 않으면 이미 가진 곡이 「받지 않음」 목록에 남아,
            눌러도 「그대로 두었습니다」만 되풀이된다. */
@@ -319,7 +329,7 @@ export function ImportTab({
         return;
       }
       const got = await applyShared(file, data, results);
-      await doneNotice(got.results, got.withAudio);
+      await doneNotice(got.results, got.withAudio, got.brought);
     } catch (e) {
       setSharedError(`가져오기 실패: ${(e as Error).message}`);
     } finally {
@@ -359,7 +369,8 @@ export function ImportTab({
           conflicts.push({ file, data, results, changes });
           continue;
         }
-        if (!force && (await alreadySame(results))) {
+        const adds = isBundle(data) ? await bundleAdds(data) : [];
+        if (!force && adds.length === 0 && (await alreadySame(results))) {
           // 이미 가진 곡도 「받았음」으로 적어 둔다 — 위 fetchShared와 같다
           markFetched(
             file.id,
