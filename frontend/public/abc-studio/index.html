@@ -298,8 +298,6 @@
       <input type="file" id="fileInput" accept=".pdf,image/*" class="hidden">
     </div>
     <div class="row" style="margin-top:8px;">
-      <input type="text" id="urlInput" placeholder="또는 파일 URL 입력 (예: ./샘플악보.pdf)">
-      <button class="ghost" id="loadUrl">URL 불러오기</button>
       <button class="ghost hidden" id="restoreBtn">🕘 마지막 악보 열기</button>
     </div>
     <img id="preview" alt="악보 미리보기">
@@ -503,19 +501,8 @@ function wireDrop(zoneId, inputId) {
 const dz = $('dropzone');
 wireDrop('dropzone', 'fileInput');
 wireDrop('scorezone', 'scoreInput');
-$('loadUrl').onclick = async () => {
-  const url = $('urlInput').value.trim();
-  if (!url) return;
-  try {
-    setStatus('파일 다운로드 중…', '', true);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const blob = await res.blob();
-    const name = url.split('/').pop() || 'file';
-    const mime = blob.type || (name.endsWith('.pdf') ? 'application/pdf' : 'image/png');
-    handleFile(new File([blob], name, { type: mime }));
-  } catch (err) { setStatus('URL 로드 실패: ' + err.message, 'err'); }
-};
+/* URL로 악보 불러오기는 걷었다 — 파일을 끌어다 놓거나 골라 넣는 길이
+   있고, 남의 사이트 파일은 대개 CORS로 막혀 실패만 했다. */
 
 /* ==== MuseScore(.mscz/.mscx) → ABC ==================================
  * 제대로 된 MuseScore 파일에는 음높이·길이·가사·코드가 이미 자료로
