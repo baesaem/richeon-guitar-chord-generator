@@ -26,7 +26,7 @@ interface Props {
 const PLAYHEAD_RATIO = 0.35;
 
 /** 파형 막대 굵기와 간격(CSS 픽셀). 간격이 굵기보다 커야 막대가 하나씩 구분된다 */
-const BAR_WIDTH = 2;
+const BAR_WIDTH = 1;
 const BAR_STEP = 3;
 
 /**
