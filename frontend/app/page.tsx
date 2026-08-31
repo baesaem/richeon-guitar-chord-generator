@@ -3594,11 +3594,14 @@ function NoMelody({ admin }: { admin: boolean }) {
       <div className="text-sm font-semibold text-[var(--foreground)]">
         이 음원은 멜로디 악보를 지원하지 않습니다
       </div>
-      <p className="mt-1.5 text-[12px] leading-5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-        {admin
-          ? "위 줄의 「악보 그림 붙이기」로 PDF·사진을, 「악보 붙이기」로 .mscz·MusicXML을 붙이면 멜로디가 나옵니다."
-          : "악보가 붙은 음원을 받으시면 이 자리에 멜로디가 나옵니다. 타브와 파형은 그대로 쓰실 수 있습니다."}
-      </p>
+      {/* 관리자에게는 붙이는 단추들이 바로 위에 있어 설명이 군말이다 —
+          수강생에게만 무엇을 하면 되는지 적는다 */}
+      {!admin && (
+        <p className="mt-1.5 text-[12px] leading-5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+          악보가 붙은 음원을 받으시면 이 자리에 멜로디가 나옵니다. 타브와
+          파형은 그대로 쓰실 수 있습니다.
+        </p>
+      )}
     </div>
   );
 }
