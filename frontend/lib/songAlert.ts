@@ -14,27 +14,32 @@
 import { CLASSES, type GuitarClass } from "./classes";
 import { listShared } from "./api";
 import { hasDriveKey, listSharedDirect } from "./driveDirect";
-import { attemptedDriveIds } from "./sharedFetched";
+import { attemptedDriveIds, fetchedVersion } from "./sharedFetched";
 import { isRmlName } from "./sharedFiles";
 
 const SEEN_KEY = "chordgen.songAlertSeen";
 
-function seenIds(): Set<string> {
+/** 닫아 둔 알림. 값은 그때의 「고친 시각」 — 같은 판으로 두 번 안 부른다 */
+function seenMap(): Record<string, string> {
   try {
     const raw = localStorage.getItem(SEEN_KEY);
-    const rows = raw ? (JSON.parse(raw) as string[]) : [];
-    return new Set(Array.isArray(rows) ? rows : []);
+    const data = raw ? (JSON.parse(raw) as string[] | Record<string, string>) : {};
+    // 옛 저장(배열)도 읽는다 — 판은 모르는 채로
+    if (Array.isArray(data))
+      return Object.fromEntries(data.map((id) => [id, ""]));
+    return data && typeof data === "object" ? data : {};
   } catch {
-    return new Set();
+    return {};
   }
 }
 
-/** 알림을 닫았음을 적어 둔다. 같은 곡으로 두 번 부르지 않게. */
-export function markSongsSeen(ids: string[]): void {
+/** 알림을 닫았음을 적어 둔다. 같은 곡·같은 판으로 두 번 부르지 않게. */
+export function markSongsSeen(rows: { id: string; ver?: string }[]): void {
   try {
-    const all = [...seenIds(), ...ids];
-    // 오래된 것부터 버린다. 무한정 쌓을 까닭이 없다.
-    localStorage.setItem(SEEN_KEY, JSON.stringify(all.slice(-500)));
+    const map = seenMap();
+    for (const r of rows) map[r.id] = r.ver ?? "";
+    const entries = Object.entries(map).slice(-500);
+    localStorage.setItem(SEEN_KEY, JSON.stringify(Object.fromEntries(entries)));
   } catch {
     // 저장이 막혀도 이번에 알린 것으로 충분하다
   }
@@ -44,11 +49,15 @@ export interface NewSongs {
   klass: GuitarClass;
   /** 아직 받지 않은 드라이브 파일 id */
   ids: string[];
+  /** 받은 뒤 강사님이 고쳐 다시 올린 파일 id */
+  changed: string[];
+  /** 알림을 닫을 때 적어 둘 (id, 판) */
+  stamp: { id: string; ver?: string }[];
 }
 
 export async function findNewSongs(online: boolean): Promise<NewSongs[]> {
   if (!online && !hasDriveKey()) return [];
-  const seen = seenIds();
+  const seen = seenMap();
   const mine = attemptedDriveIds();
   const out: NewSongs[] = [];
 
@@ -59,12 +68,33 @@ export async function findNewSongs(online: boolean): Promise<NewSongs[]> {
     ).catch(() => []);
 
     // 곡(.rml)만 센다. 음원 파일은 곡에 딸려 오는 것이라 따로 세지 않는다.
-    const ids = list
-      .filter((f) => isRmlName(f.name))
-      .filter((f) => !mine.has(f.id) && !seen.has(f.id))
+    const songs = list.filter((f) => isRmlName(f.name));
+    const ids = songs
+      .filter((f) => !mine.has(f.id) && !(f.id in seen))
       .map((f) => f.id);
 
-    if (ids.length) out.push({ klass, ids });
+    /* 받은 뒤 강사님이 고쳐 다시 올린 곡.
+       파일을 같은 자리에 갈아 끼우므로 id는 그대로고 「고친 시각」만
+       바뀐다 — 받을 때 적어 둔 시각과 다르면 새 판이다. 같은 판으로
+       이미 알렸으면(닫았으면) 다시 부르지 않는다. */
+    const changed = songs
+      .filter((f) => {
+        if (!f.modified || !mine.has(f.id)) return false;
+        const got = fetchedVersion(f.id);
+        return !!got && got !== f.modified && seen[f.id] !== f.modified;
+      })
+      .map((f) => f.id);
+
+    if (ids.length || changed.length)
+      out.push({
+        klass,
+        ids,
+        changed,
+        stamp: [...ids, ...changed].map((id) => ({
+          id,
+          ver: songs.find((f) => f.id === id)?.modified,
+        })),
+      });
   }
   return out;
 }

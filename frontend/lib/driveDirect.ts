@@ -27,14 +27,20 @@ export function hasDriveKey(): boolean {
 export async function listSharedDirect(folderId: string): Promise<SharedFile[]> {
   const params = new URLSearchParams({
     q: `'${folderId}' in parents and trashed=false`,
-    fields: "files(id,name)",
+    fields: "files(id,name,modifiedTime)",
     pageSize: "1000",
     key: DRIVE_API_KEY,
   });
   const res = await fetch(`${API}/files?${params}`);
   if (!res.ok) throw new Error(`드라이브 목록 조회 실패 (HTTP ${res.status})`);
-  const body = (await res.json()) as { files?: { id: string; name: string }[] };
-  return (body.files ?? []).map((f) => ({ id: f.id, name: f.name }));
+  const body = (await res.json()) as {
+    files?: { id: string; name: string; modifiedTime?: string }[];
+  };
+  return (body.files ?? []).map((f) => ({
+    id: f.id,
+    name: f.name,
+    modified: f.modifiedTime,
+  }));
 }
 
 async function fetchFile(fileId: string): Promise<Response> {

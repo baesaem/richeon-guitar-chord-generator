@@ -244,7 +244,7 @@ export function PracticeRoom({
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5 p-2">
       {picking && songs && onPickSong && (
-        <Popup title="다른 음원" onClose={() => setPicking(false)}>
+        <Popup title="음원 목록" onClose={() => setPicking(false)}>
           <ul className="space-y-1">
             {songs.map((s) => (
               <li key={s.id}>
@@ -303,7 +303,7 @@ export function PracticeRoom({
             title="등록된 음원 가운데서 고릅니다"
             onClick={() => setPicking(true)}
           >
-            다른 음원
+            목록
           </button>
         )}
         {/* 연주설정 — 설정줄이 아니라 이 자리다. 곡 이름 옆이라

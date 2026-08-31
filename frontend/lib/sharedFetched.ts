@@ -13,14 +13,26 @@
 
 const KEY = "chordgen.sharedFetched";
 
-type FetchedMap = Record<string, string[]>;
+/** 받은 기록 한 칸. ver는 받을 때 드라이브의 「고친 시각」 */
+interface Fetched {
+  ids: string[];
+  ver?: string;
+}
+
+type FetchedMap = Record<string, Fetched>;
 
 function read(): FetchedMap {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const data = JSON.parse(raw) as FetchedMap;
-      if (data && typeof data === "object") return data;
+      const data = JSON.parse(raw) as Record<string, string[] | Fetched>;
+      if (data && typeof data === "object") {
+        // 옛 저장(결과 id 배열만)도 그대로 읽는다
+        const out: FetchedMap = {};
+        for (const [k, v] of Object.entries(data))
+          out[k] = Array.isArray(v) ? { ids: v } : v;
+        return out;
+      }
     }
   } catch {
     // 깨진 저장값은 초기화로 간다
@@ -28,14 +40,23 @@ function read(): FetchedMap {
   return {};
 }
 
-export function markFetched(driveId: string, resultIds: string[]): void {
+export function markFetched(
+  driveId: string,
+  resultIds: string[],
+  ver?: string,
+): void {
   const data = read();
-  data[driveId] = resultIds;
+  data[driveId] = { ids: resultIds, ver };
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
   } catch {
     // 저장이 막혀도 이번 세션 동작에는 지장 없다
   }
+}
+
+/** 받을 때 적어 둔 드라이브 「고친 시각」. 받은 적 없으면 undefined */
+export function fetchedVersion(driveId: string): string | undefined {
+  return read()[driveId]?.ver;
 }
 
 /**
@@ -52,8 +73,8 @@ export function attemptedDriveIds(): Set<string> {
 export function fetchedDriveIds(localResultIds: Set<string>): Set<string> {
   const data = read();
   const done = new Set<string>();
-  for (const [driveId, resultIds] of Object.entries(data)) {
-    if (resultIds.length > 0 && resultIds.every((id) => localResultIds.has(id))) {
+  for (const [driveId, rec] of Object.entries(data)) {
+    if (rec.ids.length > 0 && rec.ids.every((id) => localResultIds.has(id))) {
       done.add(driveId);
     }
   }

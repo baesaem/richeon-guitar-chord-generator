@@ -1481,13 +1481,13 @@ export default function Home() {
             width="max-w-xs"
             onClose={() => {
               markLessonsSeen(newLessons.flatMap((l) => l.ids));
-              markSongsSeen(newSongs.flatMap((s) => s.ids));
+              markSongsSeen(newSongs.flatMap((s) => s.stamp));
               setNewLessons([]);
               setNewSongs([]);
             }}
           >
             <p className="mb-2.5 text-[11px] leading-snug text-gray-500">
-              강사님이 새 자료를 올렸습니다. 받으러 가시겠어요?
+              강사님이 새 자료를 올리거나 고쳤습니다. 받으러 가시겠어요?
             </p>
             <div className="space-y-1.5">
               {newSongs.map((g) => (
@@ -1497,12 +1497,18 @@ export default function Home() {
                   onClick={() => {
                     setImportCard(g.klass.id);
                     setTab("import");
-                    markSongsSeen(newSongs.flatMap((x) => x.ids));
+                    markSongsSeen(newSongs.flatMap((x) => x.stamp));
                     setNewSongs([]);
                   }}
                 >
                   {g.klass.name.match(/\(([^)]+)\)/)?.[1] ?? g.klass.name} 음원{" "}
-                  {g.ids.length}곡 받으러 가기
+                  {[
+                    g.ids.length ? `새 곡 ${g.ids.length}` : "",
+                    g.changed.length ? `바뀐 곡 ${g.changed.length}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}{" "}
+                  받으러 가기
                 </button>
               ))}
               {newLessons.map((l) => (
@@ -1524,7 +1530,7 @@ export default function Home() {
                 className="w-full rounded bg-gray-100 py-2 text-xs dark:bg-gray-800"
                 onClick={() => {
                   markLessonsSeen(newLessons.flatMap((l) => l.ids));
-                  markSongsSeen(newSongs.flatMap((g) => g.ids));
+                  markSongsSeen(newSongs.flatMap((g) => g.stamp));
                   setNewLessons([]);
                   setNewSongs([]);
                 }}
@@ -1958,8 +1964,12 @@ export default function Home() {
                       </div>
                     )}
                   {sheetTab === "melody" && !abcEntry && !hasMelody && (
-                    <div className="p-3">
+                    <div className="flex flex-col gap-2 p-3">
                       <NoMelody admin={settings.adminMode} />
+                      {/* 악보가 없어도 노래는 따라가야 한다 */}
+                      <section className="h-[45dvh] overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                        {lyricsPane}
+                      </section>
                     </div>
                   )}
                   {sheetTab === "melody" &&
@@ -2418,18 +2428,26 @@ export default function Home() {
                         }
                       />
                     ) : (
-                      <div className="p-3">
-                        <NoMelody admin={settings.adminMode} />
-                        {/* 정밀 채보도 이 안(스튜디오의 「고정밀 채보」)에 있다 —
+                      <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-3 py-2">
+                        <div className="shrink-0">
+                          <NoMelody admin={settings.adminMode} />
+                          {/* 정밀 채보도 이 안(스튜디오의 「고정밀 채보」)에 있다 —
                           채보로 가는 문을 한 곳으로 모은다 */}
-                        {settings.adminMode && (
-                          <button
-                            className="mt-2 rounded bg-gray-200/70 px-2 py-1 text-[11px] font-semibold dark:bg-gray-700"
-                            onClick={() => openAbcStudio()}
-                          >
-                            + ABC 악보 붙이기
-                          </button>
-                        )}
+                          {settings.adminMode && (
+                            <button
+                              className="mt-2 rounded bg-gray-200/70 px-2 py-1 text-[11px] font-semibold dark:bg-gray-700"
+                              onClick={() => openAbcStudio()}
+                            >
+                              + ABC 악보 붙이기
+                            </button>
+                          )}
+                        </div>
+                        {/* 악보가 없어도 노래는 따라가야 한다 — 빈 칸 대신
+                          가사가 재생을 따라 흐른다. 넓은 화면은 오른쪽
+                          기둥에 이미 있으므로 폰에서만 보인다 */}
+                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 md:hidden dark:border-gray-700">
+                          {lyricsPane}
+                        </section>
                       </div>
                     )
                   }

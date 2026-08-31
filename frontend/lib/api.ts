@@ -87,6 +87,8 @@ export const listResults = () =>
 export interface SharedFile {
   id: string;
   name: string;
+  /** 드라이브가 적어 둔 마지막 고친 시각. 서버 프록시 길에는 없다 */
+  modified?: string;
 }
 
 /** 반별 공유 폴더(구글드라이브)의 파일 목록. 서버가 프록시한다. */

@@ -28,7 +28,7 @@ import {
   saveLocalAudio,
 } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
-import { fetchedDriveIds, markFetched } from "@/lib/sharedFetched";
+import { fetchedDriveIds, fetchedVersion, markFetched } from "@/lib/sharedFetched";
 import {
   audioBaseOf,
   audioIdFromName,
@@ -207,7 +207,13 @@ export function ImportTab({
   // 지금 걸러 놓은 것 기준으로 화면에 보이는 곡. 목록과 「모두 받기」가
   // 같은 것을 보게 한 곳에서 계산한다.
   const visible = (sharedSongs ?? []).filter((file) => {
-    const done = fetched.has(file.id);
+    /* 받은 뒤 강사님이 고쳐 다시 올린 곡은 「받지 않음」으로 돌린다.
+       받음 쪽에 숨어 있으면, 알림을 보고 온 수강생이 목록에서 그 곡을
+       찾지 못한다 — 기본 필터가 받지 않음이라서다. */
+    const stale =
+      !!file.modified && !!fetchedVersion(file.id) &&
+      fetchedVersion(file.id) !== file.modified;
+    const done = fetched.has(file.id) && !stale;
     if (filter === "unfetched") return !done;
     if (filter === "fetched") return done;
     return true;
@@ -250,6 +256,7 @@ export function ImportTab({
     markFetched(
       file.id,
       results.map((r) => r.id),
+      file.modified,
     );
 
     // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
@@ -260,14 +267,14 @@ export function ImportTab({
       const audioId = audioIdFromName(audioFile.name);
       if (audioId && results.some((r) => r.id === audioId)) {
         await saveLocalAudio(audioId, await fileBlob(audioFile.id));
-        markFetched(audioFile.id, [audioId]);
+        markFetched(audioFile.id, [audioId], audioFile.modified);
         withAudio += 1;
         continue;
       }
       const instId = instIdFromName(audioFile.name);
       if (instId && wantInst && results.some((r) => r.id === instId)) {
         await saveLocalAudio(instKey(instId), await fileBlob(audioFile.id));
-        markFetched(audioFile.id, [instId]);
+        markFetched(audioFile.id, [instId], audioFile.modified);
       }
     }
     return { results, withAudio, brought };
@@ -323,6 +330,7 @@ export function ImportTab({
         markFetched(
           file.id,
           results.map((r) => r.id),
+          file.modified,
         );
         await refreshFetched();
         setSharedNotice("이미 받은 것과 같습니다. 그대로 두었습니다.");
