@@ -1468,7 +1468,7 @@ export default function Home() {
                 className="w-full rounded bg-gray-100 py-2.5 text-sm font-medium dark:bg-gray-800"
                 onClick={() => setAskExit(false)}
               >
-                계속 쓰기
+                돌아가기
               </button>
               <button
                 className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
