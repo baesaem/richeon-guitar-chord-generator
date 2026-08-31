@@ -278,7 +278,7 @@
     <div class="secTitle">② 참고용 악보 (선택)</div>
     <div id="dropzone">
       <strong>악보 파일을 여기에 드래그</strong>하거나 클릭해서 선택하세요<br>
-      <small>PDF · PNG · JPG · MuseScore(.mscz) · MusicXML(.xml·.mxl)<br>MuseScore·MusicXML 파일은 AI 없이 그대로 악보로 옮깁니다</small>
+      <small>PDF · PNG · JPG · MuseScore(.mscz) · MusicXML(.xml·.mxl) · ABC(.abc)<br>MuseScore·MusicXML·ABC 파일은 AI 없이 그대로 악보로 옮깁니다</small>
       <input type="file" id="fileInput" accept=".abc,.pdf,.mscz,.mscx,.xml,.musicxml,.mxl,image/*" class="hidden">
     </div>
     <div class="row" style="margin-top:8px;">
@@ -1396,7 +1396,10 @@ async function handleFile(file) {
   } catch (e) {
     refPages = [];
     $('preview').style.display = 'none';
-    setStatus('악보를 읽지 못했습니다: ' + e.message, 'err');
+    /* 그림 읽기가 엎어지면 예외가 아니라 이벤트가 온다 — e.message가
+       없어 「undefined」만 남았다. 무엇을 넣었는지 함께 적어 준다. */
+    const why = (e && e.message) || `${file.name} 형식을 읽지 못했습니다`;
+    setStatus('악보를 읽지 못했습니다: ' + why, 'err');
   }
 }
 
