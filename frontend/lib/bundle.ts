@@ -4,6 +4,7 @@ import { apiBase, makeInstrumental, makeVocals, type SheetHit } from "./api";
 import { getLocalAudio, saveLocal, saveLocalAudio, saveLocalSheet } from "./library";
 import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { instKey, stemKey } from "./sharedFiles";
+import { getAbc, saveAbc } from "./abcStore";
 import { loadSheets, saveSheets } from "./sheetCache";
 import { getSheetPage, saveSheetPage } from "./library";
 import type { AnalysisResult } from "./types";
@@ -49,6 +50,13 @@ export interface SongBundle {
    * 가사는 오는데 악보만 빈 칸이 된다.
    */
   sheetPages?: string[];
+  /**
+   * ABC 악보와 그 마디 밀기.
+   *
+   * 악보 파일(.mscz)이나 AI 채보로 만든 악보는 강사님 기기에만 있었다 —
+   * 코드도 가사도 가는데 정작 악보만 안 갔다. 몇 KB뿐이라 담아 보낸다.
+   */
+  abc?: { abc: string; barOffset: number };
 }
 
 export function isBundle(data: unknown): data is SongBundle {
@@ -179,6 +187,10 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
     if (got.length) bundle.sheetPages = got;
   }
 
+  // ABC 악보. 그림악보가 없는 곡은 이것이 유일한 악보다.
+  const abc = getAbc(result.id);
+  if (abc?.abc?.trim()) bundle.abc = { abc: abc.abc, barOffset: abc.barOffset };
+
   // loadSetup은 늘 값을 준다. 손대지 않은 기본값까지 담을 이유는 없다.
   // 어느 값 하나라도 손댔으면 통째로 담는다 — 항목이 늘 때마다 여기를
   // 고쳐야 하는 대신, 기본값과 다른지만 본다.
@@ -279,6 +291,14 @@ export async function openBundle(
       got.push("연주설정");
     } catch {
       /* 무시 */
+    }
+  }
+  if (bundle.abc?.abc?.trim()) {
+    try {
+      saveAbc(bundle.result.id, bundle.abc.abc, bundle.abc.barOffset ?? 0);
+      got.push("ABC 악보");
+    } catch {
+      /* 자리가 모자라도 코드·가사는 들어간다 */
     }
   }
   if (bundle.mySheet) {
