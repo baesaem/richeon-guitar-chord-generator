@@ -99,7 +99,7 @@ export function HomeDashboard({
     <button
       key={key ?? label}
       onClick={onClick}
-      className="flex flex-col items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 py-2.5 dark:border-gray-700 dark:bg-gray-900"
+      className="flex flex-col items-center gap-1 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] py-2.5"
     >
       <span className="text-[var(--accent)]">{icon}</span>
       <span className="px-1 text-center text-[11px] font-medium leading-tight">
@@ -151,8 +151,8 @@ export function HomeDashboard({
       )}
 
       {/* 받기 상자 — 음원받기와 강좌받기를 탭으로 나눈다 */}
-      <section className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
-        <div className="mb-2 flex rounded-lg bg-gray-200/70 p-0.5 dark:bg-gray-800">
+      <section className="rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-3 py-2">
+        <div className="mb-2 flex rounded-lg bg-[var(--panel-line)] p-0.5">
           {/* 음원받기는 수강생에게도 보여야 한다. 감춰 두었더니 곡을
               받을 길이 아주 없어져, 강사님이 새 곡을 올렸다는 알림을
               놓치면 그것으로 끝이었다. */}
@@ -168,7 +168,7 @@ export function HomeDashboard({
               className={[
                 "min-w-0 flex-1 truncate rounded-md py-1 text-[12px] font-medium transition-colors",
                 fetchTab === value
-                  ? "bg-white text-black shadow-sm dark:bg-black dark:text-white"
+                  ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
                   : "text-gray-500",
               ].join(" ")}
             >
@@ -265,7 +265,7 @@ export function HomeDashboard({
       {/* 좁은 화면: 최근 재생 위, 등록된 음원 아래.
           넓은 화면: 두 프레임을 나란히 — 왼쪽 최근 재생, 오른쪽 음원 목록. */}
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 md:flex-row">
-        <section className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 md:flex md:min-h-0 md:w-[42%] md:shrink-0 md:flex-col dark:border-gray-700 dark:bg-gray-900">
+        <section className="rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-3 py-1.5 md:flex md:min-h-0 md:w-[42%] md:shrink-0 md:flex-col">
           <div className="flex shrink-0 items-center justify-between py-1">
             <h3 className="text-[11px] font-semibold text-gray-500">
               최근 재생
@@ -306,7 +306,7 @@ export function HomeDashboard({
 
         {/* 등록된 음원 — 누르면 바로 연습실로 간다 */}
         {songs.length > 0 && (
-          <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+          <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-3 py-1.5">
             <div className="flex shrink-0 items-center justify-between py-1">
               <h3 className="text-[11px] font-semibold text-gray-500">
                 등록된 음원
@@ -349,7 +349,7 @@ export function HomeDashboard({
       {practice && (
         <button
           onClick={onChords}
-          className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-gray-700 dark:bg-gray-900"
+          className="flex w-full items-center gap-3 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-3 py-2 text-left"
         >
           <ChordDiagram
             voicing={voicingFor(practice.root, practice.quality)}

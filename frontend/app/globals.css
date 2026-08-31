@@ -34,6 +34,16 @@
   --bar-bg: #eceef2;
 }
 
+/* 뷰 창 안의 상자(카드) 색.
+ *
+ * 테마마다 따로 적지 않는다 — 그 테마의 바탕과 글자를 섞어 만든다.
+ * 손으로 적던 회색(bg-gray-50)을 쓰면 세피아·아쿠아 화면 한가운데
+ * 회색 판이 놓여 테마가 거기서 끊긴다. 홈이 그랬다. */
+:root {
+  --panel: color-mix(in srgb, var(--foreground) 5%, var(--background));
+  --panel-line: color-mix(in srgb, var(--foreground) 14%, var(--background));
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
