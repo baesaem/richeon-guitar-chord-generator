@@ -176,8 +176,6 @@ interface Props {
   songId?: string;
   /** 목록에서 고른 곡을 연다 */
   onPickSong?: (id: string) => void;
-  /** 전체보기 창을 연다 — 곡 전체를 한눈에 보는 자리 */
-  onFullView?: () => void;
 }
 
 export function PracticeRoom({
@@ -210,7 +208,6 @@ export function PracticeRoom({
   songs,
   songId,
   onPickSong,
-  onFullView,
 }: Props) {
   /** 「다른 음원」 창이 열려 있는가 */
   const [picking, setPicking] = useState(false);
@@ -306,30 +303,6 @@ export function PracticeRoom({
         >
           ▶
         </button>
-        {/* 전체보기 — 연습실은 두어 줄만 보인다. 곡 전체를 훑거나
-            악보를 붙이는 일은 이 창에서 한다 */}
-        {onFullView && (
-          <button
-            className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-1 text-[11px] font-semibold text-[var(--foreground)]"
-            title="곡 전체를 한눈에 봅니다"
-            onClick={onFullView}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-3 w-3"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.9}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M3 9h18M8 4v16" />
-            </svg>
-            전체보기
-          </button>
-        )}
         {/* 다른 음원 — ◀ ▶로 한 곡씩 옮기는 것과 달리, 목록에서
             곧바로 집어 간다. 곡이 스무 개면 열아홉 번 누를 수는 없다 */}
         {songs && songs.length > 1 && onPickSong && (
