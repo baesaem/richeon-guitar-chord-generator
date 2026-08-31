@@ -1301,7 +1301,29 @@ async function handleFile(file) {
     scoreFile = { buf, name: file.name, kind };
     refPages = [];
     refAbc = '';
-    $('preview').style.display = 'none';
+    /* 뮤즈스코어 파일 안에는 첫 쪽을 그려 둔 그림이 들어 있다. 꺼내
+       보여 주면 「제대로 든 파일인가」를 눈으로 확인할 수 있다 —
+       파일 이름만 뜨면 엉뚱한 악보를 넣고도 모른다. */
+    let shot = null;
+    if (/\.mscz$/i.test(file.name)) {
+      try {
+        const files = await unzipEntries(buf.slice(0));
+        const name = Object.keys(files).find((n) => /thumbnail\.png$/i.test(n));
+        if (name) {
+          let bin = '';
+          for (const b of files[name]) bin += String.fromCharCode(b);
+          shot = 'data:image/png;base64,' + btoa(bin);
+        }
+      } catch (e) {
+        shot = null;   // 그림이 없어도 악보는 옮길 수 있다
+      }
+    }
+    if (shot) {
+      $('preview').src = shot;
+      $('preview').style.display = 'block';
+    } else {
+      $('preview').style.display = 'none';
+    }
     setStatus(`${kind} 악보를 받았습니다 (${file.name}) — 「생성」을 누르면 옮깁니다.`, 'ok');
     return;
   }

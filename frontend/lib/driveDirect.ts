@@ -39,8 +39,27 @@ export async function listSharedDirect(folderId: string): Promise<SharedFile[]> 
 
 async function fetchFile(fileId: string): Promise<Response> {
   const res = await fetch(`${API}/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`);
-  if (!res.ok) throw new Error(`드라이브 내려받기 실패 (HTTP ${res.status})`);
-  return res;
+  if (res.ok) return res;
+
+  /* 왜 못 받았는지 사람 말로 알려 준다.
+   *
+   * 구글은 막을 때 JSON이 아니라 「Sorry...」라는 HTML 쪽을 돌려준다.
+   * 그것을 그대로 「HTTP 403」이라고만 적으면 받는 사람은 무엇을 해야
+   * 할지 알 수 없다 — 기다리면 풀리는 일인데 앱이 고장 난 줄 안다.
+   */
+  const body = await res.text().catch(() => "");
+  if (res.status === 403 && /Sorry|automated queries/i.test(body)) {
+    throw new Error(
+      "구글이 이 기기·망에서 내려받기를 잠시 막았습니다. " +
+        "짧은 사이에 여러 곡을 받으면 그럽니다 — 5~10분 뒤에 다시 하거나 " +
+        "와이파이·데이터를 바꿔 보십시오.",
+    );
+  }
+  if (res.status === 403 && /referer/i.test(body)) {
+    throw new Error("드라이브 열쇠가 이 주소에서는 막혀 있습니다 (관리자에게 알려 주세요).");
+  }
+  if (res.status === 404) throw new Error("드라이브에서 파일을 찾지 못했습니다.");
+  throw new Error(`드라이브 내려받기 실패 (HTTP ${res.status})`);
 }
 
 export async function downloadDirectText(fileId: string): Promise<string> {

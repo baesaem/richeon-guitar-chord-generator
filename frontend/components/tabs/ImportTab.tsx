@@ -307,6 +307,13 @@ export function ImportTab({
         return;
       }
       if (!force && (await alreadySame(results))) {
+        /* 같은 곡이면 다시 담지는 않되, 「받았음」으로는 적어 둔다.
+           적어 두지 않으면 이미 가진 곡이 「받지 않음」 목록에 남아,
+           눌러도 「그대로 두었습니다」만 되풀이된다. */
+        markFetched(
+          file.id,
+          results.map((r) => r.id),
+        );
         await refreshFetched();
         setSharedNotice("이미 받은 것과 같습니다. 그대로 두었습니다.");
         return;
@@ -332,6 +339,8 @@ export function ImportTab({
     let songs = 0;
     let audio = 0;
     const failed: string[] = [];
+    // 왜 못 받았는지도 남긴다 — 이름만 늘어놓으면 무엇을 해야 할지 모른다
+    let why = "";
 
     let same = 0;
     const conflicts: {
@@ -351,14 +360,20 @@ export function ImportTab({
           continue;
         }
         if (!force && (await alreadySame(results))) {
+          // 이미 가진 곡도 「받았음」으로 적어 둔다 — 위 fetchShared와 같다
+          markFetched(
+            file.id,
+            results.map((r) => r.id),
+          );
           same += 1;
           continue;
         }
         const got = await applyShared(file, data, results);
         songs += got.results.length;
         audio += got.withAudio;
-      } catch {
+      } catch (e) {
         failed.push(songTitleOf(file.name));
+        why = why || (e as Error).message;
       }
     }
     setFetching(null);
@@ -396,7 +411,9 @@ export function ImportTab({
     }
 
     if (songs === 0 && same === 0 && failed.length > 0) {
-      setSharedError(`받지 못했습니다: ${failed.join(", ")}`);
+      setSharedError(
+        `받지 못했습니다: ${failed.join(", ")}` + (why ? ` — ${why}` : ""),
+      );
       return;
     }
     const suffix = audio > 0 ? ` (음원 ${audio}곡 포함)` : "";
