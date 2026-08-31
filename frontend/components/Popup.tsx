@@ -26,7 +26,10 @@ export function Popup({
       onClick={onClose}
     >
       <div
-        className={`flex max-h-[85dvh] w-full ${width} flex-col rounded-xl bg-white shadow-xl`}
+        /* 창도 테마를 따른다. 흰 종이로 박아 두었더니 어두운 테마에서
+           흰 바탕에 흰 글자가 되어 아무것도 안 보였다 — 다크 짝을
+           걷어내면서 함께 사라진 것이다. */
+        className={`flex max-h-[85dvh] w-full ${width} flex-col rounded-xl bg-[var(--background)] text-[var(--foreground)] shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 제목줄은 고정. 긴 창(연주설정)을 내려도 이름과 닫기가 남는다 */}

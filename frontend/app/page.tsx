@@ -2784,7 +2784,7 @@ export default function Home() {
                                 className={[
                                   "min-w-0 flex-1 truncate rounded-md py-1 text-[13px] font-medium transition-colors roomy:py-2.5 roomy:text-[16px]",
                                   boardView === value
-                                    ? "bg-white text-black shadow-sm dark:bg-black dark:text-white"
+                                    ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
                                     : "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]",
                                 ].join(" ")}
                               >
