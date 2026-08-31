@@ -28,6 +28,8 @@ interface Props {
   online: boolean;
   /** 가사를 새로 받으면 재생 중인 결과에도 반영한다 */
   onLyrics: (lines: LyricLine[]) => void;
+  /** 고친 결과를 통째로 받아 기기·서버에 적는 손. 있으면 이쪽이 먼저다 */
+  onResult?: (r: AnalysisResult) => void;
   onSeek: (t: number) => void;
   /**
    * 가사를 고칠 수 있는가(관리자).
@@ -49,6 +51,7 @@ export function LyricsPane({
   time,
   online,
   onLyrics,
+  onResult,
   onSeek,
   canEdit = true,
 }: Props) {
@@ -79,13 +82,21 @@ export function LyricsPane({
 
   /** 가사를 결과·기기 저장분 양쪽에 반영한다. */
   const apply = async (next: LyricLine[], approx = false, manual = false) => {
-    onLyrics(next);
-    await saveLocal({
+    const updated = {
       ...result,
       lyrics: next,
       lyrics_approx: approx,
       lyrics_manual: manual,
-    }).catch(() => {});
+    };
+    if (onResult) {
+      // 화면·기기·서버를 한 손이 다 적는다 — 기기에만 적으면 곡을
+      // 다시 열 때 서버 사본이 덮어 가사가 떨어진다
+      onResult(updated);
+      onLyrics(next);
+      return;
+    }
+    onLyrics(next);
+    await saveLocal(updated).catch(() => {});
   };
 
   const search = async (q: string) => {

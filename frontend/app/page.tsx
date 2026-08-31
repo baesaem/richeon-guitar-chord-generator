@@ -971,12 +971,13 @@ export default function Home() {
     // 재생은 언제나 연습실에서 — 홈은 대시보드다
     setTab("player");
     try {
-      // 서버가 붙어 있으면 서버 것을 쓴다. 분석을 고치면 서버 결과가 먼저
-      // 새로워지는데, 기기 저장분을 우선하면 옛 결과가 계속 열린다.
-      // 서버가 없는 수강생 기기에서는 곧바로 기기 저장분으로 간다.
-      const result = health
-        ? await getResult(id).catch(() => getLocal(id))
-        : await getLocal(id);
+      /* 기기 것을 먼저 연다 — 기기가 원본이다.
+         예전에는 서버 것을 먼저 열었다. 그래서 가사를 붙이고 기기에만
+         적힌 사이에 곡을 다시 열면, 가사 없는 서버 사본이 그 위에
+         열려 「붙였던 가사가 떨어지는」 꼴이 됐다. 고친 것은 어차피
+         실시간 동기화가 서버로 밀어 넣는다. */
+      const result = (await getLocal(id).catch(() => null))
+        ?? (health ? await getResult(id) : null);
       if (!result) throw new Error("결과 없음");
       showSong(result);
       return true;
@@ -1069,6 +1070,10 @@ export default function Home() {
       onLyrics={(lines) =>
         setResult((prev) => (prev ? { ...prev, lyrics: lines } : prev))
       }
+      onResult={(r) => {
+        adoptResult(r);
+        pushToServer(r);
+      }}
       onSeek={(t) => {
         playback?.seek(t);
         setTime(t);
@@ -2744,6 +2749,10 @@ export default function Home() {
                               prev ? { ...prev, lyrics: lines } : prev,
                             )
                           }
+                          onResult={(r) => {
+                            adoptResult(r);
+                            pushToServer(r);
+                          }}
                           onSeek={(t) => {
                             playback?.seek(t);
                             setTime(t);
@@ -3229,6 +3238,10 @@ export default function Home() {
                                 prev ? { ...prev, lyrics: lines } : prev,
                               )
                             }
+                            onResult={(r) => {
+                              adoptResult(r);
+                              pushToServer(r);
+                            }}
                             onSeek={(t) => {
                               playback?.seek(t);
                               setTime(t);
