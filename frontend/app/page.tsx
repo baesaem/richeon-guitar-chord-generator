@@ -658,6 +658,41 @@ export default function Home() {
 
   /** 편집에서 고르고 있는 가사 줄. 옆에 마디 옮기기 단추가 붙는다 */
   const [pickLyric, setPickLyric] = useState<number | null>(null);
+  /** 끌고 있는 가사 줄(집은 자리 → 놓을 자리) */
+  const [dragLyric, setDragLyric] = useState<{
+    from: number;
+    to: number;
+  } | null>(null);
+
+  /**
+   * 가사 글자만 자리를 바꾼다. 시각은 그대로 둔다.
+   *
+   * 자막이 한 줄씩 밀려 붙는 일이 흔하다 — 시각 칸은 맞는데 글자가
+   * 옆 칸에 들어 있는 것이다. 그럴 때 필요한 것은 시각을 옮기는 일이
+   * 아니라 **글자를 옆 칸으로 옮기는** 일이다. 시각을 건드리면 애써
+   * 맞춰 둔 격자가 도로 어긋난다.
+   */
+  const moveLyricText = async (from: number, to: number) => {
+    if (!result?.lyrics?.length || from === to) return;
+    const texts = result.lyrics.map((l) => l.text);
+    const [moved] = texts.splice(from, 1);
+    texts.splice(to, 0, moved);
+    const rows = result.lyrics.map((l, i) => ({ ...l, text: texts[i] }));
+
+    const next = { ...result, lyrics: rows, lyrics_manual: true };
+    setResult(next);
+    await saveLocal(next).catch(() => {});
+    if (health) await putLyrics(next.id, rows).catch(() => {});
+  };
+
+  /** 손가락이 지나는 자리의 가사 줄 번호. 없으면 null */
+  const lyricUnder = (x: number, y: number): number | null => {
+    const el = document
+      .elementFromPoint(x, y)
+      ?.closest("[data-lyric]") as HTMLElement | null;
+    const no = el?.dataset.lyric;
+    return no === undefined ? null : Number(no);
+  };
 
   /**
    * 고른 줄부터 뒤 가사를 한 마디씩 민다.
@@ -674,7 +709,7 @@ export default function Home() {
     if (!result?.lyrics?.length) return;
     const at = result.lyrics[index]?.t ?? 0;
     const bar = bars.find((b) => b.start <= at && at < b.end) ?? bars[0];
-    const span = bar ? bar.end - bar.start : 60 / (result.bpm || 100) * 4;
+    const span = bar ? bar.end - bar.start : (60 / (result.bpm || 100)) * 4;
     const delta = dir * span;
 
     const rows = result.lyrics
@@ -1905,27 +1940,59 @@ export default function Home() {
                       봐야 해서 편집 모드에서는 안 묶는다 */}
                       {editMode
                         ? (result.lyrics ?? []).map((line, i) => (
-                            <LyricRow
+                            <div
                               key={`${line.t}-${i}`}
-                              text={line.text}
-                              now={
-                                lyricIndexAt(
-                                  result.lyrics ?? [],
-                                  time +
-                                    lyricSync -
-                                    settings.latency +
-                                    LYRIC_LEAD,
-                                ) === i
+                              data-lyric={i}
+                              className={
+                                dragLyric?.to === i && dragLyric.from !== i
+                                  ? "rounded ring-2 ring-[var(--accent)]"
+                                  : dragLyric?.from === i
+                                    ? "opacity-40"
+                                    : ""
                               }
-                              onSeek={() => {
-                                playback?.seek(line.t);
-                                setTime(line.t);
-                                setPickLyric(i);
+                              onPointerMove={(e) => {
+                                if (!dragLyric) return;
+                                const over = lyricUnder(e.clientX, e.clientY);
+                                if (over !== null && over !== dragLyric.to)
+                                  setDragLyric({ ...dragLyric, to: over });
                               }}
-                              onEdit={() => setEditLyric(i)}
-                              selected={pickLyric === i}
-                              onShift={(dir) => void shiftLyricsFrom(i, dir)}
-                            />
+                              onPointerUp={() => {
+                                if (!dragLyric) return;
+                                void moveLyricText(
+                                  dragLyric.from,
+                                  dragLyric.to,
+                                );
+                                setDragLyric(null);
+                              }}
+                              onPointerCancel={() => setDragLyric(null)}
+                            >
+                              <LyricRow
+                                text={line.text}
+                                now={
+                                  lyricIndexAt(
+                                    result.lyrics ?? [],
+                                    time +
+                                      lyricSync -
+                                      settings.latency +
+                                      LYRIC_LEAD,
+                                  ) === i
+                                }
+                                onSeek={() => {
+                                  playback?.seek(line.t);
+                                  setTime(line.t);
+                                  setPickLyric(i);
+                                }}
+                                onEdit={() => setEditLyric(i)}
+                                selected={pickLyric === i}
+                                onShift={(dir) => void shiftLyricsFrom(i, dir)}
+                                onGrab={(e) => {
+                                  e.currentTarget.setPointerCapture?.(
+                                    e.pointerId,
+                                  );
+                                  setDragLyric({ from: i, to: i });
+                                }}
+                              />
+                            </div>
                           ))
                         : lyricGroups.map((g, i) => (
                             <LyricRow
