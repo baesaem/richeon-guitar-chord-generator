@@ -408,6 +408,31 @@ export function LibraryTab({
         );
       }
 
+      /* 고른 폴더에 정말 쓸 수 있는지 곡을 만들기 전에 먼저 재 본다.
+         크롬은 폴더를 고른 뒤 「변경 허용?」을 한 번 더 묻는데, 이것이
+         거절되어 있으면 곡마다 조용히 실패한다 — 폴더 창은 떴는데 그
+         뒤 아무 일도 없는 것이 이것이다. 못 쓰면 내려받기로 물러난다. */
+      if (dir) {
+        try {
+          const probe = await dir.getFileHandle("리천-쓰기확인.tmp", {
+            create: true,
+          });
+          const w = await probe.createWritable();
+          await w.write("ok");
+          await w.close();
+          // 확인용 부스러기는 지운다 — 남기면 곡 파일 사이에 낀다
+          await (
+            dir as unknown as { removeEntry?: (n: string) => Promise<void> }
+          ).removeEntry?.("리천-쓰기확인.tmp");
+        } catch {
+          dir = null;
+          flash(
+            "고른 폴더에 쓸 권한이 없어(브라우저가 막음) 한 파일씩 " +
+              "내려받기로 바꿉니다. 브라우저가 물으면 「허용」을 눌러 주세요.",
+          );
+        }
+      }
+
       let count = 0;
       // 한 곡이 깨져도 멈추지 않는다 — 스무 곡을 내보내다 하나가
       // 어긋났다고 나머지 열아홉 곡을 잃으면 곤란하다
