@@ -99,12 +99,27 @@ function extOf(mime: string): string {
  * 곡의 원곡 음원을 구한다. 이 기기(수강생) 것을 먼저 보고, 없으면
  * 서버(관리자 PC)에서 받는다. 어디에도 없으면 null — 꾸러미에서 빠진다.
  */
+/**
+ * 시간 제한이 있는 fetch.
+ *
+ * 곡 꾸러미를 만들 때 서버에서 음원·반주를 가져오는데, 서버가 wav를
+ * mp3로 바꾸는 중이거나 멈춰 있으면 응답이 영영 오지 않는다 — 그러면
+ * 「전체 내보내기」가 첫 곡에서 조용히 멎는다. 실제로 폴더를 고른 뒤
+ * 아무 일도 없다는 말이 이것이었다. 3분을 넘기면 그 트랙은 포기하고
+ * 다음으로 간다 — 트랙이 빠질 뿐 내보내기는 끝까지 간다.
+ */
+function fetchWithTimeout(url: string, ms = 180_000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 async function findAudio(id: string): Promise<{ blob: Blob; ext: string } | null> {
   const local = await getLocalAudio(id).catch(() => null);
   if (local) return { blob: local, ext: extOf(local.type) };
 
   try {
-    const res = await fetch(`${apiBase()}/api/audio/${id}`);
+    const res = await fetchWithTimeout(`${apiBase()}/api/audio/${id}`);
     if (!res.ok) return null;
     const blob = await res.blob();
     const cd = res.headers.get("content-disposition") ?? "";
@@ -140,10 +155,10 @@ async function findStem(
 
   const fromServer = async (): Promise<Blob | null> => {
     try {
-      let res = await fetch(`${apiBase()}/api/audio/${id}/${kind}`);
+      let res = await fetchWithTimeout(`${apiBase()}/api/audio/${id}/${kind}`);
       if (!res.ok) {
         await (kind === "instrumental" ? makeInstrumental(id) : makeVocals(id));
-        res = await fetch(`${apiBase()}/api/audio/${id}/${kind}`);
+        res = await fetchWithTimeout(`${apiBase()}/api/audio/${id}/${kind}`);
       }
       return res.ok ? await res.blob() : null;
     } catch {
@@ -184,7 +199,7 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
           got.push(await toDataUrl(local));
           continue;
         }
-        const res = await fetch(`${apiBase()}/api/sheets/${result.id}/page/${i}`);
+        const res = await fetchWithTimeout(`${apiBase()}/api/sheets/${result.id}/page/${i}`);
         if (res.ok) got.push(await toDataUrl(await res.blob()));
       } catch {
         // 한 쪽이 빠져도 나머지는 담는다
