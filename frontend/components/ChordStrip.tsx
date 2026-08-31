@@ -26,7 +26,7 @@ interface Props {
 const PLAYHEAD_RATIO = 0.35;
 
 /** 파형 막대 굵기와 간격(CSS 픽셀). 간격이 굵기보다 커야 막대가 하나씩 구분된다 */
-const BAR_WIDTH = 1;
+const BAR_WIDTH = 1.5;
 const BAR_STEP = 3;
 
 /**
@@ -60,7 +60,8 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
 
     const dark = document.documentElement.classList.contains("dark") ||
       window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-    const wave = dark ? "#d4d4d8" : "#52525b";
+    // 파형선은 눈금·칩보다 진해야 한다 — 무엇을 보는 화면인지가 그것이다
+    const wave = dark ? "#e8e8ee" : "#3f3f46";
     const grid = dark ? "#3f3f46" : "#d4d4d8";
     const chipBg = dark ? "#fafafa" : "#18181b";
     const chipFg = dark ? "#18181b" : "#fafafa";

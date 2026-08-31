@@ -2097,8 +2097,10 @@ export default function Home() {
                         </section>
                       </div>
                     ) : roomView === "grid" ? (
-                      /* 다섯 줄만 띄우고 그 아래 가사 — 백 마디를 다
-                       늘어놓으면 지금 자리를 눈으로 찾아야 한다 */
+                      /* 몇 줄만 띄우고 그 아래 가사 — 백 마디를 다
+                       늘어놓으면 지금 자리를 눈으로 찾아야 한다.
+                       폰은 세 줄이다. 다섯 줄을 띄우면 가사가 밀려
+                       내려가 화면 밖으로 나간다 */
                       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-2 py-1">
                         {/* 그리드에도 곡의 성격을 같은 자리에 둔다 */}
                         <SongInfoLine
@@ -2109,7 +2111,7 @@ export default function Home() {
                         />
                         <div className="shrink-0">
                           <ChordSheet
-                            visibleRows={5}
+                            visibleRows={wide ? 5 : 3}
                             bars={bars}
                             chords={shownChords}
                             currentBar={barIdx}
