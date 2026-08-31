@@ -280,11 +280,11 @@
   <div class="panel">
     <!-- ① 음원 — 채보의 기준이 되는 실제 소리.
          제목줄 오른쪽에 단추를 붙여 한 줄을 아낀다 -->
-    <div class="secTitle" style="border-top:none; padding-top:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+    <div class="secTitle" style="border-top:none; padding-top:0; display:flex; align-items:center; gap:6px; flex-wrap:nowrap; white-space:nowrap;">
       <span>① 음원 (영상 링크)</span>
-      <span style="flex:1"></span>
+      <span style="flex:1; min-width:4px;"></span>
       <button class="ghost" id="audioFileBtn">🎵 음원 파일</button>
-      <button class="ghost hidden" id="restoreBtn">🕘 마지막 악보 열기</button>
+      <button class="ghost hidden" id="restoreBtn" title="마지막에 넣은 악보를 다시 엽니다">🕘 마지막 악보</button>
     </div>
     <div class="row">
       <input type="text" id="audioUrlInput" placeholder="유튜브 URL (예: https://youtu.be/...) — 이 음원을 기준으로 채보합니다">
@@ -317,7 +317,7 @@
     <p class="hintText">한 줄에 한 마디씩, 또는 「G | Em | C | D」처럼 적으세요. 비워 두면 AI가 음원에서 코드를 딴 대로 적습니다.</p>
     <textarea id="chordInput" rows="3" style="width:100%; font-family:Consolas,monospace; font-size:.82rem; border:1px solid var(--line); border-radius:6px; padding:8px;" placeholder="G | Em | C | D&#10;G | Em | Am7 | D7"></textarea>
 
-    <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px; width:fit-content; margin-left:auto; margin-right:auto;">
+    <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px; width:fit-content; margin-left:auto; margin-right:0;">
       <label class="small" style="display:flex; align-items:center; gap:5px;">
         <input type="checkbox" id="useAi">
         🤖 AI로 채보 (PDF·사진 악보나 음원에서 따려면 켜세요.
