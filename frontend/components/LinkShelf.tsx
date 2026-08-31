@@ -19,7 +19,7 @@ import {
   type Lecture,
   type Shelf,
 } from "@/lib/lectures";
-import { openLink, openLinkWindow } from "@/lib/openLink";
+import { openLink } from "@/lib/openLink";
 
 /**
  * 링크로 배우는 칸 — 강의실과 내 강좌가 같은 모습을 쓴다.
@@ -220,11 +220,10 @@ export function LinkShelf({
               <button
                 className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                 /* 유튜브 강좌는 앱을 떠나지 않고 창 안에서 튼다.
-                   밴드·블로그는 남의 집이라 앱 창(iframe)에 못 담는다 —
-                   대신 앱 위에 뜨는 작은 창으로 열어 모달처럼 보인다.
-                   닫으면 앱이 그 자리 그대로다. */
+                   밴드·블로그는 남의 집이라 창에 못 담는다(iframe 거부) —
+                   그런 것만 새 창으로 보낸다. */
                 onClick={() =>
-                  l.videoId ? setViewing(l) : openLinkWindow(l.url)
+                  l.videoId ? setViewing(l) : openLink(l.url)
                 }
               >
                 {l.videoId ? (
