@@ -687,12 +687,19 @@ export function LibraryTab({
           </p>
         )}
 
-      {/* 서버 목록은 관리자 전용. 수강생 화면에는 서버 개념이 나오지 않는다. */}
-      {adminMode && (
+      {/* 서버 목록은 관리자 전용 — 그리고 **기기에 없는 곡만** 보인다.
+          기기와 서버가 실시간으로 같아지므로, 같은 곡을 두 번 늘어놓으면
+          어느 쪽을 만져야 하는지부터 헷갈린다. 기기 줄이 원본이고, 이
+          칸은 「아직 기기로 안 가져온 곡」을 줍는 자리다. 다 가져왔으면
+          칸째 사라진다. */}
+      {adminMode && (server === null || serverDown ||
+        server.some((i) => !saved.has(i.id))) && (
       <>
       <div className="mt-4 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-500">서버 (PC 캐시)</h3>
-        {server !== null && server.length > 0 && (
+        <h3 className="text-xs font-semibold text-gray-500">
+          서버에만 있는 곡
+        </h3>
+        {server !== null && server.some((i) => !saved.has(i.id)) && (
           <button className="text-[11px] text-gray-500 underline" onClick={saveAll}>
             전체 저장
           </button>
@@ -704,11 +711,11 @@ export function LibraryTab({
         </p>
       ) : server === null ? (
         <p className="py-2 text-xs text-gray-400">읽는 중…</p>
-      ) : server.length === 0 ? (
-        <p className="py-2 text-xs text-gray-400">서버에 분석된 곡이 없습니다.</p>
       ) : (
         <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-          {server.map((item) =>
+          {server
+            .filter((item) => !saved.has(item.id))
+            .map((item) =>
             row(
               item,
               <>
@@ -735,15 +742,9 @@ export function LibraryTab({
                       analyzing={analyzing}
                     />
                 )}
-                {saved.has(item.id) ? (
-                  <span className="shrink-0 px-2 py-1 text-[10px] text-green-700">
-                    저장됨
-                  </span>
-                ) : (
-                  <IconButton label="기기에 저장" onClick={() => saveToDevice(item.id)}>
-                    {SaveIcon}
-                  </IconButton>
-                )}
+                <IconButton label="기기에 저장" onClick={() => saveToDevice(item.id)}>
+                  {SaveIcon}
+                </IconButton>
                 <IconButton
                   label="서버에서 삭제"
                   danger
