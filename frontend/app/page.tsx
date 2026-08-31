@@ -1967,11 +1967,12 @@ export default function Home() {
 
                   {/* 악보 그림이 없는 곡에도 붙이는 자리가 있어야 한다. 그림이
                   있으면 안내줄과 한 상자에 담아 붙박이로 세우지만(topBar),
-                  없으면 세울 안내줄이 없으니 여기에 따로 낸다. */}
+                  없으면 세울 안내줄이 없으니 여기에 따로 낸다.
+                  ABC 악보로 보는 곡에도 세운다 — 박 고르기·기준값 저장이
+                  이 줄에만 있는데, ABC가 붙는 순간 줄째 사라졌었다. */}
                   {sheetTab === "melody" &&
                     settings.adminMode &&
-                    !abcEntry &&
-                    !sheetImg && (
+                    (abcEntry || !sheetImg) && (
                       <div className="pb-1 pt-1.5">
                         <ScoreAttach
                           result={result}
