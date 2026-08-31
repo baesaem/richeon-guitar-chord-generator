@@ -159,7 +159,7 @@ export default function Home() {
   const [showStrums, setShowStrums] = useState(false);
   // 코드 고치기: 지금 고르고 있는 마디 번호(없으면 null)
   const [editBar, setEditBar] = useState<number | null>(null);
-  // 코드수정으로 들어왔는가. 고치는 데 쓰지 않는 탭은 감춘다
+  // 편집으로 들어왔는가. 고치는 데 쓰지 않는 탭은 감춘다
   const [editMode, setEditMode] = useState(false);
   // 되돌리기용. 고치기 전 코드를 쌓아 둔다 — 잘못 눌렀을 때 돌아갈 자리다
   const [undo, setUndo] = useState<Chord[][]>([]);
@@ -1164,7 +1164,7 @@ export default function Home() {
     library: "음원목록",
     import: "음원등록",
     lesson: "강의실",
-    edit: "코드수정",
+    edit: "편집",
     chords: "기타 기초",
     settings: "설정",
   };
@@ -1576,7 +1576,7 @@ export default function Home() {
                     ["lyrics", "가사"] as const,
                     ["mine", "내 악보"] as const,
                   ]
-                    // 코드수정으로 들어왔으면 고치는 데 쓰는 탭만 남긴다
+                    // 편집으로 들어왔으면 고치는 데 쓰는 탭만 남긴다
                     .filter(([value]) => !editMode || value !== "mine")
                     .map(([value, label]) => {
                       // 고칠 때는 가사가 없어도 연다 — 없는 가사를 채우는 자리다

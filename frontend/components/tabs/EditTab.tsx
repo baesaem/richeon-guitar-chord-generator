@@ -9,7 +9,7 @@ import { spellKey } from "@/lib/notation";
 import type { ResultSummary } from "@/lib/types";
 
 /**
- * 코드수정 — 고칠 곡 고르기.
+ * 편집 — 고칠 곡 고르기.
  *
  * 인식이 아무리 좋아져도 틀리는 마디는 남는다. 강사님이 귀로 듣고 고칠
  * 자리다. 폴더로 먼저 좁히고(반별·진도별로 나눠 두는 경우가 많다) 곡을
@@ -47,7 +47,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
 
   return (
     <div className="h-full overflow-y-auto px-3 py-3">
-      <h2 className="mb-1 text-lg font-bold md:hidden">코드수정</h2>
+      <h2 className="mb-1 text-lg font-bold md:hidden">편집</h2>
       <p className="mb-3 text-[11px] leading-snug text-gray-500">
         고칠 곡을 고르세요. 악보에서 마디를 <b>3초 길게 누르면</b>(마우스는
         오른쪽 클릭) 그 마디의 코드를 바꿉니다. 재생하면서 고칠 수 있습니다.
