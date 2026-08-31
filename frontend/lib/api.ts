@@ -24,6 +24,17 @@ export function apiBase(): string {
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    /* 500번대는 서버가 말을 못 하는 상태다.
+     *
+     * 「500 Internal Server Error」만 적어 두면 무엇을 해야 할지 알 수
+     * 없다 — 분석 서버가 꺼져 있어도 이렇게 나온다(실제로 드라이브에
+     * 곡을 올리다 그랬다). 무엇을 볼지 함께 적는다. */
+    if (!body.detail && res.status >= 500) {
+      throw new Error(
+        `분석 서버가 응답하지 않습니다 (${res.status}). ` +
+          "강사님 PC의 분석 서버가 켜져 있는지 확인해 주세요.",
+      );
+    }
     throw new Error(body.detail ?? `${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<T>;
