@@ -24,8 +24,23 @@ export interface SongChange {
   notes: string[];
 }
 
+/** 악보 맞춤에서 견줄 만한 것만 추린다. bars·passes는 크고 따라 변한다 */
+function fitOf(sheet: unknown): string {
+  if (!sheet || typeof sheet !== "object") return "";
+  const o = sheet as Record<string, unknown>;
+  return JSON.stringify({
+    offset: o.offset ?? 0,
+    repeats: o.repeats ?? 1,
+    source: o.source ?? "",
+    order: o.order ?? null,
+    bars: Array.isArray(o.bars) ? o.bars.length : 0,
+  });
+}
+
 function notesBetween(old: AnalysisResult, next: AnalysisResult): string[] {
   const notes: string[] = [];
+  if ((old.title || "") !== (next.title || ""))
+    notes.push(`제목 「${old.title}」 → 「${next.title}」`);
   if (old.key !== next.key) notes.push(`조성 ${old.key || "미상"} → ${next.key || "미상"}`);
   if (Math.abs(old.bpm - next.bpm) >= 0.5) {
     notes.push(`${Math.round(old.bpm)} → ${Math.round(next.bpm)} BPM`);
@@ -63,6 +78,22 @@ function notesBetween(old: AnalysisResult, next: AnalysisResult): string[] {
     ).length;
     if (reworded) notes.push(`가사 글자 ${reworded}줄 달라짐`);
   }
+  /* 조정한 값들.
+   *
+   * 싱크·카포 기준값(setup)과 악보 마디 맞춤(sheet의 offset·order)은
+   * 개수가 없다 — 위처럼 세어서는 영영 「같은 곡」이다. 강사님이 애써
+   * 맞춘 것이 바로 이런 값들이라, 이것이 달라졌으면 알려야 한다.
+   */
+  const setup = (r: AnalysisResult) =>
+    JSON.stringify((r as { setup?: unknown }).setup ?? null);
+  if (setup(old) !== setup(next)) notes.push("연주설정 기준값 달라짐 (싱크·카포)");
+  const oldFit = fitOf((old as { sheet?: unknown }).sheet);
+  const newFit = fitOf((next as { sheet?: unknown }).sheet);
+  if (oldFit !== newFit)
+    notes.push(oldFit === "" ? "그림악보 추가" : "악보 맞춤 달라짐");
+  const hasScore = (r: AnalysisResult) => !!(r as { score?: unknown }).score;
+  if (hasScore(old) !== hasScore(next))
+    notes.push(hasScore(next) ? "악보 파일 추가" : "악보 파일 빠짐");
   if (old.meta?.pipeline_version !== next.meta?.pipeline_version) {
     notes.push(`분석판 ${old.meta?.pipeline_version} → ${next.meta?.pipeline_version}`);
   }

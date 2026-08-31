@@ -1,7 +1,13 @@
 "use client";
 
 import { apiBase, makeInstrumental, makeVocals, type SheetHit } from "./api";
-import { getLocalAudio, saveLocal, saveLocalAudio, saveLocalSheet } from "./library";
+import {
+  getLocalAudio,
+  getLocalSheet,
+  saveLocal,
+  saveLocalAudio,
+  saveLocalSheet,
+} from "./library";
 import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { instKey, stemKey } from "./sharedFiles";
 import { getAbc, saveAbc } from "./abcStore";
@@ -187,6 +193,13 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
     if (got.length) bundle.sheetPages = got;
   }
 
+  // 내 악보(기기에 붙여 둔 그림·PDF). 여태 받기만 하고 담지 않아,
+  // 강사님이 붙인 악보가 내보내기에서 조용히 빠졌다.
+  const mine = await getLocalSheet(result.id).catch(() => null);
+  if (mine) {
+    bundle.mySheet = { kind: mine.kind, dataUrl: await toDataUrl(mine.blob) };
+  }
+
   // ABC 악보. 그림악보가 없는 곡은 이것이 유일한 악보다.
   const abc = getAbc(result.id);
   if (abc?.abc?.trim()) bundle.abc = { abc: abc.abc, barOffset: abc.barOffset };
@@ -230,15 +243,21 @@ export async function bundleAdds(bundle: SongBundle): Promise<string[]> {
   if (bundle.abc?.abc?.trim()) {
     const mine = getAbc(id);
     if (!mine?.abc?.trim() || mine.abc !== bundle.abc.abc) adds.push("ABC 악보");
+    // 악보 글은 같아도 마디 맞춤(barOffset)을 고쳤을 수 있다
+    else if ((mine.barOffset ?? 0) !== (bundle.abc.barOffset ?? 0))
+      adds.push("악보 마디 맞춤");
   }
   if (bundle.sheetPages?.length) {
+    // 첫 쪽만 보면 쪽수가 달라진 것(다시 자른 악보)을 놓친다
     const first = await getSheetPage(id, 0).catch(() => null);
-    if (!first) adds.push(`악보 그림 ${bundle.sheetPages.length}쪽`);
+    const last = await getSheetPage(id, bundle.sheetPages.length - 1).catch(
+      () => null,
+    );
+    if (!first || !last) adds.push(`악보 그림 ${bundle.sheetPages.length}쪽`);
   }
   if (bundle.mySheet) {
-    // 내 악보는 기기마다 다를 수 있어 있고 없고만 본다
-    const first = await getSheetPage(id, 0).catch(() => null);
-    if (!first && !adds.length) adds.push("내 악보");
+    const mine = await getLocalSheet(id).catch(() => null);
+    if (!mine) adds.push("내 악보");
   }
   return adds;
 }
