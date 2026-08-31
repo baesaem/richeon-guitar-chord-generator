@@ -202,6 +202,9 @@
   button:hover { background: var(--accent2); }
   button:disabled { background: #c9c1b4; cursor: default; }
   button.ghost { background: #efe9df; color: var(--ink); }
+  /* 악보 만들기 화면의 단추는 한 치수 작게 — 칸이 많아 단추까지 크면
+     한 화면에 들어오지 않는다. 아래 메뉴는 그대로 둔다 */
+  #tab-generate button { padding: 6px 11px; font-size: .82rem; }
   button.ghost:hover { background: #e4dccd; }
   #dropzone {
     border: 2px dashed #c9b998; border-radius: 10px; padding: 14px; text-align: center;
@@ -276,8 +279,8 @@
     <div class="secTitle" style="border-top:none; padding-top:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
       <span>① 음원 (영상 링크)</span>
       <span style="flex:1"></span>
-      <button class="ghost" id="audioFileBtn" style="font-size:.8rem; padding:5px 9px;">🎵 음원 파일</button>
-      <button class="ghost hidden" id="restoreBtn" style="font-size:.8rem; padding:5px 9px;">🕘 마지막 악보 열기</button>
+      <button class="ghost" id="audioFileBtn">🎵 음원 파일</button>
+      <button class="ghost hidden" id="restoreBtn">🕘 마지막 악보 열기</button>
     </div>
     <div class="row">
       <input type="text" id="audioUrlInput" placeholder="유튜브 URL (예: https://youtu.be/...) — 이 음원을 기준으로 채보합니다">
