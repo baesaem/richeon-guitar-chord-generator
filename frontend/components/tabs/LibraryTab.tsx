@@ -34,11 +34,13 @@ import {
 import {
   getLocal,
   listLocal,
+  localIds,
   parseResultsText,
   removeLocal,
   saveLocal,
 } from "@/lib/library";
 import { CLASSES, type GuitarClass } from "@/lib/classes";
+import { markRemoved, removedIds, unmarkRemoved } from "@/lib/removed";
 import { ensureDriveReady } from "@/lib/driveReady";
 import { spellKey } from "@/lib/notation";
 import type { ResultSummary } from "@/lib/types";
@@ -142,9 +144,37 @@ export function LibraryTab({
     // 서버 목록은 관리자 화면에만 있다. 수강생 기기에서는 부르지도 않는다.
     if (adminMode) {
       listResults()
-        .then((rows) => {
+        .then(async (rows) => {
           setServer(rows);
           setServerDown(false);
+          /* 서버에만 있는 곡은 스스로 기기에 담는다 — 기기와 서버가
+             실시간으로 같아지는 마당에 「가져오기」 단추를 남길 까닭이
+             없다. 지운 곡만은 담지 않는다(무덤 표식) — 담으면 지워도
+             지워지지 않는 꼴이 된다. */
+          const local = await localIds().catch(() => new Set<string>());
+          const gone = removedIds();
+          const fresh = rows.filter(
+            (r) => !local.has(r.id) && !gone.has(r.id),
+          );
+          if (!fresh.length) return;
+          let put = 0;
+          for (const r of fresh) {
+            try {
+              await saveLocal(await getResult(r.id));
+              put += 1;
+            } catch {
+              // 한 곡이 막혀도 나머지는 담는다
+            }
+          }
+          if (put) {
+            flash(`서버의 곡 ${put}곡을 기기에 담았습니다.`);
+            listLocal()
+              .then((rows2) => {
+                setDevice(rows2);
+                setSaved(new Set(rows2.map((r) => r.id)));
+              })
+              .catch(() => {});
+          }
         })
         .catch(() => {
           setServer(null);
@@ -172,6 +202,7 @@ export function LibraryTab({
     try {
       const result = await getResult(id);
       await saveLocal(result);
+      unmarkRemoved(id);
       flash("기기에 저장했습니다. 서버가 꺼져도 열 수 있습니다.");
       reload();
     } catch (e) {
@@ -816,7 +847,11 @@ export function LibraryTab({
           onConfirm={async () => {
             try {
               if (confirmDelete.server) await deleteResult(confirmDelete.item.id);
-              else await removeLocal(confirmDelete.item.id);
+              else {
+                await removeLocal(confirmDelete.item.id);
+                // 자동 담기가 도로 살리지 않게 표식을 남긴다
+                markRemoved(confirmDelete.item.id);
+              }
               reload();
             } catch (e) {
               setError((e as Error).message);
