@@ -66,8 +66,11 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const dark = document.documentElement.classList.contains("dark") ||
-      window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+    /* 어두운 화면인지는 html의 .dark 하나로 판단한다.
+       기기 설정(prefers-color-scheme)까지 보면, 기기는 다크인데 앱은
+       세피아 같은 밝은 테마일 때 흰 파형을 밝은 바탕에 그려 안 보인다 —
+       실제로 그랬다. 앱 테마는 .dark 클래스가 유일한 진실이다. */
+    const dark = document.documentElement.classList.contains("dark");
     // 파형선은 눈금·칩보다 진해야 한다 — 무엇을 보는 화면인지가 그것이다
     // 파형선은 이 화면의 주인공이다 — 검정에 가깝게, 어두운 화면에선 희게
     const wave = dark ? "#f4f4f6" : "#1c1c22";
