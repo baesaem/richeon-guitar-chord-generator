@@ -228,7 +228,7 @@ export function PracticeRoom({
       className={[
         "rounded px-2 py-0.5 text-[11px] font-semibold disabled:opacity-40",
         stem === value
-          ? "bg-black text-white dark:bg-white dark:text-black"
+          ? "bg-[var(--pick)] text-[var(--pick-ink)]"
           : "bg-[var(--chip)] text-[var(--foreground)]",
       ].join(" ")}
     >
@@ -237,7 +237,7 @@ export function PracticeRoom({
   );
 
   const circle =
-    "flex shrink-0 items-center justify-center rounded-full bg-black text-white dark:bg-white dark:text-black";
+    "flex shrink-0 items-center justify-center rounded-full bg-[var(--pick)] text-[var(--pick-ink)]";
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5 p-2">

@@ -2641,7 +2641,7 @@ export default function Home() {
                           className={[
                             "rounded px-1.5 py-0.5 text-[11px] font-semibold",
                             roomView === value
-                              ? "bg-black text-white dark:bg-white dark:text-black"
+                              ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                               : "bg-[var(--chip)] text-[var(--foreground)]",
                           ].join(" ")}
                         >

@@ -63,7 +63,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
               className={[
                 "rounded-full px-2.5 py-1 text-xs",
                 current === f.id
-                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                   : "bg-[var(--panel)]",
               ].join(" ")}
             >

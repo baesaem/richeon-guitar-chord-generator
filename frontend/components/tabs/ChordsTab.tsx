@@ -76,7 +76,7 @@ export function ChordsTab() {
             className={[
               "flex-1 whitespace-nowrap rounded px-0.5 py-2 text-[13px]",
               page === value
-                ? "bg-black text-white dark:bg-white dark:text-black"
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                 : "bg-[var(--panel)]",
             ].join(" ")}
           >
@@ -106,7 +106,7 @@ export function ChordsTab() {
             className={[
               "rounded py-1.5 text-xs",
               q.value === quality
-                ? "bg-black text-white dark:bg-white dark:text-black"
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                 : "bg-[var(--panel)]",
             ].join(" ")}
           >

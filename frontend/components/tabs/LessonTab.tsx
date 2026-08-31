@@ -171,7 +171,7 @@ export function LessonTab({
             className={[
               "flex-1 whitespace-nowrap rounded px-2 py-2 text-[13px]",
               page === value
-                ? "bg-black text-white dark:bg-white dark:text-black"
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                 : "bg-[var(--panel)]",
             ].join(" ")}
           >

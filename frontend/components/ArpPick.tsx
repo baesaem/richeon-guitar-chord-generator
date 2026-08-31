@@ -52,7 +52,7 @@ export function ArpPickModal({
             className={[
               "rounded py-1 text-xs",
               q.no === no
-                ? "bg-black text-white dark:bg-white dark:text-black"
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                 : "bg-[var(--panel)]",
               q.no === rec.no && q.no !== no
                 ? "ring-1 ring-[var(--accent)]"

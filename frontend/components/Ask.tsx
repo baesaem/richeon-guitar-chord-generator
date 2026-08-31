@@ -51,7 +51,7 @@ export function AskText({
         }}
       />
       <button
-        className="mt-3 w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
+        className="mt-3 w-full rounded bg-[var(--pick)] py-3 text-[var(--pick-ink)] disabled:opacity-40"
         disabled={!value.trim()}
         onClick={submit}
       >
@@ -90,7 +90,7 @@ export function AskConfirm({
         <button
           className={[
             "flex-1 rounded py-3 text-sm text-white",
-            danger ? "bg-red-600" : "bg-black dark:bg-white dark:text-black",
+            danger ? "bg-red-600" : "bg-[var(--pick)] text-[var(--pick-ink)]",
           ].join(" ")}
           onClick={() => {
             onConfirm();

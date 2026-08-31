@@ -663,7 +663,7 @@ export function ImportTab({
           </div>
           <div className="h-2 w-full rounded bg-[var(--chip)]">
             <div
-              className="h-2 rounded bg-black transition-all dark:bg-white"
+              className="h-2 rounded bg-[var(--pick)] transition-all"
               style={{ width: `${status.progress * 100}%` }}
             />
           </div>
@@ -735,7 +735,7 @@ export function ImportTab({
             </a>
           </div>
           <button
-            className="mt-3 w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
+            className="mt-3 w-full rounded bg-[var(--pick)] py-3 text-[var(--pick-ink)] disabled:opacity-40"
             disabled={!url || busy}
             onClick={() => {
               setOpen(null);
@@ -765,7 +765,7 @@ export function ImportTab({
             onChange={(e) => setUrl(e.target.value)}
           />
           <button
-            className="mt-3 w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
+            className="mt-3 w-full rounded bg-[var(--pick)] py-3 text-[var(--pick-ink)] disabled:opacity-40"
             disabled={!url || busy}
             onClick={() => {
               setOpen(null);
@@ -825,7 +825,7 @@ export function ImportTab({
               그대로 두기
             </button>
             <button
-              className="flex-1 rounded bg-black py-2.5 text-sm text-white dark:bg-white dark:text-black"
+              className="flex-1 rounded bg-[var(--pick)] py-2.5 text-sm text-[var(--pick-ink)]"
               onClick={async () => {
                 const job = pending.apply;
                 setPending(null);
@@ -909,7 +909,7 @@ export function ImportTab({
                     className={[
                       "flex-1 rounded-full py-1.5 text-xs",
                       filter === f.value
-                        ? "bg-black text-white dark:bg-white dark:text-black"
+                        ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                         : "bg-[var(--panel)]",
                     ].join(" ")}
                   >
@@ -921,7 +921,7 @@ export function ImportTab({
               {/* 지금 보이는 곡을 한 번에. 스무 곡을 하나씩 누르게 하지 않는다 */}
               {visible.length > 0 && (
                 <button
-                  className="mb-2 w-full rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
+                  className="mb-2 w-full rounded bg-[var(--pick)] py-2 text-xs text-[var(--pick-ink)] disabled:opacity-40"
                   disabled={fetching !== null}
                   // 「다시 받기」로 적힌 자리에서는 무조건 다시 받는다
                   onClick={() => fetchAll(visible, filter === "fetched")}

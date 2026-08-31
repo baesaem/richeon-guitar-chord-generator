@@ -45,6 +45,15 @@
   /* 눌리는 것(단추·칩). 상자보다 한 단계 진해 손이 갈 자리로 보인다 */
   --chip: color-mix(in srgb, var(--foreground) 12%, var(--background));
   --chip-on: color-mix(in srgb, var(--foreground) 20%, var(--background));
+  /* 「고른 것」 단추. 밝은 테마에선 검정, 어두운 테마에선 흰색이었는데
+     흰 판이 눈을 찔렀다 — 글자색에서 조금 물러선 색으로 눌러 둔다. */
+  --pick: color-mix(in srgb, var(--foreground) 88%, var(--background));
+  --pick-ink: var(--background);
+}
+
+.dark {
+  /* 어두운 화면의 흰 단추는 그대로 두면 너무 밝다. 한 단계 눌러 둔다 */
+  --pick: color-mix(in srgb, var(--foreground) 72%, var(--background));
 }
 
 @theme inline {

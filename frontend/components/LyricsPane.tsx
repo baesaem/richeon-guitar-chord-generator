@@ -320,7 +320,7 @@ export function LyricsPane({
           {canEdit && (
           <div className="flex w-full max-w-xs flex-col gap-1.5">
             <button
-              className="rounded bg-black py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
+              className="rounded bg-[var(--pick)] py-2 text-xs text-[var(--pick-ink)] disabled:opacity-40"
               disabled={busy}
               onClick={() => search("")}
             >

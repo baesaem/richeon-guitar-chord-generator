@@ -248,7 +248,7 @@ function BarCell({
         "relative overflow-hidden rounded border px-0.5 pb-0.5 pt-1",
         onSeek || onEdit ? "cursor-pointer select-none" : "",
         active
-          ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
+          ? "border-[var(--pick)] bg-[var(--pick)] text-[var(--pick-ink)]"
           : "border-[var(--panel-line)]",
       ].join(" ")}
     >

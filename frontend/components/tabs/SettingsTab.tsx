@@ -135,7 +135,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
     [
       "flex-1 rounded py-1 text-xs",
       active
-        ? "bg-black text-white dark:bg-white dark:text-black"
+        ? "bg-[var(--pick)] text-[var(--pick-ink)]"
         : "bg-[var(--panel)]",
     ].join(" ");
 
@@ -253,7 +253,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
               className={[
                 "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs",
                 settings.theme === t.value
-                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                   : "bg-[var(--panel)]",
               ].join(" ")}
               onClick={() => set("theme", t.value)}
@@ -375,7 +375,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
         />
         <div className="mt-1.5 flex items-center gap-2">
           <button
-            className="rounded bg-black px-3 py-2 text-xs text-white disabled:opacity-40 dark:bg-white dark:text-black"
+            className="rounded bg-[var(--pick)] px-3 py-2 text-xs text-[var(--pick-ink)] disabled:opacity-40"
             disabled={testing}
             onClick={test}
           >
@@ -469,7 +469,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             한 번 켜면 이 기기에서는 끌 때까지 유지됩니다.
           </p>
           <button
-            className="mt-3 w-full rounded bg-black py-3 text-white disabled:opacity-40 dark:bg-white dark:text-black"
+            className="mt-3 w-full rounded bg-[var(--pick)] py-3 text-[var(--pick-ink)] disabled:opacity-40"
             disabled={!pin}
             onClick={submitPin}
           >

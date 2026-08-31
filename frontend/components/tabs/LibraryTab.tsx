@@ -617,7 +617,7 @@ export function LibraryTab({
             className={[
               "rounded-full px-2.5 py-1 text-xs",
               currentFolder === f
-                ? "bg-black text-white dark:bg-white dark:text-black"
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                 : "bg-[var(--panel)]",
             ].join(" ")}
           >
@@ -999,7 +999,7 @@ export function LibraryTab({
           />
           <div className="mt-2 flex gap-1.5">
             <button
-              className="flex-1 rounded bg-black py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-black"
+              className="flex-1 rounded bg-[var(--pick)] py-1.5 text-xs font-semibold text-[var(--pick-ink)]"
               onClick={() => {
                 onReanalyze?.(refetching, true, refetchUrl.trim() || undefined);
                 setRefetching(null);

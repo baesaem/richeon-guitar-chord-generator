@@ -69,7 +69,7 @@ export function SeekBar({
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-[var(--panel-line)] px-3 py-1.5">
       <button
-        className="h-9 w-9 shrink-0 rounded-full bg-black text-white dark:bg-white dark:text-black"
+        className="h-9 w-9 shrink-0 rounded-full bg-[var(--pick)] text-[var(--pick-ink)]"
         onClick={onToggle}
         aria-label={playing ? "일시정지" : "재생"}
       >
@@ -108,7 +108,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
     [
       "rounded px-0 py-1 text-xs",
       active
-        ? "bg-black text-white dark:bg-white dark:text-black"
+        ? "bg-[var(--pick)] text-[var(--pick-ink)]"
         : "bg-[var(--panel)]",
     ].join(" ");
 

@@ -83,7 +83,7 @@ export function ChordPicker({
             className={[
               "rounded py-2 text-xs",
               r === root
-                ? "bg-black text-white dark:bg-white dark:text-black"
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                 : "bg-[var(--panel)]",
             ].join(" ")}
           >
@@ -100,7 +100,7 @@ export function ChordPicker({
             className={[
               "rounded py-2 text-xs",
               q.value === quality
-                ? "bg-black text-white dark:bg-white dark:text-black"
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
                 : "bg-[var(--panel)]",
             ].join(" ")}
           >
