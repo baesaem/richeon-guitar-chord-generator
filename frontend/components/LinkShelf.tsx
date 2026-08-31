@@ -85,6 +85,8 @@ export function LinkShelf({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<Lecture | null>(null);
+  /** 앱 안 창으로 보고 있는 강좌. 유튜브는 여기서 바로 튼다 */
+  const [viewing, setViewing] = useState<Lecture | null>(null);
   const [confirmBulk, setConfirmBulk] = useState(false);
 
   /** 담기·고치기 창을 연다. 고치기면 지금 값으로 채워 둔다 */
@@ -164,6 +166,35 @@ export function LinkShelf({
         </div>
       )}
 
+      {viewing?.videoId && (
+        <Popup
+          title={viewing.title || "강좌"}
+          width="max-w-2xl"
+          onClose={() => setViewing(null)}
+        >
+          <div className="aspect-video w-full overflow-hidden rounded bg-black">
+            <iframe
+              className="h-full w-full"
+              src={`https://www.youtube.com/embed/${viewing.videoId}?autoplay=1&rel=0`}
+              title={viewing.title || "강좌"}
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+            />
+          </div>
+          {viewing.note && (
+            <p className="mt-2 text-[12px] leading-5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+              {viewing.note}
+            </p>
+          )}
+          <button
+            className="mt-2 w-full rounded bg-[var(--panel)] py-2 text-xs"
+            onClick={() => openLink(viewing.url)}
+          >
+            YouTube에서 열기
+          </button>
+        </Popup>
+      )}
+
       {items.length === 0 ? (
         <p className="py-6 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           {readOnly
@@ -188,7 +219,12 @@ export function LinkShelf({
               )}
               <button
                 className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-                onClick={() => openLink(l.url)}
+                /* 유튜브 강좌는 앱을 떠나지 않고 창 안에서 튼다.
+                   밴드·블로그는 남의 집이라 창에 못 담는다(iframe 거부) —
+                   그런 것만 새 창으로 보낸다. */
+                onClick={() =>
+                  l.videoId ? setViewing(l) : openLink(l.url)
+                }
               >
                 {l.videoId ? (
                   <img
