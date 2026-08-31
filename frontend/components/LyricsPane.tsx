@@ -12,6 +12,7 @@ import {
   putLyrics,
   songPhrases,
 } from "@/lib/api";
+import { canHearLyrics, hearLyrics } from "@/lib/aiLyrics";
 import { placeOnPhrases, spreadEvenly } from "@/lib/placeLyrics";
 import { saveLocal } from "@/lib/library";
 import { hasLocalLlm } from "@/lib/llmClient";
@@ -64,6 +65,10 @@ export function LyricsPane({
   // 가사를 붙여넣는 창. 파일을 고르는 것보다 이쪽이 손에 익다 —
   // 가사는 대개 웹에서 긁어 오지 파일로 받지 않는다.
   const [pasting, setPasting] = useState(false);
+  /** AI가 듣는 동안의 진행 글. null이면 쉬는 중 */
+  const [hearing, setHearing] = useState<string | null>(null);
+  /** AI가 들어 온 가사. 사람이 훑어보고 붙일지 정한다 */
+  const [heard, setHeard] = useState<LyricLine[] | null>(null);
   // 가사 지우기 확인 창. 지우면 수동 표식도 걷혀 다음부터 자동으로 찾는다
   const [confirmClear, setConfirmClear] = useState(false);
   const [draft, setDraft] = useState("");
@@ -116,6 +121,31 @@ export function LyricsPane({
    * 자막도 없으면 보컬이 시작하는 자리에 고르게 놓는다. 노래 길이에 고르게
    * 펴는 것보다는 낫지만 소절마다 맞지는 않아, 그렇다고 알린다.
    */
+  /**
+   * AI가 유튜브를 직접 듣고 가사를 찾는다.
+   *
+   * 글자 검색과 달리 이 영상에서 **실제로 부르는** 가사를 시각과 함께
+   * 받아 오고, 붙이기 전에 같은 영상으로 한 번 더 검증한다. 받아 온
+   * 것은 바로 붙이지 않고 훑어보는 창에 먼저 편다 — 마지막 눈은 사람이다.
+   */
+  const hearFromVideo = async () => {
+    setError(null);
+    setHearing("시작하는 중…");
+    try {
+      const lines = await hearLyrics(
+        result.id,
+        query.trim() || result.title,
+        result.duration,
+        setHearing,
+      );
+      setHeard(lines);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setHearing(null);
+    }
+  };
+
   const applyPasted = async () => {
     setError(null);
     setBusy(true);
@@ -181,6 +211,40 @@ export function LyricsPane({
           label={pasting ? "가사 맞추는 중" : "가사 찾는 중"}
           note={pasting ? "노래에서 실제 부른 자리를 찾아 시각을 붙입니다" : undefined}
         />
+      )}
+      {hearing !== null && (
+        <Working label="AI가 영상을 듣는 중" note={hearing} />
+      )}
+
+      {/* AI가 들어 온 가사 — 붙이기 전에 사람이 훑어본다.
+          AI가 두 번 검증했어도 마지막 눈은 사람이다 */}
+      {heard && (
+        <Popup title="AI가 들은 가사" onClose={() => setHeard(null)}>
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+            영상을 듣고 받아 적어 한 번 더 검증한 가사입니다({heard.length}줄).
+            훑어보고 맞으면 붙이세요 — 붙인 뒤에도 줄마다 고칠 수 있습니다.
+          </p>
+          <ul className="mb-3 max-h-64 space-y-1 overflow-y-auto rounded border border-[var(--panel-line)] p-2">
+            {heard.map((l, i) => (
+              <li key={`${l.t}-${i}`} className="flex gap-2 text-xs">
+                <span className="w-10 shrink-0 tabular-nums text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+                  {Math.floor(l.t / 60)}:
+                  {String(Math.floor(l.t % 60)).padStart(2, "0")}
+                </span>
+                <span className="min-w-0 flex-1">{l.text}</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            className="w-full rounded bg-[var(--accent)] py-3 text-sm font-medium text-white"
+            onClick={() => {
+              void apply(heard, false, true);
+              setHeard(null);
+            }}
+          >
+            이 가사로 붙이기
+          </button>
+        </Popup>
       )}
 
       {confirmClear && (
@@ -269,6 +333,16 @@ export function LyricsPane({
                 검색
               </button>
             </div>
+            {result.source === "youtube" && canHearLyrics() && (
+              <button
+                className="rounded bg-[var(--accent)] py-2 text-xs text-white disabled:opacity-40"
+                disabled={busy || hearing !== null}
+                onClick={() => void hearFromVideo()}
+                title="AI가 이 영상을 직접 듣고, 실제 부르는 가사를 시각과 함께 받아 옵니다"
+              >
+                AI가 영상 듣고 가사 찾기
+              </button>
+            )}
             <button
               className="rounded bg-[var(--panel)] py-2 text-xs"
               onClick={() => setPasting(true)}
