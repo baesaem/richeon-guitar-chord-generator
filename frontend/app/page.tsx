@@ -2753,6 +2753,10 @@ export default function Home() {
                       ? () => openSaved(songList[songAt + 1].id)
                       : undefined
                   }
+                  onFullView={() => {
+                    setEditMode(false);
+                    setShowSheet(true);
+                  }}
                   songs={songList.map((r) => ({
                     id: r.id,
                     title: r.title || r.id,
