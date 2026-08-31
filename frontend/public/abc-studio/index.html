@@ -207,8 +207,14 @@
     border: 2px dashed #c9b998; border-radius: 10px; padding: 34px; text-align: center;
     color: #7d6f58; cursor: pointer; transition: background .15s;
   }
-  #dropzone.drag { background: #f3ead9; }
-  #dropzone strong { color: var(--accent); }
+  #dropzone.drag, #scorezone.drag { background: #f3ead9; }
+  #dropzone strong, #scorezone strong { color: var(--accent); }
+  /* 악보 파일 칸은 「그대로 옮기는」 자리라 한 겹 또렷하게 둔다 */
+  #scorezone {
+    border: 2px dashed var(--accent); border-radius: 10px; padding: 26px;
+    text-align: center; color: #7d6f58; cursor: pointer; transition: background .15s;
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
   #preview { max-width: 100%; max-height: 420px; display: none; margin: 12px auto 0; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
   #status { font-size: .86rem; line-height: 1.45; min-height: 1.4em; }
   #status.ok  { background: #1f7a35; color: #fff; }
@@ -274,12 +280,22 @@
       <span class="small" id="audioInfo"></span>
     </div>
 
-    <!-- ② 참고 악보 — 가사·코드·구조를 읽어 온다 -->
-    <div class="secTitle">② 참고용 악보 (선택)</div>
+    <!-- ② 악보 파일 — 그대로 옮긴다. AI가 끼어들지 않는다 -->
+    <div class="secTitle">② 악보 파일 (그대로 옮김)</div>
+    <p class="hintText">사람이 만든 악보입니다. AI 없이 그대로 옮기므로 음표·가사·되돌이가 적힌 대로 나옵니다.</p>
+    <div id="scorezone">
+      <strong>MuseScore · MusicXML · ABC 파일을 여기에 드래그</strong>하거나 클릭<br>
+      <small>.mscz · .mscx · .xml · .musicxml · .mxl · .abc</small>
+      <input type="file" id="scoreInput" accept=".abc,.mscz,.mscx,.xml,.musicxml,.mxl" class="hidden">
+    </div>
+
+    <!-- ③ 견본 악보 — 눈으로 보는 그림. AI가 읽는 참고 자료다 -->
+    <div class="secTitle">③ 견본 악보 (선택 · AI 참고용)</div>
+    <p class="hintText">인쇄된 악보 그림입니다. 그대로 옮길 수는 없고, AI가 채보할 때 코드·가사·구조를 참고합니다.</p>
     <div id="dropzone">
-      <strong>악보 파일을 여기에 드래그</strong>하거나 클릭해서 선택하세요<br>
-      <small>PDF · PNG · JPG · MuseScore(.mscz) · MusicXML(.xml·.mxl) · ABC(.abc)<br>MuseScore·MusicXML·ABC 파일은 AI 없이 그대로 악보로 옮깁니다</small>
-      <input type="file" id="fileInput" accept=".abc,.pdf,.mscz,.mscx,.xml,.musicxml,.mxl,image/*" class="hidden">
+      <strong>PDF · 사진을 여기에 드래그</strong>하거나 클릭해서 선택하세요<br>
+      <small>PDF · PNG · JPG</small>
+      <input type="file" id="fileInput" accept=".pdf,image/*" class="hidden">
     </div>
     <div class="row" style="margin-top:8px;">
       <input type="text" id="urlInput" placeholder="또는 파일 URL 입력 (예: ./샘플악보.pdf)">
@@ -289,8 +305,8 @@
     <img id="preview" alt="악보 미리보기">
     <canvas id="pdfCanvas" class="hidden"></canvas>
 
-    <!-- ③ 코드 진행 — 아는 코드를 적어 두면 그대로 얹는다 -->
-    <div class="secTitle">③ 코드 진행 (선택)</div>
+    <!-- ④ 코드 진행 — 아는 코드를 적어 두면 그대로 얹는다 -->
+    <div class="secTitle">④ 코드 진행 (선택)</div>
     <p class="hintText">한 줄에 한 마디씩, 또는 「G | Em | C | D」처럼 적으세요. 비워 두면 AI가 음원에서 코드를 딴 대로 적습니다.</p>
     <textarea id="chordInput" rows="3" style="width:100%; font-family:Consolas,monospace; font-size:.82rem; border:1px solid var(--line); border-radius:6px; padding:8px;" placeholder="G | Em | C | D&#10;G | Em | Am7 | D7"></textarea>
 
@@ -468,12 +484,25 @@ function setStatus(msg, cls = '', busy = false) {
 }
 
 // ---- file handling ----
+/* 칸은 둘이지만 받는 손은 하나다 — 어느 칸에 넣든 파일 속을 보고
+   가린다. 칸을 나눈 것은 「그대로 옮기는 것」과 「AI가 참고하는 것」이
+   전혀 다른 일이어서, 무엇을 넣어야 하는지 눈에 보이게 하려는 것이다. */
+function wireDrop(zoneId, inputId) {
+  const zone = $(zoneId);
+  if (!zone) return;
+  zone.onclick = () => $(inputId).click();
+  zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag'); };
+  zone.ondragleave = () => zone.classList.remove('drag');
+  zone.ondrop = e => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  };
+  $(inputId).onchange = e => { if (e.target.files[0]) handleFile(e.target.files[0]); };
+}
 const dz = $('dropzone');
-dz.onclick = () => $('fileInput').click();
-dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
-dz.ondragleave = () => dz.classList.remove('drag');
-dz.ondrop = e => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); };
-$('fileInput').onchange = e => { if (e.target.files[0]) handleFile(e.target.files[0]); };
+wireDrop('dropzone', 'fileInput');
+wireDrop('scorezone', 'scoreInput');
 $('loadUrl').onclick = async () => {
   const url = $('urlInput').value.trim();
   if (!url) return;
