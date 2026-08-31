@@ -97,6 +97,8 @@ export function LibraryTab({
   const [working, setWorking] = useState<string | null>(null);
   /** 여러 곡 작업을 사람이 멈추었는가. 다음 곡으로 넘어가기 전에 본다 */
   const stopRef = useRef(false);
+  /** 지운 음원 목록을 펼쳐 두었는가 */
+  const [showRemoved, setShowRemoved] = useState(false);
   const [asking, setAsking] = useState<
     "folder" | "deleteFolder" | "renameFolder" | null
   >(null);
@@ -805,6 +807,53 @@ export function LibraryTab({
       </p>
       </>
       )}
+
+      {/* 지운 음원 — 서버에는 남아 있는 곡.
+          자동 담기는 이 곡들을 건너뛰므로(지운 것을 도로 살리면 안 되니),
+          되찾는 문이 따로 있어야 한다. 접어 두었다가 필요할 때 편다. */}
+      {adminMode &&
+        (() => {
+          const gone = (server ?? []).filter(
+            (r) => removedIds().has(r.id) && !saved.has(r.id),
+          );
+          if (!gone.length) return null;
+          return (
+            <div className="mt-4">
+              <button
+                className="text-[11px] text-gray-500 underline"
+                onClick={() => setShowRemoved((v) => !v)}
+              >
+                지운 음원 {gone.length}곡 {showRemoved ? "접기" : "보기"}
+              </button>
+              {showRemoved && (
+                <ul className="mt-1 divide-y divide-gray-200 dark:divide-gray-800">
+                  {gone.map((item) =>
+                    row(
+                      item,
+                      <>
+                        <button
+                          className={actionBtn}
+                          onClick={() => void saveToDevice(item.id)}
+                        >
+                          가져오기
+                        </button>
+                        <IconButton
+                          label="서버에서도 삭제"
+                          danger
+                          onClick={() =>
+                            setConfirmDelete({ item, server: true })
+                          }
+                        >
+                          {TrashIcon}
+                        </IconButton>
+                      </>,
+                    ),
+                  )}
+                </ul>
+              )}
+            </div>
+          );
+        })()}
 
       {working && (
         <Working
