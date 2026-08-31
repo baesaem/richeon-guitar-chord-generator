@@ -685,6 +685,16 @@ export default function Home() {
     if (health) await putLyrics(next.id, rows).catch(() => {});
   };
 
+  /** 이 시각이 몇 번째 마디인가(1부터). 가사 앞에 적어 준다 */
+  const barOfTime = (t: number): number => {
+    let no = 0;
+    for (let i = 0; i < bars.length; i++) {
+      if (bars[i].start <= t) no = i + 1;
+      else break;
+    }
+    return no;
+  };
+
   /** 손가락이 지나는 자리의 가사 줄 번호. 없으면 null */
   const lyricUnder = (x: number, y: number): number | null => {
     const el = document
@@ -1984,7 +1994,8 @@ export default function Home() {
                                 }}
                                 onEdit={() => setEditLyric(i)}
                                 selected={pickLyric === i}
-                                onShift={(dir) => void shiftLyricsFrom(i, dir)}
+                                bar={barOfTime(line.t)}
+                                onBar={(dir) => void shiftLyricsFrom(i, dir)}
                                 onGrab={(e) => {
                                   e.currentTarget.setPointerCapture?.(
                                     e.pointerId,

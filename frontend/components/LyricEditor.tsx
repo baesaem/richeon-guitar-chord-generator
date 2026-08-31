@@ -109,7 +109,8 @@ export function LyricRow({
   onSeek,
   onEdit,
   selected,
-  onShift,
+  bar,
+  onBar,
   onGrab,
 }: {
   text: string;
@@ -120,8 +121,10 @@ export function LyricRow({
   onEdit?: () => void;
   /** 고른 줄인가. 고른 줄에만 마디 옮기기 단추가 붙는다 */
   selected?: boolean;
-  /** 이 줄부터 뒤 가사를 한 마디 앞(-1)·뒤(+1)로 민다 */
-  onShift?: (dir: 1 | -1) => void;
+  /** 이 줄이 시작하는 마디 번호 */
+  bar?: number;
+  /** 마디 번호를 한 칸 올리고(+1) 내린다(-1). 아래 줄도 함께 움직인다 */
+  onBar?: (dir: 1 | -1) => void;
   /** 손잡이를 잡았다. 여기서부터 끌어 자리를 바꾼다 */
   onGrab?: (e: React.PointerEvent<HTMLElement>) => void;
 }) {
@@ -148,50 +151,54 @@ export function LyricRow({
             {label}
           </span>
         )}
+        {/* 시작 마디. 고른 줄에서는 －＋로 옮긴다 — 이 줄부터 아래가
+            함께 움직인다(가사는 앞뒤 순서가 정해져 있다) */}
+        {bar !== undefined && (
+          <span className="flex shrink-0 items-center gap-0.5 text-[10px] tabular-nums text-gray-400">
+            {selected && onBar && (
+              <button
+                className="rounded bg-gray-200/80 px-1 text-[11px] font-bold leading-4 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                title="이 줄부터 아래를 한 마디 앞으로"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBar(-1);
+                }}
+              >
+                －
+              </button>
+            )}
+            <span className="w-7 text-center">{bar}마디</span>
+            {selected && onBar && (
+              <button
+                className="rounded bg-gray-200/80 px-1 text-[11px] font-bold leading-4 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                title="이 줄부터 아래를 한 마디 뒤로"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBar(1);
+                }}
+              >
+                ＋
+              </button>
+            )}
+          </span>
+        )}
         <span className="min-w-0 flex-1">{text}</span>
-        {/* 고른 줄에만 붙는다 — 모든 줄에 두면 가사보다 단추가 많다.
-            누르면 이 줄부터 뒤 가사가 함께 밀린다 */}
-        {selected && (onShift || onGrab) && (
+        {/* 고른 줄에만 붙는다 — 모든 줄에 두면 가사보다 단추가 많다 */}
+        {selected && onGrab && (
           <span className="flex shrink-0 items-center gap-1">
             {/* 잡고 끌면 글자가 다른 칸으로 옮겨 간다. 시각은 그 자리에
                 그대로 있다 — 자막이 한 줄씩 밀려 붙었을 때 쓴다 */}
-            {onGrab && (
-              <button
-                className="cursor-grab touch-none rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] text-gray-600 active:cursor-grabbing dark:bg-gray-700 dark:text-gray-300"
-                title="잡고 끌어 가사 자리 바꾸기"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  onGrab(e);
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                ≡
-              </button>
-            )}
-            {onShift && (
-              <>
-                <button
-                  className="rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                  title="이 줄부터 한 마디 앞으로 — 가사가 노래보다 늦을 때"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShift(-1);
-                  }}
-                >
-                  ◀
-                </button>
-                <button
-                  className="rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                  title="이 줄부터 한 마디 뒤로 — 가사가 노래보다 이를 때"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShift(1);
-                  }}
-                >
-                  ▶
-                </button>
-              </>
-            )}
+            <button
+              className="cursor-grab touch-none rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] text-gray-600 active:cursor-grabbing dark:bg-gray-700 dark:text-gray-300"
+              title="잡고 끌어 가사 자리 바꾸기"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onGrab(e);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              ≡
+            </button>
           </span>
         )}
       </span>
