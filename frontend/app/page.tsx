@@ -2037,7 +2037,10 @@ export default function Home() {
                           코드가 없는 자리(전주·간주)는 「N.C.」라고 적지
                           않고 비워 둔다 — 잡을 것이 없다는 뜻이라 이름이
                           오히려 코드처럼 읽힌다. */}
-                        <section className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-1 dark:border-gray-700 dark:bg-gray-900">
+                        {/* 폰에서는 한 뼘 안에 파형·코드·가사가 다 들어와야
+                          한다. 코드 칸을 더 줄이고, 태블릿·PC에서만
+                          원래 크기로 돌린다. */}
+                        <section className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-2 py-0.5 roomy:gap-2 roomy:px-2.5 roomy:py-1 dark:border-gray-700 dark:bg-gray-900">
                           {curPlay && (
                             <ChordDiagram
                               voicing={voicingFor(
@@ -2045,18 +2048,18 @@ export default function Home() {
                                 curPlay.quality,
                               )}
                               label={curPlay.label}
-                              width={52}
+                              width={wide ? 52 : 38}
                             />
                           )}
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-xl font-bold leading-none">
+                            <div className="truncate text-base font-bold leading-none roomy:text-xl">
                               {curPlay ? (
                                 <ChordLabel label={curPlay.label} />
                               ) : (
                                 ""
                               )}
                             </div>
-                            <div className="mt-0.5 text-[11px] text-gray-500">
+                            <div className="text-[10px] text-gray-500 roomy:mt-0.5 roomy:text-[11px]">
                               {nxtPlay ? (
                                 <>
                                   다음 <ChordLabel label={nxtPlay.label} />
@@ -2065,7 +2068,7 @@ export default function Home() {
                                 ""
                               )}
                             </div>
-                            <div className="truncate text-[10px] text-gray-400">
+                            <div className="truncate text-[9px] text-gray-400 roomy:text-[10px]">
                               {barIdx + 1}/{bars.length}마디
                             </div>
                           </div>
@@ -2073,7 +2076,7 @@ export default function Home() {
                             /* 다음 코드는 그림만으로는 무엇인지 바로 읽히지
                              않는다 — 이름을 그림 위에 적어 둔다 */
                             <div className="flex shrink-0 flex-col items-center gap-0.5">
-                              <div className="text-xs font-bold leading-none text-gray-500">
+                              <div className="text-[10px] font-bold leading-none text-gray-500 roomy:text-xs">
                                 <ChordLabel label={nxtPlay.label} />
                               </div>
                               <ChordDiagram
@@ -2082,7 +2085,7 @@ export default function Home() {
                                   nxtPlay.quality,
                                 )}
                                 label={nxtPlay.label}
-                                width={42}
+                                width={wide ? 42 : 30}
                               />
                             </div>
                           )}

@@ -90,11 +90,11 @@ function Step({
   plusTitle?: string;
 }) {
   const btn =
-    "select-none touch-none rounded bg-gray-200/70 px-1.5 font-bold leading-5 text-gray-900 dark:bg-gray-700 dark:text-gray-100";
+    "select-none touch-none rounded bg-gray-200/70 px-1 font-bold leading-5 text-gray-900 dark:bg-gray-700 dark:text-gray-100";
   const minusHold = useHold(onMinus);
   const plusHold = useHold(onPlus);
   return (
-    <span className="flex shrink-0 items-center gap-1 text-[11px]">
+    <span className="flex shrink-0 items-center gap-0.5 text-[11px]">
       <span className="text-gray-400">{label}</span>
       <button className={btn} {...minusHold} title={minusTitle}>
         －
@@ -264,165 +264,178 @@ export function PracticeRoom({
           넓은 화면: 예전 홈 재생 화면처럼 두 기둥 — 왼쪽은 악보(눈이 오래
           머무는 쪽이 넓다), 오른쪽은 영상과 그 아래 가사. */}
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:flex-row">
-
-      {/* 오른쪽 기둥 — 영상 + 가사 (폰에서는 맨 위 영상만) */}
-      <div className="flex shrink-0 flex-col gap-1.5 md:order-2 md:min-h-0 md:w-[44%] roomy:w-[48%]">
-        {/* 폰: 폭 640px·화면높이 68% 중 작은 쪽으로 제한해 악보 자리를
+        {/* 오른쪽 기둥 — 영상 + 가사 (폰에서는 맨 위 영상만) */}
+        <div className="flex shrink-0 flex-col gap-1.5 md:order-2 md:min-h-0 md:w-[44%] roomy:w-[48%]">
+          {/* 폰: 폭 640px·화면높이 68% 중 작은 쪽으로 제한해 악보 자리를
             남긴다. 넓은 화면: 기둥 폭이 곧 제한이라 가득 채운다 */}
-        {/* 감춰도 화면에서 떼어내지는 않는다 — 떼면 소리가 끊긴다.
+          {/* 감춰도 화면에서 떼어내지는 않는다 — 떼면 소리가 끊긴다.
             높이만 0으로 줄여 악보에 자리를 넘긴다 */}
-        <section
-          className={[
-            "mx-auto w-full max-w-[min(640px,68vh)] shrink-0 overflow-hidden md:max-w-none",
-            videoCompact
-              ? "h-0 border-0"
-              : "rounded-xl border border-gray-200 dark:border-gray-700",
-          ].join(" ")}
-        >
-          {video}
-        </section>
-        {lyrics && (
-          <section className="hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 md:flex dark:border-gray-700">
-            {lyrics}
+          <section
+            className={[
+              "mx-auto w-full max-w-[min(640px,68vh)] shrink-0 overflow-hidden md:max-w-none",
+              videoCompact
+                ? "h-0 border-0"
+                : "rounded-xl border border-gray-200 dark:border-gray-700",
+            ].join(" ")}
+          >
+            {video}
           </section>
-        )}
-      </div>
-
-      {/* 왼쪽 기둥 — 설정과 악보 */}
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:order-1 md:min-w-0">
-
-      {/* 설정 상자 — AI 앱과 같은 배치 */}
-      <section className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-2 dark:border-gray-700 dark:bg-gray-900">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          {/* 무엇을 볼지가 먼저다 — 화면을 고른 다음 소리를 고른다 */}
-          {viewTabs}
-          {/* 이름표 없이 단추만 — 「원곡·보컬·반주」가 곧 무엇인지 말한다 */}
-          <span className="flex shrink-0 items-center gap-1 text-[11px]">
-            {srcBtn("off", "원곡", "영상의 원래 소리")}
-            {srcBtn("vocals", "보컬", "노래만 — 반주를 지운 트랙")}
-            {srcBtn("inst", "반주", "반주만 — 노래를 지운 트랙. 직접 부르거나 칠 때")}
-          </span>
-          {/* 영상을 감춰 악보에 자리를 넘긴다. 음원 단추 옆이다 —
-              무엇을 듣고 무엇을 볼지가 한 묶음이다 */}
-          {onVideoCompact && (
-            <button
-              onClick={() => onVideoCompact(!videoCompact)}
-              title={videoCompact ? "영상을 다시 보입니다" : "영상을 감춰 악보를 넓게 봅니다"}
-              className="shrink-0 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-            >
-              {videoCompact ? "영상 보기" : "영상 감추기"}
-            </button>
+          {lyrics && (
+            <section className="hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 md:flex dark:border-gray-700">
+              {lyrics}
+            </section>
           )}
-          <Step
-            label="싱크"
-            value={`${sync > 0 ? "+" : ""}${sync.toFixed(1)}`}
-            onMinus={() => onSync(Math.round((sync - 0.1) * 10) / 10)}
-            onPlus={() => onSync(Math.round((sync + 0.1) * 10) / 10)}
-            onReset={() => onSync(0)}
-            minusTitle="화면을 늦춥니다 — 커서가 소리보다 이를 때"
-            plusTitle="화면을 당깁니다 — 커서가 소리보다 늦을 때"
-          />
-          {/* 값도 단추도 「커서」를 기준으로 읽는다 — ＋를 누르면 커서가
+        </div>
+
+        {/* 왼쪽 기둥 — 설정과 악보 */}
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:order-1 md:min-w-0">
+          {/* 설정 상자 — AI 앱과 같은 배치 */}
+          <section className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-2 dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              {/* 무엇을 볼지가 먼저다 — 화면을 고른 다음 소리를 고른다 */}
+              {viewTabs}
+              {/* 이름표 없이 단추만 — 「원곡·보컬·반주」가 곧 무엇인지 말한다 */}
+              <span className="flex shrink-0 items-center gap-1 text-[11px]">
+                {srcBtn("off", "원곡", "영상의 원래 소리")}
+                {srcBtn("vocals", "보컬", "노래만 — 반주를 지운 트랙")}
+                {srcBtn(
+                  "inst",
+                  "반주",
+                  "반주만 — 노래를 지운 트랙. 직접 부르거나 칠 때",
+                )}
+              </span>
+              {/* 영상을 감춰 악보에 자리를 넘긴다. 음원 단추 옆이다 —
+              무엇을 듣고 무엇을 볼지가 한 묶음이다 */}
+              {onVideoCompact && (
+                <button
+                  onClick={() => onVideoCompact(!videoCompact)}
+                  title={
+                    videoCompact
+                      ? "영상을 다시 보입니다"
+                      : "영상을 감춰 악보를 넓게 봅니다"
+                  }
+                  className="shrink-0 rounded bg-gray-200/70 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                >
+                  {videoCompact ? "영상 보기" : "영상 감추기"}
+                </button>
+              )}
+              {/* 싱크·마디·음높이·빠르기는 한 줄에 나란히 둔다.
+              따로 흘려 두면 좁은 화면에서 빠르기만 아래로 떨어져,
+              같은 성격의 손잡이가 두 줄로 갈린다. 자리가 정 모자라면
+              이 덩이 안에서만 옆으로 밀린다. */}
+              <span className="flex min-w-0 shrink items-center gap-x-2 overflow-x-auto">
+                <Step
+                  label="싱크"
+                  value={`${sync > 0 ? "+" : ""}${sync.toFixed(1)}`}
+                  onMinus={() => onSync(Math.round((sync - 0.1) * 10) / 10)}
+                  onPlus={() => onSync(Math.round((sync + 0.1) * 10) / 10)}
+                  onReset={() => onSync(0)}
+                  minusTitle="화면을 늦춥니다 — 커서가 소리보다 이를 때"
+                  plusTitle="화면을 당깁니다 — 커서가 소리보다 늦을 때"
+                />
+                {/* 값도 단추도 「커서」를 기준으로 읽는다 — ＋를 누르면 커서가
               뒤로 간다. 속으로 세는 마디밀기(barOffset)는 그 반대이므로
               부호를 뒤집어 보여 준다. */}
-          {onBarOffset && (
-            <Step
-              label="마디"
-              value={
-                -(barOffset ?? 0) > 0
-                  ? `+${-(barOffset ?? 0)}`
-                  : String(-(barOffset ?? 0))
-              }
-              onMinus={() => onBarOffset((barOffset ?? 0) + 1)}
-              onPlus={() => onBarOffset((barOffset ?? 0) - 1)}
-              onReset={() => onBarOffset(0)}
-              width="w-7"
-              minusTitle="커서를 한 마디 왼쪽으로 — 커서가 노래보다 이르게 갈 때"
-              plusTitle="커서를 한 마디 오른쪽으로 — 커서가 노래보다 늦게 갈 때"
-            />
-          )}
-          <Step
-            label="음높이"
-            value={pitch > 0 ? `+${pitch}` : String(pitch)}
-            onMinus={() => onPitch(Math.max(pitch - 1, -11))}
-            onPlus={() => onPitch(Math.min(pitch + 1, 11))}
-            onReset={() => onPitch(0)}
-            width="w-7"
-            minusTitle="반음 내림 — 악보 표기와 코드가 함께"
-            plusTitle="반음 올림 (카포 자리)"
-          />
-          <Step
-            label="빠르기"
-            value={`${rate}×`}
-            onMinus={() => onRate(RATES[Math.max(rateIdx() - 1, 0)])}
-            onPlus={() => onRate(RATES[Math.min(rateIdx() + 1, RATES.length - 1)])}
-            onReset={() => onRate(1)}
-            width="w-10"
-            minusTitle="느리게 (연습용)"
-            plusTitle="빠르게"
-          />
-        </div>
+                {onBarOffset && (
+                  <Step
+                    label="마디"
+                    value={
+                      -(barOffset ?? 0) > 0
+                        ? `+${-(barOffset ?? 0)}`
+                        : String(-(barOffset ?? 0))
+                    }
+                    onMinus={() => onBarOffset((barOffset ?? 0) + 1)}
+                    onPlus={() => onBarOffset((barOffset ?? 0) - 1)}
+                    onReset={() => onBarOffset(0)}
+                    width="w-7"
+                    minusTitle="커서를 한 마디 왼쪽으로 — 커서가 노래보다 이르게 갈 때"
+                    plusTitle="커서를 한 마디 오른쪽으로 — 커서가 노래보다 늦게 갈 때"
+                  />
+                )}
+                <Step
+                  label="음높이"
+                  value={pitch > 0 ? `+${pitch}` : String(pitch)}
+                  onMinus={() => onPitch(Math.max(pitch - 1, -11))}
+                  onPlus={() => onPitch(Math.min(pitch + 1, 11))}
+                  onReset={() => onPitch(0)}
+                  width="w-7"
+                  minusTitle="반음 내림 — 악보 표기와 코드가 함께"
+                  plusTitle="반음 올림 (카포 자리)"
+                />
+                <Step
+                  label="빠르기"
+                  value={`${rate}×`}
+                  onMinus={() => onRate(RATES[Math.max(rateIdx() - 1, 0)])}
+                  onPlus={() =>
+                    onRate(RATES[Math.min(rateIdx() + 1, RATES.length - 1)])
+                  }
+                  onReset={() => onRate(1)}
+                  width="w-10"
+                  minusTitle="느리게 (연습용)"
+                  plusTitle="빠르게"
+                />
+              </span>
+            </div>
 
-        {/* 트랜스포트 — ⏮ ▶ ⏹ ⏭ + 탐색. AI 앱과 같은 줄 */}
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            className={`${circle} h-8 w-8 text-[10px]`}
-            title={loopA !== null ? "반복 시작(A)으로" : "처음으로"}
-            onClick={() => onSeek(loopA ?? 0)}
-          >
-            ⏮
-          </button>
-          <button
-            className={`${circle} h-10 w-10 text-sm`}
-            aria-label={playing ? "일시정지" : "재생"}
-            onClick={() => (playing ? playback?.pause() : playback?.play())}
-          >
-            {playing ? "❚❚" : "▶"}
-          </button>
-          {/* 정지는 일시정지와 다르다 — 멈추고 처음(반복 중이면 A)으로
+            {/* 트랜스포트 — ⏮ ▶ ⏹ ⏭ + 탐색. AI 앱과 같은 줄 */}
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                className={`${circle} h-8 w-8 text-[10px]`}
+                title={loopA !== null ? "반복 시작(A)으로" : "처음으로"}
+                onClick={() => onSeek(loopA ?? 0)}
+              >
+                ⏮
+              </button>
+              <button
+                className={`${circle} h-10 w-10 text-sm`}
+                aria-label={playing ? "일시정지" : "재생"}
+                onClick={() => (playing ? playback?.pause() : playback?.play())}
+              >
+                {playing ? "❚❚" : "▶"}
+              </button>
+              {/* 정지는 일시정지와 다르다 — 멈추고 처음(반복 중이면 A)으로
               되돌아간다. 한 대목을 되풀이해 볼 때 손이 덜 간다 */}
-          <button
-            className={`${circle} h-8 w-8 text-[10px]`}
-            title="정지 — 멈추고 처음으로"
-            aria-label="정지"
-            onClick={() => {
-              playback?.pause();
-              onSeek(loopA ?? 0);
-            }}
-          >
-            ⏹
-          </button>
-          <button
-            className={`${circle} h-8 w-8 text-[10px]`}
-            title="끝으로"
-            onClick={() => onSeek(Math.max(duration - 1, 0))}
-          >
-            ⏭
-          </button>
-          <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-500">
-            {clock(now)}
-          </span>
-          <input
-            type="range"
-            className="seekbar min-w-0 flex-1"
-            min={0}
-            max={Math.max(duration, 1)}
-            step={0.1}
-            value={Math.min(now, duration)}
-            onChange={(e) => onSeek(Number(e.target.value))}
-          />
-          <span className="w-10 shrink-0 text-xs tabular-nums text-gray-500">
-            {clock(duration)}
-          </span>
+              <button
+                className={`${circle} h-8 w-8 text-[10px]`}
+                title="정지 — 멈추고 처음으로"
+                aria-label="정지"
+                onClick={() => {
+                  playback?.pause();
+                  onSeek(loopA ?? 0);
+                }}
+              >
+                ⏹
+              </button>
+              <button
+                className={`${circle} h-8 w-8 text-[10px]`}
+                title="끝으로"
+                onClick={() => onSeek(Math.max(duration - 1, 0))}
+              >
+                ⏭
+              </button>
+              <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-500">
+                {clock(now)}
+              </span>
+              <input
+                type="range"
+                className="seekbar min-w-0 flex-1"
+                min={0}
+                max={Math.max(duration, 1)}
+                step={0.1}
+                value={Math.min(now, duration)}
+                onChange={(e) => onSeek(Number(e.target.value))}
+              />
+              <span className="w-10 shrink-0 text-xs tabular-nums text-gray-500">
+                {clock(duration)}
+              </span>
+            </div>
+          </section>
+
+          {/* 악보 — 이 칸만 스크롤 */}
+          <section className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700">
+            {score}
+          </section>
         </div>
-      </section>
-
-      {/* 악보 — 이 칸만 스크롤 */}
-      <section className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700">
-        {score}
-      </section>
-
-      </div>
       </div>
     </div>
   );
