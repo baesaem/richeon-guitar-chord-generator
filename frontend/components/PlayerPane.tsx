@@ -45,6 +45,11 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
   const rateRef = useRef(1);
 
   const isYouTube = result.source === "youtube";
+  /* 유튜브의 겉치레(제목·채널·나중에 볼 것·공유)는 멈춰 있을 때 나온다.
+     그 자리를 곡의 장면 사진으로 덮는다 — 재생 중에만 영상을 그대로
+     보이고, 멈추면 사진이 겉치레를 가린다. 지우는 것이 아니라 가리는
+     것이라 유튜브 규칙에도 어긋나지 않는다. */
+  const [ytPlaying, setYtPlaying] = useState(false);
   // 반주. 기기에 받아 둔 것이 있으면 그것을, 없으면 서버 것을 쓴다.
   // 공유 폴더에서 곡을 받은 수강생은 서버 없이도 보컬을 끌 수 있다.
   const [localInst, setLocalInst] = useState<string | null>(null);
@@ -193,7 +198,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
       <>
         <div
           className={[
-            "shrink-0 overflow-hidden bg-black",
+            "relative shrink-0 overflow-hidden bg-black",
             // 화면 가득 채우지 않고 살짝 줄인다 — 영상은 참고용이고,
             // 그만큼 악보·가사가 한 줄 더 들어온다
             compact ? "h-14 w-full" : "mx-auto aspect-video w-[85%] md:w-full",
@@ -203,19 +208,53 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
             videoId={result.id}
             className="h-full w-full"
             iframeClassName="h-full w-full"
-            opts={{ playerVars: { playsinline: 1, rel: 0 } }}
+            /* controls 0 — 유튜브의 재생 줄을 걷는다. 재생·탐색은 아래
+               우리 단추가 맡고 있어 두 벌일 까닭이 없다 */
+            opts={{
+              playerVars: {
+                playsinline: 1,
+                rel: 0,
+                controls: 0,
+                iv_load_policy: 3,
+                disablekb: 1,
+                fs: 0,
+              },
+            }}
             onReady={(e) => {
               ytRef.current = e.target;
               publish();
             }}
             onStateChange={(e) => {
               playingRef.current = e.data === 1;
+              // 재생·버퍼링 동안만 영상을 드러낸다
+              setYtPlaying(e.data === 1 || e.data === 3);
               const inst = instRef.current;
               if (!inst) return;
               if (e.data === 1) inst.play().catch(() => {});
               else inst.pause();
             }}
           />
+          {/* 멈춰 있는 동안 겉치레를 덮는 장면 사진. 누르면 재생된다 */}
+          {!ytPlaying && (
+            <button
+              className="absolute inset-0 h-full w-full cursor-pointer"
+              title="재생"
+              onClick={() => ytRef.current?.playVideo()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://i.ytimg.com/vi/${result.id}/hqdefault.jpg`}
+                alt=""
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+              <span className="absolute inset-0 flex items-center justify-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60 text-xl text-white">
+                  ▶
+                </span>
+              </span>
+            </button>
+          )}
         </div>
         {dual && <audio ref={instRef} src={instUrl} preload="auto" />}
       </>
