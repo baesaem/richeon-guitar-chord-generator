@@ -1360,11 +1360,18 @@ export default function Home() {
   /**
    * 「멜로디」 칸에 보여 줄 악보가 있는가.
    *
-   * 강사님이 붙인 악보 파일이나 악보 그림이 있어야 한다. 보컬에서 딴
-   * 멜로디는 부른 음의 15~30%밖에 잡히지 않아, 그것을 악보라고 내놓으면
-   * 틀린 음을 따라 치게 된다. 없으면 없다고 적는 편이 낫다.
+   * 예전에는 강사님이 붙인 악보(파일·그림)만 쳤다. 보컬에서 딴 멜로디가
+   * 부른 음의 15~30%밖에 잡히지 않아, 그것을 악보라고 내놓으면 틀린 음을
+   * 따라 치게 되기 때문이었다.
+   *
+   * 채보기를 Basic Pitch로 바꾸면서 그 사정이 달라졌다 — 네 곡 실측에서
+   * 노래한 자리의 69~82%를 덮는다. 이제는 보여 주되 「뽑아낸 것」이라고
+   * 밝힌다. 아예 안 보여 주면 강사님이 채보가 나아졌는지조차 볼 수 없다.
    */
-  const hasMelody = hasScore || !!sheetImg;
+  const autoMelody = (result?.melody?.length ?? 0) > 0;
+  const hasMelody = hasScore || !!sheetImg || autoMelody;
+  /** 사람이 만든 악보 없이 뽑아낸 멜로디만 있는가. 그렇다고 밝혀야 한다 */
+  const roughMelody = !hasScore && !sheetImg && autoMelody;
 
   // 멜로디가 없어도 칸은 남긴다. 눌렀을 때 「이 음원은 멜로디 악보를
   // 지원하지 않습니다」라고 적어 주는 편이, 칸이 사라져 앱이 고장난 줄
@@ -2112,6 +2119,11 @@ export default function Home() {
                           setTime(t);
                         }}
                         follow
+                        note={
+                          roughMelody
+                            ? "음원에서 뽑아낸 멜로디입니다 — 실제 부른 음과 다를 수 있습니다"
+                            : undefined
+                        }
                       />
                     )}
 
@@ -2626,6 +2638,11 @@ export default function Home() {
                             setTime(t);
                           }}
                           follow
+                          note={
+                            roughMelody
+                              ? "음원에서 뽑아낸 멜로디입니다 — 실제 부른 음과 다를 수 있습니다"
+                              : undefined
+                          }
                         />
                       </div>
                     ) : (
