@@ -112,6 +112,7 @@ export function LyricRow({
   bar,
   onBar,
   onGrab,
+  onAddAfter,
 }: {
   text: string;
   /** 왼쪽에 붙일 표시(마디 번호 등) */
@@ -127,6 +128,8 @@ export function LyricRow({
   onBar?: (dir: 1 | -1) => void;
   /** 손잡이를 잡았다. 여기서부터 끌어 자리를 바꾼다 */
   onGrab?: (e: React.PointerEvent<HTMLElement>) => void;
+  /** 이 줄 다음에 빈 줄을 넣는다 */
+  onAddAfter?: () => void;
 }) {
   const press = useLongPress(() => onEdit?.(), EDIT_HOLD_MS);
   return (
@@ -184,21 +187,37 @@ export function LyricRow({
         )}
         <span className="min-w-0 flex-1">{text}</span>
         {/* 고른 줄에만 붙는다 — 모든 줄에 두면 가사보다 단추가 많다 */}
-        {selected && onGrab && (
+        {selected && (onGrab || onAddAfter) && (
           <span className="flex shrink-0 items-center gap-1">
             {/* 잡고 끌면 글자가 다른 칸으로 옮겨 간다. 시각은 그 자리에
                 그대로 있다 — 자막이 한 줄씩 밀려 붙었을 때 쓴다 */}
-            <button
-              className="cursor-grab touch-none rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] text-gray-600 active:cursor-grabbing dark:bg-gray-700 dark:text-gray-300"
-              title="잡고 끌어 가사 자리 바꾸기"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onGrab(e);
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              ≡
-            </button>
+            {onGrab && (
+              <button
+                className="cursor-grab touch-none rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] text-gray-600 active:cursor-grabbing dark:bg-gray-700 dark:text-gray-300"
+                title="잡고 끌어 가사 자리 바꾸기"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  onGrab(e);
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                ≡
+              </button>
+            )}
+            {/* 자막이 소절을 통째로 빠뜨렸을 때. 앞뒤 줄 사이에 끼워
+                넣으므로 뒤 가사가 밀리지 않는다 */}
+            {onAddAfter && (
+              <button
+                className="rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                title="이 줄 다음에 새 줄을 넣습니다"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddAfter();
+                }}
+              >
+                ＋줄
+              </button>
+            )}
           </span>
         )}
       </span>

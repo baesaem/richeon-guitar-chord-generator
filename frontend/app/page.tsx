@@ -685,6 +685,40 @@ export default function Home() {
     if (health) await putLyrics(next.id, rows).catch(() => {});
   };
 
+  /**
+   * 고른 줄 바로 다음에 빈 줄을 넣는다.
+   *
+   * 자막은 소절을 통째로 빠뜨리기도 한다. 그럴 때 「지금 듣는 자리에
+   * 넣기」로는 어림이 어려우니, 어디에 넣을지 눈으로 짚게 한다.
+   * 시각은 앞뒤 줄의 가운데다 — 뒤 가사를 밀지 않고 사이에 끼워 넣는다.
+   */
+  const addLyricAfter = async (index: number) => {
+    if (!result) return;
+    const list = result.lyrics ?? [];
+    const cur = list[index];
+    if (!cur) return;
+    const after = list[index + 1];
+    const bar = bars.find((b) => b.start <= cur.t && cur.t < b.end);
+    const span = bar ? bar.end - bar.start : ((60 / (result.bpm || 100)) * 4);
+    const at = +(after ? (cur.t + after.t) / 2 : cur.t + span).toFixed(2);
+
+    const rows = [...list, { t: at, end: 0, text: "새 줄" }]
+      .sort((a, b) => a.t - b.t)
+      .map((l, i, all) => ({
+        ...l,
+        end: i + 1 < all.length ? all[i + 1].t : l.end,
+      }));
+
+    const next = { ...result, lyrics: rows, lyrics_manual: true };
+    setResult(next);
+    await saveLocal(next).catch(() => {});
+    if (health) await putLyrics(next.id, rows).catch(() => {});
+    // 넣자마자 글자를 적게 창을 연다
+    const put = rows.findIndex((l) => l.t === at && l.text === "새 줄");
+    setPickLyric(put);
+    setEditLyric(put);
+  };
+
   /** 이 시각이 몇 번째 마디인가(1부터). 가사 앞에 적어 준다 */
   const barOfTime = (t: number): number => {
     let no = 0;
@@ -1996,6 +2030,7 @@ export default function Home() {
                                 selected={pickLyric === i}
                                 bar={barOfTime(line.t)}
                                 onBar={(dir) => void shiftLyricsFrom(i, dir)}
+                                onAddAfter={() => void addLyricAfter(i)}
                                 onGrab={(e) => {
                                   e.currentTarget.setPointerCapture?.(
                                     e.pointerId,
