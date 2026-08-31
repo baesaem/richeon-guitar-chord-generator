@@ -813,6 +813,46 @@ export default function Home() {
     pushToServer(next);
   };
 
+  /** 전체 가사를 글자판으로 펼쳐 놓은 것. null이면 창이 닫혀 있다 */
+  const [lyricText, setLyricText] = useState<string | null>(null);
+
+  /**
+   * 글자판에 적은 가사를 곡에 넣는다.
+   *
+   * 한 줄에 한 소절. **시각은 있던 것을 그대로 물려준다** — 글자만
+   * 고치러 여는 자리라, 애써 맞춘 싱크를 글자 고치다 잃으면 안 된다.
+   *
+   * 줄 수가 달라지면: 늘어난 줄은 마지막 줄 뒤로 한 마디씩 이어 붙이고,
+   * 줄어든 만큼은 뒤에서 덜어 낸다.
+   */
+  const applyLyricText = async (text: string) => {
+    if (!result) return;
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const old = result.lyrics ?? [];
+    const span =
+      bars.length > 1
+        ? bars[1].start - bars[0].start
+        : (60 / (result.bpm || 100)) * 4;
+    const last = old.length ? old[old.length - 1].t : 0;
+
+    const rows = lines.map((textLine, i) => ({
+      t: i < old.length ? old[i].t : +(last + span * (i - old.length + 1)).toFixed(2),
+      end: 0,
+      text: textLine,
+    }));
+    for (let i = 0; i < rows.length; i++)
+      rows[i].end = i + 1 < rows.length ? rows[i + 1].t : (old[old.length - 1]?.end ?? result.duration);
+
+    const next = { ...result, lyrics: rows, lyrics_manual: true };
+    setResult(next);
+    setLyricText(null);
+    await saveLocal(next).catch(() => {});
+    pushToServer(next);
+  };
+
   /** 이 시각이 몇 번째 마디인가(1부터). 가사 앞에 적어 준다 */
   const barOfTime = (t: number): number => {
     let no = 0;
@@ -1452,6 +1492,34 @@ export default function Home() {
           </p>
         )}
 
+        {/* 전체 가사를 글자판에 펴 놓고 고친다. 시각은 그대로 물려준다 */}
+        {lyricText !== null && result && (
+          <Popup title="전체 가사 편집" onClose={() => setLyricText(null)}>
+            <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+              한 줄에 한 소절입니다. <b>시각은 그대로 남습니다</b> — 글자만
+              고쳐집니다. 줄을 늘리면 뒤에 한 마디씩 이어 붙고, 줄이면 뒤에서
+              덜어 냅니다.
+            </p>
+            <textarea
+              className="h-64 w-full rounded border px-3 py-2 text-sm"
+              autoFocus
+              value={lyricText}
+              onChange={(e) => setLyricText(e.target.value)}
+            />
+            <div className="mt-1 text-right text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+              {lyricText.split(/\r?\n/).filter((l) => l.trim()).length}줄 ·
+              지금 {(result.lyrics ?? []).length}줄
+            </div>
+            <button
+              className="mt-2 w-full rounded bg-[var(--accent)] py-3 text-sm font-medium text-white disabled:opacity-40"
+              disabled={!lyricText.trim()}
+              onClick={() => void applyLyricText(lyricText)}
+            >
+              이 가사로 바꾸기
+            </button>
+          </Popup>
+        )}
+
         {/* 나가기 확인. 뒤로를 눌러 앱이 툭 꺼지면 놀란다 — 한 번 묻는다 */}
         {askExit && (
           <Popup
@@ -2073,14 +2141,31 @@ export default function Home() {
                         </button>
                       )}
                       {editMode && (
-                        <button
-                          className="mb-2 w-full rounded bg-[var(--panel)] py-2 text-xs"
-                          onClick={addLyricLine}
-                        >
-                          + 지금 자리({Math.floor(time / 60)}:
-                          {String(Math.floor(time % 60)).padStart(2, "0")})에 줄
-                          추가
-                        </button>
+                        <div className="mb-2 flex gap-1.5">
+                          <button
+                            className="min-w-0 flex-1 rounded bg-[var(--panel)] py-2 text-xs"
+                            onClick={addLyricLine}
+                          >
+                            + 지금 자리({Math.floor(time / 60)}:
+                            {String(Math.floor(time % 60)).padStart(2, "0")})에
+                            줄 추가
+                          </button>
+                          {/* 글자만 고칠 때는 줄마다 창을 여는 것보다 통째로
+                            펴 놓고 고치는 편이 빠르다. 다른 데서 받아 온
+                            가사를 통째로 갈아 끼우기도 좋다 */}
+                          <button
+                            className="shrink-0 rounded bg-[var(--panel)] px-3 py-2 text-xs"
+                            onClick={() =>
+                              setLyricText(
+                                (result.lyrics ?? [])
+                                  .map((l) => l.text)
+                                  .join(String.fromCharCode(10)),
+                              )
+                            }
+                          >
+                            전체 가사 편집
+                          </button>
+                        </div>
                       )}
                       {(result.lyrics ?? []).length === 0 && (
                         <p className="py-4 text-center text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
