@@ -780,11 +780,14 @@ export function ImportTab({
       )}
 
       {/* ---- 바뀐 곡 덮어쓸지 묻기 ---- */}
+      {/* 목록 창 위에 얹힌다 — 같은 층에 두면 뒤에 그려진 목록 창에
+          가려 「새 것으로 바꿀까요?」가 보이지 않는다 */}
       {pending && (
         <Popup
           title="바뀐 곡이 있습니다"
           onClose={() => setPending(null)}
           width="max-w-xs"
+          layer="z-[60]"
         >
           <p className="mb-2 text-[11px] leading-snug text-gray-500">
             이미 받아 둔 곡과 내용이 다릅니다. 새 것으로 바꿀까요? 바꾸면 지금

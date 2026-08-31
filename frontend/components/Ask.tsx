@@ -39,7 +39,7 @@ export function AskText({
   };
 
   return (
-    <Popup title={title} onClose={onClose} width="max-w-xs">
+    <Popup title={title} onClose={onClose} width="max-w-xs" layer="z-[60]">
       <input
         className="w-full rounded border px-3 py-3 text-base"
         placeholder={placeholder}
@@ -78,7 +78,7 @@ export function AskConfirm({
   onClose: () => void;
 }) {
   return (
-    <Popup title={title} onClose={onClose} width="max-w-xs">
+    <Popup title={title} onClose={onClose} width="max-w-xs" layer="z-[60]">
       <p className="text-sm leading-snug text-gray-600 dark:text-gray-300">{message}</p>
       <div className="mt-3 flex gap-2">
         <button

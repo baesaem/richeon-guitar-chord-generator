@@ -6,16 +6,23 @@ export function Popup({
   onClose,
   children,
   width = "max-w-sm",
+  layer = "z-50",
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   /** 창 최대 너비 클래스. 콤팩트한 창은 max-w-xs를 넘긴다 */
   width?: string;
+  /**
+   * 몇 겹째 창인가. 창 위에 다시 묻는 창(「새 것으로 바꿀까요?」)은
+   * 더 위여야 한다 — 같은 층에 두면 나중에 그려진 목록 창에 가려
+   * 물어보는 말이 보이지 않는다.
+   */
+  layer?: string;
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+      className={`fixed inset-0 ${layer} flex items-center justify-center bg-black/50 p-6`}
       onClick={onClose}
     >
       <div
