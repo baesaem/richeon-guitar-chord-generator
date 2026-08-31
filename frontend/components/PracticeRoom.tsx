@@ -167,7 +167,6 @@ interface Props {
   /** 반복 중이면 ⏮가 A 지점으로 간다 */
   loopA: number | null;
 
-  onBack: () => void;
   /** 목록의 앞·뒤 곡으로. 끝이면 넘기지 않는다(undefined → 잠금) */
   onPrevSong?: () => void;
   onNextSong?: () => void;
@@ -204,7 +203,6 @@ export function PracticeRoom({
   rate,
   onRate,
   loopA,
-  onBack,
   onPrevSong,
   onNextSong,
   songs,
@@ -269,12 +267,8 @@ export function PracticeRoom({
       )}
       {/* 곡 이름 줄 — 목록으로 돌아가기, 곡 옮기기, 연주설정 */}
       <div className="flex shrink-0 items-center gap-2 px-1">
-        <button
-          className="shrink-0 rounded bg-gray-200/70 px-2 py-1 text-[11px] font-semibold dark:bg-gray-700"
-          onClick={onBack}
-        >
-          ← 홈
-        </button>
+        {/* 홈 단추는 두지 않는다 — 아래 메뉴의 홈이 늘 그 자리에 있고,
+            폰의 뒤로 가기로도 나간다. 좁은 제목줄은 곡 이름 몫이다. */}
         {/* 이전·다음 곡 — 목록 순서대로 옮겨 다닌다 */}
         <button
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-200/70 text-[10px] text-gray-700 disabled:opacity-30 dark:bg-gray-700 dark:text-gray-200"

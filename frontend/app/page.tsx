@@ -2542,7 +2542,6 @@ export default function Home() {
                     playback?.setRate(r);
                   }}
                   loopA={loop ? loop.a : null}
-                  onBack={() => setTab("home")}
                   onPrevSong={
                     songAt > 0
                       ? () => openSaved(songList[songAt - 1].id)
