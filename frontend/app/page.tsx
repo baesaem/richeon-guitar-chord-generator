@@ -91,7 +91,7 @@ import { DEFAULT_SETUP, hasSetup, loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent, listRecent } from "@/lib/recent";
 import { patchSettings, useSettings } from "@/lib/settings";
 import { useBigScreen, useWideScreen } from "@/lib/useMedia";
-import { suggestStrum } from "@/lib/strumLibrary";
+import { PATTERNS, suggestStrum } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import {
   STAGE_LABEL,
@@ -379,6 +379,19 @@ export default function Home() {
         : null,
     [bars, result],
   );
+  /* 어느 화면에서든 안내줄에 똑같이 적을 스트로크.
+     타브만 보여 주고 다른 화면은 감추면, 조성·박자는 있는데 주법만
+     사라져 화면마다 딴말을 한다 — 모든 플레이 화면이 이것을 쓴다.
+     직접 고른 패턴이 먼저고, 아르페지오로 치는 곡은 화살표를 걷는다
+     (playNotes의 「아르페지오 N」이 대신 말한다). */
+  const shownStrum = useMemo(() => {
+    if (!result || arp > 0) return null;
+    const manual = strumName
+      ? PATTERNS.find((p) => p.name === strumName)
+      : null;
+    if (manual) return { pattern: manual, why: "직접 고른 패턴" };
+    return waveStrum;
+  }, [result, arp, strumName, waveStrum]);
   // 가사를 문장 단위로 묶는다. 편집할 때는 줄 그대로 본다.
   const lyricGroups = useMemo(
     () => groupBySentence(result?.lyrics ?? []),
@@ -1883,6 +1896,8 @@ export default function Home() {
                       musicKey={result.key}
                       timeSignature={result.time_signature}
                       playNotes={playNotes}
+                      strum={shownStrum}
+                      onPickStrum={() => setShowStrums(true)}
                       playStyle={playStyle}
                       headerRight={
                         settings.adminMode ? (
@@ -1917,6 +1932,8 @@ export default function Home() {
                         musicKey={result.key}
                         timeSignature={result.time_signature}
                         playNotes={playNotes}
+                        strum={shownStrum}
+                        onPickStrum={() => setShowStrums(true)}
                         playStyle={playStyle}
                         barsView={settings.sheetZoom}
                         onZoom={(n) =>
@@ -2003,6 +2020,8 @@ export default function Home() {
                         }
                         time={time + lyricSync - settings.latency}
                         playNotes={playNotes}
+                        strum={shownStrum}
+                        onPickStrum={() => setShowStrums(true)}
                         playStyle={playStyle}
                         currentBar={barIdx}
                         flats={flats}
@@ -2278,6 +2297,8 @@ export default function Home() {
                           timeSignature={result.time_signature}
                           playStyle={playStyle}
                           playNotes={playNotes}
+                          strum={shownStrum}
+                          onPickStrum={() => setShowStrums(true)}
                         />
                         <div className="shrink-0">
                           <ChordStrip
@@ -2364,6 +2385,8 @@ export default function Home() {
                           timeSignature={result.time_signature}
                           playStyle={playStyle}
                           playNotes={playNotes}
+                          strum={shownStrum}
+                          onPickStrum={() => setShowStrums(true)}
                         />
                         <div className="shrink-0">
                           <ChordSheet
@@ -2415,6 +2438,8 @@ export default function Home() {
                         musicKey={result.key}
                         timeSignature={result.time_signature}
                         playNotes={playNotes}
+                        strum={shownStrum}
+                        onPickStrum={() => setShowStrums(true)}
                         playStyle={playStyle}
                         headerRight={
                           settings.adminMode ? (
@@ -2856,6 +2881,8 @@ export default function Home() {
                                 musicKey={result.key}
                                 timeSignature={result.time_signature}
                                 playNotes={playNotes}
+                                strum={shownStrum}
+                                onPickStrum={() => setShowStrums(true)}
                                 playStyle={playStyle}
                                 headerRight={
                                   <>
@@ -2913,6 +2940,8 @@ export default function Home() {
                                 musicKey={result.key}
                                 timeSignature={result.time_signature}
                                 playNotes={playNotes}
+                                strum={shownStrum}
+                                onPickStrum={() => setShowStrums(true)}
                                 playStyle={playStyle}
                                 onSeek={(t) => playback?.seek(t)}
                                 lines={wide ? 3 : 2}
@@ -2957,6 +2986,8 @@ export default function Home() {
                                 }
                                 time={time + lyricSync - settings.latency}
                                 playNotes={playNotes}
+                                strum={shownStrum}
+                                onPickStrum={() => setShowStrums(true)}
                                 playStyle={playStyle}
                                 headerRight={
                                   <button

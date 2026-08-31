@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import type { StrumChoice } from "@/lib/strumLibrary";
 
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { type Bar } from "@/lib/bars";
@@ -108,6 +109,9 @@ interface Props {
    */
   getTime?: () => number;
   playNotes?: string[];
+  /** 안내줄에 함께 적을 스트로크. 모든 플레이 화면이 같은 것을 보인다 */
+  strum?: StrumChoice | null;
+  onPickStrum?: () => void;
   /** 이 곡을 치는 방식 — 「스트로크」 또는 「아르페지오 3」 */
   playStyle?: string;
   headerRight?: React.ReactNode;
@@ -153,6 +157,8 @@ export function MelodyScore({
   time: rawTime,
   getTime,
   playNotes,
+  strum,
+  onPickStrum,
   playStyle,
   headerRight,
   currentBar,
@@ -270,6 +276,8 @@ export function MelodyScore({
         musicKey={musicKey}
         timeSignature={timeSignature}
         playNotes={playNotes}
+        strum={strum}
+        onPickStrum={onPickStrum}
         playStyle={playStyle}
         right={headerRight}
       >

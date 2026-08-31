@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { StrumChoice } from "@/lib/strumLibrary";
 
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
@@ -67,6 +68,9 @@ interface Props {
   musicKey: string;
   timeSignature: string;
   playNotes?: string[];
+  /** 안내줄에 함께 적을 스트로크. 모든 플레이 화면이 같은 것을 보인다 */
+  strum?: StrumChoice | null;
+  onPickStrum?: () => void;
   /** 이 곡을 치는 방식 — 「스트로크」 또는 「아르페지오 3」 */
   playStyle?: string;
   /** 악보·파형·타브의 코드를 한 벌로 모은 결과. 표시줄에 알려 준다 */
@@ -87,6 +91,8 @@ export function AbcScore({
   musicKey,
   timeSignature,
   playNotes,
+  strum,
+  onPickStrum,
   playStyle,
   chordNote,
 }: Props) {
@@ -351,6 +357,8 @@ ${abc}`;
         musicKey={musicKey}
         timeSignature={timeSignature}
         playNotes={playNotes}
+        strum={strum}
+        onPickStrum={onPickStrum}
         playStyle={playStyle}
         right={headerRight}
       >
