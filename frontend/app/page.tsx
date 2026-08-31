@@ -90,7 +90,7 @@ import { findNewSongs, markSongsSeen, type NewSongs } from "@/lib/songAlert";
 import { DEFAULT_SETUP, hasSetup, loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent, listRecent } from "@/lib/recent";
 import { patchSettings, useSettings } from "@/lib/settings";
-import { useWideScreen } from "@/lib/useMedia";
+import { useBigScreen, useWideScreen } from "@/lib/useMedia";
 import { suggestStrum } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import {
@@ -980,6 +980,9 @@ export default function Home() {
   // 태블릿·PC 폭인가. 넓으면 악보를 더 많은 줄 보인다 —
   // 세로도 폭만큼 남으므로 두 줄만 띄우면 화면이 텅 빈다.
   const wide = useWideScreen();
+  /* 세워 둔 태블릿까지 「큰 기기」다. 배치는 한 기둥이어도 코드 그림과
+     이름은 크게 보여야 한다 — 태블릿은 멀찍이 두고 보는 자리다. */
+  const big = useBigScreen();
 
   // 멜로디는 음원 분리를 쓴 곡에만 있다. 없는 곡에 「멜로디」 칸을 두면
   // 눌러도 빈 오선만 나온다 — 있을 때만 칸을 만든다.
@@ -2044,7 +2047,7 @@ export default function Home() {
                         {/* 폰에서는 한 뼘 안에 파형·코드·가사가 다 들어와야
                           한다. 코드 칸을 더 줄이고, 태블릿·PC에서만
                           원래 크기로 돌린다. */}
-                        <section className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-2 py-0.5 roomy:gap-2 roomy:px-2.5 roomy:py-1 dark:border-gray-700 dark:bg-gray-900">
+                        <section className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-2 py-0.5 big:gap-2 big:px-2.5 big:py-1 dark:border-gray-700 dark:bg-gray-900">
                           {curPlay && (
                             <ChordDiagram
                               voicing={voicingFor(
@@ -2052,18 +2055,18 @@ export default function Home() {
                                 curPlay.quality,
                               )}
                               label={curPlay.label}
-                              width={wide ? 52 : 38}
+                              width={big ? 60 : 38}
                             />
                           )}
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-base font-bold leading-none roomy:text-xl">
+                            <div className="truncate text-base font-bold leading-none big:text-2xl">
                               {curPlay ? (
                                 <ChordLabel label={curPlay.label} />
                               ) : (
                                 ""
                               )}
                             </div>
-                            <div className="text-[10px] text-gray-500 roomy:mt-0.5 roomy:text-[11px]">
+                            <div className="text-[10px] text-gray-500 big:mt-0.5 big:text-sm">
                               {nxtPlay ? (
                                 <>
                                   다음 <ChordLabel label={nxtPlay.label} />
@@ -2072,7 +2075,7 @@ export default function Home() {
                                 ""
                               )}
                             </div>
-                            <div className="truncate text-[9px] text-gray-400 roomy:text-[10px]">
+                            <div className="truncate text-[9px] text-gray-400 big:text-[11px]">
                               {barIdx + 1}/{bars.length}마디
                             </div>
                           </div>
@@ -2080,7 +2083,7 @@ export default function Home() {
                             /* 다음 코드는 그림만으로는 무엇인지 바로 읽히지
                              않는다 — 이름을 그림 위에 적어 둔다 */
                             <div className="flex shrink-0 flex-col items-center gap-0.5">
-                              <div className="text-[10px] font-bold leading-none text-gray-500 roomy:text-xs">
+                              <div className="text-[10px] font-bold leading-none text-gray-500 big:text-sm">
                                 <ChordLabel label={nxtPlay.label} />
                               </div>
                               <ChordDiagram
@@ -2089,7 +2092,7 @@ export default function Home() {
                                   nxtPlay.quality,
                                 )}
                                 label={nxtPlay.label}
-                                width={wide ? 42 : 30}
+                                width={big ? 48 : 30}
                               />
                             </div>
                           )}

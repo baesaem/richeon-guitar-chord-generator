@@ -38,3 +38,12 @@ export const useWideScreen = () =>
   useMediaQuery(
     "(min-width: 768px) and (min-height: 600px) and (orientation: landscape)",
   );
+
+/**
+ * 큰 기기인가 — 세워 둔 태블릿까지 넣는다.
+ *
+ * 배치는 한 기둥이어도(세운 태블릿) 코드 그림처럼 「보는 것」은 커야
+ * 한다. globals.css의 big 변형과 같은 조건이다.
+ */
+export const useBigScreen = () =>
+  useMediaQuery("(min-width: 768px) and (min-height: 600px)");

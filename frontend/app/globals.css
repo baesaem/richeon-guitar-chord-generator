@@ -15,6 +15,11 @@
    좁아 어느 쪽도 보이지 않는다. 가로로 눕혔을 때만 넓은 화면이다. */
 @custom-variant roomy (@media (min-width: 768px) and (min-height: 600px) and (orientation: landscape));
 
+/* 큰 기기인가 — 세워 둔 태블릿까지 넣는다.
+   배치는 한 기둥이어도(세운 태블릿) 코드 그림과 이름은 크게 보여야
+   한다. 폰을 눕힌 화면(844×390)은 높이가 모자라 여기 들지 않는다. */
+@custom-variant big (@media (min-width: 768px) and (min-height: 600px));
+
 /* md도 같은 뜻으로 쓴다 — 두 기둥 배치가 모두 md:로 적혀 있어,
    여기서 함께 고쳐야 세운 태블릿이 한 기둥으로 선다 */
 @custom-variant md (@media (min-width: 768px) and (min-height: 600px) and (orientation: landscape));
