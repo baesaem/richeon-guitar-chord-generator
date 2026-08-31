@@ -109,6 +109,8 @@ export function LyricRow({
   now,
   onSeek,
   onEdit,
+  selected,
+  onShift,
 }: {
   text: string;
   /** 왼쪽에 붙일 표시(마디 번호 등) */
@@ -116,6 +118,10 @@ export function LyricRow({
   now: boolean;
   onSeek: () => void;
   onEdit?: () => void;
+  /** 고른 줄인가. 고른 줄에만 마디 옮기기 단추가 붙는다 */
+  selected?: boolean;
+  /** 이 줄부터 뒤 가사를 한 마디 앞(-1)·뒤(+1)로 민다 */
+  onShift?: (dir: 1 | -1) => void;
 }) {
   const press = useLongPress(() => onEdit?.(), EDIT_HOLD_MS);
   return (
@@ -123,8 +129,9 @@ export function LyricRow({
       onClick={onSeek}
       {...(onEdit ? press.handlers : {})}
       className={[
-        "relative cursor-pointer select-none py-0.5 transition-colors",
+        "relative cursor-pointer select-none rounded py-0.5 transition-colors",
         now ? "font-bold text-[var(--accent)]" : "",
+        selected ? "bg-[var(--accent)]/10 px-1" : "",
       ].join(" ")}
     >
       {press.progress > 0 && (
@@ -133,13 +140,39 @@ export function LyricRow({
           style={{ width: `${press.progress * 100}%` }}
         />
       )}
-      <span className="relative flex gap-2">
+      <span className="relative flex items-center gap-2">
         {label && (
           <span className="w-16 shrink-0 pt-0.5 text-[10px] tabular-nums text-gray-400">
             {label}
           </span>
         )}
         <span className="min-w-0 flex-1">{text}</span>
+        {/* 고른 줄에만 붙는다 — 모든 줄에 두면 가사보다 단추가 많다.
+            누르면 이 줄부터 뒤 가사가 함께 밀린다 */}
+        {selected && onShift && (
+          <span className="flex shrink-0 items-center gap-1">
+            <button
+              className="rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+              title="이 줄부터 한 마디 앞으로 — 가사가 노래보다 늦을 때"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShift(-1);
+              }}
+            >
+              ◀
+            </button>
+            <button
+              className="rounded bg-gray-200/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+              title="이 줄부터 한 마디 뒤로 — 가사가 노래보다 이를 때"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShift(1);
+              }}
+            >
+              ▶
+            </button>
+          </span>
+        )}
       </span>
     </div>
   );

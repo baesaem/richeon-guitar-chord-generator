@@ -656,6 +656,43 @@ export default function Home() {
     if (health) await putLyrics(next.id, rows).catch(() => {});
   };
 
+  /** 편집에서 고르고 있는 가사 줄. 옆에 마디 옮기기 단추가 붙는다 */
+  const [pickLyric, setPickLyric] = useState<number | null>(null);
+
+  /**
+   * 고른 줄부터 뒤 가사를 한 마디씩 민다.
+   *
+   * 자막 가사는 곡 한가운데서 통째로 어긋나는 일이 있다 — 간주를 세지
+   * 않았거나 한 소절을 빠뜨린 것이다. 그 줄만 옮기면 뒤가 다 어긋난
+   * 채로 남으므로, **고른 줄부터 끝까지 함께** 민다. 앞 줄은 이미 맞아
+   * 있으니 건드리지 않는다.
+   *
+   * 한 마디의 길이는 그 자리의 마디 격자에서 잰다. 곡마다 빠르기가
+   * 다르니 정해진 초를 쓸 수 없다.
+   */
+  const shiftLyricsFrom = async (index: number, dir: 1 | -1) => {
+    if (!result?.lyrics?.length) return;
+    const at = result.lyrics[index]?.t ?? 0;
+    const bar = bars.find((b) => b.start <= at && at < b.end) ?? bars[0];
+    const span = bar ? bar.end - bar.start : 60 / (result.bpm || 100) * 4;
+    const delta = dir * span;
+
+    const rows = result.lyrics
+      .map((l, i) =>
+        i < index ? l : { ...l, t: Math.max(+(l.t + delta).toFixed(2), 0) },
+      )
+      .sort((a, b) => a.t - b.t)
+      .map((l, i, all) => ({
+        ...l,
+        end: i + 1 < all.length ? all[i + 1].t : l.end,
+      }));
+
+    const next = { ...result, lyrics: rows, lyrics_manual: true };
+    setResult(next);
+    await saveLocal(next).catch(() => {});
+    if (health) await putLyrics(next.id, rows).catch(() => {});
+  };
+
   /**
    * 지금 듣고 있는 자리에 가사 줄을 새로 넣는다.
    *
@@ -1883,8 +1920,11 @@ export default function Home() {
                               onSeek={() => {
                                 playback?.seek(line.t);
                                 setTime(line.t);
+                                setPickLyric(i);
                               }}
                               onEdit={() => setEditLyric(i)}
+                              selected={pickLyric === i}
+                              onShift={(dir) => void shiftLyricsFrom(i, dir)}
                             />
                           ))
                         : lyricGroups.map((g, i) => (
