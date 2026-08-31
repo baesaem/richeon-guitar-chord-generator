@@ -48,12 +48,20 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
+    /* 화면 확대(app-scale의 zoom)까지 셈해 그린다.
+       dpr만 쓰면 확대된 화면에서 캔버스가 늘려 그려져 선이 흐릿하고
+       옅어진다 — 밝은 테마에서 파형이 흐리다는 말이 이것이었다.
+       zoom은 계산식에 안 잡히므로 실제 그려진 폭과 레이아웃 폭의
+       비로 알아낸다. */
+    const zoom = w > 0 ? canvas.getBoundingClientRect().width / w : 1;
+    const dpr = (window.devicePixelRatio || 1) * (zoom || 1);
+    const bw = Math.round(w * dpr);
+    const bh = Math.round(h * dpr);
+    if (canvas.width !== bw || canvas.height !== bh) {
+      canvas.width = bw;
+      canvas.height = bh;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
@@ -129,8 +137,12 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
         let v = 0;
         for (let i = from; i < to; i++) v = Math.max(v, result.peaks[i]);
 
-        const half = Math.max((v * waveH) / 2, BAR_WIDTH / 2);
-        const cx = Math.floor(x) + 0.5;
+        /* 조용한 대목도 결이 보이게 키를 완만하게 올린다(0.7제곱).
+           소리 크기를 그대로 쓰면 반주 잔잔한 자리가 실낱이 되어
+           파형 전체가 옅어 보인다. */
+        const half = Math.max((Math.pow(v, 0.7) * waveH) / 2, BAR_WIDTH / 2);
+        // 짝수 굵기 선은 정수 x에 — 반 픽셀에 놓으면 양쪽이 번져 옅어진다
+        const cx = Math.floor(x) + (BAR_WIDTH % 2 ? 0.5 : 0);
         ctx.moveTo(cx, mid - half);
         ctx.lineTo(cx, mid + half);
       }
