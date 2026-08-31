@@ -309,7 +309,6 @@
     <textarea id="chordInput" rows="3" style="width:100%; font-family:Consolas,monospace; font-size:.82rem; border:1px solid var(--line); border-radius:6px; padding:8px;" placeholder="G | Em | C | D&#10;G | Em | Am7 | D7"></textarea>
 
     <div class="row" style="margin-top:12px; justify-content:center;">
-      <button id="analyzeBtn">🎼 생성</button>
       <label class="small" style="display:flex; align-items:center; gap:5px;">
         <input type="checkbox" id="useAi">
         🤖 AI로 채보 (PDF·사진 악보나 음원에서 따려면 켜세요.
@@ -324,6 +323,12 @@
         🎯 고정밀 채보 (유튜브 음원을 구간별로 정밀 분석, 5~10분 소요 —
         견본 악보를 넣어 두면 코드·가사를 견본에서 가져옵니다)
       </label>
+    </div>
+
+    <!-- 「생성」은 채보 선택지 아래에 둔다. 위에 있으면 무엇을 켤지
+         보기도 전에 눌러 버린다 -->
+    <div class="row" style="margin-top:12px; justify-content:center;">
+      <button id="analyzeBtn">🎼 생성</button>
     </div>
   </div>
 </section>
@@ -433,14 +438,14 @@
 
 <nav id="bottomMenu">
   <button data-tab="player" class="active">🎸 연주기</button>
-  <button data-tab="generate">🤖 악보생성</button>
+  <button data-tab="generate">📥 악보입력</button>
   <button data-tab="edit">✏️ 편집</button>
   <button data-tab="file">💾 저장</button>
   <!-- 악보생성 화면에서만 나온다. 「AI로 악보 생성」 단추는 참고 악보
        미리보기 아래에 있어 스크롤해야 닿는다 — 여기 하나를 더 둔다 -->
   <button id="genMenuBtn" class="hidden">🤖 생성</button>
   <!-- 기타교실 안에서 열렸을 때만 보인다 — 만든 악보를 그 곡에 싣는다 -->
-  <button id="embedSave" class="hidden">✅ 이 곡에 저장</button>
+  <button id="embedSave" class="hidden">✅ 저장</button>
 </nav>
 <!-- 만드는 동안 흐르는 띠. 글자만으로는 살아 있는지 알 수 없다 -->
 <div id="genProgress" class="hidden"><i></i></div>
@@ -2783,7 +2788,7 @@ function initYtPlayer(vid, autoplay) {
 // ==== 통합 트랜스포트: [영상][반주][미디] 어느 소스든 같은 버튼으로 ====
 function toggleVideo() {
   const vid = ytVideoId(($('audioUrlInput').value || '').trim());
-  if (!vid) { setStatus('악보생성 탭의 참고 음원 칸에 유튜브 URL을 입력하세요.', 'err'); switchTab('generate'); return; }
+  if (!vid) { setStatus('악보입력 탭의 참고 음원 칸에 유튜브 URL을 입력하세요.', 'err'); switchTab('generate'); return; }
   try { synthControl && synthControl.pause(); } catch (e) {}
   if (activeTab !== 'player') switchTab('player');
   if (!ytPlayer || loadedVid !== vid) { initYtPlayer(vid, true); return; }
