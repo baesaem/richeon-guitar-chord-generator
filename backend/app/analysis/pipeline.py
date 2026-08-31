@@ -23,6 +23,7 @@ from ..sources.base import FetchedAudio, ProgressFn, save_sidecar
 from . import chords as chord_rec
 from . import chords_btc as btc
 from . import melody
+from . import melody_bp
 from . import strum
 from .beats import (
     FALLBACK_MODEL as FALLBACK_BEAT_MODEL,
@@ -202,11 +203,31 @@ async def analyze(
     if vocals_path is not None:
         await progress(JobStage.POSTPROCESS, 0.5, "멜로디 따는 중")
         try:
-            notes = await asyncio.to_thread(
-                melody.transcribe, vocals_path, decoded.duration
+            # 채보기를 고른다 — 받아 오는 곳만 다르고, 다듬는 손질
+            # (옥타브 접기·같은 음 잇기·짧은 것 버리기·박에 붙이기)은
+            # 어느 쪽이든 똑같이 거친다.
+            engine = settings.melody_engine
+            use_bp = engine == "basic_pitch" or (
+                engine == "auto" and melody_bp.available()
             )
+            if use_bp:
+                notes = await asyncio.to_thread(
+                    melody_bp.transcribe, vocals_path, decoded.duration
+                )
+                notes = melody.fix_octaves(notes)
+                notes = melody._smooth(notes)
+                if not notes:  # 모델이 아무것도 못 잡으면 옛 방식으로
+                    use_bp = False
+            if not use_bp:
+                notes = await asyncio.to_thread(
+                    melody.transcribe, vocals_path, decoded.duration
+                )
             notes = melody.snap_to_beats(notes, grid.times)
-            await progress(JobStage.POSTPROCESS, 0.8, f"음표 {len(notes)}개")
+            await progress(
+                JobStage.POSTPROCESS,
+                0.8,
+                f"음표 {len(notes)}개 ({'basic-pitch' if use_bp else 'pyin'})",
+            )
         except Exception as exc:
             await progress(JobStage.POSTPROCESS, 0.8, f"멜로디 건너뜀 ({exc})")
     await progress(JobStage.POSTPROCESS, 1.0, f"{key_name or '조성 미상'} · 코드 {len(segments)}개")

@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     sample_rate: int = 22050
     device: str = "auto"  # auto | cuda | cpu
 
+    # 멜로디 채보기. basic_pitch | pyin | auto
+    #
+    # Basic Pitch가 pYIN보다 부른 자리를 더 덮는다(네 곡 실측: 56~88% →
+    # 67~88%, 특히 pYIN이 놓치던 곡에서 61%→86%). auto는 Basic Pitch가
+    # 깔려 있으면 그것을, 없으면 pYIN을 쓴다. 되돌리려면 pyin으로 둔다.
+    melody_engine: str = "auto"
+
     # 프론트 개발 서버
     cors_origins: list[str] = ["*"]
 
