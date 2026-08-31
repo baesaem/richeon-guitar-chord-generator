@@ -2296,6 +2296,12 @@ export default function Home() {
                       ? () => openSaved(songList[songAt + 1].id)
                       : undefined
                   }
+                  songs={songList.map((r) => ({
+                    id: r.id,
+                    title: r.title || r.id,
+                  }))}
+                  songId={result.id}
+                  onPickSong={(id) => void openSaved(id)}
                 />
               ) : (
                 // 영역을 카드로 묶어 서로 구별한다: 영상 / 타임라인+탐색 / 현재 코드 / 곡 전체

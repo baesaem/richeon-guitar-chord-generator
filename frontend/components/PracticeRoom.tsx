@@ -14,7 +14,9 @@
 
 import type { Playback } from "@/components/PlayerPane";
 import type { StemChoice } from "@/lib/sharedFiles";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { Popup } from "@/components/Popup";
 
 import { useSmoothTime } from "@/lib/useSmoothTime";
 
@@ -166,6 +168,12 @@ interface Props {
   /** 목록의 앞·뒤 곡으로. 끝이면 넘기지 않는다(undefined → 잠금) */
   onPrevSong?: () => void;
   onNextSong?: () => void;
+  /** 등록된 음원 목록. 「다른 음원」 창이 이것을 보여 준다 */
+  songs?: { id: string; title: string }[];
+  /** 지금 치고 있는 곡 */
+  songId?: string;
+  /** 목록에서 고른 곡을 연다 */
+  onPickSong?: (id: string) => void;
 }
 
 export function PracticeRoom({
@@ -196,7 +204,12 @@ export function PracticeRoom({
   onBack,
   onPrevSong,
   onNextSong,
+  songs,
+  songId,
+  onPickSong,
 }: Props) {
+  /** 「다른 음원」 창이 열려 있는가 */
+  const [picking, setPicking] = useState(false);
   const now = useSmoothTime(time, playback ? playback.getTime : undefined);
   const playing = playback?.isPlaying() ?? false;
 
@@ -227,6 +240,30 @@ export function PracticeRoom({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5 p-2">
+      {picking && songs && onPickSong && (
+        <Popup title="다른 음원" onClose={() => setPicking(false)}>
+          <ul className="space-y-1">
+            {songs.map((s) => (
+              <li key={s.id}>
+                <button
+                  className={[
+                    "w-full truncate rounded px-3 py-2.5 text-left text-sm",
+                    s.id === songId
+                      ? "bg-[var(--accent)] font-semibold text-white"
+                      : "bg-gray-100 dark:bg-gray-800",
+                  ].join(" ")}
+                  onClick={() => {
+                    setPicking(false);
+                    if (s.id !== songId) onPickSong(s.id);
+                  }}
+                >
+                  {s.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Popup>
+      )}
       {/* 곡 이름 줄 — 목록으로 돌아가기, 곡 옮기기, 연주설정 */}
       <div className="flex shrink-0 items-center gap-2 px-1">
         <button
@@ -255,6 +292,17 @@ export function PracticeRoom({
         >
           ▶
         </button>
+        {/* 다른 음원 — ◀ ▶로 한 곡씩 옮기는 것과 달리, 목록에서
+            곧바로 집어 간다. 곡이 스무 개면 열아홉 번 누를 수는 없다 */}
+        {songs && songs.length > 1 && onPickSong && (
+          <button
+            className="shrink-0 rounded bg-gray-200/70 px-2 py-1 text-[11px] font-semibold dark:bg-gray-700"
+            title="등록된 음원 가운데서 고릅니다"
+            onClick={() => setPicking(true)}
+          >
+            다른 음원
+          </button>
+        )}
         {/* 연주설정 — 설정줄이 아니라 이 자리다. 곡 이름 옆이라
             어느 화면을 보든 같은 자리에서 열린다 */}
         {playSettings}
