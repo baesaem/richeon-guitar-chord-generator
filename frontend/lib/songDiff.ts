@@ -12,6 +12,10 @@ import type { AnalysisResult } from "./types";
  *
  * 파형(peaks)까지 전부 비교하지는 않는다. 값은 조금씩 달라도 연습에
  * 영향이 없는 것들이라, 눈에 보이는 것만 본다.
+ *
+ * 다만 **개수만 세지는 않는다.** 가사 싱크를 맞추거나 코드 이름을
+ * 고치면 개수는 그대로다. 개수만 보면 「같은 곡」이라 그냥 두게 되어,
+ * 애써 고친 것이 수강생에게 가지 않는다.
  */
 
 export interface SongChange {
@@ -28,11 +32,36 @@ function notesBetween(old: AnalysisResult, next: AnalysisResult): string[] {
   }
   if (old.chords.length !== next.chords.length) {
     notes.push(`코드 ${old.chords.length}개 → ${next.chords.length}개`);
+  } else {
+    // 개수가 같아도 이름이 바뀌었을 수 있다 — 강사님이 고쳐 적은 것이다
+    const fixed = old.chords.filter(
+      (c, i) => c.label !== next.chords[i]?.label,
+    ).length;
+    if (fixed) notes.push(`코드 ${fixed}자리 고쳐짐`);
   }
-  const oldLy = old.lyrics?.length ?? 0;
-  const newLy = next.lyrics?.length ?? 0;
-  if (oldLy !== newLy) {
-    notes.push(oldLy === 0 ? `가사 ${newLy}줄 추가` : `가사 ${oldLy}줄 → ${newLy}줄`);
+  const oldLy = old.lyrics ?? [];
+  const newLy = next.lyrics ?? [];
+  if (oldLy.length !== newLy.length) {
+    notes.push(
+      oldLy.length === 0
+        ? `가사 ${newLy.length}줄 추가`
+        : `가사 ${oldLy.length}줄 → ${newLy.length}줄`,
+    );
+  } else {
+    /* 줄 수만 보면 안 된다.
+     *
+     * 가사 싱크를 맞추거나 글자를 고치면 줄 수는 그대로다. 그러면
+     * 「같은 곡」으로 보아 그냥 두었고, 애써 맞춘 것이 수강생에게는
+     * 영영 가지 않았다 — 악보에서 겪은 것과 같은 일이다.
+     */
+    const moved = oldLy.filter(
+      (l, i) => Math.abs(l.t - (newLy[i]?.t ?? l.t)) >= 0.15,
+    ).length;
+    if (moved) notes.push(`가사 시각 ${moved}줄 달라짐`);
+    const reworded = oldLy.filter(
+      (l, i) => (l.text ?? "").trim() !== (newLy[i]?.text ?? "").trim(),
+    ).length;
+    if (reworded) notes.push(`가사 글자 ${reworded}줄 달라짐`);
   }
   if (old.meta?.pipeline_version !== next.meta?.pipeline_version) {
     notes.push(`분석판 ${old.meta?.pipeline_version} → ${next.meta?.pipeline_version}`);
