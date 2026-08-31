@@ -573,6 +573,16 @@ export function LibraryTab({
       <div className="mt-1 flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-500">
           {adminMode ? "기기 저장 · 서버가 꺼져도 유지" : "내 곡"}
+          {/* 몇 곡인지 한눈에 — 폴더를 골랐으면 그 폴더의 곡 수다 */}
+          {device !== null && (
+            <span className="ml-1 font-normal text-gray-400">
+              {(currentFolder === "all"
+                ? device
+                : device.filter((i) => assignment[i.id] === currentFolder)
+              ).length}
+              곡
+            </span>
+          )}
         </h3>
         {device !== null && device.length > 0 && (
           <span className="flex items-center gap-2">
