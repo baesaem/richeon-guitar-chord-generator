@@ -115,10 +115,11 @@ function StaffLine({ line, per }: { line: Bar[]; per: number }) {
                       화살표가 대신하므로 그리지 않는다. */}
                   {bar.strokes.split("").map((d, si) => (
                     <g key={si}>
-                      <rect x={at(si) - 2.6} y={TOP + GAP * 2.5 - 3.6}
-                        width={5.2} height={7.2} fill="var(--panel)" />
-                      <text x={at(si)} y={TOP + GAP * 2.5 + 2.6} fontSize={7.5}
-                        textAnchor="middle" fill="currentColor" opacity={0.9}>
+                      <rect x={at(si) - 3.2} y={TOP + GAP * 2.5 - 4.6}
+                        width={6.4} height={9.2} fill="var(--panel)" />
+                      <text x={at(si)} y={TOP + GAP * 2.5 + 3.4} fontSize={9.5}
+                        textAnchor="middle" fill="currentColor" fontWeight={700}
+                        stroke="currentColor" strokeWidth={0.35}>
                         {d === "D" ? "↓" : "↑"}
                       </text>
                     </g>
