@@ -21,3 +21,6 @@ desktop.ini
 
 # 구글 OAuth 클라이언트 비밀·토큰. 이 기기에만 둔다
 backend/secrets/
+
+# 저작권 있는 악보에서 읽어 낸 자료 — 올리지 않는다
+frontend/public/demo/
