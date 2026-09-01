@@ -1933,6 +1933,7 @@ export default function Home() {
                       bars={bars}
                       chords={shownChords}
                       pickedTab={pickedBars}
+                      lyrics={shown?.lyrics}
                       strums={result.strums}
                       sync={sync}
                       onSync={setSync}
@@ -2365,6 +2366,7 @@ export default function Home() {
                             bars={bars}
                             chords={shownChords}
                             pickedTab={pickedBars}
+                            lyrics={shown?.lyrics}
                             strums={result.strums}
                             /* 싱크·줄당 마디 손잡이는 위 설정줄에 있다.
                            악보 칸에 또 두면 같은 것이 두 벌이 된다 */
@@ -3163,6 +3165,7 @@ export default function Home() {
                               bars={bars}
                               chords={shownChords}
                               pickedTab={pickedBars}
+                              lyrics={shown?.lyrics}
                               strums={result.strums}
                               sync={sync}
                               onSync={setSync}

@@ -10,7 +10,7 @@ import { arpPattern, arpString } from "@/lib/arpeggio";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, transposeRoot } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
-import type { PickedBar } from "@/lib/types";
+import type { LyricLine, PickedBar } from "@/lib/types";
 import { PATTERNS, suggestStrum } from "@/lib/strumLibrary";
 import { useSmoothTime } from "@/lib/useSmoothTime";
 import type { Chord, Strum } from "@/lib/types";
@@ -92,6 +92,12 @@ interface Props {
    * 편곡자가 짚으라고 정한 자리다.
    */
   pickedTab?: Record<number, PickedBar>;
+  /**
+   * 가사. 있으면 마디마다 그 마디에서 부르는 대목을 오선 아래에 적는다.
+   * 어느 마디에서 무엇을 부르는지 보이지 않으면, 타브만 보고는 곡의
+   * 어디쯤인지 짚기 어렵다.
+   */
+  lyrics?: LyricLine[];
 }
 
 // 좌표계. width는 100%로 늘어나고 viewBox 비율대로 확대된다.
@@ -106,6 +112,9 @@ const CHORD_Y = 22;        // 코드 심볼 기준선
 // 오선 아래 여백. 가사를 적지 않으므로 마디 강조 사각형이 잘리지 않을
 // 만큼만 남긴다.
 const ROW_H = STAFF_TOP + STAFF_H + 8;
+/** 가사를 적을 때의 줄 높이와 가사 기준선 */
+const ROW_H_LYRIC = ROW_H + 9;
+const LYRIC_Y = STAFF_TOP + STAFF_H + 12;
 
 /**
  * 코드 악보 (타브 + 리듬 슬래시).
@@ -142,6 +151,7 @@ export function ChordScore({
   arp = 0,
   strumName = "",
   pickedTab,
+  lyrics,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
   const now = useSmoothTime(time ?? 0, time === undefined ? undefined : getTime);
@@ -165,6 +175,37 @@ export function ChordScore({
     if (manual) return { pattern: manual, why: "직접 고른 패턴" };
     return suggestStrum(bars, strums, bpm, timeSignature);
   }, [bars, strums, bpm, timeSignature, strumName]);
+
+  /**
+   * 마디마다 그 사이에 부르는 대목.
+   *
+   * 한 줄의 가사는 여러 마디에 걸쳐 있다. 줄이 걸친 시간 가운데 이 마디가
+   * 차지하는 몫만큼 글자를 떼어 온다 — 노래책처럼 마디 밑에 그 마디에서
+   * 부르는 글자가 온다. 글자 길이가 시간에 정확히 비례하지는 않지만,
+   * 어느 마디에서 어디를 부르는지 짚기에는 넉넉하다.
+   */
+  const barLyrics = useMemo(() => {
+    if (!lyrics?.length) return null;
+    const out: string[] = [];
+    for (const bar of bars) {
+      let text = "";
+      for (let i = 0; i < lyrics.length; i++) {
+        const ln = lyrics[i];
+        const end =
+          ln.end > ln.t ? ln.end : (lyrics[i + 1]?.t ?? ln.t + 4);
+        if (end <= bar.start || ln.t >= bar.end) continue;
+        const span = Math.max(end - ln.t, 0.01);
+        const chars = [...ln.text];
+        const a = Math.max(0, (bar.start - ln.t) / span);
+        const b = Math.min(1, (bar.end - ln.t) / span);
+        text += chars
+          .slice(Math.round(a * chars.length), Math.round(b * chars.length))
+          .join("");
+      }
+      out.push(text.trim());
+    }
+    return out;
+  }, [lyrics, bars]);
 
   const lines: Bar[][] = [];
   for (let i = 0; i < bars.length; i += per) {
@@ -214,7 +255,7 @@ export function ChordScore({
         return (
           <div key={lineIndex} ref={hasActive ? activeRef : undefined}>
             <svg
-              viewBox={`0 0 ${VB_W} ${ROW_H}`}
+              viewBox={`0 0 ${VB_W} ${barLyrics ? ROW_H_LYRIC : ROW_H}`}
               className="w-full text-[var(--foreground)]"
               role="img"
               aria-label={`${lineIndex * per + 1}마디부터`}
@@ -431,6 +472,22 @@ export function ChordScore({
                         y1={STAFF_TOP - 8} y2={STAFF_TOP + STAFF_H + 4}
                         stroke="var(--accent)" strokeWidth={0.9} opacity={0.8}
                       />
+                    )}
+
+                    {/* 이 마디에서 부르는 대목. 마디 폭에 맞춰 글자를
+                        줄인다 — 넘치면 옆 마디 가사와 뒤엉킨다 */}
+                    {barLyrics?.[index] && (
+                      <text
+                        x={x0 + measureW / 2} y={LYRIC_Y}
+                        textAnchor="middle"
+                        fontSize={Math.max(
+                          3.4,
+                          Math.min(6, (measureW - 4) / ([...barLyrics[index]].length * 0.95)),
+                        )}
+                        fill="currentColor" opacity={0.75}
+                      >
+                        {barLyrics[index]}
+                      </text>
                     )}
 
                     {/* 마디 번호 */}
