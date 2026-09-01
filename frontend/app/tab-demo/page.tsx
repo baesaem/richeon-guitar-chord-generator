@@ -59,7 +59,7 @@ export default function TabDemo() {
 
       <p className="mt-3 text-xs leading-relaxed opacity-60">
         숫자는 짚을 프렛, 맨 윗줄이 1번 줄입니다. 훑는 마디는 코드 한 벌을 앞에
-        두고 손 방향을 ∏(내려긋기) · ∨(올려긋기)로 적었습니다. 음표 길이는
+        두고 손 방향을 ↓(내려긋기) · ↑(올려긋기)로 적었습니다. 음표 길이는
         옮기지 않고 한 마디 안에 고르게 벌려 놓았습니다.
       </p>
     </main>
@@ -117,9 +117,11 @@ function StaffLine({ line, per }: { line: Bar[]; per: number }) {
                         x2={at(si) + 1.6} y2={TOP + GAP * 1.6}
                         stroke="currentColor" strokeWidth={1.1} opacity={0.75}
                       />
-                      <text x={at(si)} y={TOP + STAFF_H + 9} fontSize={5.5}
-                        textAnchor="middle" fill="currentColor" opacity={0.8}>
-                        {d === "D" ? "∏" : "∨"}
+                      {/* 손 방향은 앱의 주법 표기와 같은 화살표로 — 악보의
+                          ∏·∨보다 수강생에게 익숙하다 */}
+                      <text x={at(si)} y={TOP + STAFF_H + 9} fontSize={6}
+                        textAnchor="middle" fill="currentColor" opacity={0.85}>
+                        {d === "D" ? "↓" : "↑"}
                       </text>
                     </g>
                   ))}
