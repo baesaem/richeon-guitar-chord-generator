@@ -22,7 +22,7 @@ const VB_W = 400;
 const TOP = 20;          // 여섯 줄 첫 줄
 const GAP = 7;           // 줄 사이
 const STAFF_H = GAP * 5;
-const ROW_H = TOP + STAFF_H + 26;
+const ROW_H = TOP + STAFF_H + 12;
 
 export default function TabDemo() {
   const [tab, setTab] = useState<Tab | null>(null);
@@ -59,7 +59,7 @@ export default function TabDemo() {
 
       <p className="mt-3 text-xs leading-relaxed opacity-60">
         숫자는 짚을 프렛, 맨 윗줄이 1번 줄입니다. 훑는 마디는 코드 한 벌을 앞에
-        두고 손 방향을 ↓(내려긋기) · ↑(올려긋기)로 적었습니다. 음표 길이는
+        두고, 칠 자리마다 손 방향을 ↓(내려긋기) · ↑(올려긋기)로 적었습니다. 음표 길이는
         옮기지 않고 한 마디 안에 고르게 벌려 놓았습니다.
       </p>
     </main>
@@ -109,18 +109,16 @@ function StaffLine({ line, per }: { line: Bar[]; per: number }) {
                   {Object.entries(bar.chord).map(([s, f]) => (
                     <Fret key={s} x={x0 + 4.5} s={Number(s)} f={f} />
                   ))}
-                  {/* 훑는 자리마다 빗금 + 손 방향 */}
+                  {/* 훑는 자리마다 손 방향 화살표를 여섯 줄 한가운데에.
+                      아래에 따로 줄을 두면 눈이 위아래로 오가야 해서,
+                      칠 자리와 방향을 한자리에서 보게 모았다. 빗금은
+                      화살표가 대신하므로 그리지 않는다. */}
                   {bar.strokes.split("").map((d, si) => (
                     <g key={si}>
-                      <line
-                        x1={at(si) - 1.6} y1={TOP + GAP * 3.4}
-                        x2={at(si) + 1.6} y2={TOP + GAP * 1.6}
-                        stroke="currentColor" strokeWidth={1.1} opacity={0.75}
-                      />
-                      {/* 손 방향은 앱의 주법 표기와 같은 화살표로 — 악보의
-                          ∏·∨보다 수강생에게 익숙하다 */}
-                      <text x={at(si)} y={TOP + STAFF_H + 9} fontSize={6}
-                        textAnchor="middle" fill="currentColor" opacity={0.85}>
+                      <rect x={at(si) - 2.6} y={TOP + GAP * 2.5 - 3.6}
+                        width={5.2} height={7.2} fill="var(--panel)" />
+                      <text x={at(si)} y={TOP + GAP * 2.5 + 2.6} fontSize={7.5}
+                        textAnchor="middle" fill="currentColor" opacity={0.9}>
                         {d === "D" ? "↓" : "↑"}
                       </text>
                     </g>
