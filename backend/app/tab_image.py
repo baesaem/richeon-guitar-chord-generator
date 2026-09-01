@@ -86,7 +86,30 @@ def barlines(ink: np.ndarray, st: list[int]) -> list[int]:
         cur.append(x)
     if cur:
         out.append(sum(cur) // len(cur))
-    return out
+    return _drop_slivers(out)
+
+
+def _drop_slivers(xs: list[int]) -> list[int]:
+    """
+    도돌이표(𝄆)의 굵은 줄도 여섯 줄을 관통해 마디선처럼 보인다.
+    그대로 두면 그 앞에 폭이 손가락만 한 유령 마디가 하나 생기고,
+    뒤의 마디 번호가 통째로 한 칸씩 밀린다.
+
+    한 단 안의 마디는 폭이 고른 편이다 — 가운데값의 절반도 안 되는
+    토막은 마디가 아니라 표시라고 보고 경계 하나를 걷는다.
+    """
+    if len(xs) < 3:
+        return xs
+    while len(xs) > 2:
+        gaps = [b - a for a, b in zip(xs, xs[1:])]
+        mid = sorted(gaps)[len(gaps) // 2]
+        i = min(range(len(gaps)), key=lambda k: gaps[k])
+        if gaps[i] >= mid * 0.45:
+            break
+        # 맨 앞 토막이면 왼쪽 경계를, 아니면 오른쪽 경계를 걷는다.
+        # 도돌이표는 마디 첫머리에 서므로 그 자리를 마디 시작으로 남긴다.
+        xs.pop(i if i == 0 else i + 1)
+    return xs
 
 
 def _strip_lines(band: np.ndarray, ys: list[int], sp: float) -> np.ndarray:
@@ -142,21 +165,69 @@ def digit_glyphs(ink: np.ndarray, st: list[int]) -> list[tuple[int, int, np.ndar
     return out
 
 
-def mark_glyphs(ink: np.ndarray, st: list[int]) -> list[tuple[int, np.ndarray]]:
-    """오선 아래 스트로크 표 후보 (가사도 함께 걸리므로 견본으로 걸러 쓴다)"""
+def mark_glyphs(
+    ink: np.ndarray, st: list[int], book: list[tuple[str, np.ndarray]] | None = None
+) -> list[tuple[int, np.ndarray, bool]]:
+    """
+    오선 아래 스트로크 표(∏·∨) 후보.
+
+    두 가지를 조심한다.
+      · 가사도 함께 걸린다 → 견본에 맞는 것만 남긴다(부르는 쪽에서 거른다)
+      · **이웃한 표끼리 붙어** 한 덩어리로 잡힌다 → 폭이 여러 곱이면 그만큼
+        고르게 갈라 읽는다. 이걸 안 하면 훑는 마디의 손 방향이 절반만 나온다.
+    """
     sp = (st[-1] - st[0]) / 5.0
-    top, bot = int(st[-1] + sp * 1.5), int(st[-1] + sp * 6.0)
-    if bot > ink.shape[0]:
-        bot = ink.shape[0]
+    top = int(st[-1] + sp * 1.2)
+    bot = min(ink.shape[0], int(st[-1] + sp * 6.0))
     band = ink[top:bot]
+    raw = _boxes(band, lambda sl: (
+        sp * 0.55 < sl[0].stop - sl[0].start < sp * 1.1
+        and sp * 0.4 < sl[1].stop - sl[1].start < sp * 6.0
+    ))
+    if not raw:
+        return []
+
+    # 표 한 개의 폭과 표가 놓인 높이. 둘 다 **견본에 그대로 맞는 것**에서만
+    # 얻는다. 아무 덩어리나 세면 가사가 그 자리를 차지해 버린다.
+    solo = [
+        sl for sl in raw
+        if sl[1].stop - sl[1].start <= sp * 1.4
+        and (book is None or _match(_norm(band, sl, MARK_BOX), book, 26))
+    ]
+    if not solo:
+        return []
+    unit = sorted(sl[1].stop - sl[1].start for sl in solo)[len(solo) // 2]
+    ys = sorted((sl[0].start + sl[0].stop) / 2 for sl in solo)
+    row = ys[len(ys) // 2]
+
     out = []
-    for sl in _boxes(band, lambda sl: (
-        sp * 0.4 < sl[0].stop - sl[0].start < sp * 1.1
-        and sp * 0.4 < sl[1].stop - sl[1].start < sp * 1.3
-    )):
-        out.append(((sl[1].start + sl[1].stop) // 2, _norm(band, sl, MARK_BOX)))
+    for sl in raw:
+        cy = (sl[0].start + sl[0].stop) / 2
+        if abs(cy - row) > sp * 0.4:
+            continue
+        w = sl[1].stop - sl[1].start
+        n = max(1, round(w / unit))
+        if n == 1:
+            out.append(
+                (int((sl[1].start + sl[1].stop) // 2), _norm(band, sl, MARK_BOX), False)
+            )
+            continue
+        # 붙어 버린 덩어리는 **똑같이 잘라서는** 안 된다. 표끼리 살짝
+        # 겹쳐 있어 반씩 자르면 둘 다 반쪽이 되어 아무것도 알아보지
+        # 못한다. 표 한 개 폭짜리 창을 겹쳐 가며 옮겨 훑는다.
+        step = (w - unit) / (n - 1)
+        for k in range(n):
+            x0 = sl[1].start + round(step * k)
+            part = (sl[0], slice(x0, x1 := x0 + unit))
+            out.append(((x0 + x1) // 2, _norm(band, part, MARK_BOX), True))
     out.sort(key=lambda g: g[0])
-    return out
+    # 겹쳐 잡힌 같은 표는 하나로. 덩어리 나누기가 이웃과 겹칠 수 있다.
+    kept: list[tuple[int, np.ndarray, bool]] = []
+    for g in out:
+        if kept and g[0] - kept[-1][0] < unit * 0.55:
+            continue
+        kept.append(g)
+    return kept
 
 
 # ── 모양 익히기 · 알아보기 ────────────────────────────────────────
@@ -172,6 +243,17 @@ def _cluster(pats: list[np.ndarray], tol: int) -> list[list[np.ndarray]]:
             groups.append([p])
     groups.sort(key=len, reverse=True)
     return groups
+
+
+def mark_kind(pat: np.ndarray) -> str:
+    """
+    스트로크 표가 ∏인지 ∨인지, 견본 없이 모양만 보고 가른다.
+
+    ∏은 윗줄이 가로로 꽉 찼고 ∨은 위가 뚫려 있다 — 이 하나로 갈린다.
+    붙어 있던 표를 갈라 낸 조각은 견본과 딱 맞지 않는데, 그런 조각도
+    이 잣대로는 읽힌다.
+    """
+    return "D" if pat[: max(1, len(pat) // 5)].mean() > 0.55 else "U"
 
 
 def _match(pat: np.ndarray, book: list[tuple[str, np.ndarray]], tol: int) -> str | None:
@@ -228,8 +310,14 @@ def read_tab(pdf: str | Path, dpi: int = 300) -> dict:
             if len(bl) < 2:
                 continue
             gs = digit_glyphs(ink, st)
-            ms = [(x, _match(p, marks, 26)) for x, p in mark_glyphs(ink, st)]
-            ms = [(x, n) for x, n in ms if n]          # 견본에 없는 것 = 가사
+            # 견본에 맞으면 그대로 쓴다. 붙어 있다 갈라진 조각만은 견본과
+            # 딱 맞지 않으므로 모양으로 가른다 — 성한 덩어리에까지 이 길을
+            # 열어 주면 가사 글자가 모두 스트로크로 읽힌다.
+            ms = [
+                (x, _match(p, marks, 26) or (mark_kind(p) if cut else None))
+                for x, p, cut in mark_glyphs(ink, st, marks)
+            ]
+            ms = [(x, n) for x, n in ms if n]
 
             for i in range(len(bl) - 1):
                 lo, hi = bl[i], bl[i + 1]
@@ -276,7 +364,7 @@ def learn(pdf: str | Path, digit_names: str, mark_names: str, dpi: int = 300) ->
     for ink in pages(pdf, dpi):
         for st in systems(ink):
             dpats += [p for _, _, p in digit_glyphs(ink, st)]
-            mpats += [p for _, p in mark_glyphs(ink, st)]
+            mpats += [p for _, p, _ in mark_glyphs(ink, st)]  # 익힐 때는 견본이 없다
     dg = _cluster(dpats, 14)
     # 스트로크 표는 오선 아래 것을 다 주웠으므로, 여러 번 나온 모양만 남긴다
     mg = [g for g in _cluster(mpats, 10) if len(g) >= 4]

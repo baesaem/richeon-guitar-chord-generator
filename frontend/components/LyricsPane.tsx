@@ -408,6 +408,19 @@ export function LyricsPane({
                 >
                   다시 찾기
                 </button>
+                {/* 가사가 이미 있는 곡에도 둔다. 웹에서 찾아 온 가사가
+                    실제로 부르는 것과 다를 때(간주·반복·개사) 이 길밖에
+                    없는데, 빈 곡에만 두었더니 지우고 다시 찾아야 했다. */}
+                {result.source === "youtube" && canHearLyrics() && (
+                  <button
+                    className="font-semibold text-[var(--accent)] underline disabled:opacity-40"
+                    disabled={busy || hearing !== null}
+                    onClick={() => void hearFromVideo()}
+                    title="AI가 이 영상을 직접 듣고, 실제 부르는 가사를 시각과 함께 받아 옵니다"
+                  >
+                    AI로 찾기
+                  </button>
+                )}
               </>
             )}
           </div>
