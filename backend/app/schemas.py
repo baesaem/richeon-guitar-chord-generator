@@ -134,6 +134,11 @@ class AnalysisResult(BaseModel):
     # 빠지지 않는다 — 있으면 화면은 이쪽을 그린다.
     score: dict | None = None
     score_align: dict | None = None
+    # 인쇄된 **타브 악보 그림**에서 자로 재어 읽은 마디별 프렛 숫자.
+    # 코드에서 만들어 낸 운지와 달리, 편곡자가 실제로 짚으라고 적은
+    # 자리 그대로다 — 있으면 타브 화면은 이쪽을 그린다.
+    #   {"bar_offset": 0, "measures": [{"no":1,"kind":"pick","cols":[{"1":3}]}, …]}
+    picked_tab: dict | None = None
     # 강사님이 올린 **악보 그림**(PDF·사진)의 배치와 마디별 시각.
     # 우리가 음표를 그리는 것보다 인쇄된 악보가 낫다 — 그림은 그대로
     # 두고 마디선만 찾아, 그 위로 커서를 지나가게 한다.

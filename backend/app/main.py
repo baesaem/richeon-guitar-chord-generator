@@ -32,6 +32,7 @@ from . import (
     sheet_layout,
     sheet_read,
     sheet_score,
+    tab_image,
 )
 from .llm import pick_model, rank_models
 from .runtime_config import llm_config, mask, save_llm_config
@@ -1035,6 +1036,59 @@ async def put_sheet(
         repeats,
         score=result.score,
     )
+    save_result(result)
+    return result
+
+
+@app.post("/api/results/{result_id}/tabimage")
+async def put_tab_image(
+    result_id: str,
+    file: UploadFile = File(...),
+    bar_offset: int = Form(0),
+) -> AnalysisResult:
+    """인쇄된 **타브 악보**(PDF)를 읽어 마디별 프렛 숫자로 옮긴다.
+
+    악보 그림 붙이기(/sheet)와 다르다. 저쪽은 그림을 그대로 두고 마디선만
+    찾지만, 여기서는 숫자를 실제로 읽어 앱의 타브 화면에 옮겨 그린다 —
+    편곡자가 짚으라고 적은 자리가 그대로 나온다.
+
+    AI를 쓰지 않는다. 인쇄된 악보는 잴 수 있다: 여섯 줄은 가로로 긴 줄,
+    마디선은 그 줄을 관통하다 맨 아랫줄에서 멈추고(음표 기둥은 빔까지 더
+    내려간다), 숫자는 같은 판에서 찍혀 나와 모양이 픽셀까지 같다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    if (file.content_type or "") != "application/pdf":
+        raise HTTPException(400, "PDF만 읽을 수 있습니다. 인쇄된 타브 악보를 넣어 주세요.")
+
+    data = await file.read(_SHEET_MAX_BYTES + 1)
+    if len(data) > _SHEET_MAX_BYTES:
+        raise HTTPException(413, "파일이 너무 큽니다 (20MB까지)")
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(data)
+        path = tmp.name
+    try:
+        read = tab_image.read_tab(path)
+    except Exception as exc:
+        raise HTTPException(400, f"타브를 읽지 못했습니다: {exc}") from exc
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+    measures = read.get("measures", [])
+    if len(measures) < 2:
+        raise HTTPException(
+            400,
+            "여섯 줄 타브를 찾지 못했습니다. 사진보다 인쇄된 PDF가 잘 읽힙니다.",
+        )
+    unread = sum(1 for m in measures if m.get("kind") == "pick"
+                 and not any(c for c in m.get("cols", [])))
+    result.picked_tab = {"bar_offset": bar_offset,
+                         "measures": measures,
+                         "unread": unread}
     save_result(result)
     return result
 

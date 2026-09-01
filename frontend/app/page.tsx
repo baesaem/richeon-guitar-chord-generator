@@ -997,6 +997,21 @@ export default function Home() {
   const busy =
     status !== null && status.stage !== "done" && status.stage !== "failed";
 
+  /**
+   * 그림 타브에서 읽어 온 마디들을 음원의 마디 번호로 옮겨 둔다.
+   * 악보 첫 마디가 음원 몇 번째 마디인지는 bar_offset이 정한다 —
+   * 전주 길이가 악보와 다를 때 통째로 민다.
+   */
+  const pickedBars = useMemo(() => {
+    const t = shown?.picked_tab;
+    if (!t?.measures?.length) return undefined;
+    const map: Record<number, (typeof t.measures)[number]> = {};
+    t.measures.forEach((m, i) => {
+      map[i + (t.bar_offset ?? 0)] = m;
+    });
+    return map;
+  }, [shown?.picked_tab]);
+
   const shownChords = shown?.chords ?? [];
   const current = chordIdx >= 0 ? shownChords[chordIdx] : undefined;
   const next =
@@ -1917,6 +1932,7 @@ export default function Home() {
                     <ChordScore
                       bars={bars}
                       chords={shownChords}
+                      pickedTab={pickedBars}
                       strums={result.strums}
                       sync={sync}
                       onSync={setSync}
@@ -2348,6 +2364,7 @@ export default function Home() {
                           <ChordScore
                             bars={bars}
                             chords={shownChords}
+                            pickedTab={pickedBars}
                             strums={result.strums}
                             /* 싱크·줄당 마디 손잡이는 위 설정줄에 있다.
                            악보 칸에 또 두면 같은 것이 두 벌이 된다 */
@@ -3145,6 +3162,7 @@ export default function Home() {
                             <ChordScore
                               bars={bars}
                               chords={shownChords}
+                              pickedTab={pickedBars}
                               strums={result.strums}
                               sync={sync}
                               onSync={setSync}

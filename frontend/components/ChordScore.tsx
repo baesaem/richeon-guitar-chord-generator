@@ -10,6 +10,7 @@ import { arpPattern, arpString } from "@/lib/arpeggio";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { labelFor, transposeRoot } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
+import type { PickedBar } from "@/lib/types";
 import { PATTERNS, suggestStrum } from "@/lib/strumLibrary";
 import { useSmoothTime } from "@/lib/useSmoothTime";
 import type { Chord, Strum } from "@/lib/types";
@@ -84,6 +85,13 @@ interface Props {
   arp?: number;
   /** 직접 고른 스트로크 패턴 이름. 있으면 자동 추천 대신 쓴다 */
   strumName?: string;
+  /**
+   * 인쇄된 타브 악보에서 읽어 온 마디들. 마디 번호(0부터)로 찾는다.
+   *
+   * 있는 마디는 코드에서 만들어 낸 운지 대신 **적힌 그대로** 그린다 —
+   * 편곡자가 짚으라고 정한 자리다.
+   */
+  pickedTab?: Record<number, PickedBar>;
 }
 
 // 좌표계. width는 100%로 늘어나고 viewBox 비율대로 확대된다.
@@ -133,6 +141,7 @@ export function ChordScore({
   onEditBar,
   arp = 0,
   strumName = "",
+  pickedTab,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
   const now = useSmoothTime(time ?? 0, time === undefined ? undefined : getTime);
@@ -229,6 +238,8 @@ export function ChordScore({
                 const contentX = firstLine && i === 0 ? x0 + 16 : x0 + 3;
                 const contentW = x0 + measureW - contentX - 3;
                 const beats = bar.beatTimes.length || 1;
+                // 그림 악보에서 읽어 온 마디면 그것을 그린다
+                const picked = pickedTab?.[index];
 
                 return (
                   <g key={bar.number}>
@@ -313,7 +324,7 @@ export function ChordScore({
 
                       return (
                         <g key={b}>
-                          {pattern && voicing ? (
+                          {picked ? null : pattern && voicing ? (
                             // 아르페지오: 이 박의 8분음표 두 칸에, 패턴이
                             // 뜯는 줄의 프렛 숫자를 찍는다. 엄지(근음)는
                             // 강조색 — 마디의 기둥이 눈에 들어온다.
@@ -404,6 +415,12 @@ export function ChordScore({
                         </g>
                       );
                     })}
+
+                    {/* 그림 악보에서 읽어 온 마디. 코드에서 만든 운지 대신
+                        적힌 그대로 그린다 */}
+                    {picked && (
+                      <PickedBarMarks bar={picked} x={contentX} w={contentW} />
+                    )}
 
                     {/* 지금 자리. 멜로디 악보와 같은 진행 바다 —
                         마디만 물들면 마디 안 어디쯤인지 알 수 없다. */}
@@ -500,5 +517,61 @@ function BarTarget({
         {...(onEdit ? press.handlers : {})}
       />
     </g>
+  );
+}
+
+/**
+ * 그림 타브에서 읽어 온 한 마디.
+ *
+ * 음표 길이는 옮기지 않는다 — 프렛 숫자와 짚는 차례만 담고, 한 마디
+ * 안에 고르게 벌려 놓는다. 훑는 마디는 숫자 대신 코드 한 벌을 앞에 두고
+ * 칠 자리마다 손 방향(↓·↑)을 여섯 줄 한가운데에 굵게 적는다.
+ */
+function PickedBarMarks({ bar, x, w }: { bar: PickedBar; x: number; w: number }) {
+  const slots = bar.kind === "pick"
+    ? Math.max(1, bar.cols.length)
+    : Math.max(1, bar.strokes.length);
+  const at = (n: number) => x + (w * (n + 0.5)) / slots;
+  const fret = (sx: number, str: number, f: number, key: string) => (
+    <text
+      key={key}
+      x={sx}
+      y={STAFF_TOP + (str - 1) * LINE_GAP + 2.4}
+      textAnchor="middle" fontSize={7.2} fontWeight="700"
+      fill="currentColor" stroke="var(--background)" strokeWidth={1.8}
+      paintOrder="stroke"
+    >
+      {f}
+    </text>
+  );
+
+  if (bar.kind === "pick") {
+    return (
+      <>
+        {bar.cols.map((col, i) =>
+          Object.entries(col).map(([str, f]) =>
+            fret(at(i), Number(str), f, `${i}-${str}`),
+          ),
+        )}
+      </>
+    );
+  }
+  return (
+    <>
+      {Object.entries(bar.chord).map(([str, f]) =>
+        fret(x + 2.5, Number(str), f, str),
+      )}
+      {bar.strokes.split("").map((d, i) => (
+        <text
+          key={i}
+          x={at(i)} y={STAFF_TOP + LINE_GAP * 2.5 + 3.4}
+          textAnchor="middle" fontSize={9.5} fontWeight="700"
+          fill="currentColor" stroke="var(--background)" strokeWidth={2}
+          paintOrder="stroke"
+        >
+          {d === "D" ? "↓" : "↑"}
+        </text>
+      ))}
+    </>
   );
 }

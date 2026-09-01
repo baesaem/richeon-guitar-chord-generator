@@ -78,6 +78,19 @@ export interface AnalysisMeta {
   elapsed_sec: number;
 }
 
+/** 그림 타브에서 읽어 온 한 마디. 뜯는 마디는 숫자, 훑는 마디는 손 방향 */
+export type PickedBar =
+  | { no: number; kind: "pick"; cols: Record<string, number>[] }
+  | { no: number; kind: "strum"; chord: Record<string, number>; strokes: string };
+
+export interface PickedTab {
+  /** 악보 첫 마디가 음원의 몇 번째 마디인지. 전주 길이가 다르면 민다 */
+  bar_offset: number;
+  measures: PickedBar[];
+  /** 숫자를 하나도 못 읽은 마디 수. 0이 아니면 화면이 알려 준다 */
+  unread?: number;
+}
+
 export interface AnalysisResult {
   id: string;
   source: SourceKind;
@@ -113,6 +126,13 @@ export interface AnalysisResult {
    */
   score?: unknown;
   score_align?: unknown;
+  /**
+   * 인쇄된 **타브 악보 그림**에서 읽어 온 마디별 프렛 숫자.
+   *
+   * 코드에서 만들어 낸 운지와 달리, 편곡자가 짚으라고 적은 자리
+   * 그대로다 — 있으면 타브 화면은 이쪽을 그린다.
+   */
+  picked_tab?: PickedTab | null;
   /**
    * 강사님이 올린 **악보 그림**의 배치와 마디별 시각.
    * 모양은 components/SheetScore.tsx의 SheetData를 따른다.

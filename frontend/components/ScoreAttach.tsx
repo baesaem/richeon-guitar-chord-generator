@@ -12,8 +12,10 @@ import {
   moveSheetImage,
   putSongSetup,
   readSheetImage,
+  putResult,
   putScore,
   putSheetImage,
+  putTabImage,
 } from "@/lib/api";
 import type { ScoreAlign, ScoreData } from "@/lib/scoreStaff";
 import type { AnalysisResult } from "@/lib/types";
@@ -41,6 +43,7 @@ export function ScoreAttach({
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
   const pickImage = useRef<HTMLInputElement | null>(null);
+  const pickTab = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   /** 방금 기준값으로 적었다는 표시. 잠깐 보였다 사라진다 */
   const [kept, setKept] = useState(false);
@@ -60,6 +63,7 @@ export function ScoreAttach({
     : 0;
 
   const score = result.score as ScoreData | null | undefined;
+  const tab = result.picked_tab;
   const align = result.score_align as ScoreAlign | null | undefined;
   const sheet = result.sheet as
     | {
@@ -183,6 +187,68 @@ export function ScoreAttach({
       onResult(await putSheetImage(result.id, file));
     } catch (e) {
       setError(e instanceof Error ? e.message : "악보 그림을 붙이지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * 인쇄된 타브 악보를 읽어 타브 화면에 옮긴다.
+   *
+   * 악보 그림 붙이기와 다르다. 저쪽은 그림을 그대로 띄우지만, 이쪽은
+   * 프렛 숫자를 읽어 우리 타브에 다시 그린다 — 코드에서 만들어 낸
+   * 운지 대신 편곡자가 짚으라고 적은 자리가 나온다.
+   */
+  const attachTab = async (file: File) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await putTabImage(result.id, file);
+      onResult(next);
+      const t = next.picked_tab;
+      if (t) {
+        const strum = t.measures.filter((m) => m.kind === "strum").length;
+        setError(
+          `타브 ${t.measures.length}마디를 읽었습니다` +
+            (strum ? ` (훑는 마디 ${strum})` : "") +
+            ". 자리가 밀리면 「타브 밀기」로 맞추세요.",
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "타브를 읽지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const detachTab = async () => {
+    if (!confirm("읽어 둔 타브를 뗍니다. 계속할까요?")) return;
+    setBusy(true);
+    try {
+      const next = { ...result, picked_tab: null };
+      await putResult(next);
+      onResult(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "떼지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 악보 첫 마디가 음원 몇 번째 마디인지. 전주가 다르면 통째로 민다 */
+  const shiftTab = async (by: number) => {
+    const t = result.picked_tab;
+    if (!t) return;
+    setBusy(true);
+    try {
+      const next = {
+        ...result,
+        picked_tab: { ...t, bar_offset: (t.bar_offset ?? 0) + by },
+      };
+      await putResult(next);
+      onResult(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "밀지 못했습니다");
     } finally {
       setBusy(false);
     }
@@ -381,6 +447,42 @@ export function ScoreAttach({
             그림 떼기
           </button>
         )}
+        {/* 인쇄된 타브를 읽어 우리 타브에 옮긴다 */}
+        <button
+          className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)] disabled:opacity-40 roomy:px-3 roomy:py-1"
+          disabled={busy || !online}
+          onClick={() => pickTab.current?.click()}
+          title="인쇄된 타브 악보(PDF)의 프렛 숫자를 읽어 타브 화면에 그립니다"
+        >
+          {tab ? `타브 바꾸기 (${tab.measures.length}마디)` : "타브 읽어 붙이기"}
+        </button>
+        {tab && (
+          <>
+            <button
+              className="rounded bg-[var(--chip)] px-2 py-0.5 disabled:opacity-40"
+              disabled={busy || !online}
+              onClick={() => void shiftTab(-1)}
+              title="타브를 한 마디 앞으로"
+            >
+              ◀ 타브
+            </button>
+            <button
+              className="rounded bg-[var(--chip)] px-2 py-0.5 disabled:opacity-40"
+              disabled={busy || !online}
+              onClick={() => void shiftTab(1)}
+              title="타브를 한 마디 뒤로"
+            >
+              타브 ▶
+            </button>
+            <button
+              className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
+              disabled={busy || !online}
+              onClick={detachTab}
+            >
+              타브 떼기
+            </button>
+          </>
+        )}
         {/* 지금 맞춘 싱크·카포를 이 곡의 기준값으로. 곡 파일에 실려
             수강생에게도 같은 값이 간다 */}
         <button
@@ -421,6 +523,17 @@ export function ScoreAttach({
           const file = e.target.files?.[0];
           e.target.value = "";
           if (file) void attach(file);
+        }}
+      />
+      <input
+        ref={pickTab}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void attachTab(file);
         }}
       />
       <input

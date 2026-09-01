@@ -159,6 +159,23 @@ export const putScore = (id: string, file: File) => {
 };
 
 /**
+ * 타브 악보 그림(PDF) 읽어 붙이기.
+ *
+ * 악보 그림 붙이기와 다르다. 저쪽은 그림을 그대로 두고 마디선만 찾지만,
+ * 이쪽은 프렛 숫자를 실제로 읽어 앱의 타브로 옮긴다 — 편곡자가 짚으라고
+ * 적은 자리가 그대로 나온다.
+ */
+export const putTabImage = (id: string, file: File, barOffset = 0) => {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("bar_offset", String(barOffset));
+  return fetch(`${apiBase()}/api/results/${id}/tabimage`, {
+    method: "POST",
+    body: form,
+  }).then(json<AnalysisResult>);
+};
+
+/**
  * 악보 그림(PDF·사진) 붙이기.
  *
  * 우리가 그린 음표보다 인쇄된 악보가 낫다. 그림은 그대로 두고 서버가
