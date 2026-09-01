@@ -24,6 +24,9 @@ from scipy import ndimage
 TEMPLATES = Path(__file__).with_name("tab_templates.json")
 DIGIT_BOX = (16, 20)   # 숫자 견본 크기
 MARK_BOX = (16, 16)    # 스트로크 표 견본 크기
+# 「같은 모양」으로 볼 거리. 회색 밝기 차의 평균이라 0~1이다.
+DIGIT_TOL = 0.12
+MARK_TOL = 0.13
 
 
 # ── 그림에서 뼈대 찾기 ────────────────────────────────────────────
@@ -58,8 +61,41 @@ def staff_lines(ink: np.ndarray) -> list[int]:
 
 
 def systems(ink: np.ndarray) -> list[list[int]]:
+    """
+    타브 여섯 줄만 골라낸다.
+
+    타브만 있는 악보도 있지만, 오선(멜로디·반주) 아래에 타브를 함께 놓는
+    악보가 더 흔하다. 그런 쪽은 한 단이 5+5+6줄이라, 여섯 개씩 잘라서는
+    오선과 타브가 섞여 아무것도 못 읽는다.
+
+    줄 사이 간격으로 가른다. 한 보표 안의 간격은 고르고, 보표와 보표
+    사이는 그보다 몇 곱절 넓다. 그렇게 끊어 낸 덩어리 가운데 **여섯 줄
+    짜리에 간격까지 고른 것**만 타브로 본다.
+    """
     ls = staff_lines(ink)
-    return [ls[i:i + 6] for i in range(0, len(ls) - 5, 6)]
+    if len(ls) < 6:
+        return []
+    gaps = [b - a for a, b in zip(ls, ls[1:])]
+    cut = sorted(gaps)[len(gaps) // 2] * 2.2      # 보표 사이 = 가운데값의 두 곱절 위
+
+    runs: list[list[int]] = []
+    cur = [ls[0]]
+    for (a, b), gap in zip(zip(ls, ls[1:]), gaps):
+        if gap > cut:
+            runs.append(cur)
+            cur = [b]
+        else:
+            cur.append(b)
+    runs.append(cur)
+
+    out = []
+    for r in runs:
+        if len(r) != 6:
+            continue
+        g = [b - a for a, b in zip(r, r[1:])]
+        if max(g) <= min(g) * 1.35:               # 간격이 고른 것만
+            out.append(r)
+    return out
 
 
 def barlines(ink: np.ndarray, st: list[int]) -> list[int]:
@@ -70,12 +106,11 @@ def barlines(ink: np.ndarray, st: list[int]) -> list[int]:
     sp = (st[-1] - st[0]) / 5.0
     inside = ink[st[0]:st[-1] + 1]
     below = ink[int(st[-1] + sp * 0.45):int(st[-1] + sp * 1.1)]
-    above = ink[int(st[0] - sp * 0.9):int(st[0] - sp * 0.25)]
+    # 위로 뻗는지는 보지 않는다. 오선과 타브를 함께 놓은 악보는 단 첫머리
+    # 마디선이 위 보표까지 이어져 있어, 그것까지 내치면 첫 마디를 잃는다.
     xs = [
         x for x in range(inside.shape[1])
-        if inside[:, x].mean() >= 0.92
-        and below[:, x].mean() <= 0.5
-        and above[:, x].mean() <= 0.5
+        if inside[:, x].mean() >= 0.92 and below[:, x].mean() <= 0.5
     ]
     out: list[int] = []
     cur: list[int] = []
@@ -142,8 +177,16 @@ def _boxes(band: np.ndarray, keep) -> list[tuple[slice, slice]]:
 
 
 def _norm(band: np.ndarray, sl, box) -> np.ndarray:
-    img = Image.fromarray((band[sl] * 255).astype(np.uint8)).resize(box)
-    return np.array(img) > 127
+    """
+    글자 한 개를 정해진 크기로 펴서 **회색 그대로** 낸다.
+
+    흑백으로 깎으면 안 된다. 300dpi에서 숫자 하나가 26픽셀쯤인데 이걸
+    16으로 줄이면 경계가 반 픽셀씩 밀리고, 흑백으로 깎는 순간 같은 숫자가
+    수십 가지 모양으로 갈라진다(한 악보에서 107가지가 나왔다). 회색을
+    그대로 두고 견주면 그 흔들림이 평균으로 묻힌다.
+    """
+    img = Image.fromarray((band[sl] * 255).astype(np.uint8)).resize(box, Image.LANCZOS)
+    return np.asarray(img, dtype=np.float32) / 255.0
 
 
 def digit_glyphs(ink: np.ndarray, st: list[int]) -> list[tuple[int, int, np.ndarray]]:
@@ -192,7 +235,7 @@ def mark_glyphs(
     solo = [
         sl for sl in raw
         if sl[1].stop - sl[1].start <= sp * 1.4
-        and (book is None or _match(_norm(band, sl, MARK_BOX), book, 26))
+        and (book is None or _match(_norm(band, sl, MARK_BOX), book, MARK_TOL))
     ]
     if not solo:
         return []
@@ -232,11 +275,16 @@ def mark_glyphs(
 
 # ── 모양 익히기 · 알아보기 ────────────────────────────────────────
 
-def _cluster(pats: list[np.ndarray], tol: int) -> list[list[np.ndarray]]:
+def _diff(a: np.ndarray, b: np.ndarray) -> float:
+    """두 모양이 얼마나 다른가. 0이면 같고 1이면 정반대"""
+    return float(np.abs(a - b).mean())
+
+
+def _cluster(pats: list[np.ndarray], tol: float) -> list[list[np.ndarray]]:
     groups: list[list[np.ndarray]] = []
     for p in pats:
         for g in groups:
-            if int((g[0] ^ p).sum()) <= tol:
+            if _diff(g[0], p) <= tol:
                 g.append(p)
                 break
         else:
@@ -256,10 +304,10 @@ def mark_kind(pat: np.ndarray) -> str:
     return "D" if pat[: max(1, len(pat) // 5)].mean() > 0.55 else "U"
 
 
-def _match(pat: np.ndarray, book: list[tuple[str, np.ndarray]], tol: int) -> str | None:
-    best, score = None, tol + 1
+def _match(pat: np.ndarray, book: list[tuple[str, np.ndarray]], tol: float) -> str | None:
+    best, score = None, tol + 1.0
     for name, tpl in book:
-        d = int((tpl ^ pat).sum())
+        d = _diff(tpl, pat)
         if d < score:
             best, score = name, d
     return best if score <= tol else None
@@ -271,7 +319,10 @@ def load_book() -> dict:
     raw = json.loads(TEMPLATES.read_text(encoding="utf-8"))
     for kind, box in (("digits", DIGIT_BOX), ("marks", MARK_BOX)):
         raw[kind] = [
-            (t["name"], np.array(t["bits"], dtype=bool).reshape(box[1], box[0]))
+            (
+                t["name"],
+                np.asarray(t["bits"], dtype=np.float32).reshape(box[1], box[0]) / 255.0,
+            )
             for t in raw.get(kind, [])
         ]
     return raw
@@ -279,7 +330,10 @@ def load_book() -> dict:
 
 def save_book(book: dict) -> None:
     out = {
-        kind: [{"name": n, "bits": p.astype(int).ravel().tolist()} for n, p in book.get(kind, [])]
+        kind: [
+            {"name": n, "bits": (p * 255).round().astype(int).ravel().tolist()}
+            for n, p in book.get(kind, [])
+        ]
         for kind in ("digits", "marks")
     }
     TEMPLATES.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
@@ -314,7 +368,7 @@ def read_tab(pdf: str | Path, dpi: int = 300) -> dict:
             # 딱 맞지 않으므로 모양으로 가른다 — 성한 덩어리에까지 이 길을
             # 열어 주면 가사 글자가 모두 스트로크로 읽힌다.
             ms = [
-                (x, _match(p, marks, 26) or (mark_kind(p) if cut else None))
+                (x, _match(p, marks, MARK_TOL) or (mark_kind(p) if cut else None))
                 for x, p, cut in mark_glyphs(ink, st, marks)
             ]
             ms = [(x, n) for x, n in ms if n]
@@ -333,7 +387,7 @@ def read_tab(pdf: str | Path, dpi: int = 300) -> dict:
                     cols.append(cur)
 
                 read = [
-                    {str(k): _match(p, digits, 14) for _, k, p in col}
+                    {str(k): _match(p, digits, DIGIT_TOL) for _, k, p in col}
                     for col in cols
                 ]
                 strokes = "".join(n for x, n in ms if lo < x < hi)
@@ -348,9 +402,13 @@ def read_tab(pdf: str | Path, dpi: int = 300) -> dict:
                             "chord": {k: int(v) for k, v in shape.items() if v and v.isdigit()},
                             "strokes": strokes}
                 else:
-                    bar |= {"kind": "pick",
-                            "cols": [{k: int(v) for k, v in c.items() if v and v.isdigit()}
-                                     for c in read if c and not all(v == "/" for v in c.values())]}
+                    # 숫자가 하나도 없는 칸은 버린다 — 「TAB」 글자처럼
+                    # 마디 안에 들어와 앉은 표시가 빈 칸으로 남는다
+                    cols_out = [
+                        {k: int(v) for k, v in c.items() if v and v.isdigit()}
+                        for c in read
+                    ]
+                    bar |= {"kind": "pick", "cols": [c for c in cols_out if c]}
                 out.append(bar)
     return {"measures": out}
 
@@ -365,14 +423,14 @@ def learn(pdf: str | Path, digit_names: str, mark_names: str, dpi: int = 300) ->
         for st in systems(ink):
             dpats += [p for _, _, p in digit_glyphs(ink, st)]
             mpats += [p for _, p, _ in mark_glyphs(ink, st)]  # 익힐 때는 견본이 없다
-    dg = _cluster(dpats, 14)
+    dg = _cluster(dpats, DIGIT_TOL)
     # 스트로크 표는 오선 아래 것을 다 주웠으므로, 여러 번 나온 모양만 남긴다
-    mg = [g for g in _cluster(mpats, 10) if len(g) >= 4]
+    mg = [g for g in _cluster(mpats, MARK_TOL) if len(g) >= 4]
     return {"digits": dg, "marks": mg, "dnames": digit_names, "mnames": mark_names}
 
 
 def montage(groups: list[list[np.ndarray]], path: str, cell=(70, 90)) -> None:
-    tiles = [Image.fromarray((~g[0] * 255).astype(np.uint8)).resize(cell, Image.NEAREST)
+    tiles = [Image.fromarray(((1 - g[0]) * 255).astype(np.uint8)).resize(cell, Image.NEAREST)
              for g in groups]
     sheet = Image.new("L", (len(tiles) * (cell[0] + 10) + 10, cell[1] + 20), 255)
     for i, t in enumerate(tiles):
