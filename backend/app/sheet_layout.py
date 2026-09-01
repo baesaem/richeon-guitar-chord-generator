@@ -55,6 +55,9 @@ class System:
     #: 2단 악보에서 이 줄에 딸린 **아래 단**의 오선 윗자리.
     #: 위 단만 쓰되, 화면에 잘라 보일 때 아래 단을 물지 않게 하는 데 쓴다.
     pair_top: int | None = None
+    #: 타브가 딸린 악보에서 이 묶음의 **맨 윗 보표** 윗자리.
+    #: 마디는 타브에서 세되, 화면에는 묶음 전체(멜로디·반주·타브)를 보인다.
+    group_top: int | None = None
 
     @property
     def measures(self) -> list[tuple[int, int]]:
@@ -352,13 +355,14 @@ def _view_bands(ink: np.ndarray, systems: list[System]) -> None:
     """줄마다 잘라 보일 띠를 정한다."""
     for i, s in enumerate(systems):
         staff = max(s.bottom - s.top, 1)
+        head = s.group_top if s.group_top is not None else s.top
         if i == 0:
             # 첫 줄 위에도 코드가 적혀 있다. 오선 높이만큼만 띄우면 그
             # 글자를 반으로 자른다 — 오선 위 세 뼘 안에서 가장 넓게 빈
             # 자리를 찾아 거기서 끊는다. 제목까지 올라가지는 않는다.
-            s.view_top = _split(ink, max(s.top - staff * 3, 0), s.top)
+            s.view_top = _split(ink, max(head - staff * 3, 0), head)
         else:
-            s.view_top = _split(ink, systems[i - 1].bottom + 1, s.top)
+            s.view_top = _split(ink, systems[i - 1].bottom + 1, head)
         if s.pair_top is not None:
             # 2단 악보. 아래 단 바로 위까지 담는다.
             #
@@ -372,11 +376,16 @@ def _view_bands(ink: np.ndarray, systems: list[System]) -> None:
                 _split(ink, mid, s.pair_top), s.pair_top - int(staff * 0.25)
             )
         elif i + 1 < len(systems):
-            s.view_bottom = _split(ink, s.bottom + 1, systems[i + 1].top)
+            nxt = systems[i + 1]
+            # 다음 줄의 **맨 윗 보표** 앞에서 끊는다. 타브가 딸린 악보에서
+            # 다음 줄의 타브를 기준 삼으면, 이 띠가 다음 줄의 멜로디
+            # 보표까지 물어 두 줄이 겹쳐 보인다.
+            nxt_head = nxt.group_top if nxt.group_top is not None else nxt.top
+            s.view_bottom = _split(ink, s.bottom + 1, nxt_head)
         else:
             s.view_bottom = min(s.bottom + staff * 2, ink.shape[0] - 1)
         # 오선에 너무 바싹 붙지 않게 최소 여유는 둔다
-        s.view_top = min(s.view_top, s.top - int(staff * 0.35))
+        s.view_top = min(s.view_top, head - int(staff * 0.35))
         s.view_bottom = max(s.view_bottom, s.bottom + int(staff * 0.35))
 
 
@@ -401,6 +410,34 @@ def _braced(ink: np.ndarray, a: System, b: System) -> float:
     left = max(min(a.bars[0], b.bars[0]) - 4, 1)
     band = ink[lo:hi, 0:left]
     return float(band.any(axis=1).mean()) if band.size else 0.0
+
+
+def _fold_tab_groups(systems: list[System]) -> list[System]:
+    """타브가 딸린 악보는 한 단이 여러 보표다.
+
+    「멜로디 오선 + 반주 오선 + 타브」로 짠 악보가 흔하다. 보표를 저마다
+    한 줄로 세면 마디 수가 세 곱절이 되고, 진행 바는 멜로디 보표를 다
+    지난 뒤에야 반주 보표로 넘어간다 — 곡과 하나도 맞지 않는다.
+
+    여섯 줄 보표(타브)가 한 단의 끝이다. 거기서 끊어 묶고, 마디는
+    **타브에서** 센다(음표 기둥이 적어 마디선이 가장 깨끗하다). 화면에는
+    묶음 전체를 보인다.
+    """
+    if not any(s.lines == 6 for s in systems):
+        return systems
+    if all(s.lines == 6 for s in systems):
+        return systems                      # 타브만 있는 악보. 나눌 것이 없다
+    out: list[System] = []
+    cur: list[System] = []
+    for s in systems:
+        cur.append(s)
+        if s.lines == 6:
+            last = cur[-1]
+            last.group_top = cur[0].top
+            out.append(last)
+            cur = []
+    out.extend(cur)                          # 타브 없이 끝난 꼬리는 그대로
+    return out
 
 
 def _fold_pairs(ink: np.ndarray, systems: list[System]) -> list[System]:
@@ -451,6 +488,7 @@ def layout(image: Image.Image, index: int = 0) -> Page:
             continue
         system.repeats = find_repeats(ink, system)
         page.systems.append(system)
+    page.systems = _fold_tab_groups(page.systems)
     page.systems = _fold_pairs(ink, page.systems)
     _view_bands(ink, page.systems)
 
