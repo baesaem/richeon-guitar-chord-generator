@@ -110,15 +110,26 @@ export function listLectures(shelf: Shelf): Lecture[] {
     const data = raw ? (JSON.parse(raw) as Lecture[]) : [];
     if (!Array.isArray(data)) return [];
     // 옛 기록(영상만 담던 시절)에는 site·videoId가 없다. 지금 규격으로 읽는다.
+    const items = data.map((l) => ({
+      ...l,
+      videoId: l.videoId ?? videoIdOf(l.url) ?? undefined,
+      site: l.site ?? siteOf(l.url),
+    }));
+    /*
+     * 시각이 없는 옛 기록에는 **지금의 차례를 시각으로 옮겨 적는다.**
+     * 위에 있던 것이 더 새것이라는 뜻이니 그대로 옮기면 목록이 흔들리지
+     * 않고, 앞으로 받거나 담는 자료는 오늘 시각을 받아 저절로 위로 온다.
+     * 0으로 두면 새 자료와 뒤섞여 차례가 뒤죽박죽이 된다.
+     */
+    if (items.some((l) => l.uploadedAt === undefined)) {
+      const base = Date.now() - 365 * 24 * 60 * 60 * 1000; // 한 해 전
+      items.forEach((l, i) => {
+        if (l.uploadedAt === undefined) l.uploadedAt = base - i * 60_000;
+      });
+      write(shelf, items);
+    }
     // 새로 올라온 것이 위로. 강사님이 올린 차례가 곧 수업 차례다.
-    // 시각이 없는 옛 기록은 저희끼리의 차례를 지킨 채 아래에 남는다.
-    return data
-      .map((l) => ({
-        ...l,
-        videoId: l.videoId ?? videoIdOf(l.url) ?? undefined,
-        site: l.site ?? siteOf(l.url),
-      }))
-      .sort((a, b) => (b.uploadedAt ?? 0) - (a.uploadedAt ?? 0));
+    return items.sort((a, b) => (b.uploadedAt ?? 0) - (a.uploadedAt ?? 0));
   } catch {
     return [];
   }

@@ -151,15 +151,26 @@ export function applyLessonFiles(
     ) {
       changed += 1;
     }
-    return fresh;
+    // 이미 있던 자료는 제자리를 지킨다. 고쳤다고 목록 맨 위로 올라오면
+    // 강사님이 올린 차례가 흐트러진다.
+    return { ...fresh, uploadedAt: old.uploadedAt ?? fresh.uploadedAt };
   });
 
-  let added = 0;
+  /*
+   * **처음 온 자료는 맨 위로.** 그것이 「새 강좌」다.
+   *
+   * 파일에는 올린 시각이 한 벌뿐이라 자료마다 새겨 봐야 다 같아진다 —
+   * 그러면 이미 있던 것들 틈에 섞여 어디로 갈지 알 수 없다. 지금 시각을
+   * 주면 늘 맨 위에 오고, 파일에 적힌 차례도 그대로 지킨다.
+   */
+  const fresh: Lecture[] = [];
+  const now = Date.now();
   for (const [id, item] of incoming) {
     if (used.has(id)) continue;
-    next.push(item);
-    added += 1;
+    fresh.push({ ...item, uploadedAt: now - fresh.length * 1000 });
   }
+  const added = fresh.length;
+  next.unshift(...fresh);
 
   replaceLectures(shelf, next);
   return { added, changed, kept };
@@ -207,14 +218,7 @@ export async function importLessonsFromDrive(
       const text = await (online ? downloadShared(f.id) : downloadDirectText(f.id));
       const data = JSON.parse(text) as unknown;
       if (!isLessonFile(data)) continue;
-      // 이 파일이 올라온 시각을 자료마다 새겨 둔다 — 목록을 새것부터
-      // 세우는 잣대다. 시각이 없으면 내보낸 날짜라도 쓴다.
-      const at = Date.parse(f.modified ?? data.exported ?? "");
-      found.push(
-        Number.isNaN(at)
-          ? data
-          : { ...data, items: data.items.map((it) => ({ ...it, uploadedAt: at })) },
-      );
+      found.push(data);
     } catch {
       // 한 파일이 깨져도 나머지는 받는다
     }
