@@ -1,5 +1,7 @@
 "use client";
 
+import { uploadedAtOf } from "./sharedFetched";
+
 import type { AnalysisResult, ResultSummary } from "./types";
 
 /**
@@ -97,8 +99,11 @@ export async function listLocal(): Promise<ResultSummary[]> {
       chord_count: r.result.chords.length,
       pipeline_version: r.result.meta.pipeline_version,
       analyzed_at: r.savedAt / 1000,
+      // 웹에 올라온 시각이 있으면 그것으로 줄을 세운다. 없으면(내가 직접
+      // 분석한 곡) 기기에 저장한 시각이 곧 그 자리다.
+      uploaded_at: (uploadedAtOf(r.result.id) ?? r.savedAt) / 1000,
     }))
-    .sort((a, b) => b.analyzed_at - a.analyzed_at);
+    .sort((a, b) => b.uploaded_at - a.uploaded_at);
 }
 
 export async function localIds(): Promise<Set<string>> {

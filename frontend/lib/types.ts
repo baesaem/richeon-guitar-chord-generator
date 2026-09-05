@@ -164,6 +164,13 @@ export interface ResultSummary {
   chord_count: number;
   pipeline_version: string;
   analyzed_at: number;
+  /**
+   * 이 곡이 웹(반 공유 폴더)에 올라온 시각(초).
+   *
+   * 기기에 저장한 시각과 다르다 — 수강생이 열 곡을 한꺼번에 받으면 저장
+   * 시각은 다 같아져 무엇이 새 곡인지 알 수 없다. 서버 목록에는 없다.
+   */
+  uploaded_at?: number;
 }
 
 export interface JobStatus {

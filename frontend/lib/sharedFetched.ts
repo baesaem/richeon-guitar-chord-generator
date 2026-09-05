@@ -54,6 +54,22 @@ export function markFetched(
   }
 }
 
+/**
+ * 이 곡이 **웹에 올라온 시각**. 받을 때 적어 둔 드라이브의 「고친 시각」이다.
+ *
+ * 기기에 저장한 시각(savedAt)과 다르다. 수강생이 오늘 열 곡을 한꺼번에
+ * 받으면 저장 시각은 다 같아져, 목록에서 무엇이 새 곡인지 알 수 없다.
+ * 강사님이 올린 차례가 곧 수업 차례이므로 그쪽으로 줄을 세운다.
+ */
+export function uploadedAtOf(resultId: string): number | undefined {
+  for (const entry of Object.values(read())) {
+    if (!entry.ver || !entry.ids.includes(resultId)) continue;
+    const t = Date.parse(entry.ver);
+    return Number.isNaN(t) ? undefined : t;
+  }
+  return undefined;
+}
+
 /** 받을 때 적어 둔 드라이브 「고친 시각」. 받은 적 없으면 undefined */
 export function fetchedVersion(driveId: string): string | undefined {
   return read()[driveId]?.ver;

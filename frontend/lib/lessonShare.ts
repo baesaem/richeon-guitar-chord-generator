@@ -179,17 +179,26 @@ export async function importLessonsFromDrive(
     throw new Error("공유 폴더를 읽을 수 없습니다. 설정에서 서버 주소를 확인해 주세요.");
   }
   const found: LessonFile[] = [];
-  // 폴더를 못 읽은 것과 폴더가 빈 것은 다르다. 삼켜 버리면 「아직 올라온
-  // 자료가 없습니다」로 보여, 올려 둔 파일이 왜 안 오는지 알 길이 없다.
+  /*
+   * 드라이브 API로 먼저 훑는다. 서버가 대신 훑는 길에는 **올린 시각이
+   * 없어서**, 그 길로만 받으면 목록을 새것부터 세울 수 없다.
+   * 키가 없거나 막히면 서버 길로 돌아간다.
+   */
   let list;
   try {
-    list = await (online
-      ? listShared(klass.lessonFolderId)
-      : listSharedDirect(klass.lessonFolderId));
+    list = hasDriveKey()
+      ? await listSharedDirect(klass.lessonFolderId)
+      : await listShared(klass.lessonFolderId);
   } catch (e) {
-    throw new Error(
-      `강의실 폴더를 읽지 못했습니다 — ${(e as Error).message}`,
-    );
+    // 폴더를 못 읽은 것과 폴더가 빈 것은 다르다. 삼켜 버리면 「아직
+    // 올라온 자료가 없습니다」로 보여, 올려 둔 파일이 왜 안 오는지
+    // 알 길이 없다.
+    try {
+      if (!online) throw e;
+      list = await listShared(klass.lessonFolderId);
+    } catch {
+      throw new Error(`강의실 폴더를 읽지 못했습니다 — ${(e as Error).message}`);
+    }
   }
   for (const f of list) {
     // 강의실 폴더에는 자료만 있으므로 이름을 가리지 않는다 —
@@ -198,7 +207,14 @@ export async function importLessonsFromDrive(
       const text = await (online ? downloadShared(f.id) : downloadDirectText(f.id));
       const data = JSON.parse(text) as unknown;
       if (!isLessonFile(data)) continue;
-      found.push(data);
+      // 이 파일이 올라온 시각을 자료마다 새겨 둔다 — 목록을 새것부터
+      // 세우는 잣대다. 시각이 없으면 내보낸 날짜라도 쓴다.
+      const at = Date.parse(f.modified ?? data.exported ?? "");
+      found.push(
+        Number.isNaN(at)
+          ? data
+          : { ...data, items: data.items.map((it) => ({ ...it, uploadedAt: at })) },
+      );
     } catch {
       // 한 파일이 깨져도 나머지는 받는다
     }

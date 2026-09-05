@@ -47,6 +47,13 @@ export interface Lecture {
    * ("3번 패턴 연습에 좋습니다" 같은 한 줄).
    */
   note?: string;
+  /**
+   * 웹(반 강의실 폴더)에 올라온 시각(ms). 목록을 이 차례로 세운다.
+   *
+   * 받은 자료는 드라이브가 적어 둔 「고친 시각」, 여기서 직접 담은
+   * 자료는 담은 시각이다. 옛 기록에는 없어 맨 아래로 간다.
+   */
+  uploadedAt?: number;
 }
 
 /** URL에서 YouTube 영상 id를 꺼낸다. 영상이 아니면 null. */
@@ -103,11 +110,15 @@ export function listLectures(shelf: Shelf): Lecture[] {
     const data = raw ? (JSON.parse(raw) as Lecture[]) : [];
     if (!Array.isArray(data)) return [];
     // 옛 기록(영상만 담던 시절)에는 site·videoId가 없다. 지금 규격으로 읽는다.
-    return data.map((l) => ({
-      ...l,
-      videoId: l.videoId ?? videoIdOf(l.url) ?? undefined,
-      site: l.site ?? siteOf(l.url),
-    }));
+    // 새로 올라온 것이 위로. 강사님이 올린 차례가 곧 수업 차례다.
+    // 시각이 없는 옛 기록은 저희끼리의 차례를 지킨 채 아래에 남는다.
+    return data
+      .map((l) => ({
+        ...l,
+        videoId: l.videoId ?? videoIdOf(l.url) ?? undefined,
+        site: l.site ?? siteOf(l.url),
+      }))
+      .sort((a, b) => (b.uploadedAt ?? 0) - (a.uploadedAt ?? 0));
   } catch {
     return [];
   }
@@ -124,7 +135,8 @@ function write(shelf: Shelf, items: Lecture[]): void {
 /** 링크를 담는다. 같은 것이 이미 있으면 제목만 새로 쓴다. */
 export function addLecture(shelf: Shelf, item: Lecture): Lecture[] {
   const items = listLectures(shelf).filter((l) => l.id !== item.id);
-  items.unshift(item);
+  // 여기서 담은 것은 담은 시각이 곧 올린 시각이다 — 담자마자 올린다
+  items.unshift({ ...item, uploadedAt: item.uploadedAt ?? Date.now() });
   write(shelf, items);
   return items;
 }
