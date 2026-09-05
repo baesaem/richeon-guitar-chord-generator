@@ -198,22 +198,31 @@ export function LessonTab({
             >
               새 강좌 가져오기
             </button>
-            {adminMode && online && (
-              <button
-                className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white"
-                onClick={() => setAskFolder("upload")}
-                title="이 반 강의실을 드라이브 폴더에 곧장 올립니다"
-              >
-                {picked.length > 0 ? `고른 ${picked.length}개 올리기` : "드라이브에 올리기"}
-              </button>
-            )}
             {adminMode && (
               <button
                 className="rounded bg-[var(--panel)] px-3 py-1.5 text-xs font-medium"
                 onClick={() => setAskFolder("file")}
-                title="파일로 내려받아 직접 올릴 때 씁니다"
+                title="이 기기에 .rml 파일로 내려받습니다. 드라이브에 직접 올릴 때 씁니다"
               >
-                파일로
+                파일로 저장
+              </button>
+            )}
+            {/* 웹에 올리기는 서버가 있어야 한다(구글 동의를 서버가 받는다).
+                서버가 없다고 단추째 감추면, 왜 올릴 길이 없는지 알 수가
+                없어 「파일로 저장」만 되풀이하게 된다 — 흐리게 두고 까닭을
+                적어 둔다. */}
+            {adminMode && (
+              <button
+                className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                disabled={!online}
+                onClick={() => setAskFolder("upload")}
+                title={
+                  online
+                    ? "이 반 강의실을 반 공유 폴더에 곧장 올립니다. 수강생이 「새 강좌 가져오기」로 받아 갑니다"
+                    : "분석 서버에 연결되어야 올릴 수 있습니다. 설정에서 서버 주소를 확인해 주세요"
+                }
+              >
+                {picked.length > 0 ? `고른 ${picked.length}개 웹에 올리기` : "웹에 올리기"}
               </button>
             )}
           </div>
@@ -225,7 +234,7 @@ export function LessonTab({
             canAdd={adminMode}
             blurb={
               adminMode
-                ? `${klass.name}이(가) 함께 보는 자료입니다. 링크를 담고 「내보내기」로 파일을 만들어 이 반 강의실 폴더에 올리면, 수강생이 받아 갑니다.`
+                ? `${klass.name}이(가) 함께 보는 자료입니다. 링크를 담고 「웹에 올리기」를 누르면 수강생이 받아 갑니다. 「파일로 저장」은 파일을 받아 드라이브에 직접 올릴 때 씁니다.`
                 : `${klass.name}의 강좌와 자료입니다. 「새 강좌 가져오기」를 누르면 새 자료를 받아 옵니다.`
             }
           />

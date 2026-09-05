@@ -179,10 +179,18 @@ export async function importLessonsFromDrive(
     throw new Error("공유 폴더를 읽을 수 없습니다. 설정에서 서버 주소를 확인해 주세요.");
   }
   const found: LessonFile[] = [];
-  const list = await (online
-    ? listShared(klass.lessonFolderId)
-    : listSharedDirect(klass.lessonFolderId)
-  ).catch(() => []);
+  // 폴더를 못 읽은 것과 폴더가 빈 것은 다르다. 삼켜 버리면 「아직 올라온
+  // 자료가 없습니다」로 보여, 올려 둔 파일이 왜 안 오는지 알 길이 없다.
+  let list;
+  try {
+    list = await (online
+      ? listShared(klass.lessonFolderId)
+      : listSharedDirect(klass.lessonFolderId));
+  } catch (e) {
+    throw new Error(
+      `강의실 폴더를 읽지 못했습니다 — ${(e as Error).message}`,
+    );
+  }
   for (const f of list) {
     // 강의실 폴더에는 자료만 있으므로 이름을 가리지 않는다 —
     // 내용을 열어 우리 규격인지로 판단한다.
