@@ -171,6 +171,8 @@ export function TabSheet({
   lyrics,
 }: Props) {
   const boxRef = useRef<HTMLDivElement | null>(null);
+  /** 지금 치는 줄의 자리표. 창을 굴려 이 자리를 가운데로 끌어온다 */
+  const markRef = useRef<SVGRectElement | null>(null);
   /* 재생 중에는 매 프레임 자리를 묻는다 — 상태로만 따라가면 커서가
      마디마다 툭툭 끊겨 보인다. 다른 악보 화면과 같은 시계를 쓴다 */
   const now = useSmoothTime(time, getTime);
@@ -217,16 +219,24 @@ export function TabSheet({
 
   const liveRow = at ? Math.floor(at.bar / PER_LINE) : -1;
 
-  /* 커서가 창 밖으로 흘러내리지 않게 위쪽에 붙여 둔다 */
+  /*
+   * 지금 치는 줄을 창 가운데쯤에 붙들어 둔다.
+   *
+   * 줄이 창 아래끝에 걸리면 다음에 짚을 자리가 화면 밖에 있어, 눈이
+   * 악보를 앞질러 갈 수가 없다 — 손은 이미 그리로 가고 있는데. 줄이
+   * 위로 지나갔거나 아래끝에 닿으려 하면 위쪽 3할 자리로 끌어올린다.
+   */
   useEffect(() => {
-    const box = boxRef.current;
-    if (!box || liveRow < 0) return;
-    const scale = box.clientWidth / W;
-    const y = (24 + liveRow * ROW) * scale;
-    const h = box.clientHeight;
-    const rel = y - box.scrollTop;
-    if (h > 0 && (rel < h * 0.08 || rel > h * 0.6))
-      box.scrollTo({ top: Math.max(0, y - h * 0.25), behavior: "smooth" });
+    const mark = markRef.current;
+    if (!mark || liveRow < 0) return;
+    const seen = mark.getBoundingClientRect();
+    const vh = window.innerHeight;
+    if (!(vh > 0)) return;
+    /* 무엇이 굴러가는지 우리가 고르지 않는다 — 창일 수도, 악보 칸일
+       수도, 그 사이 어떤 칸일 수도 있다. 브라우저에게 맡기면 굴러가는
+       것을 알아서 찾아 준다 */
+    if (seen.top < vh * 0.12 || seen.bottom > vh * 0.82)
+      mark.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [liveRow]);
 
   const staves: React.ReactNode[] = [];
@@ -474,6 +484,17 @@ export function TabSheet({
           {staves}
           {ink}
           {marks}
+          {liveRow >= 0 && (
+            <rect
+              ref={markRef}
+              x={0}
+              y={24 + liveRow * ROW}
+              width={W}
+              height={ROW}
+              fill="none"
+              pointerEvents="none"
+            />
+          )}
           {cursor}
         </svg>
       </div>

@@ -54,6 +54,15 @@ interface Props {
 
 const RATES = [0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
 
+/**
+ * 음높이를 옮길 수 있는 폭.
+ *
+ * 내리는 쪽은 다섯 반음까지, 올리는 쪽은 일곱 프렛까지다 — 그 너머는
+ * 기타로 짚을 자리가 없거나(카포 8프렛), 노래가 아예 다른 음역이 된다.
+ */
+const LOW = -5;
+const HIGH = 7;
+
 function clock(t: number): string {
   if (!Number.isFinite(t) || t < 0) t = 0;
   const m = Math.floor(t / 60);
@@ -286,7 +295,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           <div className="mb-2 flex items-center gap-2">
             <button
               className="h-8 w-8 rounded bg-[var(--panel)]"
-              onClick={() => props.onTranspose(Math.max(transpose - 1, -11))}
+              onClick={() => props.onTranspose(Math.max(transpose - 1, LOW))}
             >
               −
             </button>
@@ -304,15 +313,15 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
             </div>
             <button
               className="h-8 w-8 rounded bg-[var(--panel)]"
-              onClick={() => props.onTranspose(Math.min(transpose + 1, 11))}
+              onClick={() => props.onTranspose(Math.min(transpose + 1, HIGH))}
             >
               +
             </button>
           </div>
 
           <div className="mb-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">카포 위치</div>
-          <div className="mb-2 grid grid-cols-6 gap-1">
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((fret) => (
+          <div className="mb-2 grid grid-cols-4 gap-1">
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((fret) => (
               <button
                 key={fret}
                 className={pill(capo === fret && (fret === 0 ? transpose === 0 : true))}
