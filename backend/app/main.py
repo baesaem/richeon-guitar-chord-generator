@@ -1142,6 +1142,11 @@ async def fix_beats(result_id: str, body: dict) -> AnalysisResult:
     "half"·"double"은 빠르기를 어떻게 볼 것인가다. 8분음표를 박으로 세면
     마디가 절반이 되어 악보와 어긋난다. 어느 쪽이 옳은지는 악보를 보아야
     아는 일이라 사람이 정한다.
+
+    "third"·"triple"은 슬로우 록(12비트)을 위한 것이다. 한 박을 셋으로
+    쪼개 치는 곡에서 박 찾기가 그 셋잇단을 저마다 박으로 세면 마디가 세
+    배로 늘어나는데, 두 배로는 나눠떨어지지 않아 half를 아무리 눌러도
+    맞출 수 없다.
     """
     _guard_id(result_id)
 
@@ -1157,8 +1162,11 @@ async def fix_beats(result_id: str, body: dict) -> AnalysisResult:
         # 없음」이다. 기기 사본이 뒤처져 있을 때 이 응답이 그것을 맞춘다.
         if not fixed:
             return result
-    elif mode in ("half", "double"):
-        rows = beats_even.scale(rows, 0.5 if mode == "half" else 2)
+    elif mode in ("half", "double", "third", "triple"):
+        rows = beats_even.scale(
+            rows,
+            {"half": 0.5, "double": 2, "third": 1 / 3, "triple": 3}[mode],
+        )
     else:
         raise HTTPException(400, "모르는 방식입니다")
 

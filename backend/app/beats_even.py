@@ -68,23 +68,31 @@ def even(beats: list[dict], per_bar: int = 4) -> tuple[list[dict], int]:
 
 
 def scale(beats: list[dict], factor: float, per_bar: int = 4) -> list[dict]:
-    """박을 절반(0.5)으로 덜거나 두 배(2)로 늘린다.
+    """박을 1/2·1/3로 덜거나 2배·3배로 늘린다.
 
-    0.5는 한 박씩 걸러 내어 마디가 두 배 길어지고, 2는 사이사이에 박을
+    1/2은 한 박씩 걸러 내어 마디가 두 배 길어지고, 2는 사이사이에 박을
     끼워 넣어 마디가 절반으로 짧아진다. 첫 박은 언제나 남는다.
+
+    **3분의 1은 슬로우 록(12비트) 때문에 있다.** 한 박을 셋으로 쪼개
+    치는 곡에서 박 찾기가 그 셋잇단을 저마다 박으로 세면, 마디가 세 배로
+    늘어 악보와 맞지 않는다 — 「광화문 연가」가 그랬다. 두 배로는 나눠
+    떨어지지 않아 아무리 눌러도 맞출 수 없었다.
     """
     times = [float(b["t"]) for b in beats]
-    if len(times) < 4:
+    if len(times) < 4 or factor <= 0:
         return beats
     if factor < 1:
-        times = times[::2]
+        step = max(2, round(1 / factor))
+        times = times[::step]
     else:
-        doubled = []
+        n = max(2, round(factor))
+        filled: list[float] = []
         for i in range(len(times) - 1):
-            doubled.append(times[i])
-            doubled.append((times[i] + times[i + 1]) / 2)
-        doubled.append(times[-1])
-        times = doubled
+            a, b2 = times[i], times[i + 1]
+            for k in range(n):
+                filled.append(a + (b2 - a) * k / n)
+        filled.append(times[-1])
+        times = filled
     return _renumber(times, beats, per_bar)
 
 

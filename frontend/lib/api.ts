@@ -267,7 +267,10 @@ export const fitSheetImage = (id: string) =>
  * "even"이 그런 자리를 메우거나 덜어 낸다. 8분음표를 박으로 세어
  * 마디가 절반이 된 곡은 "half"로 마디를 두 배 길게 본다.
  */
-export const fixBeats = (id: string, mode: "even" | "half" | "double") =>
+export const fixBeats = (
+  id: string,
+  mode: "even" | "half" | "double" | "third" | "triple",
+) =>
   fetch(`${apiBase()}/api/results/${id}/beats`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

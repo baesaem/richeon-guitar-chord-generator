@@ -131,7 +131,9 @@ export function ScoreAttach({
    * 메우거나 덜어 낸다. 8분음표를 박으로 세어 마디가 절반이 된 곡은
    * 「마디 ×2」로 바로잡는다 — 어느 쪽이 옳은지는 악보를 봐야 안다.
    */
-  const beatFix = async (mode: "even" | "half" | "double") => {
+  const beatFix = async (
+    mode: "even" | "half" | "double" | "third" | "triple",
+  ) => {
     setBusy(true);
     setError(null);
     try {
@@ -359,6 +361,25 @@ export function ScoreAttach({
             title="마디가 악보보다 두 배 길 때. 마디를 절반으로 봅니다"
           >
             마디 ÷2
+          </button>
+          {/* 슬로우 록(12비트)은 한 박을 셋으로 쪼개 친다. 박 찾기가 그
+              셋잇단을 저마다 박으로 세면 마디가 세 배로 늘어나는데, 두
+              배로는 나눠떨어지지 않아 「마디 ×2」로는 영영 맞출 수 없다 */}
+          <button
+            className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
+            disabled={busy || !online}
+            onClick={() => void beatFix("third")}
+            title="슬로우 록(12비트)처럼 셋잇단을 박으로 세어 마디가 3분의 1이 된 곡. 마디를 세 배 길게 봅니다"
+          >
+            마디 ×3
+          </button>
+          <button
+            className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
+            disabled={busy || !online}
+            onClick={() => void beatFix("triple")}
+            title="마디가 악보보다 세 배 길 때. 마디를 3분의 1로 봅니다"
+          >
+            마디 ÷3
           </button>
         </span>
       )}
