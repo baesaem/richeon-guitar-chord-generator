@@ -114,7 +114,28 @@ export function abcOrders(abc: string): AbcOrders | null {
       // 1로 치면 1번 괄호만 되풀이하고 2번 괄호로 넘어가지 못한다.
       if (m.startRepeat && !back) { repStart = i; pass = 1; }
       back = false;
-      if (m.volta && m.volta !== pass) { i++; continue; }
+      if (m.volta && m.volta !== pass) {
+        /*
+         * 이번 바퀴에 부르지 않는 괄호는 **괄호가 끝날 때까지** 건너뛴다.
+         *
+         * 괄호는 번호가 적힌 마디 하나가 아니다. 1번 괄호는 되돌이 끝(:|)
+         * 까지 이어지는데, 그 끝 마디에는 번호가 적혀 있지 않다 — 한 마디만
+         * 건너뛰면 그 마디를 두 번 부른다. 마디 수가 하나 어긋나면 abcjs가
+         * 센 것과 맞지 않아 되돌이 짝짓기가 통째로 어긋나고, 달세뇨·코다
+         * 분기도 먹지 않는다(「광화문 연가」가 그랬다).
+         */
+        let k = i;
+        let closed = false;
+        while (k < ms.length) {
+          const cur = ms[k];
+          k++;
+          if (cur.endRepeat) { closed = true; break; }        // :| 에서 닫힌다
+          if (k < ms.length && ms[k].volta) { closed = true; break; }  // 다음 괄호
+        }
+        // 닫는 것을 못 찾으면 한 마디만 건너뛴다 — 뒤를 통째로 잃느니 낫다
+        i = closed ? k : i + 1;
+        continue;
+      }
       order.push(i);
       if (m.endRepeat && !doneEnd.has(i)) {
         doneEnd.add(i);
