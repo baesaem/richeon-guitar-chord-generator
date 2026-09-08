@@ -172,7 +172,13 @@ ${abc}`;
          abcjs는 타브를 오선 **아래에** 덧그릴 뿐 오선을 뺄 길을 주지
          않는다. 줄은 %%stafflines 0으로 지우고, 음표·기둥은 아래 CSS가
          가린다 — 남는 것은 여섯 줄 타브와 코드·가사·마디 번호다. */
-      if (tab) drawn = `%%stafflines 0
+      if (tab)
+        /* 오선을 지우고, 줄과 줄 사이를 벌린다.
+           오선이 없어지면 그 자리가 빈 띠로 남는데, 다음 줄의 코드 이름이
+           그 띠에 들어앉아 **앞 줄 타브에 붙어** 보인다 — 어느 줄의 코드인지
+           알 수 없다. staffsep으로 줄 사이를 벌려 떼어 놓는다. */
+        drawn = `%%stafflines 0
+%%staffsep 84
 ${drawn}`;
       const [obj] = ABCJS.renderAbc(hostRef.current, drawn, params);
       if (!obj) return;
@@ -501,9 +507,6 @@ ${drawn}`;
           .abc-tab-only .abcjs-note > *:not(.abcjs-tab-number):not(.abcjs-chord):not(.abcjs-lyric) {
             display: none;
           }
-          /* 코드 이름을 위로 올린다. 오선을 지우고 나니 타브 줄에 바싹
-             붙어, 프렛 숫자와 코드가 한 덩어리로 보였다. */
-          .abc-tab-only .abcjs-chord { transform: translateY(-13px); }
           .abc-tab-only .abcjs-ledger,
           .abc-tab-only .abcjs-rest,
           .abc-tab-only .abcjs-slur,
