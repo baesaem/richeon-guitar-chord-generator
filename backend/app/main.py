@@ -1336,6 +1336,70 @@ async def _run_chord_read(result_id: str) -> None:
         _chord_reads[result_id] = {"state": "failed", "detail": str(exc)}
 
 
+_tab_reads: dict[str, dict] = {}
+
+
+async def _run_tab_read(result_id: str) -> None:
+    """그림 악보의 타브를 AI로 읽어 곡에 싣는다(뒤에서)."""
+    try:
+        result = load_result(result_id)
+        src = _sheet_source(result_id)
+        if result is None or not result.sheet or src is None:
+            raise ValueError("붙여 둔 악보 그림이 없습니다")
+
+        data = src.read_bytes()
+        if src.suffix.lower() == ".pdf":
+            pages, images = await asyncio.to_thread(sheet_layout.from_pdf, data)
+        else:
+            pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
+
+        got = await asyncio.to_thread(sheet_read.read_tab_ai, pages, images)
+        read = sum(1 for m in got["measures"] if m["cols"])
+        if not read:
+            raise ValueError("타브 숫자를 하나도 읽지 못했습니다")
+        result.picked_tab = got
+        save_result(result)
+        _tab_reads[result_id] = {
+            "state": "done",
+            "bars": len(got["measures"]),
+            "read": read,
+        }
+    except Exception as exc:
+        _tab_reads[result_id] = {"state": "failed", "detail": str(exc)}
+
+
+@app.post("/api/results/{result_id}/sheet/tab")
+async def read_sheet_tab(result_id: str) -> dict:
+    """그림 악보에 그려진 **타브**를 AI로 읽는다 — 시작만 하고 곧 돌려준다.
+
+    자로 재어 읽는 길(tab_image)은 인쇄가 또렷한 악보라야 한다. 스캔이
+    흐리거나 줄이 기울면 줄을 못 찾는데, 그럴 때는 AI가 눈으로 읽는 편이
+    낫다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    if not result.sheet:
+        raise HTTPException(400, "먼저 악보 그림을 붙여 주세요")
+    if _sheet_source(result_id) is None:
+        raise HTTPException(400, "악보 원본이 없습니다. 그림을 다시 붙여 주세요")
+
+    if _tab_reads.get(result_id, {}).get("state") == "running":
+        return {"state": "running"}
+    _tab_reads[result_id] = {"state": "running"}
+    asyncio.create_task(_run_tab_read(result_id))
+    return {"state": "running"}
+
+
+@app.get("/api/results/{result_id}/sheet/tab")
+async def read_sheet_tab_state(result_id: str) -> dict:
+    """타브 읽기가 끝났는지 물어본다."""
+    _guard_id(result_id)
+    return _tab_reads.get(result_id) or {"state": "idle"}
+
+
 @app.post("/api/results/{result_id}/sheet/chords")
 async def read_sheet_chords(result_id: str) -> dict:
     """종이 악보의 코드를 AI로 읽어 코드만 적힌 ABC를 만든다 — 시작만 한다.

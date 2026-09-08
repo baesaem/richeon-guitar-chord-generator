@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-import { putResult, putTabImage } from "@/lib/api";
+import { putResult, putTabImage, readSheetTabAi } from "@/lib/api";
 import type { AnalysisResult } from "@/lib/types";
 
 /**
@@ -48,6 +48,27 @@ export function TabAttach({
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "타브를 읽지 못했습니다");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * 붙여 둔 악보 그림의 타브를 AI에게 읽힌다.
+   *
+   * 자로 재어 읽는 길은 인쇄가 또렷한 악보라야 한다 — 스캔이 흐리거나
+   * 줄이 기울면 여섯 줄을 못 찾는다. 그럴 때 쓴다.
+   */
+  const readByAi = async () => {
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      const got = await readSheetTabAi(result.id);
+      onResult(got.result);
+      setNote(`AI가 ${got.bars}마디 가운데 ${got.read}마디를 읽었습니다.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "읽지 못했습니다");
     } finally {
       setBusy(false);
     }
@@ -102,6 +123,15 @@ export function TabAttach({
           : tab
             ? `타브 바꾸기 (${tab.measures.length}마디)`
             : "타브 읽어 붙이기"}
+      </button>
+      {/* 붙여 둔 악보 그림에서 AI로 읽는다. 자로 재는 길이 안 될 때 쓴다 */}
+      <button
+        className="rounded bg-[var(--chip)] px-2 py-0.5 disabled:opacity-40"
+        disabled={busy || !online}
+        onClick={() => void readByAi()}
+        title="붙여 둔 악보 그림(PDF·사진)에 그려진 타브를 AI가 눈으로 읽습니다. 자로 재어 읽는 길이 안 될 때 쓰세요"
+      >
+        AI로 타브 읽기
       </button>
       {tab && (
         <>

@@ -432,3 +432,78 @@ def read_chords(pages, images: list[bytes], title: str = "") -> dict:
         "abc": to_abc(found, count, title),
         "chord_bars": read_n,
     }
+
+
+# ── 그림 악보의 타브를 AI로 읽기 ──────────────────────────────────
+
+_TAB_PROMPT = """이 악보 그림에서 **타브(TAB) 여섯 줄에 적힌 프렛 숫자**를 읽어 주세요.
+
+그림 위에 빨간 상자와 번호가 찍혀 있습니다. 그 번호가 마디 번호입니다.
+
+타브는 왼쪽에 「TAB」이라고 적힌 여섯 줄짜리 보표입니다. 오선(음표가 있는
+보표)이 아니라 **숫자가 적힌 여섯 줄**을 읽으세요. 없으면 빈 배열로 두세요.
+
+읽는 법:
+- **맨 윗줄이 1번 줄**(가장 가는 줄), 맨 아랫줄이 6번 줄입니다.
+- 왼쪽에서 오른쪽으로, 세로로 같은 자리에 있는 숫자는 **함께 짚는 것**입니다.
+- 한 자리를 "프렛/줄"로 적습니다. 3번 프렛을 1번 줄에서 짚으면 "3/1"입니다.
+- 함께 짚는 것은 붙여 씁니다: "3/1 3/6" 처럼 한 칸 띄어 차례로.
+  같은 자리에 둘 이상이면 그 자리들을 **+**로 묶습니다: "3/1+3/6"
+- 개방현은 0입니다. 빗금(∕)만 있고 숫자가 없는 자리는 적지 마세요.
+
+보기: 마디에 「1번 줄 3 · 6번 줄 3」이 함께, 그다음 「4번 줄 0」, 그다음
+「3번 줄 0」이 있으면  →  "3/1+3/6 0/4 0/3"
+
+JSON만 답하세요. 못 읽은 마디는 넣지 마세요.
+
+{"tab": [{"bar": 마디번호, "cols": "3/1+3/6 0/4 0/3"}, ...]}
+"""
+
+
+def read_tab_ai(pages, images: list[bytes]) -> dict:
+    """그림 악보의 타브를 AI에게 읽힌다. picked_tab 모양으로 낸다."""
+    import re
+
+    shots: list[bytes] = []
+    first = 1
+    for page, raw in zip(pages, images):
+        png, first = _numbered(page, Image.open(io.BytesIO(raw)), first)
+        shots.append(png)
+    count = first - 1
+    if count < 2:
+        raise ValueError("마디를 찾지 못한 악보입니다.")
+
+    found = _ask(shots, prompt=_TAB_PROMPT)
+    per: dict[int, list[dict[str, int]]] = {}
+    for row in found.get("tab") or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            i = int(row.get("bar"))
+        except (TypeError, ValueError):
+            continue
+        if not 1 <= i <= count:
+            continue
+        cols: list[dict[str, int]] = []
+        for token in str(row.get("cols") or "").split():
+            col: dict[str, int] = {}
+            for one in token.split("+"):
+                m = re.fullmatch(r"(\d{1,2})/([1-6])", one.strip())
+                if not m:
+                    continue
+                fret, string = int(m.group(1)), int(m.group(2))
+                if 0 <= fret <= 24:
+                    col[str(string)] = fret
+            if col:
+                cols.append(col)
+        if cols:
+            per[i] = cols
+
+    measures = [
+        {"no": i, "kind": "pick", "cols": per.get(i, [])} for i in range(1, count + 1)
+    ]
+    return {
+        "bar_offset": 0,
+        "measures": measures,
+        "unread": sum(1 for m in measures if not m["cols"]),
+    }

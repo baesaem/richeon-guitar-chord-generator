@@ -224,6 +224,31 @@ export async function readSheetImage(id: string): Promise<AnalysisResult> {
 }
 
 /**
+ * 그림 악보에 그려진 **타브**를 AI로 읽는다.
+ *
+ * 자로 재어 읽는 길(타브 읽어 붙이기)은 인쇄가 또렷한 악보라야 한다.
+ * 스캔이 흐리거나 줄이 기울면 여섯 줄을 못 찾는데, 그럴 때는 AI가 눈으로
+ * 읽는 편이 낫다.
+ */
+export async function readSheetTabAi(
+  id: string,
+): Promise<{ bars: number; read: number; result: AnalysisResult }> {
+  await fetch(`${apiBase()}/api/results/${id}/sheet/tab`, { method: "POST" }).then(
+    json<{ state: string }>,
+  );
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const st = await fetch(`${apiBase()}/api/results/${id}/sheet/tab`).then(
+      json<{ state: string; detail?: string; bars?: number; read?: number }>,
+    );
+    if (st.state === "done")
+      return { bars: st.bars ?? 0, read: st.read ?? 0, result: await getResult(id) };
+    if (st.state === "failed") throw new Error(st.detail || "읽지 못했습니다");
+  }
+  throw new Error("너무 오래 걸립니다. 잠시 뒤 다시 눌러 주세요");
+}
+
+/**
  * 종이 악보의 코드를 AI로 읽어 코드만 적힌 ABC를 받는다.
  *
  * 음원만 듣고 딴 코드는 틀리는 데가 많다. 악보 그림을 붙인 곡도 코드가
