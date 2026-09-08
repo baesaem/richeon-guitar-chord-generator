@@ -1339,16 +1339,14 @@ async def _run_chord_read(result_id: str) -> None:
 _tab_reads: dict[str, dict] = {}
 
 
-async def _run_tab_read(result_id: str) -> None:
-    """그림 악보의 타브를 AI로 읽어 곡에 싣는다(뒤에서)."""
+async def _run_tab_read(result_id: str, data: bytes, is_pdf: bool) -> None:
+    """고른 그림 악보의 타브를 AI로 읽어 곡에 싣는다(뒤에서)."""
     try:
         result = load_result(result_id)
-        src = _sheet_source(result_id)
-        if result is None or not result.sheet or src is None:
-            raise ValueError("붙여 둔 악보 그림이 없습니다")
+        if result is None:
+            raise ValueError("분석 결과가 없습니다")
 
-        data = src.read_bytes()
-        if src.suffix.lower() == ".pdf":
+        if is_pdf:
             pages, images = await asyncio.to_thread(sheet_layout.from_pdf, data)
         else:
             pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
@@ -1369,27 +1367,33 @@ async def _run_tab_read(result_id: str) -> None:
 
 
 @app.post("/api/results/{result_id}/sheet/tab")
-async def read_sheet_tab(result_id: str) -> dict:
-    """그림 악보에 그려진 **타브**를 AI로 읽는다 — 시작만 하고 곧 돌려준다.
+async def read_sheet_tab(
+    result_id: str, file: UploadFile = File(...)
+) -> dict:
+    """고른 **그림 악보(PDF·사진)의 타브**를 AI로 읽는다 — 시작만 하고 돌려준다.
 
     자로 재어 읽는 길(tab_image)은 인쇄가 또렷한 악보라야 한다. 스캔이
-    흐리거나 줄이 기울면 줄을 못 찾는데, 그럴 때는 AI가 눈으로 읽는 편이
-    낫다.
+    흐리거나 줄이 기울면 여섯 줄을 못 찾는데, 그럴 때는 AI가 눈으로 읽는
+    편이 낫다. 「타브 바꾸기」와 마찬가지로 파일을 골라 넣는다.
     """
     _guard_id(result_id)
 
     result = load_result(result_id)
     if result is None:
         raise HTTPException(404, "분석 결과가 없습니다")
-    if not result.sheet:
-        raise HTTPException(400, "먼저 악보 그림을 붙여 주세요")
-    if _sheet_source(result_id) is None:
-        raise HTTPException(400, "악보 원본이 없습니다. 그림을 다시 붙여 주세요")
+
+    kind = (file.content_type or "").lower()
+    is_pdf = kind == "application/pdf"
+    if not is_pdf and not kind.startswith("image/"):
+        raise HTTPException(400, "PDF나 사진만 읽을 수 있습니다")
+    data = await file.read(_SHEET_MAX_BYTES + 1)
+    if len(data) > _SHEET_MAX_BYTES:
+        raise HTTPException(413, "파일이 너무 큽니다 (20MB까지)")
 
     if _tab_reads.get(result_id, {}).get("state") == "running":
         return {"state": "running"}
     _tab_reads[result_id] = {"state": "running"}
-    asyncio.create_task(_run_tab_read(result_id))
+    asyncio.create_task(_run_tab_read(result_id, data, is_pdf))
     return {"state": "running"}
 
 

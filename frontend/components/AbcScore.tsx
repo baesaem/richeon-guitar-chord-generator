@@ -549,18 +549,26 @@ function drawJumpMarks(host: HTMLElement, abc: string): void {
         `D.${jump[1].toUpperCase()}. al ${jump[2].toLowerCase() === "coda" ? "Coda" : "Fine"}`,
       );
     if (!marks.length) return;
-    const at = svg.querySelector(`.abcjs-mm${i}`) as SVGGraphicsElement | null;
-    if (!at) return;
-    let box: { x: number; y: number };
-    try {
-      box = at.getBBox();
-    } catch {
-      return;
+    /* 이 마디에 붙은 것들 가운데 **가장 위·가장 왼쪽**을 잡는다.
+       프렛 숫자를 기준 삼으면 글자가 타브 줄 사이에 끼어 읽기 어렵다 —
+       오선이 있던 자리(마디선 꼭대기) 위에 얹어야 눈에 들어온다. */
+    const spots = [...svg.querySelectorAll(`.abcjs-mm${i}`)] as SVGGraphicsElement[];
+    let x = Infinity;
+    let y = Infinity;
+    for (const node of spots) {
+      try {
+        const b = node.getBBox();
+        if (!b.width && !b.height) continue;
+        x = Math.min(x, b.x);
+        y = Math.min(y, b.y);
+      } catch {
+        // 그려지지 않은 것은 건너뛴다
+      }
     }
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const el = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    // 마디 위쪽에 큼직하게. 작게 붙이면 프렛 숫자에 묻혀 눈에 띄지 않는다
-    el.setAttribute("x", String(box.x));
-    el.setAttribute("y", String(Math.max(box.y - 10, 16)));
+    el.setAttribute("x", String(x));
+    el.setAttribute("y", String(Math.max(y - 6, 16)));
     el.setAttribute("font-size", "19");
     el.setAttribute("font-weight", "700");
     el.setAttribute("fill", "currentColor");

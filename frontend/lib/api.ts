@@ -232,10 +232,14 @@ export async function readSheetImage(id: string): Promise<AnalysisResult> {
  */
 export async function readSheetTabAi(
   id: string,
+  file: File,
 ): Promise<{ bars: number; read: number; result: AnalysisResult }> {
-  await fetch(`${apiBase()}/api/results/${id}/sheet/tab`, { method: "POST" }).then(
-    json<{ state: string }>,
-  );
+  const form = new FormData();
+  form.append("file", file);
+  await fetch(`${apiBase()}/api/results/${id}/sheet/tab`, {
+    method: "POST",
+    body: form,
+  }).then(json<{ state: string }>);
   for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 1500));
     const st = await fetch(`${apiBase()}/api/results/${id}/sheet/tab`).then(

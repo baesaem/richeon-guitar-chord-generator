@@ -25,6 +25,7 @@ export function TabAttach({
   online: boolean;
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
+  const pickAi = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,12 +60,12 @@ export function TabAttach({
    * 자로 재어 읽는 길은 인쇄가 또렷한 악보라야 한다 — 스캔이 흐리거나
    * 줄이 기울면 여섯 줄을 못 찾는다. 그럴 때 쓴다.
    */
-  const readByAi = async () => {
+  const readByAi = async (file: File) => {
     setBusy(true);
     setError(null);
     setNote(null);
     try {
-      const got = await readSheetTabAi(result.id);
+      const got = await readSheetTabAi(result.id, file);
       onResult(got.result);
       setNote(`AI가 ${got.bars}마디 가운데 ${got.read}마디를 읽었습니다.`);
     } catch (e) {
@@ -128,8 +129,8 @@ export function TabAttach({
       <button
         className="rounded bg-[var(--chip)] px-2 py-0.5 disabled:opacity-40"
         disabled={busy || !online}
-        onClick={() => void readByAi()}
-        title="붙여 둔 악보 그림(PDF·사진)에 그려진 타브를 AI가 눈으로 읽습니다. 자로 재어 읽는 길이 안 될 때 쓰세요"
+        onClick={() => pickAi.current?.click()}
+        title="그림 악보(PDF·사진)를 골라 넣으면 AI가 눈으로 읽어 이 화면의 타브에 적습니다. 자로 재어 읽는 길이 안 될 때 쓰세요"
       >
         AI로 타브 읽기
       </button>
@@ -166,6 +167,17 @@ export function TabAttach({
       )}
       {note && <span className="text-green-700 dark:text-green-400">{note}</span>}
       {error && <span className="text-red-600 dark:text-red-400">{error}</span>}
+      <input
+        ref={pickAi}
+        type="file"
+        accept="application/pdf,image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void readByAi(file);
+        }}
+      />
       <input
         ref={pick}
         type="file"
