@@ -28,6 +28,7 @@ import {
 } from "@/lib/abcStore";
 import { clearDirty, listDirty, markDirty } from "@/lib/dirty";
 import { ScoreAttach } from "@/components/ScoreAttach";
+import { TabAttach } from "@/components/TabAttach";
 import { SheetScore, type SheetData } from "@/components/SheetScore";
 import { sheetChords } from "@/lib/sheetChords";
 import { ChordSheet } from "@/components/ChordSheet";
@@ -1941,6 +1942,15 @@ export default function Home() {
                 그 틈으로 지나가, 붙박이 안내줄 위에 반쯤 보인다.
                 여백이 필요한 탭은 저마다 pt로 준다. */}
                 <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
+                  {/* 타브 붙이기는 타브 화면에 둔다 — 읽어 온 숫자가
+                      제자리에 앉았는지 보면서 밀어야 맞출 수 있다 */}
+                  {sheetTab === "score" && settings.adminMode && (
+                    <TabAttach
+                      result={result}
+                      onResult={adoptResult}
+                      online={!!health}
+                    />
+                  )}
                   {sheetTab === "score" && (
                     /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
                     <ChordScore
