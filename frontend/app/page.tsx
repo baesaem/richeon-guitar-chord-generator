@@ -2867,7 +2867,9 @@ export default function Home() {
                     <span className="flex shrink-0 items-center gap-px">
                       {(
                         [
-                          ["abc", "악보"],
+                          // 편집 화면과 같은 이름을 쓴다 — 같은 것을 두
+                          // 이름으로 부르면 어느 것이 어느 것인지 모른다
+                          ["abc", "멜로디"],
                           ["tab", "타브"],
                           ["wave", "파형"],
                           ["grid", "그리드"],
