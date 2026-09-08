@@ -166,10 +166,14 @@ export function AbcScore({
       /* 마디 번호는 %%barnumbers 지시로 켠다.
          악보 원문은 건드리지 않고 그릴 때만 앞에 붙인다 — 저장되는
          악보에 우리 취향을 섞지 않기 위해서다. */
-      const drawn = /^%%barnumbers/m.test(abc)
-        ? abc
-        : `%%barnumbers 1
+      let drawn = /^%%barnumbers/m.test(abc) ? abc : `%%barnumbers 1
 ${abc}`;
+      /* 타브 화면에서는 오선을 지운다.
+         abcjs는 타브를 오선 **아래에** 덧그릴 뿐 오선을 뺄 길을 주지
+         않는다. 줄은 %%stafflines 0으로 지우고, 음표·기둥은 아래 CSS가
+         가린다 — 남는 것은 여섯 줄 타브와 코드·가사·마디 번호다. */
+      if (tab) drawn = `%%stafflines 0
+${drawn}`;
       const [obj] = ABCJS.renderAbc(hostRef.current, drawn, params);
       if (!obj) return;
       obj.setTiming();
@@ -487,10 +491,27 @@ ${abc}`;
           </span>
         )}
       </SongInfoLine>
+      {/* 타브만 보일 때 오선의 음표·기둥·이음줄을 가린다 */}
+      {tab && (
+        <style>{`
+          /* 음표 묶음 안에서 머리·기둥·빔만 걷는다. 프렛 숫자와 코드·가사도
+             같은 묶음에 들어 있어, 통째로 가리면 함께 사라진다. */
+          .abc-tab-only .abcjs-note > *:not(.abcjs-tab-number):not(.abcjs-chord):not(.abcjs-lyric) {
+            display: none;
+          }
+          .abc-tab-only .abcjs-ledger,
+          .abc-tab-only .abcjs-rest,
+          .abc-tab-only .abcjs-slur,
+          .abc-tab-only .abcjs-tie,
+          .abc-tab-only .abcjs-triplet,
+          .abc-tab-only .abcjs-staff-extra.abcjs-clef,
+          .abc-tab-only .abcjs-staff-extra.abcjs-key-signature { display: none; }
+        `}</style>
+      )}
       {/* abcjs는 currentColor로 그린다 — 다크 모드의 연회색 글자색이
           상속되면 흰 종이 위 악보가 흐려진다. 종이는 늘 흰색·검정이다 */}
       <div className="min-h-0 flex-1 overflow-y-auto rounded bg-white px-2 py-1 text-black">
-        <div ref={hostRef} />
+        <div ref={hostRef} className={tab ? "abc-tab-only" : undefined} />
       </div>
     </div>
   );

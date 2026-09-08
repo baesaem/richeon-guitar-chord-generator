@@ -93,6 +93,15 @@ interface Props {
    */
   pickedTab?: Record<number, PickedBar>;
   /**
+   * 마디에 적을 번호. 음원 마디 번호(0부터) → 화면에 적을 번호.
+   *
+   * 악보가 붙어 있으면 **악보의 마디 번호**를 적는다. 도돌이를 돌면 음원
+   * 마디는 계속 늘지만 악보는 같은 마디를 다시 부르는 것이라, 음원 번호를
+   * 적으면 멜로디 악보와 서로 다른 번호를 가리키게 된다 — 「몇 마디」로
+   * 짚어 말할 수가 없다.
+   */
+  barLabels?: Record<number, number>;
+  /**
    * 가사. 있으면 마디마다 그 마디에서 부르는 대목을 오선 아래에 적는다.
    * 어느 마디에서 무엇을 부르는지 보이지 않으면, 타브만 보고는 곡의
    * 어디쯤인지 짚기 어렵다.
@@ -151,6 +160,7 @@ export function ChordScore({
   arp = 0,
   strumName = "",
   pickedTab,
+  barLabels,
   lyrics,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
@@ -490,12 +500,12 @@ export function ChordScore({
                       </text>
                     )}
 
-                    {/* 마디 번호 */}
+                    {/* 마디 번호. 악보가 붙어 있으면 악보의 번호를 적는다 */}
                     <text
                       x={x0 + 2} y={STAFF_TOP - 3}
                       fontSize={5.5} fill="currentColor" opacity={0.4}
                     >
-                      {bar.number}
+                      {barLabels?.[index] ?? bar.number}
                     </text>
 
                     {/* 누르면 그 마디로 이동, 길게 누르면 코드 고치기 */}

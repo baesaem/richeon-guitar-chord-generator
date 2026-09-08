@@ -416,6 +416,29 @@ export default function Home() {
    * 악보가 이미 내려가 있어 카포만큼 **두 번** 내려간다 — 그만큼 도로
    * 올려 그린다.
    */
+  /**
+   * 음원 마디 번호 → **악보의 마디 번호**.
+   *
+   * 도돌이를 돌면 음원 마디는 계속 늘지만 악보는 같은 마디를 다시 부른다.
+   * 타브 화면이 음원 번호를 적으면 멜로디 악보와 다른 번호를 가리켜,
+   * 「몇 마디」로 짚어 말할 수가 없다.
+   */
+  const scoreBarNumbers = useMemo(() => {
+    if (!abcEntry?.abc) return undefined;
+    let order: number[] | null = null;
+    try {
+      order = abcOrders(abcEntry.abc)?.withJump ?? null;
+    } catch {
+      order = null;
+    }
+    if (!order?.length) return undefined;
+    const out: Record<number, number> = {};
+    order.forEach((d, k) => {
+      out[k + (abcEntry.barOffset ?? 0)] = d + 1;
+    });
+    return out;
+  }, [abcEntry?.abc, abcEntry?.barOffset]);
+
   /** 악보를 펼쳤을 때의 마디 수. 음원 마디 수와 견주어 어긋남을 보인다 */
   const abcPlayedBars = useMemo(() => {
     let n = 0;
@@ -1156,11 +1179,12 @@ export default function Home() {
    * 붙여 둔 악보가 있으면 타브도 그 악보를 보여야 한다 — 코드에서
    * 만들어 낸 운지가 아니라 편곡자가 적은 음을 짚게 된다.
    *
-   * **기본은 멜로디 악보다.** 그림 악보에서 프렛 숫자를 읽어 두었으면
-   * 그것이 이긴다 — 사람이 적어 둔 운지이니 우리가 만든 것보다 낫다.
+   * 악보 그대로 그린다 — 도돌이표·세뇨·코다가 접힌 채로다. 음원 마디를
+   * 펴서 늘어놓으면 종이 악보와 마디가 달라져 「몇 마디」로 짚어 말할 수
+   * 없다.
    */
   const abcTab =
-    result && abcEntry && !pickedBars ? (
+    result && abcEntry ? (
       <AbcScore
         tab
         abc={unified?.abc ?? abcEntry.abc}
@@ -2052,6 +2076,7 @@ export default function Home() {
                       bars={bars}
                       chords={shownChords}
                       pickedTab={pickedBars}
+                      barLabels={scoreBarNumbers}
                       lyrics={shown?.lyrics}
                       strums={result.strums}
                       sync={sync}
@@ -2505,6 +2530,7 @@ export default function Home() {
                             bars={bars}
                             chords={shownChords}
                             pickedTab={pickedBars}
+                      barLabels={scoreBarNumbers}
                             lyrics={shown?.lyrics}
                             strums={result.strums}
                             /* 싱크·줄당 마디 손잡이는 위 설정줄에 있다.
@@ -3335,6 +3361,7 @@ export default function Home() {
                               bars={bars}
                               chords={shownChords}
                               pickedTab={pickedBars}
+                      barLabels={scoreBarNumbers}
                               lyrics={shown?.lyrics}
                               strums={result.strums}
                               sync={sync}
