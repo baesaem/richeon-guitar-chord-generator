@@ -149,13 +149,8 @@ def _chord_label(el: ET.Element) -> str | None:
     return name
 
 
-def parse(data: bytes | str) -> Score:
-    """악보 파일을 읽는다.
-
-    뮤즈스코어(.mscz/.mscx)와 MusicXML(.musicxml/.xml/.mxl)을 함께 받는다.
-    어느 쪽인지는 파일 이름이 아니라 속을 열어 보고 가린다 — 이름은
-    옮겨 적다 바뀌지만 속은 바뀌지 않는다.
-    """
+def parse(data: bytes | str, staff: int = 0) -> Score:
+    """악보 파일을 읽는다. staff는 혼성 악보에서 쓸 보표(0부터)."""
     if isinstance(data, str):
         xml = data
     elif data[:2] == b"PK":
@@ -184,11 +179,14 @@ def parse(data: bytes | str) -> Score:
 
     meta = {m.get("name"): (m.text or "") for m in score_el.findall("metaTag")}
 
-    staves = score_el.findall("Staff")
+    staves = [s for s in score_el.findall("Staff") if s.find("Measure") is not None]
     if not staves:
         raise ValueError("보표가 없습니다.")
-    # 여러 성부가 있으면 첫 보표(대개 멜로디)만 쓴다
-    measures = staves[0].findall("Measure")
+    # 혼성 악보는 보표가 여럿이다(노래·기타·타브). 고르지 않으면 첫 보표
+    # (대개 멜로디)를 쓴다 — 어느 것이 멜로디인지는 사람이 골라야 한다.
+    if not 0 <= staff < len(staves):
+        raise ValueError(f"보표가 {len(staves)}개뿐입니다 (고른 것: {staff + 1}번째)")
+    measures = staves[staff].findall("Measure")
 
     fifths = 0
     time_signature = "4/4"

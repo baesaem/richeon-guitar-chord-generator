@@ -36,12 +36,12 @@ const XML_KINDS = /\.(xml|musicxml|mxl)$/i;
 const IMAGE_KINDS = /\.(pdf|png|jpe?g|webp)$/i;
 
 /** 파일에서 ABC를 얻는다. 얻을 수 없는 종류면 null */
-async function toAbc(file: File): Promise<string | null> {
+async function toAbc(file: File, staff = 0): Promise<string | null> {
   const name = file.name;
   if (ABC_KINDS.test(name)) return (await file.text()).trim() || null;
   if (MSCZ_KINDS.test(name)) {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    return msczToAbc(bytes, name);
+    return msczToAbc(bytes, name, staff);
   }
   return null;
 }
@@ -91,6 +91,8 @@ export interface ScoreAtRegisterResult {
 export async function attachScoreAfterAnalysis(
   result: AnalysisResult,
   file: File,
+  /** 혼성 악보에서 쓸 보표(0부터). 노래·기타·타브 중 어느 것이 멜로디인지는 사람이 고른다 */
+  staff = 0,
 ): Promise<ScoreAtRegisterResult> {
   const notes: string[] = [];
   let cur = result;
@@ -99,7 +101,7 @@ export async function attachScoreAfterAnalysis(
   //    그쪽을 쓴다. 서버가 거절해도 아래 ABC 길은 그대로 간다.
   if (MSCZ_KINDS.test(file.name) || XML_KINDS.test(file.name)) {
     try {
-      cur = await putScore(cur.id, file);
+      cur = await putScore(cur.id, file, staff);
       notes.push("악보를 붙였습니다");
     } catch (e) {
       notes.push(`악보 붙이기 실패: ${(e as Error).message}`);
@@ -123,7 +125,7 @@ export async function attachScoreAfterAnalysis(
     }
   } else {
     try {
-      abc = await toAbc(file);
+      abc = await toAbc(file, staff);
     } catch (e) {
       notes.push(`악보를 읽지 못했습니다: ${(e as Error).message}`);
     }

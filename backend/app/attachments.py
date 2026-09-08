@@ -89,12 +89,14 @@ def restore(result: AnalysisResult, old: dict | None) -> None:
             from . import score_align, score_file
             from .analysis.asr import transcribe_words
 
-            parsed = score_file.parse(path.read_bytes())
+            staff = int((old.get("score") or {}).get("staff") or 0)
+            parsed = score_file.parse(path.read_bytes(), staff)
             words = [
                 {"text": w.text, "start": w.start, "end": w.end}
                 for w in transcribe_words(result.id)
             ]
             result.score = score_file.to_dict(parsed)
+            result.score["staff"] = staff
             result.score_align = score_align.align(parsed, result.model_dump(), words)
         except Exception:
             # 다시 맞추지 못하면 예전 것이라도 남긴다. 조금 어긋난 악보가

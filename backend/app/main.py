@@ -898,7 +898,9 @@ async def put_lyrics(result_id: str, lyrics: list[LyricLine]) -> AnalysisResult:
 
 
 @app.post("/api/results/{result_id}/score")
-async def put_score(result_id: str, file: UploadFile = File(...)) -> AnalysisResult:
+async def put_score(
+    result_id: str, file: UploadFile = File(...), staff: int = Form(0)
+) -> AnalysisResult:
     """정식 악보(뮤즈스코어 .mscz/.mscx)를 이 곡에 붙인다.
 
     보컬에서 딴 멜로디는 부른 음의 15~30%밖에 잡히지 않는다. 강사님이
@@ -917,7 +919,7 @@ async def put_score(result_id: str, file: UploadFile = File(...)) -> AnalysisRes
     if not data:
         raise HTTPException(400, "빈 파일입니다")
     try:
-        parsed = score_file.parse(data)
+        parsed = score_file.parse(data, staff)
     except Exception as exc:
         raise HTTPException(400, f"악보를 읽지 못했습니다: {exc}") from exc
     if not parsed.bars:
@@ -945,6 +947,7 @@ async def put_score(result_id: str, file: UploadFile = File(...)) -> AnalysisRes
     )
 
     result.score = score_file.to_dict(parsed)
+    result.score["staff"] = staff   # 혼성 악보에서 고른 보표. 재분석이 다시 읽을 때 쓴다
     result.score_align = alignment
     # 그림이 이미 붙어 있으면 새 정렬로 시각을 다시 준다. 안 그러면
     # 악보는 바뀌었는데 그림 위 커서는 예전 자리를 지나간다.

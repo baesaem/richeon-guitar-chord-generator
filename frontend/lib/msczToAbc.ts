@@ -225,23 +225,62 @@ function measureToAbc(
   return { music: toks.join(" "), syls, syls2 };
 }
 
-/** .mscz(또는 .mscx) 바이트 → ABC. 실패하면 이유를 담아 던진다 */
-export function msczToAbc(data: Uint8Array, fileName: string): string {
-  let xml: string;
-  if (fileName.toLowerCase().endsWith(".mscx")) {
-    xml = new TextDecoder().decode(data);
-  } else {
-    const files = unzipSync(data);
-    const mscxName = Object.keys(files).find((n) => n.endsWith(".mscx"));
-    if (!mscxName) throw new Error("mscz 안에서 악보(.mscx)를 찾지 못했습니다");
-    xml = new TextDecoder().decode(files[mscxName]);
-  }
+/** .mscz(또는 .mscx) 바이트 → 악보 XML 글 */
+function loadMscx(data: Uint8Array, fileName: string): string {
+  if (fileName.toLowerCase().endsWith(".mscx")) return new TextDecoder().decode(data);
+  const files = unzipSync(data);
+  const mscxName = Object.keys(files).find((n) => n.endsWith(".mscx"));
+  if (!mscxName) throw new Error("mscz 안에서 악보(.mscx)를 찾지 못했습니다");
+  return new TextDecoder().decode(files[mscxName]);
+}
 
-  // 마디를 품은 스태프만 (Part 정의부의 껍데기 Staff는 거른다)
-  const staffBlocks = [
-    ...xml.matchAll(/<Staff id="(\d)">([\s\S]*?)<\/Staff>\s*(?=<Staff id="|<\/Score>)/g),
+/** 마디를 품은 보표들. (Part 정의부의 껍데기 Staff는 거른다) */
+function staffBlocksOf(xml: string): RegExpMatchArray[] {
+  return [
+    ...xml.matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>\s*(?=<Staff id="|<\/Score>)/g),
   ].filter((m) => m[2].includes("<Measure"));
+}
+
+export interface MsczPart {
+  /** 보표 차례(0부터). msczToAbc·서버에 넘기는 값 */
+  index: number;
+  /** 사람이 읽는 이름 — 「노래」「기타」「Guitar (Tab)」 같은 것 */
+  name: string;
+}
+
+/**
+ * 혼성 악보의 보표 목록.
+ *
+ * 노래·기타·타브가 한 파일에 든 악보는 어느 보표가 멜로디인지 파일만
+ * 봐서는 모른다. 이름을 뽑아 사람이 고르게 한다. 보표가 하나면 빈 목록.
+ */
+export function msczParts(data: Uint8Array, fileName: string): MsczPart[] {
+  const xml = loadMscx(data, fileName);
+  const blocks = staffBlocksOf(xml);
+  if (blocks.length < 2) return [];
+  // Part 정의부: <Part><Staff id="n"/>…<trackName>이름</trackName>
+  const names = new Map<string, string>();
+  for (const part of xml.matchAll(/<Part[ >][\s\S]*?<\/Part>/g)) {
+    const ids = [...part[0].matchAll(/<Staff id="(\d+)"/g)].map((m) => m[1]);
+    const name =
+      (part[0].match(/<trackName>([^<]*)/) ?? [])[1]?.trim() ||
+      (part[0].match(/<longName>([^<]*)/) ?? [])[1]?.trim() ||
+      (part[0].match(/<instrumentId>([^<]*)/) ?? [])[1]?.trim() ||
+      "";
+    ids.forEach((id, k) => names.set(id, ids.length > 1 ? `${name} ${k + 1}` : name));
+  }
+  return blocks.map((b, i) => {
+    const tab = /<StaffType[^>]*>[\s\S]*?<name>[^<]*tab/i.test(b[2]) ? " (타브)" : "";
+    return { index: i, name: (names.get(b[1]) || `${i + 1}번 보표`) + tab };
+  });
+}
+
+/** .mscz(또는 .mscx) 바이트 → ABC. 실패하면 이유를 담아 던진다. staff는 혼성 악보에서 쓸 보표(0부터) */
+export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string {
+  const xml = loadMscx(data, fileName);
+  const staffBlocks = staffBlocksOf(xml);
   if (!staffBlocks.length) throw new Error("악보에서 마디를 찾지 못했습니다");
+  if (!staffBlocks[staff]) throw new Error(`보표가 ${staffBlocks.length}개뿐입니다`);
 
   const title = (xml.match(/<metaTag name="workTitle">([^<]*)/) ?? [])[1] ?? "";
   const tempoM = xml.match(/<tempo>([\d.]+)/);
@@ -250,7 +289,7 @@ export function msczToAbc(data: Uint8Array, fileName: string): string {
   const sigD = (xml.match(/<sigD>(\d+)/) ?? [0, 4])[1];
   const firstKey = +((xml.match(/<KeySig>[\s\S]*?<accidental>(-?\d+)/) ?? [0, 0])[1]);
 
-  const staff1 = parseStaff(staffBlocks[0][2]);
+  const staff1 = parseStaff(staffBlocks[staff][2]);
   const st = { sig: firstKey, keyChange: null as string | null };
   const PER_LINE = 4;
   const lines: string[] = [];

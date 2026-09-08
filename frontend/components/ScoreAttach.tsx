@@ -17,6 +17,8 @@ import {
 } from "@/lib/api";
 import type { ScoreAlign, ScoreData } from "@/lib/scoreStaff";
 import type { AnalysisResult } from "@/lib/types";
+import { msczParts, type MsczPart } from "@/lib/msczToAbc";
+import { Popup } from "@/components/Popup";
 
 /**
  * 정식 악보 붙이기 — 강사님 화면에만 나온다.
@@ -166,16 +168,36 @@ export function ScoreAttach({
     }
   };
 
-  const attach = async (file: File) => {
+  const attach = async (file: File, staff = 0) => {
     setBusy(true);
     setError(null);
     try {
-      onResult(await putScore(result.id, file));
+      onResult(await putScore(result.id, file, staff));
     } catch (e) {
       setError(e instanceof Error ? e.message : "악보를 붙이지 못했습니다");
     } finally {
       setBusy(false);
     }
+  };
+
+  /**
+   * 혼성 악보(노래·기타·타브가 한 파일)면 어느 보표를 쓸지 묻는다.
+   * 파일만 봐서는 어느 것이 멜로디인지 모른다 — 사람이 고른다.
+   */
+  const [askPart, setAskPart] = useState<{ file: File; parts: MsczPart[] } | null>(null);
+  const pickScore = async (file: File) => {
+    if (/\.(mscz|mscx)$/i.test(file.name)) {
+      try {
+        const parts = msczParts(new Uint8Array(await file.arrayBuffer()), file.name);
+        if (parts.length > 1) {
+          setAskPart({ file, parts });
+          return;
+        }
+      } catch {
+        // 목록을 못 뽑으면 첫 보표로 붙인다 — 서버가 다시 읽는다
+      }
+    }
+    await attach(file);
   };
 
   const attachImage = async (file: File) => {
@@ -441,9 +463,32 @@ export function ScoreAttach({
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
-          if (file) void attach(file);
+          if (file) void pickScore(file);
         }}
       />
+      {askPart && (
+        <Popup title="어느 보표를 쓸까요" width="max-w-xs" onClose={() => setAskPart(null)}>
+          <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+            혼성 악보입니다. 멜로디·가사·코드를 읽을 보표를 고르세요. 타브는
+            멜로디가 아닙니다.
+          </p>
+          <div className="space-y-1.5">
+            {askPart.parts.map((p) => (
+              <button
+                key={p.index}
+                className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
+                onClick={() => {
+                  const f = askPart.file;
+                  setAskPart(null);
+                  void attach(f, p.index);
+                }}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </Popup>
+      )}
       <input
         ref={pickImage}
         type="file"

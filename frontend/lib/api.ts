@@ -149,9 +149,10 @@ export const renameResult = (id: string, title: string) =>
  * 악보를 올리면 서버가 음표·가사·코드를 읽어 이 음원의 시각에 이어
  * 두고, 가사가 어긋나는 마디를 함께 돌려준다.
  */
-export const putScore = (id: string, file: File) => {
+export const putScore = (id: string, file: File, staff = 0) => {
   const form = new FormData();
   form.append("file", file);
+  form.append("staff", String(staff));   // 혼성 악보에서 쓸 보표(0부터)
   return fetch(`${apiBase()}/api/results/${id}/score`, {
     method: "POST",
     body: form,

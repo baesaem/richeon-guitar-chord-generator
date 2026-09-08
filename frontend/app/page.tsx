@@ -600,10 +600,10 @@ export default function Home() {
               }
               // 등록하면서 함께 넣은 악보 — 붙이고, 마디 수를 맞추고,
               // 코드가 악보를 따르게 한다. 분석이 끝난 지금이 그 자리다.
-              const file = pendingScore.current;
-              if (file) {
+              const pending = pendingScore.current;
+              if (pending) {
                 pendingScore.current = null;
-                void attachScoreAfterAnalysis(r, file).then(({ result: r2, notes }) => {
+                void attachScoreAfterAnalysis(r, pending.file, pending.staff).then(({ result: r2, notes }) => {
                   adoptResult(r2);
                   setAbcEntry(getAbc(r2.id));
                   setToast(`${r2.title || r2.id} — ${notes.join(" · ")}`);
@@ -1315,7 +1315,7 @@ export default function Home() {
   /** 새 음원을 등록하는 동안 들고 있는 악보. 분석이 끝나면 그 곡에 붙인다 */
   const pendingAbc = useRef<string | null>(null);
   /** 등록하면서 함께 넣은 악보 파일. 분석이 끝나면 그 곡에 싣는다 */
-  const pendingScore = useRef<File | null>(null);
+  const pendingScore = useRef<{ file: File; staff: number } | null>(null);
   /** 저장 결과를 알리는 짧은 안내 */
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
@@ -3416,8 +3416,8 @@ export default function Home() {
               separate={settings.separate}
               adminMode={settings.adminMode}
               autoOpen={importCard}
-              onAnalyzeUrl={(u, score) => {
-                pendingScore.current = score ?? null;
+              onAnalyzeUrl={(u, score, staff) => {
+                pendingScore.current = score ? { file: score, staff: staff ?? 0 } : null;
                 void run(() => analyzeUrl(u, settings.separate));
               }}
               onAnalyzeWithAi={aiAnalyze}
