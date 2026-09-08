@@ -115,6 +115,37 @@ interface Measure {
   startRepeat: boolean;
   endRepeat: boolean;
   volta: string | null;
+  /** 세뇨·코다·다카포 따위. ABC 기호로 옮겨 둔 것 */
+  marks: string;
+}
+
+/**
+ * 뮤즈스코어의 되돌이 지시를 ABC 기호로.
+ *
+ * 이것을 옮기지 않으면 「D.S. al Coda」가 통째로 사라져, 41마디 악보가
+ * 48마디로만 펴진다(실제로 부르는 것은 64마디다). 그러면 음원과 마디
+ * 수가 어긋난 줄도 모르고 진행 바가 느리게 간다 — 「광화문 연가」가
+ * 그랬다.
+ *
+ * 뮤즈스코어의 이름은 우리와 다르다. To Coda 자리가 label="coda"이고,
+ * 코다 본문이 label="codab"이다. ABC에서는 둘 다 !coda!로 적는다 —
+ * 코다 표가 둘이면 앞의 것이 빠져나가는 자리, 뒤의 것이 코다 본문이다.
+ */
+function marksToAbc(content: string): string {
+  let out = "";
+  for (const m of content.matchAll(/<Marker>([\s\S]*?)<\/Marker>/g)) {
+    const label = (m[1].match(/<label>([^<]*)/) ?? [])[1]?.trim();
+    if (label === "segno") out += "!segno!";
+    else if (label === "coda" || label === "codab") out += "!coda!";
+    else if (label === "fine") out += "!fine!";
+  }
+  for (const j of content.matchAll(/<Jump>([\s\S]*?)<\/Jump>/g)) {
+    const to = (j[1].match(/<jumpTo>([^<]*)/) ?? [])[1]?.trim() ?? "";
+    const cont = (j[1].match(/<continueAt>([^<]*)/) ?? [])[1]?.trim() ?? "";
+    const ds = to === "segno" ? "D.S." : "D.C.";
+    out += cont ? `!${ds}alcoda!` : `!${ds}alfine!`;
+  }
+  return out;
 }
 
 function parseStaff(body: string): Measure[] {
@@ -187,6 +218,7 @@ function parseStaff(body: string): Measure[] {
       startRepeat: /<startRepeat/.test(content),
       endRepeat: /<endRepeat/.test(content),
       volta: (content.match(/<Volta[\s\S]*?<endings>(\d+)/) ?? [])[1] ?? null,
+      marks: marksToAbc(content),
     });
   }
   return measures;
@@ -234,10 +266,19 @@ function loadMscx(data: Uint8Array, fileName: string): string {
   return new TextDecoder().decode(files[mscxName]);
 }
 
-/** 마디를 품은 보표들. (Part 정의부의 껍데기 Staff는 거른다) */
+/**
+ * 마디를 품은 보표들.
+ *
+ * Part 정의부에도 <Staff id="n">이 있다(악기 설정만 든 껍데기). 앞에서부터
+ * 훑으면 그 껍데기가 첫 보표의 마디까지 삼켜 번호가 엇갈린다 — 광화문
+ * 연가에서 id가 3·2·3으로 나와, 플루트 보표에 「어쿠스틱 기타 2 (타브)」
+ * 라는 이름이 붙었다. Part 정의부가 끝난 뒤부터 뒤진다.
+ */
 function staffBlocksOf(xml: string): RegExpMatchArray[] {
+  const from = xml.lastIndexOf("</Part>");
+  const body = from >= 0 ? xml.slice(from) : xml;
   return [
-    ...xml.matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>\s*(?=<Staff id="|<\/Score>)/g),
+    ...body.matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>\s*(?=<Staff id="|<\/Score>)/g),
   ].filter((m) => m[2].includes("<Measure"));
 }
 
@@ -259,20 +300,22 @@ export function msczParts(data: Uint8Array, fileName: string): MsczPart[] {
   const blocks = staffBlocksOf(xml);
   if (blocks.length < 2) return [];
   // Part 정의부: <Part><Staff id="n"/>…<trackName>이름</trackName>
+  // 이름과 타브 여부는 Part 정의부에 있다. 보표마다 StaffType이 붙어 있고,
+  // 타브는 group="tablature"다 — 기타 한 대가 오선과 타브 두 보표를 갖는다.
   const names = new Map<string, string>();
   for (const part of xml.matchAll(/<Part[ >][\s\S]*?<\/Part>/g)) {
-    const ids = [...part[0].matchAll(/<Staff id="(\d+)"/g)].map((m) => m[1]);
+    const staffs = [...part[0].matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>/g)];
     const name =
       (part[0].match(/<trackName>([^<]*)/) ?? [])[1]?.trim() ||
       (part[0].match(/<longName>([^<]*)/) ?? [])[1]?.trim() ||
       (part[0].match(/<instrumentId>([^<]*)/) ?? [])[1]?.trim() ||
       "";
-    ids.forEach((id, k) => names.set(id, ids.length > 1 ? `${name} ${k + 1}` : name));
+    staffs.forEach((st, k) => {
+      const tab = /<StaffType[^>]*group="tablature"/.test(st[2]) ? " (타브)" : "";
+      names.set(st[1], (staffs.length > 1 ? `${name} ${k + 1}` : name) + tab);
+    });
   }
-  return blocks.map((b, i) => {
-    const tab = /<StaffType[^>]*>[\s\S]*?<name>[^<]*tab/i.test(b[2]) ? " (타브)" : "";
-    return { index: i, name: (names.get(b[1]) || `${i + 1}번 보표`) + tab };
-  });
+  return blocks.map((b, i) => ({ index: i, name: names.get(b[1]) || `${i + 1}번 보표` }));
 }
 
 /** .mscz(또는 .mscx) 바이트 → ABC. 실패하면 이유를 담아 던진다. staff는 혼성 악보에서 쓸 보표(0부터) */
@@ -290,6 +333,22 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
   const firstKey = +((xml.match(/<KeySig>[\s\S]*?<accidental>(-?\d+)/) ?? [0, 0])[1]);
 
   const staff1 = parseStaff(staffBlocks[staff][2]);
+  /*
+   * 되돌이·1·2번 괄호·세뇨·코다는 악보 전체의 일이라, 뮤즈스코어는
+   * **첫 보표에만** 적어 둔다. 기타 보표를 골랐다고 그것을 잃으면 41마디
+   * 악보가 41마디로만 펴진다 — 도돌이가 통째로 날아간다.
+   */
+  if (staff > 0) {
+    const first = parseStaff(staffBlocks[0][2]);
+    staff1.forEach((m, j) => {
+      const f = first[j];
+      if (!f) return;
+      if (!m.startRepeat) m.startRepeat = f.startRepeat;
+      if (!m.endRepeat) m.endRepeat = f.endRepeat;
+      if (m.volta === null) m.volta = f.volta;
+      if (!m.marks) m.marks = f.marks;
+    });
+  }
   const st = { sig: firstKey, keyChange: null as string | null };
   const PER_LINE = 4;
   const lines: string[] = [];
@@ -300,7 +359,9 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
     for (let j = i; j < Math.min(i + PER_LINE, staff1.length); j++) {
       const meas = staff1[j];
       const pre =
-        (meas.startRepeat ? "|: " : "") + (meas.volta ? `[${meas.volta} ` : "");
+        (meas.startRepeat ? "|: " : "") +
+        (meas.volta ? `[${meas.volta} ` : "") +
+        meas.marks;
       const bar = meas.endRepeat ? " :|" : " |";
       st.keyChange = null;
       const r = measureToAbc(meas, st);

@@ -418,13 +418,24 @@ export default function Home() {
    */
   /** 악보를 펼쳤을 때의 마디 수. 음원 마디 수와 견주어 어긋남을 보인다 */
   const abcPlayedBars = useMemo(() => {
-    if (!abcEntry?.abc) return 0;
-    try {
-      return abcOrders(abcEntry.abc)?.withJump.length ?? 0;
-    } catch {
-      return 0;
+    let n = 0;
+    if (abcEntry?.abc) {
+      try {
+        n = abcOrders(abcEntry.abc)?.withJump.length ?? 0;
+      } catch {
+        n = 0;
+      }
     }
-  }, [abcEntry?.abc]);
+    /*
+     * 종이 악보를 AI가 읽어 둔 차례가 있으면 **큰 쪽**을 쓴다.
+     *
+     * 한쪽이 세뇨·코다를 놓치면 작게 나오는데, 작은 쪽을 믿으면 「어긋난
+     * 마디 없음」으로 조용히 넘어가 버린다. 되풀이를 덜 편 것이 더 편
+     * 것보다 옳을 일은 없다.
+     */
+    const order = (shown?.sheet as { order?: number[] } | null | undefined)?.order;
+    return Math.max(n, order?.length ?? 0);
+  }, [abcEntry?.abc, shown?.sheet]);
   const audioBarCount = shown?.beats.filter((b) => b.beat === 1).length ?? 0;
   /** 음원의 박을 악보의 펼친 마디 수에 맞춰 고르게 다시 깐다 */
   const fitBarsToScore = async (n: number) => {
