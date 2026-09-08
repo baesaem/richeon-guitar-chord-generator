@@ -16,6 +16,7 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { AbcScore } from "@/components/AbcScore";
 import { unifyChords } from "@/lib/abcChords";
+import { abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { PracticeRoom } from "@/components/PracticeRoom";
 import { MelodyScore } from "@/components/MelodyScore";
@@ -72,6 +73,7 @@ import {
   makeInstrumental,
   makeVocals,
   watchJob,
+  fixBeats,
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, getLocalAudio, listLocal, saveLocal } from "@/lib/library";
@@ -414,6 +416,27 @@ export default function Home() {
    * 악보가 이미 내려가 있어 카포만큼 **두 번** 내려간다 — 그만큼 도로
    * 올려 그린다.
    */
+  /** 악보를 펼쳤을 때의 마디 수. 음원 마디 수와 견주어 어긋남을 보인다 */
+  const abcPlayedBars = useMemo(() => {
+    if (!abcEntry?.abc) return 0;
+    try {
+      return abcOrders(abcEntry.abc)?.withJump.length ?? 0;
+    } catch {
+      return 0;
+    }
+  }, [abcEntry?.abc]);
+  const audioBarCount = shown?.beats.filter((b) => b.beat === 1).length ?? 0;
+  /** 음원의 박을 악보의 펼친 마디 수에 맞춰 고르게 다시 깐다 */
+  const fitBarsToScore = async (n: number) => {
+    if (!result) return;
+    try {
+      adoptResult(await fixBeats(result.id, "fit", n));
+      setToast(`악보 ${n}마디에 맞춰 박을 고르게 다시 깔았습니다`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const abcTranspose =
     noteShift + (unified?.source === "score" ? unified.capo : 0);
 
@@ -2031,6 +2054,9 @@ export default function Home() {
                           : undefined
                       }
                       onCapo={setTranspose}
+                      onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
+                      playedBars={abcPlayedBars}
+                      audioBars={audioBarCount}
                       onShiftBar={(d) => {
                         const v = abcEntry.barOffset + d;
                         setAbcOffset(result.id, v);
@@ -2608,6 +2634,9 @@ export default function Home() {
                             : undefined
                         }
                         onCapo={setTranspose}
+                      onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
+                      playedBars={abcPlayedBars}
+                      audioBars={audioBarCount}
                         musicKey={result.key}
                         timeSignature={result.time_signature}
                         playNotes={playNotes}
@@ -3060,6 +3089,9 @@ export default function Home() {
                                     : undefined
                                 }
                                 onCapo={setTranspose}
+                      onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
+                      playedBars={abcPlayedBars}
+                      audioBars={audioBarCount}
                                 onShiftBar={(d) => {
                                   const v = abcEntry.barOffset + d;
                                   setAbcOffset(result.id, v);

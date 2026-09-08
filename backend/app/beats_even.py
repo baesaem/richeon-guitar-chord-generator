@@ -96,6 +96,25 @@ def scale(beats: list[dict], factor: float, per_bar: int = 4) -> list[dict]:
     return _renumber(times, beats, per_bar)
 
 
+def fit(beats: list[dict], bars: int, per_bar: int = 4) -> list[dict]:
+    """박을 **악보의 마디 수**에 맞춰 고르게 다시 깐다.
+
+    박 찾기가 어긋난 배율이 2·3처럼 나눠떨어지면 scale()로 되돌리지만,
+    「광화문 연가」의 두 번째 등록은 실제의 2.26배로 잡혀 어떤 정수로도
+    돌아오지 않았다. 악보는 답을 알고 있다 — 펼친 마디 수로 곡 길이를
+    나누면 한 마디의 길이가 나온다. 첫 박과 끝 박은 그대로 두고(소리가
+    나는 자리다) 그 사이를 고르게 나눈다. 빠르기가 흔들리는 생음악에는
+    맞지 않지만, 녹음된 곡은 이것으로 악보와 마디가 맞아떨어진다.
+    """
+    times = [float(b["t"]) for b in beats]
+    n = bars * per_bar
+    if len(times) < 2 or n < per_bar * 2:
+        return beats
+    t0, t1 = times[0], times[-1]
+    unit = (t1 - t0) / (n - 1)
+    return _renumber([t0 + unit * i for i in range(n)], beats, per_bar)
+
+
 def bpm_of(beats: list[dict]) -> float:
     """고쳐 놓은 박에서 빠르기를 다시 잰다."""
     times = [float(b["t"]) for b in beats]

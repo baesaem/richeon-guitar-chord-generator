@@ -151,6 +151,23 @@ export async function attachScoreAfterAnalysis(
       notes.push(`마디 ${label} 실패: ${(e as Error).message}`);
     }
   }
+  /*
+   * 그래도 마디 수가 악보와 5% 넘게 다르면 악보 마디 수에 맞춰 고르게
+   * 다시 깐다. 박 찾기가 실제의 2.26배처럼 정수로 돌아오지 않는 배율로
+   * 잡히는 일이 있다 — 그때는 어떤 ×2·×3으로도 못 맞춘다. 악보의
+   * 펼친 마디 수로 곡 길이를 나누면 한 마디의 길이가 나온다.
+   */
+  if (played >= 8) {
+    const have = audioBars(cur);
+    if (Math.abs(have - played) / played > 0.05) {
+      try {
+        cur = await fixBeats(cur.id, "fit", played);
+        notes.push(`악보 ${played}마디에 맞춰 박을 고르게 다시 깔았습니다`);
+      } catch (e) {
+        notes.push(`마디 맞추기 실패: ${(e as Error).message}`);
+      }
+    }
+  }
 
   // ④ 악보를 싣고 코드가 악보를 따르게 한다
   saveAbc(cur.id, abc, 0);

@@ -310,12 +310,14 @@ export const fitSheetImage = (id: string) =>
  */
 export const fixBeats = (
   id: string,
-  mode: "even" | "half" | "double" | "third" | "triple",
+  mode: "even" | "half" | "double" | "third" | "triple" | "fit",
+  /** mode가 fit일 때 맞출 마디 수(악보의 펼친 마디 수) */
+  bars?: number,
 ) =>
   fetch(`${apiBase()}/api/results/${id}/beats`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode }),
+    body: JSON.stringify({ mode, bars }),
   }).then(json<AnalysisResult>);
 
 export const dropSheetImage = (id: string) =>

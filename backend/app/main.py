@@ -1170,6 +1170,16 @@ async def fix_beats(result_id: str, body: dict) -> AnalysisResult:
             rows,
             {"half": 0.5, "double": 2, "third": 1 / 3, "triple": 3}[mode],
         )
+    elif mode == "fit":
+        # 악보의 펼친 마디 수에 맞춰 고르게 다시 깐다. 정수 배율로 돌아오지
+        # 않는 그릇된 박(실제의 2.26배 따위)은 이 길밖에 없다.
+        try:
+            bars = int(body.get("bars") or 0)
+        except (TypeError, ValueError):
+            bars = 0
+        if bars < 2:
+            raise HTTPException(400, "맞출 마디 수가 없습니다")
+        rows = beats_even.fit(rows, bars)
     else:
         raise HTTPException(400, "모르는 방식입니다")
 

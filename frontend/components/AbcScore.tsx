@@ -81,6 +81,15 @@ interface Props {
   onFollow?: (on: boolean) => void;
   /** 권한 카포를 연주설정에 맞춘다. 없으면 권하기만 한다 */
   onCapo?: (fret: number) => void;
+  /**
+   * 음원의 박을 악보의 펼친 마디 수에 맞춰 고르게 다시 깐다(강사님).
+   * 박 찾기가 정수로 돌아오지 않는 배율로 어긋났을 때의 마지막 길이다.
+   */
+  onFitBars?: (bars: number) => void;
+  /** 악보를 펼쳤을 때의 마디 수. onFitBars가 쓴다 */
+  playedBars?: number;
+  /** 음원의 마디 수. 악보와 얼마나 다른지 보인다 */
+  audioBars?: number;
 }
 
 export function AbcScore({
@@ -104,6 +113,9 @@ export function AbcScore({
   follow = false,
   onFollow,
   onCapo,
+  onFitBars,
+  playedBars = 0,
+  audioBars = 0,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<SVGLineElement | null>(null);
@@ -404,6 +416,20 @@ ${abc}`;
             카포 {chordNote.capo}프렛{onCapo ? " 맞추기" : ""}
           </button>
         )}
+        {/* 마디 수가 악보와 다르면 알려 주고, 누르면 악보 마디 수에 맞춰
+            박을 고르게 다시 깐다 */}
+        {onFitBars &&
+          playedBars >= 8 &&
+          audioBars > 0 &&
+          Math.abs(audioBars - playedBars) / playedBars > 0.05 && (
+            <button
+              className="rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400"
+              onClick={() => onFitBars(playedBars)}
+              title={`음원은 ${audioBars}마디, 악보를 펼치면 ${playedBars}마디입니다. 누르면 악보 마디 수에 맞춰 박을 고르게 다시 깝니다`}
+            >
+              음원 {audioBars}마디 ≠ 악보 {playedBars}마디 · 맞추기
+            </button>
+          )}
         {/* 음원 분석이 통째로 빗나간 곡에서 쓴다 — 얼마나 다르든 악보를 따른다 */}
         {onFollow && (
           <button
