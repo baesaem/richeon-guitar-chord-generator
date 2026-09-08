@@ -7,6 +7,7 @@ import { RecordTab } from "@/components/tabs/RecordTab";
 import { Popup } from "@/components/Popup";
 import { Working } from "@/components/Working";
 import { openLink } from "@/lib/openLink";
+import { SCORE_ACCEPT } from "@/lib/scoreAtRegister";
 import {
   downloadShared,
   downloadSharedBlob,
@@ -67,7 +68,8 @@ interface Props {
    * 탭이 바뀔 때 이 컴포넌트가 다시 마운트되므로 초기값으로 충분하다.
    */
   autoOpen?: CardKind;
-  onAnalyzeUrl: (url: string) => void;
+  /** 악보 파일을 함께 주면 분석이 끝나는 자리에서 붙이고 코드가 악보를 따르게 한다 */
+  onAnalyzeUrl: (url: string, score?: File) => void;
   onAnalyzeFile: (file: File) => void;
   /** 서버 없이 AI로 코드를 만든다. 서버가 없을 때만 쓴다 */
   onAnalyzeWithAi: (url: string) => void;
@@ -135,6 +137,9 @@ export function ImportTab({
   onAnalyzeWithAi,
 }: Props) {
   const [url, setUrl] = useState("");
+  // 등록하면서 함께 넣는 악보. 음원만 듣고 딴 코드는 틀리는 데가 많다
+  const [score, setScore] = useState<File | null>(null);
+  const scorePick = useRef<HTMLInputElement | null>(null);
   /** 오디오 음원 등록 — 카드를 누르면 이 입력을 대신 연다 */
   const audioInputRef = useRef<HTMLInputElement>(null);
   // 반주·보컬 트랙도 저장할지. 기기 공간을 아끼려는 사람은 끈다
@@ -737,15 +742,49 @@ export function ImportTab({
               </svg>
             </a>
           </div>
+          {/* 악보를 함께 넣으면 코드가 악보를 따른다. 음원만 듣고 딴 코드는
+              틀리는 데가 많고, 등록한 뒤 따로 붙이자면 세 단계다 */}
+          <div className="mt-2 flex items-center gap-2 text-xs">
+            <button
+              className="shrink-0 rounded bg-[var(--chip)] px-2 py-1.5 font-semibold text-[var(--foreground)]"
+              onClick={() => scorePick.current?.click()}
+              title="뮤즈스코어(.mscz)·ABC 악보를 넣으면 코드를 악보대로 적고, 마디 수도 악보에 맞춥니다"
+            >
+              {score ? "악보 바꾸기" : "악보 함께 넣기 (선택)"}
+            </button>
+            <span className="min-w-0 flex-1 truncate text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
+              {score ? score.name : "없으면 음원만 듣고 코드를 땁니다"}
+            </span>
+            {score && (
+              <button
+                className="shrink-0 underline decoration-dotted"
+                onClick={() => setScore(null)}
+              >
+                빼기
+              </button>
+            )}
+            <input
+              ref={scorePick}
+              type="file"
+              accept={SCORE_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) setScore(f);
+              }}
+            />
+          </div>
           <button
             className="mt-3 w-full rounded bg-[var(--pick)] py-3 text-[var(--pick-ink)] disabled:opacity-40"
             disabled={!url || busy}
             onClick={() => {
               setOpen(null);
-              onAnalyzeUrl(url);
+              onAnalyzeUrl(url, score ?? undefined);
+              setScore(null);
             }}
           >
-            분석
+            {score ? "악보에 맞춰 분석" : "분석"}
           </button>
         </Popup>
       )}

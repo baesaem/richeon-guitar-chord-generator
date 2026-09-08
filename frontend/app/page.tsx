@@ -16,6 +16,7 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { AbcScore } from "@/components/AbcScore";
 import { unifyChords } from "@/lib/abcChords";
+import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { PracticeRoom } from "@/components/PracticeRoom";
 import { MelodyScore } from "@/components/MelodyScore";
 import {
@@ -596,6 +597,17 @@ export default function Home() {
                 setToast(
                   `음원목록에 등록하고 악보를 붙였습니다 — ${r.title || r.id}`,
                 );
+              }
+              // 등록하면서 함께 넣은 악보 — 붙이고, 마디 수를 맞추고,
+              // 코드가 악보를 따르게 한다. 분석이 끝난 지금이 그 자리다.
+              const file = pendingScore.current;
+              if (file) {
+                pendingScore.current = null;
+                void attachScoreAfterAnalysis(r, file).then(({ result: r2, notes }) => {
+                  adoptResult(r2);
+                  setAbcEntry(getAbc(r2.id));
+                  setToast(`${r2.title || r2.id} — ${notes.join(" · ")}`);
+                });
               }
             })
             .catch((e) => setError(e.message));
@@ -1302,6 +1314,8 @@ export default function Home() {
   };
   /** 새 음원을 등록하는 동안 들고 있는 악보. 분석이 끝나면 그 곡에 붙인다 */
   const pendingAbc = useRef<string | null>(null);
+  /** 등록하면서 함께 넣은 악보 파일. 분석이 끝나면 그 곡에 싣는다 */
+  const pendingScore = useRef<File | null>(null);
   /** 저장 결과를 알리는 짧은 안내 */
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
@@ -3402,7 +3416,10 @@ export default function Home() {
               separate={settings.separate}
               adminMode={settings.adminMode}
               autoOpen={importCard}
-              onAnalyzeUrl={(u) => run(() => analyzeUrl(u, settings.separate))}
+              onAnalyzeUrl={(u, score) => {
+                pendingScore.current = score ?? null;
+                void run(() => analyzeUrl(u, settings.separate));
+              }}
               onAnalyzeWithAi={aiAnalyze}
               onAnalyzeFile={(f) =>
                 run(() => analyzeUpload(f, settings.separate))
