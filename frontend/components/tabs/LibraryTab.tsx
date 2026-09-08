@@ -6,6 +6,7 @@ import { AskConfirm, AskText } from "@/components/Ask";
 import { Working } from "@/components/Working";
 import { Copyright } from "@/components/Copyright";
 import { Popup } from "@/components/Popup";
+import { ScorePick } from "@/components/ScorePick";
 import {
   deleteResult,
   driveUpload,
@@ -52,8 +53,18 @@ interface Props {
    * 곡을 다시 분석한다. 분석을 고치면 새로 분석해야 반영되는데,
    * 곡마다 주소를 다시 넣게 할 수는 없다. YouTube 곡만 가능하다.
    */
-  /** 다시 분석. refetch면 음원부터 새로 받고, newUrl이 있으면 그 주소의 음원으로 새로 분석한다 */
-  onReanalyze?: (item: ResultSummary, refetch: boolean, newUrl?: string) => void;
+  /**
+   * 다시 분석. refetch면 음원부터 새로 받고, newUrl이 있으면 그 주소의
+   * 음원으로 새로 분석한다. score를 주면 등록 때와 똑같이 분석이 끝나는
+   * 자리에서 악보를 붙이고 코드가 악보를 따르게 한다.
+   */
+  onReanalyze?: (
+    item: ResultSummary,
+    refetch: boolean,
+    newUrl?: string,
+    score?: File,
+    staff?: number,
+  ) => void;
   /** 지금 다른 분석이 돌고 있다. 두 번 눌러 줄 세우지 않게 잠근다 */
   analyzing?: boolean;
   /** 탭이 보일 때만 목록을 새로 읽는다 */
@@ -103,6 +114,9 @@ export function LibraryTab({
     "folder" | "deleteFolder" | "renameFolder" | null
   >(null);
   const [refetching, setRefetching] = useState<ResultSummary | null>(null);
+  // 음원교체에도 악보를 함께 넣는다 — 등록과 같은 길이다
+  const [refetchScore, setRefetchScore] = useState<File | null>(null);
+  const [refetchStaff, setRefetchStaff] = useState(0);
   /** 음원교체 창에 넣은 새 유튜브 주소. 비우면 같은 영상을 다시 받는다 */
   const [refetchUrl, setRefetchUrl] = useState("");
   // 삭제 확인. server가 true면 서버 캐시에서 지우는 것이다
@@ -997,22 +1011,44 @@ export function LibraryTab({
             value={refetchUrl}
             onChange={(e) => setRefetchUrl(e.target.value)}
           />
+          {/* 등록과 같은 칸. 다시 분석하면 코드를 새로 따는데, 악보를 함께
+              넣으면 그 코드가 악보를 따른다 */}
+          <ScorePick
+            score={refetchScore}
+            staff={refetchStaff}
+            onPick={(f, st) => {
+              setRefetchScore(f);
+              setRefetchStaff(st);
+            }}
+          />
           <div className="mt-2 flex gap-1.5">
             <button
               className="flex-1 rounded bg-[var(--pick)] py-1.5 text-xs font-semibold text-[var(--pick-ink)]"
               onClick={() => {
-                onReanalyze?.(refetching, true, refetchUrl.trim() || undefined);
+                onReanalyze?.(
+                  refetching,
+                  true,
+                  refetchUrl.trim() || undefined,
+                  refetchScore ?? undefined,
+                  refetchStaff,
+                );
                 setRefetching(null);
                 setRefetchUrl("");
+                setRefetchScore(null);
               }}
             >
-              {refetchUrl.trim() ? "이 주소로 분석" : "같은 영상 다시 받기"}
+              {refetchScore
+                ? "악보에 맞춰 분석"
+                : refetchUrl.trim()
+                  ? "이 주소로 분석"
+                  : "같은 영상 다시 받기"}
             </button>
             <button
               className="rounded bg-[var(--panel)] px-3 py-1.5 text-xs"
               onClick={() => {
                 setRefetching(null);
                 setRefetchUrl("");
+                setRefetchScore(null);
               }}
             >
               취소

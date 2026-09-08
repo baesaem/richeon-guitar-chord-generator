@@ -7,8 +7,7 @@ import { RecordTab } from "@/components/tabs/RecordTab";
 import { Popup } from "@/components/Popup";
 import { Working } from "@/components/Working";
 import { openLink } from "@/lib/openLink";
-import { SCORE_ACCEPT } from "@/lib/scoreAtRegister";
-import { msczParts, type MsczPart } from "@/lib/msczToAbc";
+import { ScorePick } from "@/components/ScorePick";
 import {
   downloadShared,
   downloadSharedBlob,
@@ -140,27 +139,7 @@ export function ImportTab({
   const [url, setUrl] = useState("");
   // 등록하면서 함께 넣는 악보. 음원만 듣고 딴 코드는 틀리는 데가 많다
   const [score, setScore] = useState<File | null>(null);
-  const scorePick = useRef<HTMLInputElement | null>(null);
-  // 혼성 악보(노래·기타·타브가 한 파일)면 보표 목록과 고른 것.
-  // 어느 보표가 멜로디인지는 파일만 봐서는 모른다 — 사람이 고른다
-  const [parts, setParts] = useState<MsczPart[]>([]);
   const [staff, setStaff] = useState(0);
-
-  const chooseScore = async (f: File) => {
-    setScore(f);
-    setStaff(0);
-    setParts([]);
-    if (!/\.(mscz|mscx)$/i.test(f.name)) return;
-    try {
-      const list = msczParts(new Uint8Array(await f.arrayBuffer()), f.name);
-      setParts(list);
-      // 타브가 아닌 첫 보표를 기본으로 — 타브는 멜로디가 아니다
-      const first = list.findIndex((p) => !/타브/.test(p.name));
-      setStaff(first >= 0 ? first : 0);
-    } catch {
-      setParts([]);
-    }
-  };
   /** 오디오 음원 등록 — 카드를 누르면 이 입력을 대신 연다 */
   const audioInputRef = useRef<HTMLInputElement>(null);
   // 반주·보컬 트랙도 저장할지. 기기 공간을 아끼려는 사람은 끈다
@@ -765,57 +744,14 @@ export function ImportTab({
           </div>
           {/* 악보를 함께 넣으면 코드가 악보를 따른다. 음원만 듣고 딴 코드는
               틀리는 데가 많고, 등록한 뒤 따로 붙이자면 세 단계다 */}
-          <div className="mt-2 flex items-center gap-2 text-xs">
-            <button
-              className="shrink-0 rounded bg-[var(--chip)] px-2 py-1.5 font-semibold text-[var(--foreground)]"
-              onClick={() => scorePick.current?.click()}
-              title="뮤즈스코어(.mscz)·ABC 악보나 종이 악보(PDF·사진)를 넣으면 코드를 악보대로 적고, 마디 수도 악보에 맞춥니다"
-            >
-              {score ? "악보 바꾸기" : "악보 함께 넣기 (선택)"}
-            </button>
-            <span className="min-w-0 flex-1 truncate text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
-              {score ? score.name : "없으면 음원만 듣고 코드를 땁니다"}
-            </span>
-            {score && (
-              <button
-                className="shrink-0 underline decoration-dotted"
-                onClick={() => {
-                  setScore(null);
-                  setParts([]);
-                }}
-              >
-                빼기
-              </button>
-            )}
-            <input
-              ref={scorePick}
-              type="file"
-              accept={SCORE_ACCEPT}
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void chooseScore(f);
-              }}
-            />
-          </div>
-          {parts.length > 1 && (
-            <label className="mt-2 flex items-center gap-2 text-xs">
-              <span className="shrink-0">멜로디 보표</span>
-              <select
-                className="min-w-0 flex-1 rounded border bg-[var(--background)] px-2 py-1.5"
-                value={staff}
-                onChange={(e) => setStaff(+e.target.value)}
-                title="혼성 악보입니다. 코드·가사·멜로디를 읽을 보표를 고르세요"
-              >
-                {parts.map((p) => (
-                  <option key={p.index} value={p.index}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <ScorePick
+            score={score}
+            staff={staff}
+            onPick={(f, st) => {
+              setScore(f);
+              setStaff(st);
+            }}
+          />
           <button
             className="mt-3 w-full rounded bg-[var(--pick)] py-3 text-[var(--pick-ink)] disabled:opacity-40"
             disabled={!url || busy}
@@ -823,7 +759,6 @@ export function ImportTab({
               setOpen(null);
               onAnalyzeUrl(url, score ?? undefined, staff);
               setScore(null);
-              setParts([]);
             }}
           >
             {score ? "악보에 맞춰 분석" : "분석"}

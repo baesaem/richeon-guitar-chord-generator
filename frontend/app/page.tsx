@@ -3520,8 +3520,12 @@ export default function Home() {
                 // 다시 분석은 서버가 하는 일이다. 수강생 화면에는 서버 개념이
                 // 없으므로 버튼도 내지 않는다
                 health && settings.adminMode
-                  ? (item, refetch, newUrl) =>
-                      run(() =>
+                  ? (item, refetch, newUrl, score, staff) => {
+                      // 등록과 같은 길이다 — 분석이 끝나는 자리에서 붙인다
+                      pendingScore.current = score
+                        ? { file: score, staff: staff ?? 0 }
+                        : null;
+                      return run(() =>
                         // 새 주소를 받았으면 그 음원으로 새로 분석한다.
                         // 같은 곡의 다른 영상(음질·삭제 문제)로 갈아탈 때다.
                         newUrl
@@ -3530,7 +3534,8 @@ export default function Home() {
                               source: item.source,
                               title: item.title,
                             }),
-                      )
+                      );
+                    }
                   : undefined
               }
             />
