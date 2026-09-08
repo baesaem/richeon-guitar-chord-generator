@@ -2134,6 +2134,7 @@ export default function Home() {
                                 result={result}
                                 onResult={adoptResult}
                                 online={!!health}
+                                onScoreAttached={() => setAbcEntry(getAbc(result.id))}
                               />
                             </div>
                           ) : undefined
@@ -2158,6 +2159,7 @@ export default function Home() {
                           result={result}
                           onResult={adoptResult}
                           online={!!health}
+                          onScoreAttached={() => setAbcEntry(getAbc(result.id))}
                         />
                       </div>
                     )}

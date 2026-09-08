@@ -362,7 +362,18 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
         (meas.startRepeat ? "|: " : "") +
         (meas.volta ? `[${meas.volta} ` : "") +
         meas.marks;
-      const bar = meas.endRepeat ? " :|" : " |";
+      /*
+       * 1·2번 괄호는 **닫아 주어야** 한다.
+       *
+       * ABC에서 괄호는 되돌이 끝(:|)이나 겹세로줄(||)을 만나야 닫힌다.
+       * 1번 괄호는 뒤에 :| 가 있어 저절로 닫히지만 마지막 괄호(2번)는
+       * 닫는 것이 없어, 악보 끝까지 긴 선이 그어졌다 — 줄마다 오선 위로
+       * 지나가던 그 선이다. 괄호가 끝나는 자리에 겹세로줄을 세운다.
+       */
+      const next = staff1[j + 1];
+      const closesVolta =
+        !!meas.volta && !meas.endRepeat && !next?.endRepeat && !next?.volta;
+      const bar = meas.endRepeat ? " :|" : closesVolta ? " ||" : " |";
       st.keyChange = null;
       const r = measureToAbc(meas, st);
       chunk.push(

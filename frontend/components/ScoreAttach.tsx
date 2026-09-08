@@ -12,12 +12,12 @@ import {
   moveSheetImage,
   putSongSetup,
   readSheetImage,
-  putScore,
   putSheetImage,
 } from "@/lib/api";
 import type { ScoreAlign, ScoreData } from "@/lib/scoreStaff";
 import type { AnalysisResult } from "@/lib/types";
 import { msczParts, type MsczPart } from "@/lib/msczToAbc";
+import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { Popup } from "@/components/Popup";
 
 /**
@@ -36,10 +36,13 @@ export function ScoreAttach({
   result,
   onResult,
   online,
+  onScoreAttached,
 }: {
   result: AnalysisResult;
   onResult: (r: AnalysisResult) => void;
   online: boolean;
+  /** 악보를 붙여 ABC까지 새로 만들었을 때. 화면이 그 악보를 다시 읽는다 */
+  onScoreAttached?: () => void;
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
   const pickImage = useRef<HTMLInputElement | null>(null);
@@ -168,11 +171,25 @@ export function ScoreAttach({
     }
   };
 
+  /**
+   * 악보를 붙인다 — 등록 때와 똑같은 길로.
+   *
+   * 예전에는 서버에 악보만 실었다. 그러면 멜로디 화면은 바뀌는데 코드는
+   * 그대로여서, 코드를 악보에 맞추려면 음원을 다시 등록하는 수밖에
+   * 없었다. 악보를 붙이는 일과 코드가 그 악보를 따르는 일은 하나다.
+   */
   const attach = async (file: File, staff = 0) => {
     setBusy(true);
     setError(null);
     try {
-      onResult(await putScore(result.id, file, staff));
+      const { result: next, notes } = await attachScoreAfterAnalysis(
+        result,
+        file,
+        staff,
+      );
+      onResult(next);
+      onScoreAttached?.();
+      if (notes.length) setError(notes.join(" · "));
     } catch (e) {
       setError(e instanceof Error ? e.message : "악보를 붙이지 못했습니다");
     } finally {
