@@ -733,40 +733,72 @@ function evenTabSpacing(host: HTMLElement): Map<Element, number> {
    * 위아래로 훑으면 마디선이 비뚤배뚤 흐른다. 모든 줄이 **같은 격자**를
    * 쓰도록, 시작 자리와 한 마디 너비를 곡 전체에서 하나로 정한다.
    */
+  /** 세로줄마다 재어 둔 원래 자리 */
+  const barPos = new Map<SVGGraphicsElement, number>();
   interface Plan {
     line: Line;
     mms: number[];
+    /** 마디 → 그 마디를 **닫는** 세로줄의 자리 */
     barX: Map<number, number>;
+    /** 마디 → 그 마디를 **여는** 세로줄들(도돌이 시작 |: 따위) */
+    opens: Map<number, SVGGraphicsElement[]>;
+    /** 마디 → 그 마디를 닫는 세로줄들 */
+    closes: Map<number, SVGGraphicsElement[]>;
     from: number;
     right: number;
   }
+  /** 세로줄 자신의 자리. 무리 안에서 가장 키가 큰 그림이 세로줄이다 */
+  const barAt = (b: SVGGraphicsElement): number => {
+    let tall = 0;
+    let at = Number.NaN;
+    for (const kid of b.querySelectorAll("path")) {
+      try {
+        const box = kid.getBBox();
+        if (box.height > tall) {
+          tall = box.height;
+          at = box.x;
+        }
+      } catch {
+        /* 못 재는 것은 건너뛴다 */
+      }
+    }
+    return at;
+  };
+  /** 이 자리에 선 무리 가운데 타브 숫자를 지닌 쪽. 넓이를 잴 수 있다 */
+  const rulerOf = (group: SVGGraphicsElement[]): SVGGraphicsElement =>
+    group.find((g) => g.querySelector(".abcjs-tab-number")) ?? group[0];
+
   const plans: Plan[] = [];
   for (const line of lines.values()) {
     const mms = [...line.bars.keys()].sort((a, b) => a - b);
     if (!mms.length) continue;
     const barX = new Map<number, number>();
+    const opens = new Map<number, SVGGraphicsElement[]>();
+    const closes = new Map<number, SVGGraphicsElement[]>();
+    const measured = new Map<SVGGraphicsElement, number>();
     for (const mm of mms) {
-      /* 무리 전체를 재면 안 된다 — 그 안에는 마디 번호 글자도 들어
-         있어서, 번호가 있는 마디만 왼쪽으로 넓게 잡힌다. 무리에서 **가장
-         키가 큰 그림**, 곧 세로줄 자신을 찾아 그 자리를 쓴다 */
-      const xs: number[] = [];
+      /*
+       * 한 마디에 붙는 세로줄이 늘 뒤에만 서는 것은 아니다. 도돌이
+       * 시작(|:)은 그 마디를 **여는** 자리에 선다 — 뒤로 보내면 마디
+       * 한가운데에 굵은 줄이 서서 어디서 되돌아가는지 알 수 없다.
+       * 그 마디 첫 음표보다 왼쪽에 있으면 여는 줄로 본다.
+       */
+      const evs = line.evs.get(mm);
+      const head = evs
+        ? Math.min(...[...evs.values()].map((g) => xOf(rulerOf(g))))
+        : Number.POSITIVE_INFINITY;
       for (const b of line.bars.get(mm) ?? []) {
-        let tall = 0;
-        let at = Number.NaN;
-        for (const kid of b.querySelectorAll("path")) {
-          try {
-            const box = kid.getBBox();
-            if (box.height > tall) {
-              tall = box.height;
-              at = box.x;
-            }
-          } catch {
-            /* 못 재는 것은 건너뛴다 */
-          }
-        }
-        if (!Number.isNaN(at)) xs.push(at);
+        const at = barAt(b);
+        if (Number.isNaN(at)) continue;
+        measured.set(b, at);
+        const box = at < head ? opens : closes;
+        const had = box.get(mm);
+        if (had) had.push(b);
+        else box.set(mm, [b]);
       }
-      if (xs.length) barX.set(mm, Math.min(...xs));
+      const ends = (closes.get(mm) ?? []).map((b) => measured.get(b) ?? Number.NaN);
+      const ok = ends.filter((v) => !Number.isNaN(v));
+      if (ok.length) barX.set(mm, Math.min(...ok));
     }
     const right = barX.get(mms[mms.length - 1]);
     if (right === undefined) continue;
@@ -774,15 +806,19 @@ function evenTabSpacing(host: HTMLElement): Map<Element, number> {
        가지 않게 시작 자리를 잡는다 */
     const first = line.evs.get(mms[0]);
     const firstX = first
-      ? Math.min(...[...first.values()].map((g) => xOf(g[0])))
+      ? Math.min(...[...first.values()].map((g) => xOf(rulerOf(g))))
       : line.left + 12;
     plans.push({
       line,
       mms,
       barX,
+      opens,
+      closes,
       from: Math.max(line.left + 10, firstX - 6),
       right,
     });
+    // 잰 자리를 옮길 때 다시 쓴다
+    for (const [el, at] of measured) barPos.set(el, at);
   }
   if (!plans.length) return moved;
 
@@ -800,10 +836,15 @@ function evenTabSpacing(host: HTMLElement): Map<Element, number> {
     plan.mms.forEach((mm, j) => {
       const at = from + j * width;
       const to = at + width;
-      // 세로줄을 격자 위로
-      const was = plan.barX.get(mm);
-      if (was !== undefined)
-        for (const b of plan.line.bars.get(mm) ?? []) move(b, to - was);
+      // 세로줄을 격자 위로 — 여는 줄은 마디 앞, 닫는 줄은 마디 뒤에
+      for (const b of plan.opens.get(mm) ?? []) {
+        const had = barPos.get(b);
+        if (had !== undefined) move(b, at - had);
+      }
+      for (const b of plan.closes.get(mm) ?? []) {
+        const had = barPos.get(b);
+        if (had !== undefined) move(b, to - had);
+      }
       // 마디 앞머리(마디 번호·1·2번 괄호)는 마디가 시작하는 만큼 민다
       const wasHead = j === 0 ? plan.from : (plan.barX.get(plan.mms[j - 1]) ?? plan.from);
       for (const e of plan.line.heads.get(mm) ?? []) move(e, at - wasHead);
@@ -815,11 +856,7 @@ function evenTabSpacing(host: HTMLElement): Map<Element, number> {
       ns.forEach((n, i) => {
         const put = at + (i + 0.5) * gap;
         const group = evs.get(n) ?? [];
-        // 자리를 잴 때는 타브 숫자를 지닌 쪽을 본다 — 오선 쪽 무리는
-        // 음표를 가려 두어 넓이를 못 잰다
-        const ruler =
-          group.find((g) => g.querySelector(".abcjs-tab-number")) ?? group[0];
-        const had = xOf(ruler);
+        const had = xOf(rulerOf(group));
         for (const g of group) {
           move(g, put - had);
           moved.set(g, put);
