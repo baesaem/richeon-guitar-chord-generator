@@ -7,7 +7,7 @@ import { ViewSteppers } from "@/components/ViewSteppers";
 import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
 import { barIndexAt } from "@/lib/bars";
-import type { TabBar, TabScore } from "@/lib/msczToAbc";
+import type { TabScore } from "@/lib/msczToAbc";
 import { shiftChordLabel } from "@/lib/notation";
 import type { StrumChoice } from "@/lib/strumLibrary";
 import type { LyricLine } from "@/lib/types";
@@ -41,10 +41,15 @@ const LEFT = 18;
 const GAP = 13;
 /** 여섯 줄의 높이 */
 const STAFF = GAP * 5;
-/** 여섯 줄 위 — 코드·마디 번호·세뇨가 앉는 자리 */
-const HEAD = 44;
+/**
+ * 여섯 줄 위 — 마디 번호·코드·1·2번 괄호·세뇨가 차례로 앉는 자리.
+ *
+ * 셋이 층을 이룬다. 좁게 잡으면 괄호 선이 코드 이름을 가로질러 「Cm」이
+ * 「m」으로 보인다 — 각자 제 띠를 갖도록 넉넉히 둔다.
+ */
+const HEAD = 58;
 /** 여섯 줄 아래 — 가사가 앉는 자리 */
-const FOOT = 28;
+const FOOT = 40;
 /** 한 줄이 차지하는 높이 */
 const ROW = HEAD + STAFF + FOOT;
 
@@ -99,9 +104,8 @@ interface Props {
  *
  * 못 찾은 마디는 악보에 적힌 대로 둔다 — 지어내지 않는다.
  */
-function spaceLyrics(bars: TabBar[], lines: LyricLine[] | undefined): string[] {
-  const raw = bars.map((b) => b.lyric);
-  if (!lines?.length) return raw;
+function spaceLyrics(raw: string[], lines: LyricLine[] | undefined): string[] {
+  if (!lines?.length) return raw.map((one) => one ?? "");
   const letters: string[] = [];
   const gapAfter: boolean[] = [];
   for (const ch of lines.map((l) => l.text).join(" ")) {
@@ -115,12 +119,13 @@ function spaceLyrics(bars: TabBar[], lines: LyricLine[] | undefined): string[] {
   const flat = letters.join("");
   let from = 0;
   return raw.map((one) => {
-    const syls = one.replace(/\s+/g, "");
+    // 예전에 담아 둔 악보에는 2절 칸이 아예 없다 — 없는 것은 빈 줄이다
+    const syls = (one ?? "").replace(/\s+/g, "");
     if (!syls) return "";
     let at = flat.indexOf(syls, from);
     // 도돌이를 돌면 같은 말이 다시 나온다 — 앞에서 다시 찾는다
     if (at < 0) at = flat.indexOf(syls);
-    if (at < 0) return one;
+    if (at < 0) return one ?? "";
     let out = "";
     for (let k = 0; k < syls.length; k++) {
       out += flat[at + k];
@@ -170,7 +175,16 @@ export function TabSheet({
      마디마다 툭툭 끊겨 보인다. 다른 악보 화면과 같은 시계를 쓴다 */
   const now = useSmoothTime(time, getTime);
 
-  const words = useMemo(() => spaceLyrics(score.bars, lyrics), [score.bars, lyrics]);
+  const words = useMemo(
+    () => spaceLyrics(score.bars.map((b) => b.lyric), lyrics),
+    [score.bars, lyrics],
+  );
+  /* 2절은 1절 아래 줄에. 도돌이를 돌 때 부르는 말이라 같은 마디에 둘이
+     붙는다 — 위아래로 놓아야 어느 것이 몇 절인지 안다 */
+  const words2 = useMemo(
+    () => spaceLyrics(score.bars.map((b) => b.lyric2), lyrics),
+    [score.bars, lyrics],
+  );
 
   const rows = Math.max(Math.ceil(score.bars.length / PER_LINE), 1);
   const height = rows * ROW + 16;
@@ -303,12 +317,12 @@ export function TabSheet({
       marks.push(
         <g key={`v${j}`}>
           <path
-            d={`M ${p.x + 1} ${y0 - 38} L ${p.x + 1} ${y0 - 30} L ${right - 2} ${y0 - 30}`}
+            d={`M ${p.x + 1} ${y0 - 33} L ${p.x + 1} ${y0 - 43} L ${right - 2} ${y0 - 43}`}
             stroke="var(--tab-line)"
             strokeWidth={1}
             fill="none"
           />
-          <text x={p.x + 6} y={y0 - 32} fontSize={9} fill="var(--tab-ink)">
+          <text x={p.x + 6} y={y0 - 35} fontSize={9} fill="var(--tab-ink)">
             {bar.volta}.
           </text>
         </g>,
@@ -320,7 +334,7 @@ export function TabSheet({
         <text
           key={`m${j}`}
           x={p.x + 14}
-          y={y0 - 31}
+          y={y0 - 47}
           fontSize={13}
           fontWeight={700}
           fill="var(--tab-ink)"
@@ -330,20 +344,22 @@ export function TabSheet({
       );
 
     // 가사 — 마디 아래 가운데
-    if (words[j])
+    [words[j], words2[j]].forEach((line, v) => {
+      if (!line) return;
       marks.push(
         <text
-          key={`w${j}`}
+          key={`w${j}.${v}`}
           x={p.x + p.w / 2}
-          y={y1 + 18}
+          y={y1 + 18 + v * 14}
           fontSize={12}
           fontWeight={700}
           textAnchor="middle"
-          fill="var(--tab-ink)"
+          fill={v === 0 ? "var(--tab-ink)" : "var(--tab-dim)"}
         >
-          {words[j]}
+          {line}
         </text>,
       );
+    });
 
     // ---- 숫자와 코드 ----
     const offs = offsets(bar.cols.map((c) => c.units));

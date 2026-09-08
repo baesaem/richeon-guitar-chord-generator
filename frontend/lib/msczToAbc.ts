@@ -472,6 +472,8 @@ export interface TabBar {
   units: number;
   /** 이 마디에 붙은 가사. 노래 보표에서 가져와 이어 붙인 것 */
   lyric: string;
+  /** 2절 가사. 도돌이를 돌 때 부르는 말이다 */
+  lyric2: string;
 }
 
 export interface TabScore {
@@ -549,21 +551,26 @@ export function msczToTab(
     /* 가사도 노래 보표에만 있다. 타브 보표의 자리와 노래 보표의 자리는
        수가 달라 한 자리씩 맞출 수 없으니, 마디에 붙은 것을 이어 마디
        아래에 적는다 — 어느 마디에서 무엇을 부르는지는 그것으로 안다 */
-    let lyric = "";
-    for (const e of f?.events ?? []) {
-      const w = e.lyric;
-      if (!w) continue;
-      /* 한 낱말이 이어지는 음절에는 뒤에 -가 붙어 있다(뮤즈스코어의
-         syllabic). 이어지는 것은 붙이고, 끝난 것 뒤에는 한 칸 띄운다 —
-         안 그러면 「이제모두세월따라」처럼 붙어 읽기 어렵다 */
-      const goes = w.endsWith("-");
-      lyric += (goes ? w.slice(0, -1) : w) + (goes ? "" : " ");
-    }
-    lyric = lyric.trim();
+    /* 한 낱말이 이어지는 음절에는 뒤에 -가 붙어 있다(뮤즈스코어의
+       syllabic). 이어지는 것은 붙이고, 끝난 것 뒤에는 한 칸 띄운다 —
+       안 그러면 「이제모두세월따라」처럼 붙어 읽기 어렵다 */
+    const joined = (pick: (e: (typeof m.events)[number]) => string | null) => {
+      let out = "";
+      for (const e of f?.events ?? []) {
+        const w = pick(e);
+        if (!w) continue;
+        const goes = w.endsWith("-");
+        out += (goes ? w.slice(0, -1) : w) + (goes ? "" : " ");
+      }
+      return out.trim();
+    };
+    const lyric = joined((e) => e.lyric);
+    const lyric2 = joined((e) => e.lyric2);
 
     return {
       cols,
       lyric,
+      lyric2,
       startRepeat: m.startRepeat || !!f?.startRepeat,
       endRepeat: m.endRepeat || !!f?.endRepeat,
       volta: m.volta ?? f?.volta ?? null,
