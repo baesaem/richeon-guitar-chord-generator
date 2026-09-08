@@ -1179,7 +1179,9 @@ async def fix_beats(result_id: str, body: dict) -> AnalysisResult:
             bars = 0
         if bars < 2:
             raise HTTPException(400, "맞출 마디 수가 없습니다")
-        rows = beats_even.fit(rows, bars)
+        rows = beats_even.fit(
+            rows, bars, end=beats_even.last_sound(result_id)
+        )
     else:
         raise HTTPException(400, "모르는 방식입니다")
 

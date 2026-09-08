@@ -96,7 +96,34 @@ def scale(beats: list[dict], factor: float, per_bar: int = 4) -> list[dict]:
     return _renumber(times, beats, per_bar)
 
 
-def fit(beats: list[dict], bars: int, per_bar: int = 4) -> list[dict]:
+def last_sound(result_id: str) -> float | None:
+    """음원에서 **소리가 끝나는 시각**. 못 재면 None.
+
+    박 찾기는 곡 끝머리에서 먼저 손을 놓는다 — 마지막 화음이 울려 퍼지는
+    동안에는 칠 것이 없어 박을 잡지 못한다. 그 자리를 곡의 끝으로 삼으면
+    마디가 실제보다 짧아지고, 커서는 갈수록 앞서 나간다.
+    """
+    try:
+        import numpy as np
+        import librosa
+
+        from .analysis.decode import decoded_path
+
+        path = decoded_path(result_id, 22050)
+        if not path.exists():
+            return None
+        y, sr = librosa.load(str(path), sr=22050, mono=True)
+        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=512)[0]
+        t = librosa.frames_to_time(np.arange(len(rms)), sr=sr, hop_length=512)
+        loud = t[rms > rms.max() * 0.06]
+        return float(loud[-1]) if len(loud) else None
+    except Exception:
+        return None
+
+
+def fit(
+    beats: list[dict], bars: int, per_bar: int = 4, end: float | None = None
+) -> list[dict]:
     """박을 **악보의 마디 수**에 맞춰 고르게 다시 깐다.
 
     박 찾기가 어긋난 배율이 2·3처럼 나눠떨어지면 scale()로 되돌리지만,
@@ -110,8 +137,13 @@ def fit(beats: list[dict], bars: int, per_bar: int = 4) -> list[dict]:
     n = bars * per_bar
     if len(times) < 2 or n < per_bar * 2:
         return beats
-    t0, t1 = times[0], times[-1]
-    unit = (t1 - t0) / (n - 1)
+    t0 = times[0]
+    # 끝을 알면 **마지막 마디가 그 자리에서 끝나도록** 나눈다. 모르면
+    # 마지막 박을 끝으로 삼되, 그 박이 곧 마지막 마디의 끝은 아니다.
+    if end and end > t0:
+        unit = (end - t0) / n
+    else:
+        unit = (times[-1] - t0) / (n - 1)
     return _renumber([t0 + unit * i for i in range(n)], beats, per_bar)
 
 

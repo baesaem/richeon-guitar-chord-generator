@@ -159,7 +159,9 @@ export async function attachScoreAfterAnalysis(
    */
   if (played >= 8) {
     const have = audioBars(cur);
-    if (Math.abs(have - played) / played > 0.05) {
+    // 한 마디만 달라도 맞춘다 — 그 한 마디가 곡 전체에 걸쳐 벌어지면
+    // 커서가 갈수록 앞서 나간다
+    if (have !== played) {
       try {
         cur = await fixBeats(cur.id, "fit", played);
         notes.push(`악보 ${played}마디에 맞춰 박을 고르게 다시 깔았습니다`);

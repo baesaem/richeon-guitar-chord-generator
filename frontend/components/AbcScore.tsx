@@ -416,20 +416,26 @@ ${abc}`;
             카포 {chordNote.capo}프렛{onCapo ? " 맞추기" : ""}
           </button>
         )}
-        {/* 마디 수가 악보와 다르면 알려 주고, 누르면 악보 마디 수에 맞춰
-            박을 고르게 다시 깐다 */}
-        {onFitBars &&
-          playedBars >= 8 &&
-          audioBars > 0 &&
-          Math.abs(audioBars - playedBars) / playedBars > 0.05 && (
-            <button
-              className="rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold text-red-600 dark:text-red-400"
-              onClick={() => onFitBars(playedBars)}
-              title={`음원은 ${audioBars}마디, 악보를 펼치면 ${playedBars}마디입니다. 누르면 악보 마디 수에 맞춰 박을 고르게 다시 깝니다`}
-            >
-              음원 {audioBars}마디 ≠ 악보 {playedBars}마디 · 맞추기
-            </button>
-          )}
+        {/* 악보에 마디 수를 맞추는 손잡이.
+            한 마디만 달라도 알려 준다 — 그 한 마디가 곡 전체에 걸쳐
+            벌어지면 커서가 갈수록 앞서 나간다. 수가 같아도 눌러 둘 수
+            있게 남긴다: 소리가 끝나는 자리까지 다시 재어 깔아 준다. */}
+        {onFitBars && playedBars >= 8 && audioBars > 0 && (
+          <button
+            className={[
+              "rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold",
+              audioBars === playedBars
+                ? "text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]"
+                : "text-red-600 dark:text-red-400",
+            ].join(" ")}
+            onClick={() => onFitBars(playedBars)}
+            title={`음원은 ${audioBars}마디, 악보를 펼치면 ${playedBars}마디입니다. 누르면 악보 마디 수에 맞춰 소리가 끝나는 자리까지 박을 고르게 다시 깝니다`}
+          >
+            {audioBars === playedBars
+              ? `악보 ${playedBars}마디에 맞추기`
+              : `음원 ${audioBars}마디 ≠ 악보 ${playedBars}마디 · 맞추기`}
+          </button>
+        )}
         {/* 음원 분석이 통째로 빗나간 곡에서 쓴다 — 얼마나 다르든 악보를 따른다 */}
         {onFollow && (
           <button
