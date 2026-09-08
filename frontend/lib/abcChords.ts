@@ -247,6 +247,13 @@ export interface SongChordResult {
   matched: number;
   /** 악보와 음원의 조 차이(반음). 0이 아니면 카포로 옮겨 적은 악보다 */
   shift: number;
+  /**
+   * 이 악보를 음원과 같은 높이로 치려면 몇 프렛에 카포를 끼우나. 0이면 필요 없다.
+   *
+   * 악보가 음원보다 낮게 적혀 있으면(카포 악보) 그 차이만큼 끼우면 된다.
+   * 반대로 높게 적힌 악보는 카포로 낮출 수 없어 0으로 둔다.
+   */
+  capo: number;
 }
 
 /** 코드 이름 → Chord 한 칸. 분수코드는 베이스를 떼어 낸다 */
@@ -280,6 +287,15 @@ export function unifyChords(
   /** 파형·타브가 실제로 적는 코드 목록(어휘 낮추기·다듬기를 거친 것).
    *  주지 않으면 마디에 걸린 코드를 그대로 쓴다 */
   heard?: Chord[],
+  /**
+   * 얼마나 다르든 **악보를 따른다.**
+   *
+   * 스스로 판단할 때는 열에 여덟이 맞아야 손대지만(아래), 강사님이
+   * 「악보 따르기」를 켠 곡은 그 판단을 건너뛴다 — 음원 분석이 통째로
+   * 빗나간 곡에서는 그 문턱 때문에 악보가 있어도 아무 도움이 안 됐다.
+   * 사람이 정한 것이 셈보다 위다.
+   */
+  force = false,
 ): SongChordResult {
   const none: SongChordResult = {
     abc,
@@ -289,6 +305,7 @@ export function unifyChords(
     total: 0,
     matched: 0,
     shift: 0,
+    capo: 0,
   };
   if (!abc.trim() || !bars.length) return none;
 
@@ -355,7 +372,9 @@ export function unifyChords(
    * 어긋난 곡에서 멀쩡한 코드 열다섯 자리가 엉뚱하게 바뀌었다.
    */
   const total = pairs.length;
-  if (hits < total * 0.8) return { ...none, total, matched: hits, shift };
+  const capo = shift < 0 ? -shift : 0;
+  if (!force && hits < total * 0.8)
+    return { ...none, total, matched: hits, shift, capo };
 
   /* 어느 쪽이 「오리지날」인가로 갈린다.
    *
@@ -370,7 +389,7 @@ export function unifyChords(
    *
    * 어느 쪽이든 세 화면이 같은 코드를 말하게 된다.
    */
-  if (shift !== 0) {
+  if (!force && shift !== 0) {
     /* 마디마다 코드 자리 수까지 맞춘다.
      *
      * 이름만 바꿔서는 모자랐다 — 악보에 한 개만 적힌 마디에서 음원은
@@ -412,7 +431,7 @@ export function unifyChords(
     });
     edits.sort((x, y) => x.from - y.from);
     if (!edits.length)
-      return { ...none, source: "audio", total, matched: hits, shift };
+      return { ...none, source: "audio", total, matched: hits, shift, capo };
     let out = "";
     let at = 0;
     for (const e of edits) {
@@ -429,6 +448,7 @@ export function unifyChords(
       total,
       matched: hits,
       shift,
+      capo,
     };
   }
 
@@ -436,7 +456,14 @@ export function unifyChords(
    *
    * 코드가 적히지 않은 마디는 앞 코드가 그대로 이어진다 — 악보를 읽는
    * 법이 그렇다. 한 마디에 둘이면 앞뒤 절반씩 나눈다.
+   *
+   * 카포 악보를 따를 때는 **울리는 높이로 되돌려** 싣는다. 파형·타브에
+   * 담기는 코드는 언제나 실제로 울리는 코드이고, 악보에 적힌 모양은
+   * 연주설정의 카포가 되돌려 보여 준다 — 여기서 적힌 그대로 실으면
+   * 카포를 끼우는 순간 두 번 내려가 엉뚱한 코드가 된다.
    */
+  const sounding = (label: string) =>
+    shift ? moveChord(label, -shift, flats) : label;
   const laid: Chord[] = [];
   let first = Infinity;
   let last = -Infinity;
@@ -476,13 +503,13 @@ export function unifyChords(
     const span = bar.end - bar.start;
     slots.forEach((slot, i) => {
       put(
-        slot.label,
+        sounding(slot.label),
         bar.start + (span * i) / slots.length,
         bar.start + (span * (i + 1)) / slots.length,
       );
     });
   });
-  if (!laid.length) return { ...none, total, matched: hits, shift };
+  if (!laid.length) return { ...none, total, matched: hits, shift, capo };
 
   // 악보가 닿지 않는 앞뒤(전주·후주)는 음원에서 딴 코드를 그대로 둔다
   const outside = bars
@@ -495,5 +522,14 @@ export function unifyChords(
   const changed = pairs.filter(
     (p) => !same(plain(p.heard), p.slot.label),
   ).length;
-  return { abc, chords, source: "score", changed, total, matched: hits, shift };
+  return {
+    abc,
+    chords,
+    source: "score",
+    changed,
+    total,
+    matched: hits,
+    shift,
+    capo,
+  };
 }

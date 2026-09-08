@@ -22,6 +22,7 @@ import {
   getAbc,
   removeAbc,
   saveAbc,
+  setAbcFollow,
   setAbcOffset,
   type AbcEntry,
 } from "@/lib/abcStore";
@@ -320,6 +321,7 @@ export default function Home() {
             rawBars,
             abcEntry.barOffset,
             asShown(result.chords, result.bpm),
+            abcEntry.follow ?? false,
           )
         : null,
     // asShown은 어휘 설정만 보므로 그것을 함께 본다
@@ -401,6 +403,18 @@ export default function Home() {
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
   const noteShift = -transpose;
+
+  /**
+   * ABC 악보를 그릴 때 쓸 이조값.
+   *
+   * 이 앱의 코드는 언제나 **울리는 높이**로 다니고, 카포는 화면에서
+   * 되돌려 보여 준다. 그런데 카포용으로 옮겨 적힌 악보를 그대로 따르면
+   * 악보가 이미 내려가 있어 카포만큼 **두 번** 내려간다 — 그만큼 도로
+   * 올려 그린다.
+   */
+  const abcTranspose =
+    noteShift + (unified?.source === "score" ? unified.capo : 0);
+
 
   /**
    * ♭로 적을지 ♯로 적을지.
@@ -1979,10 +1993,20 @@ export default function Home() {
                           ? () => playback.getTime() + sync - settings.latency
                           : undefined
                       }
-                      transpose={noteShift}
+                      transpose={abcTranspose}
                       sync={sync}
                       onSync={setSync}
                       barOffset={abcEntry.barOffset}
+                      follow={abcEntry.follow ?? false}
+                      onFollow={
+                        settings.adminMode
+                          ? (on) => {
+                              setAbcFollow(result.id, on);
+                              setAbcEntry({ ...abcEntry, follow: on });
+                            }
+                          : undefined
+                      }
+                      onCapo={setTranspose}
                       onShiftBar={(d) => {
                         const v = abcEntry.barOffset + d;
                         setAbcOffset(result.id, v);
@@ -2547,9 +2571,19 @@ export default function Home() {
                             ? () => playback.getTime() + sync - settings.latency
                             : undefined
                         }
-                        transpose={noteShift}
+                        transpose={abcTranspose}
                         sync={sync}
                         barOffset={abcEntry.barOffset}
+                        follow={abcEntry.follow ?? false}
+                        onFollow={
+                          settings.adminMode
+                            ? (on) => {
+                                setAbcFollow(result.id, on);
+                                setAbcEntry({ ...abcEntry, follow: on });
+                              }
+                            : undefined
+                        }
+                        onCapo={setTranspose}
                         musicKey={result.key}
                         timeSignature={result.time_signature}
                         playNotes={playNotes}
@@ -2988,10 +3022,20 @@ export default function Home() {
                                         settings.latency
                                     : undefined
                                 }
-                                transpose={noteShift}
+                                transpose={abcTranspose}
                                 sync={sync}
                                 onSync={setSync}
                                 barOffset={abcEntry.barOffset}
+                                follow={abcEntry.follow ?? false}
+                                onFollow={
+                                  settings.adminMode
+                                    ? (on) => {
+                                        setAbcFollow(result.id, on);
+                                        setAbcEntry({ ...abcEntry, follow: on });
+                                      }
+                                    : undefined
+                                }
+                                onCapo={setTranspose}
                                 onShiftBar={(d) => {
                                   const v = abcEntry.barOffset + d;
                                   setAbcOffset(result.id, v);

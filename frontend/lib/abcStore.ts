@@ -20,6 +20,15 @@ export interface AbcEntry {
   barOffset: number;
   /** 언제 넣었나 */
   at: number;
+  /**
+   * 음원 분석과 얼마나 다르든 **악보 코드를 따를 것인가.**
+   *
+   * 평소에는 열에 여덟이 맞아야 악보를 따른다 — 마디가 어긋난 악보로
+   * 멀쩡한 코드를 망치지 않으려는 빗장이다. 그런데 음원 분석이 통째로
+   * 빗나간 곡에서는 그 빗장 때문에 악보가 있어도 아무 도움이 안 됐다.
+   * 강사님이 이 곡은 악보가 맞다고 정하면 그 빗장을 넘는다.
+   */
+  follow?: boolean;
 }
 
 type Store = Record<string, AbcEntry>;
@@ -48,6 +57,15 @@ export function getAbc(songId: string): AbcEntry | null {
 export function saveAbc(songId: string, abc: string, barOffset = 0): void {
   const store = read();
   store[songId] = { abc, barOffset, at: Date.now() };
+  write(store);
+}
+
+/** 이 곡은 악보 코드를 그대로 따를 것인지 정한다 */
+export function setAbcFollow(songId: string, follow: boolean): void {
+  const store = read();
+  const cur = store[songId];
+  if (!cur) return;
+  store[songId] = { ...cur, follow };
   write(store);
 }
 
