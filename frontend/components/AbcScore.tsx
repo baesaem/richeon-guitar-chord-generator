@@ -79,8 +79,6 @@ interface Props {
   follow?: boolean;
   /** 그것을 켜고 끄는 손잡이(강사님). 없으면 단추를 두지 않는다 */
   onFollow?: (on: boolean) => void;
-  /** 권한 카포를 연주설정에 맞춘다. 없으면 권하기만 한다 */
-  onCapo?: (fret: number) => void;
   /**
    * 음원의 박을 악보의 펼친 마디 수에 맞춰 고르게 다시 깐다(강사님).
    * 박 찾기가 정수로 돌아오지 않는 배율로 어긋났을 때의 마지막 길이다.
@@ -116,7 +114,6 @@ export function AbcScore({
   chordNote,
   follow = false,
   onFollow,
-  onCapo,
   onFitBars,
   onSetBpm,
   audioBpm = 0,
@@ -406,21 +403,6 @@ ${abc}`;
             {chordNote.source === "audio" ? "음원 코드" : "악보 코드"}로 모음{" "}
             {chordNote.changed}곳
           </span>
-        )}
-        {/* 악보가 음원보다 낮게 적혀 있으면 카포로 높이면 그만이다.
-            몇 프렛인지 세어 알려 주고, 누르면 연주설정에 그대로 맞춘다 */}
-        {!!chordNote?.capo && chordNote.matched > 0 && (
-          <button
-            className="rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
-            onClick={() => onCapo?.(chordNote.capo)}
-            title={
-              onCapo
-                ? `카포를 ${chordNote.capo}프렛에 끼우고 악보대로 치면 음원과 같은 높이가 됩니다. 눌러서 맞춥니다`
-                : `카포를 ${chordNote.capo}프렛에 끼우고 악보대로 치면 음원과 같은 높이가 됩니다`
-            }
-          >
-            카포 {chordNote.capo}프렛{onCapo ? " 맞추기" : ""}
-          </button>
         )}
         {/* 악보에 마디 수를 맞추는 손잡이.
             한 마디만 달라도 알려 준다 — 그 한 마디가 곡 전체에 걸쳐

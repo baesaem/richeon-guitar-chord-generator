@@ -2074,7 +2074,6 @@ export default function Home() {
                             }
                           : undefined
                       }
-                      onCapo={setTranspose}
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
                       onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
@@ -2658,7 +2657,6 @@ export default function Home() {
                               }
                             : undefined
                         }
-                        onCapo={setTranspose}
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
                       onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
@@ -3115,8 +3113,7 @@ export default function Home() {
                                       }
                                     : undefined
                                 }
-                                onCapo={setTranspose}
-                      onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
+                          onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
                       onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
                       playedBars={abcPlayedBars}
