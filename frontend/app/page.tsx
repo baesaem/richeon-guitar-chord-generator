@@ -447,6 +447,16 @@ export default function Home() {
       setError((e as Error).message);
     }
   };
+  /** 빠르기를 손으로 정해 박을 다시 깐다 */
+  const setBeatBpm = async (bpm: number) => {
+    if (!result || !(bpm > 20 && bpm < 400)) return;
+    try {
+      adoptResult(await fixBeats(result.id, "bpm", undefined, bpm));
+      setToast(`♩=${Math.round(bpm)}로 박을 다시 깔았습니다`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
 
   const abcTranspose =
     noteShift + (unified?.source === "score" ? unified.capo : 0);
@@ -2066,6 +2076,8 @@ export default function Home() {
                       }
                       onCapo={setTranspose}
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
+                      onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
+                      audioBpm={shown?.bpm ?? 0}
                       playedBars={abcPlayedBars}
                       audioBars={audioBarCount}
                       onShiftBar={(d) => {
@@ -2648,6 +2660,8 @@ export default function Home() {
                         }
                         onCapo={setTranspose}
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
+                      onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
+                      audioBpm={shown?.bpm ?? 0}
                       playedBars={abcPlayedBars}
                       audioBars={audioBarCount}
                         musicKey={result.key}
@@ -3103,6 +3117,8 @@ export default function Home() {
                                 }
                                 onCapo={setTranspose}
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
+                      onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
+                      audioBpm={shown?.bpm ?? 0}
                       playedBars={abcPlayedBars}
                       audioBars={audioBarCount}
                                 onShiftBar={(d) => {

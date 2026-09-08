@@ -1170,6 +1170,17 @@ async def fix_beats(result_id: str, body: dict) -> AnalysisResult:
             rows,
             {"half": 0.5, "double": 2, "third": 1 / 3, "triple": 3}[mode],
         )
+    elif mode == "bpm":
+        # 빠르기를 직접 정한다. 악보에 적힌 ♩값이나 손으로 재어 본 값이
+        # 가장 믿을 만할 때가 있다 — 마디 수로 나누는 길은 곡 끝이
+        # 잦아들면 마디를 짧게 잡아 커서가 갈수록 앞선다.
+        try:
+            bpm = float(body.get("bpm") or 0)
+        except (TypeError, ValueError):
+            bpm = 0.0
+        if not 20 < bpm < 400:
+            raise HTTPException(400, "빠르기를 20~400 사이로 적어 주세요")
+        rows = beats_even.at_bpm(rows, bpm, end=beats_even.last_sound(result_id))
     elif mode == "fit":
         # 악보의 펼친 마디 수에 맞춰 고르게 다시 깐다. 정수 배율로 돌아오지
         # 않는 그릇된 박(실제의 2.26배 따위)은 이 길밖에 없다.

@@ -86,6 +86,10 @@ interface Props {
    * 박 찾기가 정수로 돌아오지 않는 배율로 어긋났을 때의 마지막 길이다.
    */
   onFitBars?: (bars: number) => void;
+  /** 빠르기를 손으로 정한다(강사님). 마디 수로 나누는 길이 안 맞을 때 쓴다 */
+  onSetBpm?: (bpm: number) => void;
+  /** 지금 음원의 빠르기. 손으로 고칠 때 시작값이 된다 */
+  audioBpm?: number;
   /** 악보를 펼쳤을 때의 마디 수. onFitBars가 쓴다 */
   playedBars?: number;
   /** 음원의 마디 수. 악보와 얼마나 다른지 보인다 */
@@ -114,6 +118,8 @@ export function AbcScore({
   onFollow,
   onCapo,
   onFitBars,
+  onSetBpm,
+  audioBpm = 0,
   playedBars = 0,
   audioBars = 0,
 }: Props) {
@@ -435,6 +441,34 @@ ${abc}`;
               ? `악보 ${playedBars}마디에 맞추기`
               : `음원 ${audioBars}마디 ≠ 악보 ${playedBars}마디 · 맞추기`}
           </button>
+        )}
+        {/* 빠르기를 손으로 정한다.
+            마디 수로 나누는 길은 곡 끝이 페이드로 잦아들면 마디를 짧게
+            잡아 커서가 갈수록 앞선다 — 그럴 때는 귀로 잰 ♩값이 낫다. */}
+        {onSetBpm && (
+          <span className="flex items-center gap-1 text-[11px]">
+            <span>♩</span>
+            <input
+              type="number"
+              className="w-12 rounded border border-[var(--panel-line)] bg-[var(--background)] px-1 py-0.5 text-right"
+              defaultValue={audioBpm ? Math.round(audioBpm) : 70}
+              min={20}
+              max={400}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onSetBpm(+(e.target as HTMLInputElement).value);
+              }}
+              title="이 빠르기로 박을 다시 깝니다. 커서가 갈수록 앞서면 조금 낮추고, 처지면 높이세요"
+            />
+            <button
+              className="rounded bg-[var(--chip)] px-1.5 py-0.5 font-semibold"
+              onClick={(e) => {
+                const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                onSetBpm(+input.value);
+              }}
+            >
+              맞추기
+            </button>
+          </span>
         )}
         {/* 음원 분석이 통째로 빗나간 곡에서 쓴다 — 얼마나 다르든 악보를 따른다 */}
         {onFollow && (

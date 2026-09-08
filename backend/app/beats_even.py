@@ -121,6 +121,32 @@ def last_sound(result_id: str) -> float | None:
         return None
 
 
+def at_bpm(
+    beats: list[dict],
+    bpm: float,
+    per_bar: int = 4,
+    end: float | None = None,
+) -> list[dict]:
+    """빠르기를 **직접 정해** 박을 다시 깐다.
+
+    악보 머리에 적힌 ♩값이나 강사님이 손으로 재어 본 값이 가장 믿을
+    만할 때가 있다. 마디 수로 나누는 길은 곡 끝이 페이드로 잦아들거나
+    마지막 마디가 잘려 있으면 마디를 짧게 잡아, 커서가 갈수록 앞선다 —
+    그럴 때는 빠르기를 그대로 주는 편이 낫다.
+
+    첫 박은 그대로 두고(소리가 나기 시작하는 자리다) 거기서부터 고르게
+    깐다. 곡이 끝날 때까지 채운다.
+    """
+    times = [float(b["t"]) for b in beats]
+    if len(times) < 2 or not 20 < bpm < 400:
+        return beats
+    t0 = times[0]
+    last = end if end and end > t0 else times[-1]
+    unit = 60.0 / bpm
+    n = max(per_bar * 2, int(round((last - t0) / unit)) + 1)
+    return _renumber([t0 + unit * i for i in range(n)], beats, per_bar)
+
+
 def fit(
     beats: list[dict], bars: int, per_bar: int = 4, end: float | None = None
 ) -> list[dict]:
