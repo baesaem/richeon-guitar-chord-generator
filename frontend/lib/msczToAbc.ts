@@ -347,6 +347,22 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
       if (!m.endRepeat) m.endRepeat = f.endRepeat;
       if (m.volta === null) m.volta = f.volta;
       if (!m.marks) m.marks = f.marks;
+      /*
+       * 코드 이름도 첫 보표에서 가져온다.
+       *
+       * 코드는 노래 보표 위에만 적혀 있다. 기타 보표를 골랐다고 코드가
+       * 사라지면, 짚을 자리는 보이는데 무슨 코드인지 알 수 없는 타브가
+       * 된다. 이 마디에 적힌 코드가 없을 때만 옮겨 온다.
+       */
+      if (!m.events.some((e) => e.harmony?.root)) {
+        const chords = f.events.filter((e) => e.harmony?.root);
+        chords.forEach((c, k) => {
+          // 마디를 코드 수만큼 나눠 그 자리에 얹는다
+          const at = Math.floor((m.events.length * k) / Math.max(chords.length, 1));
+          const ev = m.events[at];
+          if (ev && !ev.harmony) ev.harmony = c.harmony;
+        });
+      }
     });
   }
   const st = { sig: firstKey, keyChange: null as string | null };

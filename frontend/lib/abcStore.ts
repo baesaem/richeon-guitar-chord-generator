@@ -29,6 +29,15 @@ export interface AbcEntry {
    * 강사님이 이 곡은 악보가 맞다고 정하면 그 빗장을 넘는다.
    */
   follow?: boolean;
+  /**
+   * 타브 화면에만 쓰는 악보.
+   *
+   * 타브 줄 위의 프렛 숫자는 abcjs가 **멜로디 음에서** 만들어 낸다 —
+   * 편곡자가 짚으라고 적은 자리가 아니다. 같은 곡의 기타 보표(또는 다른
+   * 악보 파일)를 여기에 두면, 오선·가사·코드는 그대로 두고 **숫자만**
+   * 그쪽에서 가져온다.
+   */
+  tabAbc?: string;
 }
 
 type Store = Record<string, AbcEntry>;
@@ -57,6 +66,15 @@ export function getAbc(songId: string): AbcEntry | null {
 export function saveAbc(songId: string, abc: string, barOffset = 0): void {
   const store = read();
   store[songId] = { abc, barOffset, at: Date.now() };
+  write(store);
+}
+
+/** 타브 숫자를 가져올 악보를 정한다. 빈 값이면 멜로디 악보에서 만든다 */
+export function setAbcTabScore(songId: string, tabAbc: string | null): void {
+  const store = read();
+  const cur = store[songId];
+  if (!cur) return;
+  store[songId] = { ...cur, tabAbc: tabAbc || undefined };
   write(store);
 }
 

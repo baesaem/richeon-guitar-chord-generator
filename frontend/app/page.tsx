@@ -25,12 +25,14 @@ import {
   removeAbc,
   saveAbc,
   setAbcFollow,
+  setAbcTabScore,
   setAbcOffset,
   type AbcEntry,
 } from "@/lib/abcStore";
 import { clearDirty, listDirty, markDirty } from "@/lib/dirty";
 import { ScoreAttach } from "@/components/ScoreAttach";
 import { TabAttach } from "@/components/TabAttach";
+import { TabScorePick } from "@/components/TabScorePick";
 import { SheetScore, type SheetData } from "@/components/SheetScore";
 import { sheetChords } from "@/lib/sheetChords";
 import { ChordSheet } from "@/components/ChordSheet";
@@ -1155,12 +1157,19 @@ export default function Home() {
    *
    * 붙여 둔 악보가 있으면 타브도 그 악보를 보여야 한다 — 코드에서
    * 만들어 낸 운지가 아니라 편곡자가 적은 음을 짚게 된다.
+   *
+   * 숫자를 어디서 가져올지는 셋 중 하나다. 앞에 오는 것이 이긴다.
+   *   1) 「타브 숫자 가져오기」로 고른 악보 (기타 보표)
+   *   2) 「타브 읽어 붙이기」로 그림 악보에서 읽어 온 프렛 숫자
+   *   3) 멜로디 악보에서 abcjs가 만들어 낸 숫자
    */
   const abcTab =
-    result && abcEntry ? (
+    result && abcEntry && (abcEntry.tabAbc || !pickedBars) ? (
       <AbcScore
         tab
-        abc={unified?.abc ?? abcEntry.abc}
+        /* 숫자를 가져다 둔 악보가 있으면 그것을 그린다 — 오선·가사·코드도
+           그 악보의 것이 되지만, 같은 곡의 기타 보표라 내용은 같다 */
+        abc={abcEntry.tabAbc ?? unified?.abc ?? abcEntry.abc}
         chordNote={unified}
         bars={bars}
         time={time + sync - settings.latency}
@@ -2036,11 +2045,22 @@ export default function Home() {
                   {/* 타브 붙이기는 타브 화면에 둔다 — 읽어 온 숫자가
                       제자리에 앉았는지 보면서 밀어야 맞출 수 있다 */}
                   {sheetTab === "score" && settings.adminMode && (
-                    <TabAttach
-                      result={result}
-                      onResult={adoptResult}
-                      online={!!health}
-                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <TabAttach
+                        result={result}
+                        onResult={adoptResult}
+                        online={!!health}
+                      />
+                      {abcEntry && (
+                        <TabScorePick
+                          has={!!abcEntry.tabAbc}
+                          onPick={(abc) => {
+                            setAbcTabScore(result.id, abc);
+                            setAbcEntry({ ...abcEntry, tabAbc: abc ?? undefined });
+                          }}
+                        />
+                      )}
+                    </div>
                   )}
                   {sheetTab === "score" && abcTab}
                   {sheetTab === "score" && !abcTab && (
