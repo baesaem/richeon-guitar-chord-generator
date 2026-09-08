@@ -121,13 +121,29 @@ def _numbered(page, image: Image.Image, first: int) -> tuple[bytes, int]:
     return buf.getvalue(), n
 
 
-def _ask(images: list[bytes], hint: str = "") -> dict:
+#: 되돌이표에 더해 **코드 이름**까지 읽게 하는 덧붙임. 종이 악보로 등록한
+#: 곡의 코드가 악보를 따르려면 마디마다 무슨 코드가 적혀 있는지 알아야
+#: 한다. 음표는 읽히지 않는다 — 전에 재어 보니 하나도 맞지 않았다.
+#: 코드 글자와 마디 번호는 잘 읽는다.
+_CHORD_ADDON = """
+그리고 **코드 이름**도 읽어 주세요. 오선 위에 적힌 글자(C, Am7, G/B, F#m 같은 것)입니다.
+마디마다 그 마디 안에 적힌 코드를 **왼쪽부터 차례로** 적으세요. 코드 글자가
+없는 마디는 적지 마세요(앞 코드가 이어집니다). 적힌 그대로 옮기고 바꾸지 마세요.
+조표를 보고 조도 적어 주세요(예: "G", "Em", "Bb").
+
+위 JSON에 다음 두 항목을 더하세요:
+ "key": "조",
+ "chords": [{"bar": 마디번호, "chords": ["C", "G7"]}...]
+"""
+
+
+def _ask(images: list[bytes], hint: str = "", prompt: str | None = None) -> dict:
     """그림들을 한 번에 보여 주고 JSON을 받는다."""
     cfg = llm_config()
     if not cfg.get("api_key"):
         raise RuntimeError("AI 키가 없습니다. 설정에서 넣어 주세요.")
 
-    content: list[dict] = [{"type": "text", "text": _PROMPT + hint}]
+    content: list[dict] = [{"type": "text", "text": (prompt or _PROMPT) + hint}]
     for png in images:
         b64 = base64.b64encode(png).decode()
         content.append(
@@ -316,3 +332,103 @@ def read(pages, images: list[bytes]) -> dict:
     if not order:
         raise ValueError("부르는 차례를 만들지 못했습니다.")
     return {"order": order, "found": found, "bars": count}
+
+
+# ── 종이 악보의 코드 → ABC ─────────────────────────────────────────
+
+_MARK = {"segno": "!segno!", "coda": "!coda!", "codab": '"To Coda"', "fine": "!fine!"}
+_JUMP = {
+    ("segno", "codab", "coda"): "!D.S.alcoda!",
+    ("segno", "fine", ""): "!D.S.alfine!",
+    ("start", "fine", ""): "!D.C.alfine!",
+    ("start", "codab", "coda"): "!D.C.alcoda!",
+}
+_CHORD_RE = r"^[A-G][#b]?[A-Za-z0-9+#b()]*(/[A-G][#b]?)?$"
+
+
+def to_abc(found: dict, count: int, title: str = "") -> str:
+    """AI가 읽은 코드와 되돌이표로 **코드만 적힌** ABC를 만든다.
+
+    음표는 없다 — 마디마다 쉼표로 채우고 코드 글자만 얹는다. 앱의 「악보
+    따르기」는 마디 수와 마디마다의 코드만 보므로 이것으로 넉넉하다.
+    되돌이표·괄호·세뇨·코다는 그대로 옮겨 부르는 차례가 펴지게 한다.
+    """
+    import re
+
+    bars = to_bars(found, count)
+    per: dict[int, list[str]] = {}
+    for row in found.get("chords") or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            i = int(row.get("bar"))
+        except (TypeError, ValueError):
+            continue
+        names = [
+            str(c).strip().replace("♯", "#").replace("♭", "b")
+            for c in (row.get("chords") or [])
+        ]
+        names = [c for c in names if re.match(_CHORD_RE, c)]
+        if 1 <= i <= count and names:
+            per[i] = names[:4]
+
+    key = str(found.get("key") or "C").strip().replace("♯", "#").replace("♭", "b")
+    if not re.match(r"^[A-G][#b]?m?$", key):
+        key = "C"
+
+    # 한 마디는 8분음표 여덟 개. 코드 수대로 나눈다
+    split = {1: [8], 2: [4, 4], 3: [3, 3, 2], 4: [2, 2, 2, 2]}
+    out: list[str] = []
+    line: list[str] = []
+    for b in bars:
+        t = ""
+        if b.start_repeat:
+            t += "|: "
+        if b.volta:
+            t += "[" + ",".join(str(e) for e in b.volta[0]) + " "
+        for m in b.markers:
+            if m in _MARK:
+                t += _MARK[m]
+        if b.jump and tuple(b.jump) in _JUMP:
+            t += _JUMP[tuple(b.jump)]
+        names = per.get(b.number)
+        if names:
+            lens = split[len(names)]
+            t += " ".join(f'"{c}" z{n}' for c, n in zip(names, lens))
+        else:
+            t += "z8"
+        t += " :|" if b.end_repeat else " |"
+        line.append(t)
+        if len(line) == 4:
+            out.append(" ".join(line))
+            line = []
+    if line:
+        out.append(" ".join(line))
+    head = ["X:1", f"T:{title or '악보'}", "M:4/4", "L:1/8", f"K:{key}"]
+    return chr(10).join(head + out) + chr(10)
+
+
+def read_chords(pages, images: list[bytes], title: str = "") -> dict:
+    """되돌이표와 코드를 한 번에 읽어, 부르는 차례와 코드 ABC를 낸다."""
+    shots: list[bytes] = []
+    first = 1
+    for page, raw in zip(pages, images):
+        png, first = _numbered(page, Image.open(io.BytesIO(raw)), first)
+        shots.append(png)
+    count = first - 1
+    if count < 2:
+        raise ValueError("마디를 찾지 못한 악보입니다.")
+
+    found = _ask(shots, _hint(pages), prompt=_PROMPT + _CHORD_ADDON)
+    bars = to_bars(found, count)
+    order = expand(bars)
+    if not order:
+        raise ValueError("부르는 차례를 만들지 못했습니다.")
+    read_n = len([r for r in (found.get("chords") or []) if isinstance(r, dict)])
+    return {
+        "order": order,
+        "found": found,
+        "bars": count,
+        "abc": to_abc(found, count, title),
+        "chord_bars": read_n,
+    }

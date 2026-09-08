@@ -2,7 +2,7 @@
 
 import { abcOrders } from "./abcOrder";
 import { saveAbc, setAbcFollow } from "./abcStore";
-import { fixBeats, putScore } from "./api";
+import { fixBeats, putScore, putSheetImage, readSheetChords } from "./api";
 import { msczToAbc } from "./msczToAbc";
 import type { AnalysisResult } from "./types";
 
@@ -15,6 +15,10 @@ import type { AnalysisResult } from "./types";
  * 끝낸다. 분석 자체는 그대로 돈다(박·가사·소리 자리는 음원에서 재야
  * 한다). 코드만 악보 것이 된다.
  *
+ * 종이 악보(PDF·사진)도 받는다. 그림은 그대로 붙여 커서가 지나가게
+ * 하고, 코드는 AI가 마디마다 읽어 코드만 적힌 ABC로 만든다 — 음표와
+ * 달리 코드 글자와 마디 번호는 잘 읽힌다.
+ *
  * 덤으로 마디 수를 맞춘다. 슬로우 록(12비트)처럼 셋잇단을 박으로 세어
  * 마디가 세 배로 늘어난 곡은, 악보의 마디 수와 견주어 보면 몇 배로
  * 어긋났는지 바로 드러난다 — 「광화문 연가」는 악보 58마디에 음원
@@ -22,11 +26,14 @@ import type { AnalysisResult } from "./types";
  */
 
 /** 등록 화면이 받는 악보 파일 종류 */
-export const SCORE_ACCEPT = ".abc,.txt,.mscz,.mscx,.xml,.musicxml,.mxl";
+export const SCORE_ACCEPT =
+  ".abc,.txt,.mscz,.mscx,.xml,.musicxml,.mxl,.pdf,.png,.jpg,.jpeg,.webp,image/*";
 
 const ABC_KINDS = /\.(abc|txt)$/i;
 const MSCZ_KINDS = /\.(mscz|mscx)$/i;
 const XML_KINDS = /\.(xml|musicxml|mxl)$/i;
+/** 종이 악보 — 인쇄물을 찍거나 뽑은 것. 그림 그대로 붙이고 코드는 AI가 읽는다 */
+const IMAGE_KINDS = /\.(pdf|png|jpe?g|webp)$/i;
 
 /** 파일에서 ABC를 얻는다. 얻을 수 없는 종류면 null */
 async function toAbc(file: File): Promise<string | null> {
@@ -101,10 +108,25 @@ export async function attachScoreAfterAnalysis(
 
   // ② 코드는 ABC로 따른다
   let abc: string | null = null;
-  try {
-    abc = await toAbc(file);
-  } catch (e) {
-    notes.push(`악보를 읽지 못했습니다: ${(e as Error).message}`);
+  if (IMAGE_KINDS.test(file.name) || file.type.startsWith("image/")) {
+    // 종이 악보: 그림을 붙이고, AI에게 마디마다의 코드 글자를 읽힌다
+    try {
+      cur = await putSheetImage(cur.id, file);
+      notes.push("악보 그림을 붙였습니다");
+      const got = await readSheetChords(cur.id);
+      cur = got.result;
+      abc = got.abc;
+      notes.push(`코드를 읽었습니다 (${got.bars}마디 중 ${got.chordBars}마디에 코드)`);
+    } catch (e) {
+      notes.push(`종이 악보 읽기 실패: ${(e as Error).message}`);
+      return { result: cur, notes };
+    }
+  } else {
+    try {
+      abc = await toAbc(file);
+    } catch (e) {
+      notes.push(`악보를 읽지 못했습니다: ${(e as Error).message}`);
+    }
   }
   if (!abc) {
     if (XML_KINDS.test(file.name))

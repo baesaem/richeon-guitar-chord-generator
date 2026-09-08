@@ -748,7 +748,7 @@ export function ImportTab({
             <button
               className="shrink-0 rounded bg-[var(--chip)] px-2 py-1.5 font-semibold text-[var(--foreground)]"
               onClick={() => scorePick.current?.click()}
-              title="뮤즈스코어(.mscz)·ABC 악보를 넣으면 코드를 악보대로 적고, 마디 수도 악보에 맞춥니다"
+              title="뮤즈스코어(.mscz)·ABC 악보나 종이 악보(PDF·사진)를 넣으면 코드를 악보대로 적고, 마디 수도 악보에 맞춥니다"
             >
               {score ? "악보 바꾸기" : "악보 함께 넣기 (선택)"}
             </button>

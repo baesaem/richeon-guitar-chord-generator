@@ -1266,6 +1266,82 @@ async def _run_read(result_id: str) -> None:
         _reads[result_id] = {"state": "failed", "detail": str(exc)}
 
 
+_chord_reads: dict[str, dict] = {}
+
+
+async def _run_chord_read(result_id: str) -> None:
+    """종이 악보에서 되돌이표와 코드를 AI로 읽어, 차례를 적고 코드 ABC를 낸다."""
+    try:
+        result = load_result(result_id)
+        src = _sheet_source(result_id)
+        if result is None or not result.sheet or src is None:
+            raise ValueError("붙여 둔 악보가 없습니다")
+
+        data = src.read_bytes()
+        if src.suffix.lower() == ".pdf":
+            pages, images = await asyncio.to_thread(sheet_layout.from_pdf, data)
+        else:
+            pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
+
+        got = await asyncio.to_thread(
+            sheet_read.read_chords, pages, images, result.title
+        )
+
+        # 되돌이 차례는 그림 커서에도 그대로 쓴다 — 한 번 읽은 것을 두 번 묻지 않는다
+        sheet = dict(result.sheet)
+        result.sheet = sheet_score.build(
+            pages,
+            result.model_dump(),
+            result.score_align,
+            float(sheet.get("offset", 0.0) or 0.0),
+            1,
+            order=got["order"],
+            score=result.score,
+        )
+        result.sheet["read"] = got["found"]
+        save_result(result)
+        _chord_reads[result_id] = {
+            "state": "done",
+            "abc": got["abc"],
+            "bars": got["bars"],
+            "chord_bars": got["chord_bars"],
+        }
+    except Exception as exc:
+        _chord_reads[result_id] = {"state": "failed", "detail": str(exc)}
+
+
+@app.post("/api/results/{result_id}/sheet/chords")
+async def read_sheet_chords(result_id: str) -> dict:
+    """종이 악보의 코드를 AI로 읽어 코드만 적힌 ABC를 만든다 — 시작만 한다.
+
+    음원만 듣고 딴 코드는 틀리는 데가 많다. 종이 악보로 등록한 곡도
+    코드가 악보를 따르게 하려면 마디마다의 코드 글자를 알아야 하는데,
+    음표와 달리 코드 글자와 마디 번호는 AI가 잘 읽는다.
+    """
+    _guard_id(result_id)
+
+    result = load_result(result_id)
+    if result is None:
+        raise HTTPException(404, "분석 결과가 없습니다")
+    if not result.sheet:
+        raise HTTPException(400, "먼저 악보 그림을 붙여 주세요")
+    if _sheet_source(result_id) is None:
+        raise HTTPException(400, "악보 원본이 없습니다. 그림을 다시 붙여 주세요")
+
+    if _chord_reads.get(result_id, {}).get("state") == "running":
+        return {"state": "running"}
+    _chord_reads[result_id] = {"state": "running"}
+    asyncio.create_task(_run_chord_read(result_id))
+    return {"state": "running"}
+
+
+@app.get("/api/results/{result_id}/sheet/chords")
+async def read_sheet_chords_state(result_id: str) -> dict:
+    """코드 읽기가 끝났는지 물어본다. 끝났으면 ABC를 함께 준다."""
+    _guard_id(result_id)
+    return _chord_reads.get(result_id) or {"state": "idle"}
+
+
 @app.post("/api/results/{result_id}/sheet/read")
 async def read_sheet(result_id: str) -> dict:
     """악보 그림에서 되돌이 표시를 AI로 읽는다 — 시작만 하고 곧 돌려준다.

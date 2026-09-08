@@ -223,6 +223,46 @@ export async function readSheetImage(id: string): Promise<AnalysisResult> {
 }
 
 /**
+ * 종이 악보의 코드를 AI로 읽어 코드만 적힌 ABC를 받는다.
+ *
+ * 음원만 듣고 딴 코드는 틀리는 데가 많다. 악보 그림을 붙인 곡도 코드가
+ * 악보를 따르게 하려면 마디마다의 코드 글자가 있어야 한다 — 음표와
+ * 달리 코드 글자와 마디 번호는 AI가 잘 읽는다. 되돌이 차례도 함께
+ * 읽혀 그림 커서에 반영된다.
+ */
+export async function readSheetChords(
+  id: string,
+): Promise<{ abc: string; bars: number; chordBars: number; result: AnalysisResult }> {
+  await fetch(`${apiBase()}/api/results/${id}/sheet/chords`, {
+    method: "POST",
+  }).then(json<{ state: string }>);
+
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const state = await fetch(
+      `${apiBase()}/api/results/${id}/sheet/chords`,
+    ).then(
+      json<{
+        state: string;
+        detail?: string;
+        abc?: string;
+        bars?: number;
+        chord_bars?: number;
+      }>,
+    );
+    if (state.state === "done" && state.abc)
+      return {
+        abc: state.abc,
+        bars: state.bars ?? 0,
+        chordBars: state.chord_bars ?? 0,
+        result: await getResult(id),
+      };
+    if (state.state === "failed") throw new Error(state.detail || "읽지 못했습니다");
+  }
+  throw new Error("너무 오래 걸립니다. 잠시 뒤 다시 눌러 주세요");
+}
+
+/**
  * 강사님이 맞춘 연주설정을 이 곡의 기준값으로 적는다.
  *
  * 싱크는 기기 사정이 아니라 악보와 음원이 얼마나 어긋났나다 — 한 번
