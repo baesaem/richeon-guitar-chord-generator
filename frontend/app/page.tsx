@@ -15,6 +15,7 @@ import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { AbcScore } from "@/components/AbcScore";
+import { TabSheet } from "@/components/TabSheet";
 import { unifyChords } from "@/lib/abcChords";
 import { abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
@@ -1189,32 +1190,53 @@ export default function Home() {
    */
   const abcTab =
     result && abcEntry ? (
-      <AbcScore
-        tab
-        abc={abcEntry.tabAbc ?? unified?.abc ?? abcEntry.abc}
-        chordNote={unified}
-        bars={bars}
-        time={time + sync - settings.latency}
-        getTime={
-          playback ? () => playback.getTime() + sync - settings.latency : undefined
-        }
-        /* 악보에 든 타브는 **적힌 그대로** 그린다.
-
-            카포는 손가락 자리를 바꾸지 않는다 — 3반음 올려 부르려면 3프렛에
-            카포를 끼우고 같은 숫자를 짚는다. 그런데 이조값을 함께 주면 abcjs가
-            숫자를 세 칸씩 올려 적어, 종이 악보와 전혀 다른 타브가 된다. */
-        transpose={abcEntry.tabAbc ? 0 : abcTranspose}
-        sync={sync}
-        onSync={setSync}
-        barOffset={abcEntry.barOffset}
-        follow={abcEntry.follow ?? false}
-        musicKey={result.key}
-        timeSignature={result.time_signature}
-        playNotes={playNotes}
-        strum={shownStrum}
-        onPickStrum={() => setShowStrums(true)}
-        playStyle={playStyle}
-      />
+      abcEntry.tabScore ? (
+        <TabSheet
+          score={abcEntry.tabScore}
+          bars={bars}
+          time={time + sync - settings.latency}
+          getTime={
+            playback ? () => playback.getTime() + sync - settings.latency : undefined
+          }
+          scoreBarNumbers={scoreBarNumbers}
+          barOffset={abcEntry.barOffset}
+          /* 프렛은 적힌 그대로, 코드 이름만 다른 화면과 같게 옮긴다 */
+          chordShift={abcTranspose}
+          flats={flats}
+          lyrics={result.lyrics ?? undefined}
+          sync={sync}
+          onSync={setSync}
+          chordNote={unified}
+          musicKey={result.key}
+          timeSignature={result.time_signature}
+          playNotes={playNotes}
+          strum={shownStrum}
+          onPickStrum={() => setShowStrums(true)}
+          playStyle={playStyle}
+        />
+      ) : (
+        <AbcScore
+          tab
+          abc={unified?.abc ?? abcEntry.abc}
+          chordNote={unified}
+          bars={bars}
+          time={time + sync - settings.latency}
+          getTime={
+            playback ? () => playback.getTime() + sync - settings.latency : undefined
+          }
+          transpose={abcTranspose}
+          sync={sync}
+          onSync={setSync}
+          barOffset={abcEntry.barOffset}
+          follow={abcEntry.follow ?? false}
+          musicKey={result.key}
+          timeSignature={result.time_signature}
+          playNotes={playNotes}
+          strum={shownStrum}
+          onPickStrum={() => setShowStrums(true)}
+          playStyle={playStyle}
+        />
+      )
     ) : null;
 
 
@@ -2020,10 +2042,12 @@ export default function Home() {
                     </button>
                   </span>
                   {[
+                    // 멜로디를 먼저 둔다 — 악보를 붙이고 마디를 맞추는 일이
+                    // 여기서 시작하고, 타브는 그 악보에서 나온다.
+                    ["melody", "멜로디"] as const,
                     // 이 탭이 그리는 것은 여섯 줄 타브다. 「코드악보」는
                     // 재생 화면에서 쓰는 이름이라 여기서는 본 모습으로 적는다.
                     ["score", "타브"] as const,
-                    ["melody", "멜로디"] as const,
                     ["grid", "그리드"] as const,
                     ["lyrics", "가사"] as const,
                     ["mine", "내 악보"] as const,

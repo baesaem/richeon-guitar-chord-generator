@@ -95,3 +95,45 @@ export function labelFor(root: string | null, quality: string, flats: boolean): 
   const suffix = QUALITY_SUFFIX[quality] ?? quality;
   return `${spell(root, flats)}${suffix}`;
 }
+
+/** 「Eb」「D♭」처럼 적힌 근음을 반음 수로. 모르면 null */
+function pitchOf(root: string): number | null {
+  const m = root.replace(/♯/g, "#").replace(/♭/g, "b").match(/^([A-G])([#b]?)$/);
+  if (!m) return null;
+  const base = PITCH_CLASS[m[1]];
+  if (base === undefined) return null;
+  const alter = m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0;
+  return (((base + alter) % 12) + 12) % 12;
+}
+
+/**
+ * 「E7/G#」처럼 통째로 적힌 코드 이름을 반음 단위로 옮긴다.
+ *
+ * 타브 화면은 악보 파일에 적힌 코드 이름을 그대로 받는다. 그런데 다른
+ * 화면들은 카포만큼 옮겨 적으므로, 옮기지 않으면 같은 자리를 두고
+ * 멜로디는 Gm, 타브는 Em이라 부르게 된다 — 같은 곡에서 이름이 둘이면
+ * 서로 짚어 말할 수가 없다.
+ */
+export function shiftChordLabel(
+  label: string,
+  semitones: number,
+  flats: boolean,
+): string {
+  if (!label) return label;
+  const [head, bass] = label.split("/");
+  const m = head.match(/^([A-G][#b♯♭]?)(.*)$/);
+  if (!m) return label;
+  const pc = pitchOf(m[1]);
+  if (pc === null) return label;
+  const root = SHARP_NAMES[(((pc + semitones) % 12) + 12) % 12];
+  let out = spell(root, flats) + m[2];
+  if (bass) {
+    const bp = pitchOf(bass);
+    out +=
+      "/" +
+      (bp === null
+        ? bass
+        : spell(SHARP_NAMES[(((bp + semitones) % 12) + 12) % 12], flats));
+  }
+  return out;
+}

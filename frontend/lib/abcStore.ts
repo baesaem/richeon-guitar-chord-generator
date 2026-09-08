@@ -11,6 +11,8 @@
  * 악보는 여기 — 서로 독립이라 한쪽이 깨져도 다른 쪽은 산다).
  */
 
+import type { TabScore } from "./msczToAbc";
+
 const KEY = "chordgen.abc";
 
 export interface AbcEntry {
@@ -34,9 +36,9 @@ export interface AbcEntry {
    *
    * 타브 줄 위의 숫자를 멜로디 음에서 만들면 한 줄짜리 단선율이 되어,
    * 편곡자가 적은 손가락 뜯기와 전혀 다른 것이 나온다. 악보 파일에 타브
-   * 보표가 들어 있으면 그것을 그대로 쓴다.
+   * 보표가 들어 있으면 짚는 줄과 프렛을 적힌 그대로 담아 둔다.
    */
-  tabAbc?: string;
+  tabScore?: TabScore;
 }
 
 type Store = Record<string, AbcEntry>;
@@ -69,11 +71,11 @@ export function saveAbc(songId: string, abc: string, barOffset = 0): void {
 }
 
 /** 타브 화면에 쓸 악보(기타 타브 보표). 빈 값이면 멜로디 악보에서 만든다 */
-export function setAbcTabScore(songId: string, tabAbc: string | null): void {
+export function setAbcTabScore(songId: string, tabScore: TabScore | null): void {
   const store = read();
   const cur = store[songId];
   if (!cur) return;
-  store[songId] = { ...cur, tabAbc: tabAbc || undefined };
+  store[songId] = { ...cur, tabScore: tabScore ?? undefined };
   write(store);
 }
 

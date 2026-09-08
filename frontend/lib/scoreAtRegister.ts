@@ -3,7 +3,7 @@
 import { abcOrders } from "./abcOrder";
 import { saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
 import { fixBeats, putScore, putSheetImage, readSheetChords } from "./api";
-import { msczParts, msczToAbc } from "./msczToAbc";
+import { msczParts, msczToAbc, msczToTab } from "./msczToAbc";
 import type { AnalysisResult } from "./types";
 
 /**
@@ -191,7 +191,7 @@ export async function attachScoreAfterAnalysis(
         parts.find((p) => /타브/.test(p.name)) ??
         (parts.length > 1 ? parts[parts.length - 1] : null);
       if (tabPart && tabPart.index !== staff) {
-        setAbcTabScore(cur.id, msczToAbc(bytes, file.name, tabPart.index));
+        setAbcTabScore(cur.id, msczToTab(bytes, file.name, tabPart.index));
         notes.push(`타브는 「${tabPart.name}」에서 가져옵니다`);
       } else {
         setAbcTabScore(cur.id, null);

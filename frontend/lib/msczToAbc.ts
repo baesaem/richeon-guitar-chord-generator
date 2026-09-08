@@ -448,3 +448,129 @@ ${bpm ? `Q:1/4=${bpm}\n` : ""}K:${SIG_KEY[firstKey] ?? "C"}
 ` + lines.join("\n") + "\n"
   );
 }
+
+// ---- 타브 악보를 우리가 그리기 위한 꼴 ----
+
+/** 한 자리에서 함께 짚는 손가락들. string 0이 가장 가는 1번 줄이다 */
+export interface TabCol {
+  /** 16분음표 몇 개 길이인가. 마디 안에서 자리를 나누는 데 쓴다 */
+  units: number;
+  frets: { string: number; fret: number }[];
+  /** 이 자리에 붙은 코드 이름. 없으면 빈 값 */
+  chord?: string;
+}
+
+export interface TabBar {
+  cols: TabCol[];
+  startRepeat: boolean;
+  endRepeat: boolean;
+  /** 1·2번 괄호. 없으면 null */
+  volta: string | null;
+  /** 세뇨·코다·달세뇨를 사람이 읽는 글자로 */
+  marks: string[];
+  /** 마디 하나가 몇 16분음표인가. 4/4면 16 */
+  units: number;
+  /** 이 마디에 붙은 가사. 노래 보표에서 가져와 이어 붙인 것 */
+  lyric: string;
+}
+
+export interface TabScore {
+  title: string;
+  bpm: number;
+  meter: string;
+  bars: TabBar[];
+}
+
+/** ABC 기호로 적어 둔 되돌이 지시를 악보에 적는 글자로 */
+function markLabels(abcMarks: string): string[] {
+  const out: string[] = [];
+  if (abcMarks.includes("!segno!")) out.push(String.fromCodePoint(0x1d10b));
+  if (abcMarks.includes("!coda!")) out.push(String.fromCodePoint(0x1d10c));
+  if (abcMarks.includes("!fine!")) out.push("Fine");
+  const jump = abcMarks.match(/!D\.([SC])\.al(coda|fine)!/i);
+  if (jump)
+    out.push(
+      `D.${jump[1].toUpperCase()}. al ${
+        jump[2].toLowerCase() === "coda" ? "Coda" : "Fine"
+      }`,
+    );
+  return out;
+}
+
+/**
+ * .mscz의 **기타 타브 보표**를 그대로 읽어 온다.
+ *
+ * ABC로 옮겨 abcjs에게 프렛을 다시 세게 하면, 편곡자가 어느 줄에서
+ * 짚으라고 적었는지가 지워진다 — abcjs는 음높이만 보고 제 나름대로
+ * 줄을 고른다. 뮤즈스코어 파일에는 음마다 fret과 string이 적혀 있으니
+ * 그것을 그냥 쓴다. 코드·되돌이·세뇨는 첫 보표에만 있으므로 옮겨 온다.
+ */
+export function msczToTab(
+  data: Uint8Array,
+  fileName: string,
+  staff: number,
+): TabScore {
+  const xml = loadMscx(data, fileName);
+  const blocks = staffBlocksOf(xml);
+  if (!blocks[staff]) throw new Error(`보표가 ${blocks.length}개뿐입니다`);
+
+  const title = (xml.match(/<metaTag name="workTitle">([^<]*)/) ?? [])[1] ?? "";
+  const tempoM = xml.match(/<tempo>([\d.]+)/);
+  const bpm = tempoM ? Math.round(+tempoM[1] * 60) : 0;
+  const sigN = +((xml.match(/<sigN>(\d+)/) ?? [0, 4])[1]);
+  const sigD = +((xml.match(/<sigD>(\d+)/) ?? [0, 4])[1]);
+  const perBar = (16 * sigN) / sigD;
+
+  const mine = parseStaff(blocks[staff][2]);
+  const first = staff > 0 ? parseStaff(blocks[0][2]) : mine;
+
+  const bars: TabBar[] = mine.map((m, j) => {
+    const f = first[j];
+    /* 코드는 노래 보표 위에만 적혀 있다. 기타 보표를 골랐다고 코드가
+       사라지면, 짚을 자리는 보이는데 무슨 코드인지 알 수 없는 타브가
+       된다. 이 마디에 적힌 코드가 없을 때만 옮겨 온다. */
+    const own = m.events.filter((e) => e.harmony?.root);
+    const lend = own.length ? [] : (f?.events ?? []).filter((e) => e.harmony?.root);
+
+    const cols: TabCol[] = m.events.map((ev) => ({
+      units: ev.units,
+      frets: ev.notes
+        .filter((n) => n.fret !== null && n.string !== null)
+        .map((n) => ({ string: n.string as number, fret: n.fret as number })),
+      chord: chordName(ev.harmony ?? {}),
+    }));
+    // 빌려 온 코드는 마디를 코드 수만큼 나눠 그 자리에 얹는다
+    lend.forEach((c, k) => {
+      const at = Math.floor((cols.length * k) / Math.max(lend.length, 1));
+      const col = cols[at];
+      if (col && !col.chord) col.chord = chordName(c.harmony ?? {});
+    });
+
+    /* 가사도 노래 보표에만 있다. 타브 보표의 자리와 노래 보표의 자리는
+       수가 달라 한 자리씩 맞출 수 없으니, 마디에 붙은 것을 이어 마디
+       아래에 적는다 — 어느 마디에서 무엇을 부르는지는 그것으로 안다 */
+    let lyric = "";
+    for (const e of f?.events ?? []) {
+      const w = e.lyric;
+      if (!w) continue;
+      /* 한 낱말이 이어지는 음절에는 뒤에 -가 붙어 있다(뮤즈스코어의
+         syllabic). 이어지는 것은 붙이고, 끝난 것 뒤에는 한 칸 띄운다 —
+         안 그러면 「이제모두세월따라」처럼 붙어 읽기 어렵다 */
+      const goes = w.endsWith("-");
+      lyric += (goes ? w.slice(0, -1) : w) + (goes ? "" : " ");
+    }
+    lyric = lyric.trim();
+
+    return {
+      cols,
+      lyric,
+      startRepeat: m.startRepeat || !!f?.startRepeat,
+      endRepeat: m.endRepeat || !!f?.endRepeat,
+      volta: m.volta ?? f?.volta ?? null,
+      marks: markLabels(m.marks || f?.marks || ""),
+      units: perBar,
+    };
+  });
+
+  return { title, bpm, meter: `${sigN}/${sigD}`, bars };
+}
