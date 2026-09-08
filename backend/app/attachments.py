@@ -109,6 +109,11 @@ def restore(result: AnalysisResult, old: dict | None) -> None:
     if old.get("setup"):
         result.setup = old["setup"]
 
+    # 그림 타브에서 읽어 온 마디도 사람이 올린 것이다. 재분석이 지우지
+    # 않는다 — 다시 읽히려면 PDF를 또 넣어야 한다.
+    if old.get("picked_tab"):
+        result.picked_tab = old["picked_tab"]
+
     # --- 악보 그림 ---
     sheet = old.get("sheet")
     if not sheet:
