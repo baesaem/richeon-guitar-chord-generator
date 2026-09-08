@@ -501,6 +501,9 @@ ${drawn}`;
           .abc-tab-only .abcjs-note > *:not(.abcjs-tab-number):not(.abcjs-chord):not(.abcjs-lyric) {
             display: none;
           }
+          /* 코드 이름을 위로 올린다. 오선을 지우고 나니 타브 줄에 바싹
+             붙어, 프렛 숫자와 코드가 한 덩어리로 보였다. */
+          .abc-tab-only .abcjs-chord { transform: translateY(-13px); }
           .abc-tab-only .abcjs-ledger,
           .abc-tab-only .abcjs-rest,
           .abc-tab-only .abcjs-slur,
@@ -549,27 +552,41 @@ function drawJumpMarks(host: HTMLElement, abc: string): void {
         `D.${jump[1].toUpperCase()}. al ${jump[2].toLowerCase() === "coda" ? "Coda" : "Fine"}`,
       );
     if (!marks.length) return;
-    /* 이 마디에 붙은 것들 가운데 **가장 위·가장 왼쪽**을 잡는다.
-       프렛 숫자를 기준 삼으면 글자가 타브 줄 사이에 끼어 읽기 어렵다 —
-       오선이 있던 자리(마디선 꼭대기) 위에 얹어야 눈에 들어온다. */
-    const spots = [...svg.querySelectorAll(`.abcjs-mm${i}`)] as SVGGraphicsElement[];
+    /* **마디 번호 옆에** 적는다.
+       타브 줄 위에 얹으면 프렛 숫자와 겹쳐 읽을 수가 없다. 마디 번호는
+       악보 맨 위, 아무것도 없는 자리에 있으니 그 옆이 가장 한갓지다. */
+    const num = svg.querySelector(
+      `.abcjs-bar-number.abcjs-mm${i}`,
+    ) as SVGGraphicsElement | null;
     let x = Infinity;
     let y = Infinity;
-    for (const node of spots) {
+    if (num) {
       try {
-        const b = node.getBBox();
-        if (!b.width && !b.height) continue;
-        x = Math.min(x, b.x);
-        y = Math.min(y, b.y);
+        const b = num.getBBox();
+        x = b.x + b.width + 6;
+        y = b.y + b.height;
       } catch {
-        // 그려지지 않은 것은 건너뛴다
+        // 못 재면 아래에서 다시 잡는다
+      }
+    }
+    if (!Number.isFinite(x)) {
+      // 마디 번호가 없는 마디도 있다 — 그 마디에 붙은 것 중 가장 위를 쓴다
+      for (const node of [...svg.querySelectorAll(`.abcjs-mm${i}`)] as SVGGraphicsElement[]) {
+        try {
+          const b = node.getBBox();
+          if (!b.width && !b.height) continue;
+          x = Math.min(x, b.x);
+          y = Math.min(y, b.y - 4);
+        } catch {
+          // 그려지지 않은 것은 건너뛴다
+        }
       }
     }
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const el = document.createElementNS("http://www.w3.org/2000/svg", "text");
     el.setAttribute("x", String(x));
-    el.setAttribute("y", String(Math.max(y - 6, 16)));
-    el.setAttribute("font-size", "19");
+    el.setAttribute("y", String(Math.max(y, 14)));
+    el.setAttribute("font-size", "15");
     el.setAttribute("font-weight", "700");
     el.setAttribute("fill", "currentColor");
     el.textContent = marks.join(" ");
