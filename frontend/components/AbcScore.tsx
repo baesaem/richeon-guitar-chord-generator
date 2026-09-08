@@ -199,6 +199,19 @@ ${drawn}`;
         if (e.measureStart) idx++;
         return { ...e, playMeasure: Math.max(idx, 0) };
       });
+      if (tab) {
+        // 마디와 숫자 사이를 고르게 편다(아래 설명). 커서가 보는 x도 함께
+        const moved = evenTabSpacing(hostRef.current);
+        for (const t of list) {
+          for (const group of t.elements ?? []) {
+            const at = group.map((el) => moved.get(el)).find((v) => v !== undefined);
+            if (at !== undefined) {
+              t.left = at;
+              break;
+            }
+          }
+        }
+      }
       setTimings(list);
       // 타브만 보일 때는 세뇨·코다·달세뇨를 우리가 적는다(아래 설명)
       if (tab) drawJumpMarks(hostRef.current, abc);
@@ -514,6 +527,11 @@ ${drawn}`;
           .abc-tab-only .abcjs-triplet,
           .abc-tab-only .abcjs-staff-extra.abcjs-clef,
           .abc-tab-only .abcjs-staff-extra.abcjs-key-signature { display: none; }
+          /* 프렛 숫자는 이 화면의 본문이다. 가늘고 작으면 여섯 줄에 묻힌다 */
+          .abc-tab-only .abcjs-tab-number {
+            font-weight: 700;
+            font-size: 17px;
+          }
         `}</style>
       )}
       {/* abcjs는 currentColor로 그린다 — 다크 모드의 연회색 글자색이
@@ -595,4 +613,219 @@ function drawJumpMarks(host: HTMLElement, abc: string): void {
     el.textContent = marks.join(" ");
     svg.appendChild(el);
   });
+}
+
+/**
+ * 타브의 마디와 숫자를 고르게 편다.
+ *
+ * abcjs는 음표가 많은 마디를 넓게, 적은 마디를 좁게 잡고 코드 이름의
+ * 너비만큼 또 벌린다 — 오선 악보에서는 읽기 좋은 습관이지만, 음표
+ * 머리가 없는 타브에서는 숫자가 뭉쳤다 벌어졌다 하여 어느 박에 짚는
+ * 것인지 눈으로 셀 수 없다. 줄마다 마디를 같은 너비로 나누고, 마디
+ * 안의 자리를 같은 간격으로 세운다.
+ *
+ * 옮긴 자리를 돌려준다 — 커서는 abcjs가 알려 준 옛 x를 쓰기 때문에,
+ * 그대로 두면 커서만 옛 자리에 남는다.
+ */
+function evenTabSpacing(host: HTMLElement): Map<Element, number> {
+  const moved = new Map<Element, number>();
+  const svg = host.querySelector("svg");
+  if (!svg) return moved;
+  /* 한 번 편 그림을 또 펴면 안 된다 — 옮김이 겹쳐 쌓여 숫자가 악보
+     밖으로 날아간다. 리액트는 개발 중에 같은 일을 두 번 시킨다 */
+  if (svg.getAttribute("data-evened")) return moved;
+  svg.setAttribute("data-evened", "1");
+
+  /** class="abcjs-l3"처럼 붙는 번호를 뽑는다. 없으면 null */
+  const tagOf = (el: Element, name: string): number | null => {
+    const pre = "abcjs-" + name;
+    for (const c of (el.getAttribute("class") ?? "").split(" ")) {
+      if (!c.startsWith(pre)) continue;
+      const rest = c.slice(pre.length);
+      // "abcjs-mm0"은 name이 "m"일 때 걸리지만 남는 글자가 숫자가 아니다
+      if (rest !== "" && Number.isInteger(Number(rest))) return Number(rest);
+    }
+    return null;
+  };
+  /** 지금 서 있는 x. 타브 숫자가 있으면 그 자리, 없으면(쉼표) 제 넓이 */
+  const xOf = (g: SVGGraphicsElement): number => {
+    const t = g.querySelector(".abcjs-tab-number");
+    const at = t?.getAttribute("x");
+    if (at !== null && at !== undefined) return +at;
+    try {
+      return g.getBBox().x;
+    } catch {
+      return 0;
+    }
+  };
+  const move = (el: SVGGraphicsElement, dx: number): void => {
+    if (Math.abs(dx) < 0.01) return;
+    const had = el.getAttribute("transform");
+    el.setAttribute("transform", `translate(${dx.toFixed(2)},0)${had ? " " + had : ""}`);
+  };
+
+  interface Line {
+    /** 마디 → 자리 번호 → 그 자리에 선 무리(오선 쪽과 타브 쪽 둘) */
+    evs: Map<number, Map<number, SVGGraphicsElement[]>>;
+    /** 마디 → 그 마디를 닫는 세로줄 */
+    bars: Map<number, SVGGraphicsElement[]>;
+    /** 마디 → 마디 번호·괄호처럼 마디 앞머리에 붙는 것 */
+    heads: Map<number, SVGGraphicsElement[]>;
+    /** 음표가 설 수 있는 왼쪽 끝 — 자리표·박자표 뒤 */
+    left: number;
+  }
+  const lines = new Map<number, Line>();
+  const lineOf = (l: number): Line => {
+    let v = lines.get(l);
+    if (!v) {
+      v = { evs: new Map(), bars: new Map(), heads: new Map(), left: 0 };
+      lines.set(l, v);
+    }
+    return v;
+  };
+  const push = <K,>(m: Map<K, SVGGraphicsElement[]>, k: K, el: SVGGraphicsElement) => {
+    const a = m.get(k);
+    if (a) a.push(el);
+    else m.set(k, [el]);
+  };
+
+  for (const g of svg.querySelectorAll<SVGGraphicsElement>("g.abcjs-note")) {
+    const l = tagOf(g, "l");
+    const mm = tagOf(g, "mm");
+    const n = tagOf(g, "n");
+    if (l === null || mm === null || n === null) continue;
+    const line = lineOf(l);
+    let bar = line.evs.get(mm);
+    if (!bar) line.evs.set(mm, (bar = new Map()));
+    push(bar, n, g);
+  }
+  for (const b of svg.querySelectorAll<SVGGraphicsElement>("g.abcjs-bar")) {
+    const l = tagOf(b, "l");
+    const mm = tagOf(b, "mm");
+    if (l === null || mm === null) continue;
+    push(lineOf(l).bars, mm, b);
+  }
+  for (const e of svg.querySelectorAll<SVGGraphicsElement>(
+    ".abcjs-bar-number, .abcjs-ending",
+  )) {
+    const l = tagOf(e, "l");
+    const mm = tagOf(e, "mm");
+    if (l === null || mm === null) continue;
+    // 세로줄 무리 안에 든 마디 번호는 세로줄을 따라 움직인다 — 여기서 또
+    // 밀면 두 번 움직여 엉뚱한 자리에 선다
+    if (e.closest("g.abcjs-bar")) continue;
+    push(lineOf(l).heads, mm, e);
+  }
+  for (const e of svg.querySelectorAll<SVGGraphicsElement>(".abcjs-staff-extra")) {
+    const l = tagOf(e, "l");
+    if (l === null) continue;
+    const line = lineOf(l);
+    try {
+      const box = e.getBBox();
+      line.left = Math.max(line.left, box.x + box.width);
+    } catch {
+      /* 못 재면 그냥 둔다 */
+    }
+  }
+
+  /*
+   * 줄마다 따로 나누면 줄이 바뀔 때마다 세로줄이 조금씩 어긋난다 —
+   * 위아래로 훑으면 마디선이 비뚤배뚤 흐른다. 모든 줄이 **같은 격자**를
+   * 쓰도록, 시작 자리와 한 마디 너비를 곡 전체에서 하나로 정한다.
+   */
+  interface Plan {
+    line: Line;
+    mms: number[];
+    barX: Map<number, number>;
+    from: number;
+    right: number;
+  }
+  const plans: Plan[] = [];
+  for (const line of lines.values()) {
+    const mms = [...line.bars.keys()].sort((a, b) => a - b);
+    if (!mms.length) continue;
+    const barX = new Map<number, number>();
+    for (const mm of mms) {
+      /* 무리 전체를 재면 안 된다 — 그 안에는 마디 번호 글자도 들어
+         있어서, 번호가 있는 마디만 왼쪽으로 넓게 잡힌다. 무리에서 **가장
+         키가 큰 그림**, 곧 세로줄 자신을 찾아 그 자리를 쓴다 */
+      const xs: number[] = [];
+      for (const b of line.bars.get(mm) ?? []) {
+        let tall = 0;
+        let at = Number.NaN;
+        for (const kid of b.querySelectorAll("path")) {
+          try {
+            const box = kid.getBBox();
+            if (box.height > tall) {
+              tall = box.height;
+              at = box.x;
+            }
+          } catch {
+            /* 못 재는 것은 건너뛴다 */
+          }
+        }
+        if (!Number.isNaN(at)) xs.push(at);
+      }
+      if (xs.length) barX.set(mm, Math.min(...xs));
+    }
+    const right = barX.get(mms[mms.length - 1]);
+    if (right === undefined) continue;
+    /* 자리표·박자표를 덮지 않게, 그리고 원래 첫 음표보다 왼쪽으로는
+       가지 않게 시작 자리를 잡는다 */
+    const first = line.evs.get(mms[0]);
+    const firstX = first
+      ? Math.min(...[...first.values()].map((g) => xOf(g[0])))
+      : line.left + 12;
+    plans.push({
+      line,
+      mms,
+      barX,
+      from: Math.max(line.left + 10, firstX - 6),
+      right,
+    });
+  }
+  if (!plans.length) return moved;
+
+  const from = Math.max(...plans.map((p) => p.from));
+  const per = Math.max(...plans.map((p) => p.mms.length));
+  /* 오른쪽 끝은 **꽉 찬 줄들 가운데 가장 좁은 것**을 따른다.
+     마지막 줄은 마디가 한둘뿐이라 짧게 끝나므로 빼고 센다. 가장 넓은
+     줄에 맞추면 좁은 줄의 마지막 마디가 육선 밖으로 삐져나간다 */
+  const full = plans.filter((p) => p.mms.length === per);
+  const right = Math.min(...(full.length ? full : plans).map((p) => p.right));
+  const width = (right - from) / per;
+  if (!(width > 4)) return moved;
+
+  for (const plan of plans) {
+    plan.mms.forEach((mm, j) => {
+      const at = from + j * width;
+      const to = at + width;
+      // 세로줄을 격자 위로
+      const was = plan.barX.get(mm);
+      if (was !== undefined)
+        for (const b of plan.line.bars.get(mm) ?? []) move(b, to - was);
+      // 마디 앞머리(마디 번호·1·2번 괄호)는 마디가 시작하는 만큼 민다
+      const wasHead = j === 0 ? plan.from : (plan.barX.get(plan.mms[j - 1]) ?? plan.from);
+      for (const e of plan.line.heads.get(mm) ?? []) move(e, at - wasHead);
+      // 마디 안의 자리를 고르게
+      const evs = plan.line.evs.get(mm);
+      if (!evs) return;
+      const ns = [...evs.keys()].sort((a, b) => a - b);
+      const gap = width / ns.length;
+      ns.forEach((n, i) => {
+        const put = at + (i + 0.5) * gap;
+        const group = evs.get(n) ?? [];
+        // 자리를 잴 때는 타브 숫자를 지닌 쪽을 본다 — 오선 쪽 무리는
+        // 음표를 가려 두어 넓이를 못 잰다
+        const ruler =
+          group.find((g) => g.querySelector(".abcjs-tab-number")) ?? group[0];
+        const had = xOf(ruler);
+        for (const g of group) {
+          move(g, put - had);
+          moved.set(g, put);
+        }
+      });
+    });
+  }
+  return moved;
 }

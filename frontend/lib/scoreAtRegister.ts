@@ -1,9 +1,9 @@
 "use client";
 
 import { abcOrders } from "./abcOrder";
-import { saveAbc, setAbcFollow } from "./abcStore";
+import { saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
 import { fixBeats, putScore, putSheetImage, readSheetChords } from "./api";
-import { msczToAbc } from "./msczToAbc";
+import { msczParts, msczToAbc } from "./msczToAbc";
 import type { AnalysisResult } from "./types";
 
 /**
@@ -175,5 +175,30 @@ export async function attachScoreAfterAnalysis(
   saveAbc(cur.id, abc, 0);
   setAbcFollow(cur.id, true);
   notes.push("코드는 악보를 따릅니다");
+
+  /*
+   * ⑤ 타브 보표가 들어 있으면 타브 화면은 그것을 쓴다.
+   *
+   * 멜로디 음에서 프렛 숫자를 만들면 한 줄짜리 단선율이 되어, 편곡자가
+   * 적은 손가락 뜯기와 전혀 다른 것이 나온다. 파일 안에 진짜 타브가
+   * 있는데 그것을 두고 지어낼 이유가 없다.
+   */
+  if (MSCZ_KINDS.test(file.name)) {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const parts = msczParts(bytes, file.name);
+      const tabPart =
+        parts.find((p) => /타브/.test(p.name)) ??
+        (parts.length > 1 ? parts[parts.length - 1] : null);
+      if (tabPart && tabPart.index !== staff) {
+        setAbcTabScore(cur.id, msczToAbc(bytes, file.name, tabPart.index));
+        notes.push(`타브는 「${tabPart.name}」에서 가져옵니다`);
+      } else {
+        setAbcTabScore(cur.id, null);
+      }
+    } catch {
+      setAbcTabScore(cur.id, null);
+    }
+  }
   return { result: cur, notes };
 }

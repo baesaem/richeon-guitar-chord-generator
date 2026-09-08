@@ -29,6 +29,14 @@ export interface AbcEntry {
    * 강사님이 이 곡은 악보가 맞다고 정하면 그 빗장을 넘는다.
    */
   follow?: boolean;
+  /**
+   * 타브 화면에만 쓰는 악보 — 그 파일의 **기타 타브 보표**다.
+   *
+   * 타브 줄 위의 숫자를 멜로디 음에서 만들면 한 줄짜리 단선율이 되어,
+   * 편곡자가 적은 손가락 뜯기와 전혀 다른 것이 나온다. 악보 파일에 타브
+   * 보표가 들어 있으면 그것을 그대로 쓴다.
+   */
+  tabAbc?: string;
 }
 
 type Store = Record<string, AbcEntry>;
@@ -57,6 +65,15 @@ export function getAbc(songId: string): AbcEntry | null {
 export function saveAbc(songId: string, abc: string, barOffset = 0): void {
   const store = read();
   store[songId] = { abc, barOffset, at: Date.now() };
+  write(store);
+}
+
+/** 타브 화면에 쓸 악보(기타 타브 보표). 빈 값이면 멜로디 악보에서 만든다 */
+export function setAbcTabScore(songId: string, tabAbc: string | null): void {
+  const store = read();
+  const cur = store[songId];
+  if (!cur) return;
+  store[songId] = { ...cur, tabAbc: tabAbc || undefined };
   write(store);
 }
 

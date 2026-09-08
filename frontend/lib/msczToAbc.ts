@@ -103,7 +103,7 @@ function chordName(h: { root?: string; name?: string; base?: string }): string {
 interface NoteEv {
   type: "note" | "rest";
   units: number;
-  notes: { midi: number; tpc: number; tie: boolean }[];
+  notes: { midi: number; tpc: number; tie: boolean; fret: number | null; string: number | null }[];
   lyric: string | null;
   lyric2: string | null;
   harmony: { root?: string; name?: string; base?: string } | null;
@@ -189,10 +189,15 @@ function parseStaff(body: string): Measure[] {
           const notes = [...inner.matchAll(/<Note>([\s\S]*?)<\/Note>/g)].map(
             (nm) => {
               const ni = nm[1];
+              const fret = ni.match(/<fret>(\d+)/);
+              const string = ni.match(/<string>(\d+)/);
               return {
                 midi: +(ni.match(/<pitch>(\d+)/) ?? [0, 0])[1],
                 tpc: +(ni.match(/<tpc>(-?\d+)/) ?? [0, 14])[1],
                 tie: /<Tie[\s>]/.test(ni),
+                // 타브 보표에만 있다. 0번 줄이 맨 윗줄(가는 1번 줄)이다
+                fret: fret ? +fret[1] : null,
+                string: string ? +string[1] : null,
               };
             },
           );
@@ -224,11 +229,30 @@ function parseStaff(body: string): Measure[] {
   return measures;
 }
 
+/**
+ * 마디 하나를 ABC로. up은 적는 음높이를 올릴 반음 수다.
+ *
+ * 기타 악보는 **소리보다 한 옥타브 높여** 적는다(높은음자리표 아래
+ * 8). 뮤즈스코어는 소리 나는 음높이를 저장하므로, 그대로 옮기면 6번
+ * 줄 개방현(E2)이 기타로 짚을 수 없는 음이 되어 abcjs가 프렛 자리에
+ * 물음표를 찍는다 — 495자리 가운데 92자리가 그랬다. 타브 보표를 옮길
+ * 때만 12를 준다.
+ */
 function measureToAbc(
   meas: Measure,
   state: { sig: number; keyChange: string | null },
+  up = 0,
+  keepKey = false,
 ): { music: string; syls: string[]; syls2: string[] } {
-  if (meas.keysig !== null && meas.keysig !== state.sig) {
+  /*
+   * keepKey면 곡 가운데서 조표가 바뀌어도 처음 조표를 그대로 쓴다.
+   *
+   * abcjs의 타브는 **줄머리에 선 조표만** 본다 — 줄 가운데의 [K:G]는
+   * 못 보고 옛 조로 계속 읽는다. 그래서 코다에서 조가 바뀌는 「광화문
+   * 연가」는 36마디부터 프렛이 통째로 어긋났다. 조표를 하나로 두면
+   * 바뀐 조의 음들은 임시표로 적히고, 그것은 abcjs도 제대로 읽는다.
+   */
+  if (!keepKey && meas.keysig !== null && meas.keysig !== state.sig) {
     state.sig = meas.keysig;
     state.keyChange = SIG_KEY[state.sig] ?? "C";
   }
@@ -245,7 +269,7 @@ function measureToAbc(
     } else {
       const ns = ev.notes.map((n) => {
         const { letter, alter } = tpcInfo(n.tpc);
-        return abcPitch(letter, alter, n.midi, accState, keyDef);
+        return abcPitch(letter, alter, n.midi + up, accState, keyDef);
       });
       const bodyTok = ns.length > 1 ? "[" + ns.join("") + "]" : ns[0];
       t += bodyTok + lenStr(ev.units) + (ev.notes.some((n) => n.tie) ? "-" : "");
@@ -280,6 +304,15 @@ function staffBlocksOf(xml: string): RegExpMatchArray[] {
   return [
     ...body.matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>\s*(?=<Staff id="|<\/Score>)/g),
   ].filter((m) => m[2].includes("<Measure"));
+}
+
+/** 이 보표가 타브인가. Part 정의부의 StaffType group="tablature"가 말해 준다 */
+function isTabStaff(xml: string, staffId: string): boolean {
+  for (const st of xml.matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>/g)) {
+    if (st[1] !== staffId) continue;
+    if (/<StaffType[^>]*group="tablature"/.test(st[2])) return true;
+  }
+  return false;
 }
 
 export interface MsczPart {
@@ -333,6 +366,8 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
   const firstKey = +((xml.match(/<KeySig>[\s\S]*?<accidental>(-?\d+)/) ?? [0, 0])[1]);
 
   const staff1 = parseStaff(staffBlocks[staff][2]);
+  // 타브 보표면 적는 음높이를 한 옥타브 올린다(윗글 참고)
+  const up = isTabStaff(xml, staffBlocks[staff][1]) ? 12 : 0;
   /*
    * 되돌이·1·2번 괄호·세뇨·코다는 악보 전체의 일이라, 뮤즈스코어는
    * **첫 보표에만** 적어 둔다. 기타 보표를 골랐다고 그것을 잃으면 41마디
@@ -391,7 +426,7 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
         !!meas.volta && !meas.endRepeat && !next?.endRepeat && !next?.volta;
       const bar = meas.endRepeat ? " :|" : closesVolta ? " ||" : " |";
       st.keyChange = null;
-      const r = measureToAbc(meas, st);
+      const r = measureToAbc(meas, st, up, up !== 0);
       chunk.push(
         pre + (st.keyChange ? `[K:${st.keyChange}] ` : "") + r.music + bar,
       );

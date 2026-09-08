@@ -1182,19 +1182,28 @@ export default function Home() {
    * 악보 그대로 그린다 — 도돌이표·세뇨·코다가 접힌 채로다. 음원 마디를
    * 펴서 늘어놓으면 종이 악보와 마디가 달라져 「몇 마디」로 짚어 말할 수
    * 없다.
+   *
+   * 악보 파일에 **기타 타브 보표**가 들어 있으면 그것을 그린다. 멜로디
+   * 음에서 프렛 숫자를 만들면 한 줄짜리 단선율이 되어, 편곡자가 적은
+   * 손가락 뜯기와 전혀 다른 것이 나온다.
    */
   const abcTab =
     result && abcEntry ? (
       <AbcScore
         tab
-        abc={unified?.abc ?? abcEntry.abc}
+        abc={abcEntry.tabAbc ?? unified?.abc ?? abcEntry.abc}
         chordNote={unified}
         bars={bars}
         time={time + sync - settings.latency}
         getTime={
           playback ? () => playback.getTime() + sync - settings.latency : undefined
         }
-        transpose={abcTranspose}
+        /* 악보에 든 타브는 **적힌 그대로** 그린다.
+
+            카포는 손가락 자리를 바꾸지 않는다 — 3반음 올려 부르려면 3프렛에
+            카포를 끼우고 같은 숫자를 짚는다. 그런데 이조값을 함께 주면 abcjs가
+            숫자를 세 칸씩 올려 적어, 종이 악보와 전혀 다른 타브가 된다. */
+        transpose={abcEntry.tabAbc ? 0 : abcTranspose}
         sync={sync}
         onSync={setSync}
         barOffset={abcEntry.barOffset}
@@ -1815,6 +1824,7 @@ export default function Home() {
                     sheetTab === "grid") && (
                     <PlaySettings
                       duration={result.duration}
+                      songKey={result.key}
                       time={time}
                       transpose={transpose}
                       rate={rate}
@@ -2773,6 +2783,7 @@ export default function Home() {
                   playSettings={
                     <PlaySettings
                       duration={result.duration}
+                      songKey={result.key}
                       time={time}
                       transpose={transpose}
                       rate={rate}
@@ -2998,6 +3009,7 @@ export default function Home() {
                           {/* 음높이·빠르기·반복을 한 팝업에 모은 버튼 */}
                           <PlaySettings
                             duration={result.duration}
+                            songKey={result.key}
                             time={time}
                             transpose={transpose}
                             rate={rate}

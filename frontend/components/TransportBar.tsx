@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ArpPickModal } from "@/components/ArpPick";
 import { Popup } from "@/components/Popup";
 import { StrumPickModal } from "@/components/StrumPick";
+import { prefersFlats, spell, transposeRoot } from "@/lib/notation";
 import { useSettings } from "@/lib/settings";
 import type { StemChoice } from "@/lib/sharedFiles";
 import type { StrumChoice } from "@/lib/strumLibrary";
@@ -33,6 +34,8 @@ interface Props {
   /** 악보에 코드를 얹을지(곡마다). 멜로디만 그려진 악보에 쓴다 */
   autoChords?: boolean;
   onAutoChords?: (on: boolean) => void;
+  /** 이 곡의 원래 조("G minor" 꼴). 키 설정이 여기서 얼마나 옮길지 센다 */
+  songKey?: string;
   /** 아르페지오 패턴 추천에 쓴다 */
   timeSignature?: string;
   bpm?: number;
@@ -117,6 +120,14 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
   // 음높이 +n = 카포 n프렛. 카포가 소리를 올려주는 만큼 화면 코드는
   // 내린 모양으로 표기된다(표기 변환은 page.tsx의 noteShift가 담당).
   const capo = transpose > 0 ? transpose : 0;
+
+  /* 원래 조와 지금 조. 조를 모르는 곡(분석 전)에는 이 칸을 내지 않는다 */
+  const [keyRoot = "", keyMode = ""] = (props.songKey ?? "").split(" ");
+  const tonic = PITCH_CLASS[keyRoot] ?? null;
+  const mode = keyMode;
+  const origKey = tonic === null ? "" : keyName(tonic, mode);
+  const nowKey =
+    tonic === null ? "" : keyName((((tonic + transpose) % 12) + 12) % 12, mode);
   // 기본값에서 벗어난 설정이 있으면 버튼에 점을 찍어 알린다
   const arp = props.arp ?? 0;
   const tweaked =
@@ -223,6 +234,46 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                   onClose={() => setStrumPick(false)}
                 />
               )}
+            </>
+          )}
+
+          {/* ---- 키 설정 ----
+              음높이는 「몇 반음 옮길까」를 묻지만, 노래하는 사람은 「무슨
+              키로 부를까」를 안다. 부를 조를 고르면 반음 수는 우리가 센다.
+              옮기는 폭은 ±6반음 안에서 가장 가까운 쪽을 잡는다 — 한 옥타브
+              가까이 올리면 같은 조라도 목소리가 닿지 않는다. */}
+          {tonic !== null && (
+            <>
+              <div className={sectionTitle}>
+                키 설정{nowKey && ` · ${nowKey}`}
+              </div>
+              <p className="mb-1 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+                부를 조를 고르면 음높이가 따라 옮겨집니다.
+                {origKey && ` 원곡은 ${origKey}입니다.`}
+              </p>
+              <div className="mb-2 grid grid-cols-6 gap-1">
+                {KEY_STEPS.map((pc) => {
+                  const to = (tonic + pc) % 12;
+                  const by = pc > 6 ? pc - 12 : pc;
+                  return (
+                    <button
+                      key={pc}
+                      className={pill(((transpose % 12) + 12) % 12 === pc)}
+                      onClick={() => props.onTranspose(by)}
+                      title={
+                        by === 0
+                          ? "원곡 그대로"
+                          : by > 0
+                            ? `${by}반음 올림 (카포 ${by}프렛)`
+                            : `${-by}반음 내림`
+                      }
+                    >
+                      {keyName(to, mode)}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="my-2.5 h-px bg-[var(--chip)]" />
             </>
           )}
 
@@ -446,4 +497,24 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
       )}
     </>
   );
+}
+
+/** 으뜸음 12개. 조 고르는 칸에 차례로 놓는다 */
+const KEY_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+const PITCH_CLASS: Record<string, number> = {
+  C: 0, "C#": 1, D: 2, "D#": 3, E: 4, F: 5,
+  "F#": 6, G: 7, "G#": 8, A: 9, "A#": 10, B: 11,
+};
+
+/**
+ * 피치 클래스를 조 이름으로. 단조면 뒤에 m을 붙인다.
+ *
+ * ♯·♭은 조마다 옳은 쪽이 다르다 — 라♭장조를 솔♯으로 적는 기타리스트는
+ * 없다. 그 조가 쓰는 조표를 보고 골라 적는다.
+ */
+function keyName(pc: number, mode: string): string {
+  const sharp = transposeRoot("C", pc) ?? "C";
+  const full = `${sharp} ${mode}`.trim();
+  return spell(sharp, prefersFlats(full)) + (mode === "minor" ? "m" : "");
 }
