@@ -18,7 +18,7 @@ import type { StrumChoice } from "@/lib/strumLibrary";
 
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
-import { abcOrders } from "@/lib/abcOrder";
+import { abcMeasures, abcOrders } from "@/lib/abcOrder";
 import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
 import { useSmoothTime } from "@/lib/useSmoothTime";
@@ -194,6 +194,8 @@ ${drawn}`;
         return { ...e, playMeasure: Math.max(idx, 0) };
       });
       setTimings(list);
+      // 타브만 보일 때는 세뇨·코다·달세뇨를 우리가 적는다(아래 설명)
+      if (tab) drawJumpMarks(hostRef.current, abc);
       // 다시 그렸으니 커서와 음표 표시도 새로 잡는다 (옛 노드는 사라졌다)
       cursorRef.current = null;
       markedRef.current = [];
@@ -515,4 +517,54 @@ ${drawn}`;
       </div>
     </div>
   );
+}
+
+/**
+ * 세뇨·코다·달세뇨를 악보 위에 글자로 세운다.
+ *
+ * 타브만 보이게 오선 음표를 가리면 이 기호들도 함께 사라진다 — abcjs가
+ * 음표 묶음 안에 **이름 없는 그림**으로 그리기 때문이다. 부르는 차례를
+ * 정하는 표라 없으면 어디로 되돌아가는지 알 수 없다. 마디마다 붙는
+ * 딱지(abcjs-mm숫자)로 그 마디를 찾아 다시 적는다.
+ */
+function drawJumpMarks(host: HTMLElement, abc: string): void {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  let measures: { text: string }[];
+  try {
+    measures = abcMeasures(abc);
+  } catch {
+    return;
+  }
+  const SEGNO = String.fromCodePoint(0x1d10b);
+  const CODA = String.fromCodePoint(0x1d10c);
+  measures.forEach((m, i) => {
+    const marks: string[] = [];
+    if (/!segno!/.test(m.text)) marks.push(SEGNO);
+    if (/!coda!/.test(m.text)) marks.push(CODA);
+    if (/!fine!/.test(m.text)) marks.push("Fine");
+    const jump = m.text.match(/!D\.([SC])\.al(coda|fine)!/i);
+    if (jump)
+      marks.push(
+        `D.${jump[1].toUpperCase()}. al ${jump[2].toLowerCase() === "coda" ? "Coda" : "Fine"}`,
+      );
+    if (!marks.length) return;
+    const at = svg.querySelector(`.abcjs-mm${i}`) as SVGGraphicsElement | null;
+    if (!at) return;
+    let box: { x: number; y: number };
+    try {
+      box = at.getBBox();
+    } catch {
+      return;
+    }
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    // 마디 위쪽에 큼직하게. 작게 붙이면 프렛 숫자에 묻혀 눈에 띄지 않는다
+    el.setAttribute("x", String(box.x));
+    el.setAttribute("y", String(Math.max(box.y - 10, 16)));
+    el.setAttribute("font-size", "19");
+    el.setAttribute("font-weight", "700");
+    el.setAttribute("fill", "currentColor");
+    el.textContent = marks.join(" ");
+    svg.appendChild(el);
+  });
 }
