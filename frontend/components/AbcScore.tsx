@@ -84,6 +84,13 @@ interface Props {
    * 박 찾기가 정수로 돌아오지 않는 배율로 어긋났을 때의 마지막 길이다.
    */
   onFitBars?: (bars: number) => void;
+  /**
+   * 오선 아래에 **기타 타브**를 함께 그린다.
+   *
+   * 붙여 둔 악보가 있으면 타브 화면도 그 악보를 보여야 한다 — 코드에서
+   * 만들어 낸 운지가 아니라 편곡자가 적은 음을 짚게 된다.
+   */
+  tab?: boolean;
   /** 빠르기를 손으로 정한다(강사님). 마디 수로 나누는 길이 안 맞을 때 쓴다 */
   onSetBpm?: (bpm: number) => void;
   /** 지금 음원의 빠르기. 손으로 고칠 때 시작값이 된다 */
@@ -114,6 +121,7 @@ export function AbcScore({
   chordNote,
   follow = false,
   onFollow,
+  tab = false,
   onFitBars,
   onSetBpm,
   audioBpm = 0,
@@ -148,6 +156,8 @@ export function AbcScore({
         // 줄마다 마디 번호를 작게 적는다 — 어디를 치는지 서로 짚어
         // 말할 때 「몇 마디」가 있어야 한다
         barNumbers: 1,
+        // 기타 타브. 오선 아래에 여섯 줄과 프렛 숫자가 함께 그려진다
+        ...(tab ? { tablature: [{ instrument: "guitar" }] } : {}),
         format: {
           gchordfont: "sans-serif 12 bold",
           measurefont: "sans-serif 9",
@@ -189,7 +199,7 @@ ${abc}`;
     return () => {
       cancelled = true;
     };
-  }, [abc, transpose]);
+  }, [abc, transpose, tab]);
 
   /**
    * 음원 마디 차례 → abcjs가 세는 마디 번호.

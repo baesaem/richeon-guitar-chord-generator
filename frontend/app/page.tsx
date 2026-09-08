@@ -1150,6 +1150,39 @@ export default function Home() {
   /** 이 곡을 치는 방식. 악보 상자 안내줄 맨 앞에 굵게 적는다 */
   const playStyle = arp > 0 ? `아르페지오 ${arp}` : "스트로크";
 
+  /**
+   * 악보를 타브로 그린 화면.
+   *
+   * 붙여 둔 악보가 있으면 타브도 그 악보를 보여야 한다 — 코드에서
+   * 만들어 낸 운지가 아니라 편곡자가 적은 음을 짚게 된다.
+   */
+  const abcTab =
+    result && abcEntry ? (
+      <AbcScore
+        tab
+        abc={unified?.abc ?? abcEntry.abc}
+        chordNote={unified}
+        bars={bars}
+        time={time + sync - settings.latency}
+        getTime={
+          playback ? () => playback.getTime() + sync - settings.latency : undefined
+        }
+        transpose={abcTranspose}
+        sync={sync}
+        onSync={setSync}
+        barOffset={abcEntry.barOffset}
+        follow={abcEntry.follow ?? false}
+        musicKey={result.key}
+        timeSignature={result.time_signature}
+        playNotes={playNotes}
+        strum={shownStrum}
+        onPickStrum={() => setShowStrums(true)}
+        playStyle={playStyle}
+      />
+    ) : null;
+
+
+
   /* 가사 칸. 넓은 화면에서는 오른쪽 기둥에, 파형 화면에서는 파형 아래에
      같은 것이 놓인다 — 두 벌로 적어 두면 한쪽만 고치게 된다 */
   const lyricsPane = result ? (
@@ -2009,7 +2042,8 @@ export default function Home() {
                       online={!!health}
                     />
                   )}
-                  {sheetTab === "score" && (
+                  {sheetTab === "score" && abcTab}
+                  {sheetTab === "score" && !abcTab && (
                     /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
                     <ChordScore
                       bars={bars}
@@ -2455,7 +2489,11 @@ export default function Home() {
                     /* 같은 곡을 네 가지 눈으로 본다 — 악보(ABC), 타브,
                      파형, 그리드. 같은 자리에서 갈아 끼워 보던 자리를
                      잃지 않는다. */
-                    roomView === "tab" ? (
+                    roomView === "tab" && abcTab ? (
+                      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1">
+                        {abcTab}
+                      </div>
+                    ) : roomView === "tab" ? (
                       /* 타브 아래에도 가사를 둔다 — 코드를 짚으면서
                        지금 어디를 부르는지 함께 봐야 따라 칠 수 있다 */
                       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-2 py-1">
@@ -3286,7 +3324,10 @@ export default function Home() {
                                 녹음과 어긋납니다.
                               </p>
                             )}
+                            {/* 악보가 붙어 있으면 타브도 그 악보를 보인다 */}
+                            {abcTab}
                             {/* 지금 줄과 다음 줄만. 현재 줄이 늘 위에 온다 */}
+                            {!abcTab && (
                             <ChordScore
                               bars={bars}
                               chords={shownChords}
@@ -3353,6 +3394,7 @@ export default function Home() {
                               visibleLines={wide ? 5 : 2}
                               follow
                             />
+                            )}
                           </div>
                         )}
 
