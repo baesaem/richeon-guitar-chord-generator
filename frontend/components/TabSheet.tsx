@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
 import type { TabBarEdit } from "@/lib/abcStore";
-import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
 import { barIndexAt } from "@/lib/bars";
 import type { TabCol, TabScore } from "@/lib/msczToAbc";
@@ -80,7 +79,6 @@ interface Props {
   strum?: StrumChoice | null;
   onPickStrum?: () => void;
   playStyle?: string;
-  chordNote?: SongChordResult | null;
   /**
    * 코드 이름을 옮길 반음 수. 프렛 숫자는 옮기지 않는다.
    *
@@ -246,7 +244,6 @@ export function TabSheet({
   strum,
   onPickStrum,
   playStyle,
-  chordNote,
   chordShift = 0,
   flats = false,
   lyrics,
@@ -905,12 +902,6 @@ export function TabSheet({
         right={headerRight}
       >
         <ViewSteppers sync={sync} onSync={onSync} onShiftBar={onShiftBar} />
-        {chordNote && chordNote.source !== "none" && chordNote.changed > 0 && (
-          <span className="text-[11px] text-red-600 dark:text-red-400">
-            {chordNote.source === "audio" ? "음원 코드" : "악보 코드"}로 모음{" "}
-            {chordNote.changed}곳
-          </span>
-        )}
       </SongInfoLine>
       {/* 종이 색은 화면을 따른다 — 밤에는 어두운 바탕에 흰 숫자다 */}
       <div

@@ -37,14 +37,23 @@ export function ScoreAttach({
   onResult,
   online,
   onScoreAttached,
+  onReadChords,
 }: {
   result: AnalysisResult;
   onResult: (r: AnalysisResult) => void;
   online: boolean;
   /** 악보를 붙여 ABC까지 새로 만들었을 때. 화면이 그 악보를 다시 읽는다 */
   onScoreAttached?: () => void;
+  /**
+   * 그림 악보에서 **코드 이름만** 읽어 이 곡의 악보에 적어 넣는다.
+   *
+   * 악보 파일의 음표는 그대로 두고 코드만 종이 것으로 바꾸고 싶을 때가
+   * 있다 — 옮겨 적은 사람이 달라 코드가 어긋나는 일이 잦다.
+   */
+  onReadChords?: (file: File) => void | Promise<void>;
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
+  const pickChords = useRef<HTMLInputElement | null>(null);
   const pickImage = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   /** 방금 기준값으로 적었다는 표시. 잠깐 보였다 사라진다 */
@@ -459,6 +468,16 @@ export function ScoreAttach({
         >
           {busy ? "붙이는 중…" : score ? "악보 바꾸기" : "악보 붙이기"}
         </button>
+        {onReadChords && (
+          <button
+            className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)] disabled:opacity-40 roomy:px-3 roomy:py-1"
+            disabled={busy || !online}
+            onClick={() => pickChords.current?.click()}
+            title="그림 악보(PDF·사진)를 골라 넣으면 AI가 거기 적힌 코드 이름을 읽어 이 곡의 악보에 적습니다. 음표와 가사는 그대로 둡니다"
+          >
+            그림에서 코드 읽기
+          </button>
+        )}
         {score && (
           <button
             className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
@@ -472,6 +491,24 @@ export function ScoreAttach({
 
       {error && <span className="w-full text-red-600">{error}</span>}
 
+      <input
+        ref={pickChords}
+        type="file"
+        accept="application/pdf,image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file || !onReadChords) return;
+          setBusy(true);
+          setError(null);
+          Promise.resolve(onReadChords(file))
+            .catch((err) =>
+              setError(err instanceof Error ? err.message : "읽지 못했습니다"),
+            )
+            .finally(() => setBusy(false));
+        }}
+      />
       <input
         ref={pick}
         type="file"

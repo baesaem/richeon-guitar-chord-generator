@@ -77,7 +77,13 @@ export function SongInfoLine({
       </div>
       {/* 조절 단추는 스크롤 밖에 둔다. 안에 두면 곡 정보가 길 때 밀려나
           잘린다 — 눌러야 하는 것이 먼저 사라지면 안 된다. */}
-      {children && <span className="shrink-0">{children}</span>}
+      {/* 한 줄로 세워 둔다. 그냥 두면 손잡이들이 저희끼리 두 줄로 접혀,
+          그 아래 악보가 통째로 밀려 내려간다 */}
+      {children && (
+        <span className="flex shrink-0 items-center gap-x-1.5 whitespace-nowrap">
+          {children}
+        </span>
+      )}
       {right && <span className="shrink-0">{right}</span>}
     </div>
   );

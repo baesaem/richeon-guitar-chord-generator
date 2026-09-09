@@ -19,15 +19,16 @@ export function TabAttach({
   result,
   onResult,
   online,
-  onFill,
-  fillLabel,
+  onFillTab,
+  onFillChords,
 }: {
   result: AnalysisResult;
   onResult: (r: AnalysisResult) => void;
   online: boolean;
-  /** 읽어 둔 그림 타브를 악보 마디에 얹는다(악보가 붙은 곡에서만) */
-  onFill?: () => void;
-  fillLabel?: string;
+  /** 읽어 둔 그림 타브의 **숫자**를 악보 마디에 얹는다 */
+  onFillTab?: () => void;
+  /** 읽어 둔 그림 타브의 **코드 이름**을 곡의 악보에 적어 넣는다 */
+  onFillChords?: () => void;
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
   const pickAi = useRef<HTMLInputElement | null>(null);
@@ -131,13 +132,25 @@ export function TabAttach({
       </button>
       {tab && (
         <>
-          {onFill && (
+          {/* 넣는 일을 숫자와 코드로 가른다 — 숫자는 타브에만 얹히지만
+              코드는 멜로디·그리드까지 함께 바뀌므로, 하나만 하고 싶을 때가
+              있다 */}
+          {onFillTab && (
             <button
               className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)]"
-              onClick={onFill}
-              title="읽어 둔 그림 타브의 숫자와 코드를 악보 마디마다 얹어, 마디별로 고칠 수 있게 굳힙니다"
+              onClick={onFillTab}
+              title="읽어 둔 그림 타브의 프렛 숫자를 악보 마디마다 얹습니다. 마디별로 되돌릴 수 있습니다"
             >
-              {fillLabel ?? "읽은 타브를 악보에 넣기"}
+              숫자 넣기
+            </button>
+          )}
+          {onFillChords && (
+            <button
+              className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)]"
+              onClick={onFillChords}
+              title="읽어 둔 그림 악보의 코드 이름을 곡의 악보에 적어 넣습니다. 멜로디·그리드·타브가 모두 이 코드를 따릅니다"
+            >
+              코드 넣기
             </button>
           )}
           <button

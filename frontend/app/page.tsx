@@ -15,6 +15,7 @@ import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
+import { applyBarChords } from "@/lib/abcChordSwap";
 import type { TabScore } from "@/lib/msczToAbc";
 import type { TabBarEdit } from "@/lib/abcStore";
 import { unifyChords } from "@/lib/abcChords";
@@ -77,6 +78,7 @@ import {
   makeVocals,
   watchJob,
   fixBeats,
+  readSheetTabAi,
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, getLocalAudio, listLocal, saveLocal } from "@/lib/library";
@@ -1296,7 +1298,6 @@ export default function Home() {
         }
         sync={sync}
         onSync={withSync ? setSync : undefined}
-        chordNote={unified}
         musicKey={result.key}
         timeSignature={result.time_signature}
         playNotes={playNotes}
@@ -1326,14 +1327,9 @@ export default function Home() {
       const bar = score.bars[j];
       if (!bar) continue;
       const numbers = m.kind === "pick" && m.cols.length ? m.cols : null;
-      // 그림에서 코드까지 읽어 두었으면 이름도 그림 것을 쓴다
-      const names = m.chords?.length ? m.chords : undefined;
-      if (!numbers && !names) continue;
-      /* 훑는 마디에는 숫자가 없다 — 그래도 코드는 그림 것을 쓴다.
-         짚는 자리는 악보 파일 것이 남고 이름만 그림을 따른다 */
+      if (!numbers) continue;
       next[j] = {
         ...next[j],
-        chords: names ?? next[j]?.chords,
         ...(numbers
           ? {
               cols: numbers.map((col) => ({
@@ -1353,7 +1349,62 @@ export default function Home() {
     }
     setAbcTabEdits(result.id, next);
     setAbcEntry(getAbc(result.id));
-    setToast(`그림 악보의 타브를 ${put}마디에 넣었습니다`);
+    setToast(`그림 악보의 숫자를 ${put}마디에 넣었습니다`);
+  };
+
+  /**
+   * 그림 악보에서 읽은 **코드 이름**을 곡의 악보에 적어 넣는다.
+   *
+   * 타브에만 얹으면 타브 화면만 그림을 따르고 멜로디·그리드는 옛 코드를
+   * 부른다 — 같은 곡을 두 이름으로 부르게 된다. 악보(ABC)의 코드 글자를
+   * 갈아 끼우면 코드를 쓰는 모든 화면이 함께 따라온다. 음표와 가사는
+   * 건드리지 않는다.
+   */
+  /**
+   * 그림을 골라 코드만 읽어 곡의 악보에 넣는다(멜로디 화면).
+   *
+   * 타브 화면까지 가지 않고도 코드를 종이 악보에 맞출 수 있어야 한다 —
+   * 코드는 타브만의 일이 아니라 모든 화면이 함께 쓰는 것이다.
+   */
+  const readChordsFromPicture = async (file: File) => {
+    if (!result) return;
+    const got = await readSheetTabAi(result.id, file);
+    adoptResult(got.result);
+    const picked = got.result.picked_tab;
+    const entry = getAbc(result.id);
+    if (!picked || !entry?.abc) return;
+    const off = picked.bar_offset ?? 0;
+    const byBar: Record<number, string[]> = {};
+    for (const m of picked.measures)
+      if (m.chords?.length) byBar[m.no - 1 + off] = m.chords;
+    const put = Object.keys(byBar).length;
+    if (!put) {
+      setToast("그림에서 코드를 읽지 못했습니다");
+      return;
+    }
+    saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
+    setAbcFollow(result.id, true);
+    setAbcEntry(getAbc(result.id));
+    setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
+  };
+
+  const fillChordsFromPicture = () => {
+    const picked = result?.picked_tab;
+    const entry = abcEntry;
+    if (!result || !picked || !entry?.abc) return;
+    const off = picked.bar_offset ?? 0;
+    const byBar: Record<number, string[]> = {};
+    for (const m of picked.measures)
+      if (m.chords?.length) byBar[m.no - 1 + off] = m.chords;
+    const put = Object.keys(byBar).length;
+    if (!put) {
+      setToast("그림에서 읽어 둔 코드가 없습니다");
+      return;
+    }
+    saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
+    setAbcFollow(result.id, true);
+    setAbcEntry(getAbc(result.id));
+    setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
   };
 
 
@@ -2219,14 +2270,14 @@ export default function Home() {
                       result={result}
                       onResult={adoptResult}
                       online={!!health}
-                      onFill={
+                      onFillTab={
                         abcEntry?.tabScore && result.picked_tab
                           ? fillTabFromPicture
                           : undefined
                       }
-                      fillLabel={
-                        result.picked_tab
-                          ? `읽은 타브를 악보에 넣기 (${result.picked_tab.measures.length}마디)`
+                      onFillChords={
+                        abcEntry?.abc && result.picked_tab
+                          ? fillChordsFromPicture
                           : undefined
                       }
                     />
@@ -2333,6 +2384,7 @@ export default function Home() {
                                 onResult={adoptResult}
                                 online={!!health}
                                 onScoreAttached={() => setAbcEntry(getAbc(result.id))}
+                                onReadChords={readChordsFromPicture}
                               />
                             </div>
                           ) : undefined
@@ -2358,6 +2410,7 @@ export default function Home() {
                           onResult={adoptResult}
                           online={!!health}
                           onScoreAttached={() => setAbcEntry(getAbc(result.id))}
+                          onReadChords={readChordsFromPicture}
                         />
                       </div>
                     )}

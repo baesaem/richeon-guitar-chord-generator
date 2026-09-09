@@ -387,21 +387,6 @@ ${abc}`;
         {/* 마디 손잡이는 손잡이를 받은 화면에서만 둔다 — 연습실은 위
             설정줄(싱크 옆)에 두었으므로 여기에 또 두지 않는다 */}
         <ViewSteppers sync={sync} onSync={onSync} onShiftBar={onShiftBar} />
-        {/* 악보와 원곡이 다른 것은 조용히 넘기지 않는다 — 무엇이 왜
-            달라 보이는지 알아야 강사님이 판단할 수 있다 */}
-        {chordNote && chordNote.source !== "none" && chordNote.changed > 0 && (
-          <span
-            className="text-[11px] text-red-600 dark:text-red-400"
-            title={
-              chordNote.source === "audio"
-                ? "카포로 옮겨 적은 악보라, 코드는 음원에서 들리는 대로 적었습니다"
-                : "악보가 원곡 그대로라, 파형·타브의 코드를 악보에 맞췄습니다"
-            }
-          >
-            {chordNote.source === "audio" ? "음원 코드" : "악보 코드"}로 모음{" "}
-            {chordNote.changed}곳
-          </span>
-        )}
         {/* 악보에 마디 수를 맞추는 손잡이.
             한 마디만 달라도 알려 준다 — 그 한 마디가 곡 전체에 걸쳐
             벌어지면 커서가 갈수록 앞서 나간다. 수가 같아도 눌러 둘 수
