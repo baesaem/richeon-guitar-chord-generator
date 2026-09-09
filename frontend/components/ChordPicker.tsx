@@ -178,32 +178,34 @@ export function ChordPicker({
         {labelFor(root, quality, flats)} 로 바꾸기
       </button>
 
-      {/* 코드를 아예 없애는 자리. 간주처럼 코드를 잡지 않는 마디가 있다 */}
-      {current && (
+      {/*
+       * 지우는 단추는 하나다.
+       *
+       * 마디에 코드가 둘 이상이면 그 자리를 없애고 앞 코드를 그만큼
+       * 늘인다. 하나뿐이면 늘일 앞 코드가 없으므로 마디를 비운다 —
+       * 간주처럼 코드를 잡지 않는 자리가 있다. 하는 일이 다르니 말도
+       * 다르게 적지만, 누르는 자리는 한 곳이어야 헷갈리지 않는다.
+       */}
+      {current && slot < slots.length && (
         <button
           className="mt-1.5 w-full rounded py-2.5 text-sm text-red-600"
-          onClick={() => setConfirmClear(true)}
-        >
-          이 자리 코드 지우기
-        </button>
-      )}
-      {/* 한 마디에 둘 이상일 때만. 앞 코드가 이 자리까지 이어진다 */}
-      {onDrop && slots.length > 1 && slot < slots.length && (
-        <button
-          className="w-full rounded py-2 text-[12px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2"
           onClick={() => {
-            onDrop();
-            onClose();
+            if (onDrop && slots.length > 1) {
+              onDrop();
+              onClose();
+            } else setConfirmClear(true);
           }}
         >
-          이 자리 없애기 (앞 코드가 이어짐)
+          {slots.length > 1
+            ? "이 코드 삭제 (앞 코드가 이어짐)"
+            : "이 마디 코드 삭제"}
         </button>
       )}
       {confirmClear && (
         <AskConfirm
-          title="코드 지우기"
-          message="고른 자리의 코드를 지웁니다. 되돌리기로 되살릴 수 있습니다."
-          confirmLabel="지우기"
+          title="코드 삭제"
+          message="이 마디를 코드 없이 비웁니다. 되돌리기로 되살릴 수 있습니다."
+          confirmLabel="삭제"
           danger
           onConfirm={() => {
             onClear();
