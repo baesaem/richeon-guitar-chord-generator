@@ -268,6 +268,53 @@ export async function readSheetTabAi(
   throw new Error("너무 오래 걸립니다. 잠시 뒤 다시 눌러 주세요");
 }
 
+/**
+ * 그림 악보에 적힌 **코드 이름만** AI로 읽는다. 타브는 손대지 않는다.
+ *
+ * 읽는 일은 타브 읽기와 같은 눈이 한다(코드와 숫자를 한 번에 읽는다).
+ * 다만 읽은 것을 곡에 싣지는 않는다 — 코드를 고치려고 넣은 그림 때문에
+ * 붙여 두었던 타브까지 바뀌면, 고칠 생각이 없던 것을 잃는다.
+ */
+export async function readPictureChords(
+  id: string,
+  file: File,
+): Promise<{
+  bars: number;
+  chordBars: number;
+  barOffset: number;
+  chords: { no: number; chords: string[] }[];
+}> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("only", "chords");
+  await fetch(`${apiBase()}/api/results/${id}/sheet/tab`, {
+    method: "POST",
+    body: form,
+  }).then(json<{ state: string }>);
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const st = await fetch(`${apiBase()}/api/results/${id}/sheet/tab`).then(
+      json<{
+        state: string;
+        detail?: string;
+        bars?: number;
+        chord_bars?: number;
+        bar_offset?: number;
+        chords?: { no: number; chords: string[] }[];
+      }>,
+    );
+    if (st.state === "done")
+      return {
+        bars: st.bars ?? 0,
+        chordBars: st.chord_bars ?? 0,
+        barOffset: st.bar_offset ?? 0,
+        chords: st.chords ?? [],
+      };
+    if (st.state === "failed") throw new Error(st.detail || "읽지 못했습니다");
+  }
+  throw new Error("너무 오래 걸립니다. 잠시 뒤 다시 눌러 주세요");
+}
+
 
 /**
  * 종이 악보의 코드를 AI로 읽어 코드만 적힌 ABC를 받는다.

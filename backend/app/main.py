@@ -1367,8 +1367,16 @@ def _merge_picked(old: dict | None, got: dict) -> dict:
     return got
 
 
-async def _run_tab_read(result_id: str, data: bytes, is_pdf: bool) -> None:
-    """고른 그림 악보의 타브를 AI로 읽어 곡에 싣는다(뒤에서)."""
+async def _run_tab_read(
+    result_id: str, data: bytes, is_pdf: bool, only_chords: bool = False
+) -> None:
+    """고른 그림 악보의 타브를 AI로 읽어 곡에 싣는다(뒤에서).
+
+    only_chords면 **코드 이름만** 돌려주고 타브는 손대지 않는다. 코드를
+    고치려고 코드 악보 그림을 넣었을 뿐인데 붙여 두었던 타브까지 그것으로
+    바뀌면, 고칠 생각이 없던 것을 잃는다. 읽은 코드는 곡에 싣지 않고
+    이 물음의 답에만 담아 보낸다 — 악보에 적는 일은 화면이 한다.
+    """
     try:
         result = load_result(result_id)
         if result is None:
@@ -1385,13 +1393,22 @@ async def _run_tab_read(result_id: str, data: bytes, is_pdf: bool) -> None:
         if not read and not chord_bars:
             raise ValueError("숫자도 코드도 읽지 못했습니다")
 
-        result.picked_tab = _merge_picked(result.picked_tab, got)
-        save_result(result)
+        if not only_chords:
+            result.picked_tab = _merge_picked(result.picked_tab, got)
+            save_result(result)
         _tab_reads[result_id] = {
             "state": "done",
             "bars": len(got["measures"]),
             "read": read,
             "chord_bars": chord_bars,
+            "bar_offset": (result.picked_tab or {}).get("bar_offset", 0)
+            if isinstance(result.picked_tab, dict)
+            else getattr(result.picked_tab, "bar_offset", 0) or 0,
+            "chords": [
+                {"no": m.get("no"), "chords": m["chords"]}
+                for m in got["measures"]
+                if m.get("chords")
+            ],
         }
     except Exception as exc:
         _tab_reads[result_id] = {"state": "failed", "detail": str(exc)}
@@ -1399,7 +1416,9 @@ async def _run_tab_read(result_id: str, data: bytes, is_pdf: bool) -> None:
 
 @app.post("/api/results/{result_id}/sheet/tab")
 async def read_sheet_tab(
-    result_id: str, file: UploadFile = File(...)
+    result_id: str,
+    file: UploadFile = File(...),
+    only: str = Form(""),
 ) -> dict:
     """고른 **그림 악보(PDF·사진)의 타브**를 AI로 읽는다 — 시작만 하고 돌려준다.
 
@@ -1424,7 +1443,9 @@ async def read_sheet_tab(
     if _tab_reads.get(result_id, {}).get("state") == "running":
         return {"state": "running"}
     _tab_reads[result_id] = {"state": "running"}
-    asyncio.create_task(_run_tab_read(result_id, data, is_pdf))
+    asyncio.create_task(
+        _run_tab_read(result_id, data, is_pdf, only_chords=only == "chords")
+    )
     return {"state": "running"}
 
 

@@ -82,7 +82,7 @@ import {
   makeVocals,
   watchJob,
   fixBeats,
-  readSheetTabAi,
+  readPictureChords,
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, getLocalAudio, listLocal, saveLocal } from "@/lib/library";
@@ -1520,16 +1520,24 @@ export default function Home() {
    * 타브 화면까지 가지 않고도 코드를 종이 악보에 맞출 수 있어야 한다 —
    * 코드는 타브만의 일이 아니라 모든 화면이 함께 쓰는 것이다.
    */
+  /**
+   * 그림 악보에 적힌 코드 이름을 읽어 이 곡의 악보에 적는다.
+   *
+   * **코드만** 손댄다. 음표·가사·되돌이는 그대로 두고 따옴표 안의 이름만
+   * 바꾸며, 붙여 두었던 타브도 건드리지 않는다 — 코드를 고치려고 넣은
+   * 그림 때문에 타브까지 바뀌면 고칠 생각이 없던 것을 잃는다.
+   */
   const readChordsFromPicture = async (file: File) => {
     if (!result) return;
-    const got = await readSheetTabAi(result.id, file);
-    adoptResult(got.result);
-    const picked = got.result.picked_tab;
     const entry = getAbc(result.id);
-    if (!picked || !entry?.abc) return;
-    const off = picked.bar_offset ?? 0;
+    if (!entry?.abc?.trim()) {
+      setToast("먼저 악보를 붙여 주세요 — 코드를 적어 넣을 악보가 없습니다");
+      return;
+    }
+    const got = await readPictureChords(result.id, file);
+    const off = got.barOffset;
     const byBar: Record<number, string[]> = {};
-    for (const m of picked.measures)
+    for (const m of got.chords)
       if (m.chords?.length) byBar[m.no - 1 + off] = m.chords;
     const put = Object.keys(byBar).length;
     if (!put) {
@@ -1554,10 +1562,16 @@ export default function Home() {
     saveAbc(result.id, next, entry.barOffset ?? 0);
     setAbcFollow(result.id, true);
     setAbcEntry(getAbc(result.id));
+    /* 악보와 음원의 조가 다르면 화면 코드는 음원 조로 옮겨 적힌다.
+       그림이 Em인데 화면이 Gm이면 「안 바뀌었다」로 보이므로 까닭을 적는다 */
+    const why =
+      abcTranspose === 0
+        ? ""
+        : ` (화면 코드는 음원 조에 맞춰 ${abcTranspose > 0 ? "+" : ""}${abcTranspose}반음 옮겨 적습니다 — 연주설정▸음높이)`;
     setToast(
       moved === 0
-        ? `그림 악보의 코드 ${put}마디를 읽었습니다 — 이미 같아서 달라진 마디가 없습니다`
-        : `그림 악보의 코드를 읽어 ${moved < 0 ? put : moved}마디를 고쳤습니다`,
+        ? `그림의 코드가 악보와 같아 바뀐 마디가 없습니다${why}`
+        : `그림 악보의 코드를 읽어 ${moved < 0 ? put : moved}마디를 고쳤습니다${why}`,
     );
   };
 
