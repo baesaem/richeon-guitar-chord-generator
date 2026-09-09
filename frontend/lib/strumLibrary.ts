@@ -30,6 +30,13 @@ export interface StrumPattern {
   hint: string;
   /** 크게 긋는 칸. 8칸 중 '>' 자리가 악센트 */
   accents?: string;
+  /**
+   * 화면에 몇 칸씩 묶어 보일까. 없으면 둘씩.
+   *
+   * 한 박을 셋으로 나누는 패턴(슬로우 락)은 셋씩 묶어야 「쿵 따다」로
+   * 읽힌다. 둘씩 묶으면 박이 어디서 시작하는지 알 수 없다.
+   */
+  per?: number;
 }
 
 export const PATTERNS: StrumPattern[] = [
@@ -83,6 +90,15 @@ export const PATTERNS: StrumPattern[] = [
     accents: ">..>....",
   },
   {
+    name: "슬로우 락",
+    // 한 박을 셋으로 나눈 12칸. 박마다 내려긋고, 2·4박 끝에 올려 긋는다
+    cells: "D..D.UD..D.U",
+    bpm: [50, 100],
+    hint: "12비트. 한 박을 셋으로 나눠 「쿵 따다」로 흔듭니다. 느린 발라드·록에 씁니다.",
+    accents: ">.....>.....",
+    per: 3,
+  },
+  {
     name: "왈츠",
     cells: "D.U.U.  ",
     bpm: [80, 180],
@@ -106,14 +122,14 @@ export const PATTERNS: StrumPattern[] = [
 ];
 
 /** 화면 표기로 바꾼다: "D.DUD.DU" → "↓·↓↑ ↓·↓↑" */
-export function render(cells: string): string {
+export function render(cells: string, per = 2): string {
   const marks = cells
     .trim()
     .split("")
     .map((c) => (c === "D" ? "↓" : c === "U" ? "↑" : "·"))
     .join("");
   const out: string[] = [];
-  for (let i = 0; i < marks.length; i += 2) out.push(marks.slice(i, i + 2));
+  for (let i = 0; i < marks.length; i += per) out.push(marks.slice(i, i + per));
   return out.join(" ");
 }
 

@@ -287,6 +287,10 @@ export function TabSheet({
     [score.bars, lyrics],
   );
 
+  /* 이 곡에 정해 둔 스트로크. 여덟 칸의 D/U/. 과 세게 긋는 칸 */
+  const strumCells = strum?.pattern.cells ?? "";
+  const strumAccents = strum?.pattern.accents ?? "";
+
   const rows = Math.max(Math.ceil(score.bars.length / PER_LINE), 1);
   const height = rows * ROW + 16;
   const barW = (W - LEFT * 2) / PER_LINE;
@@ -526,6 +530,67 @@ export function TabSheet({
             return out;
           })()
         : cols.map((c) => c.chord);
+    /*
+     * 숫자가 없는 마디는 **훑는 마디**다.
+     *
+     * 종이 악보는 그런 마디를 빗금(∕)과 반복표로만 적는다 — 짚을 자리가
+     * 아니라 긋는 자리이기 때문이다. 빈 여섯 줄로 두면 빠뜨린 것처럼
+     * 보이므로, 이 곡에 정해 둔 스트로크를 그 자리에 적는다.
+     */
+    /* 훑는 마디에도 코드 이름은 적는다. 자리(숫자)가 없다고 이름까지
+       없으면 무엇을 긋는지 알 수 없다 — 마디를 코드 수만큼 나눠 얹는다 */
+    if (!cols.length && picNames?.length)
+      picNames.forEach((name, i) => {
+        marks.push(
+          <text
+            key={`sc${j}.${i}`}
+            x={p.x + ((i + 0.5) * p.w) / picNames.length}
+            y={y0 - 20}
+            fontSize={13}
+            fontWeight={700}
+            textAnchor="middle"
+            fill="var(--tab-ink)"
+          >
+            {shiftChordLabel(name, chordShift, flats)}
+          </text>,
+        );
+      });
+
+    if (!cols.length && strumCells) {
+      const beats = strumCells.length || 8;
+      strumCells.split("").forEach((c, i) => {
+        if (c !== "D" && c !== "U") return;
+        const x = p.x + ((i + 0.5) * p.w) / beats;
+        const hit = strumAccents[i] === ">";
+        // 빗금 — 세게 긋는 칸은 굵게
+        ink.push(
+          <line
+            key={`sl${j}.${i}`}
+            x1={x - 4.5}
+            x2={x + 4.5}
+            y1={y0 + GAP * 3.6}
+            y2={y0 + GAP * 1.4}
+            stroke="var(--tab-line)"
+            strokeWidth={hit ? 2.4 : 1.4}
+          />,
+        );
+        // 손 방향은 줄 위에 — 아래는 가사 자리다
+        marks.push(
+          <text
+            key={`sd${j}.${i}`}
+            x={x}
+            y={y0 - 5}
+            fontSize={11}
+            fontWeight={hit ? 700 : 400}
+            textAnchor="middle"
+            fill="var(--tab-dim)"
+          >
+            {c === "D" ? "↓" : "↑"}
+          </text>,
+        );
+      });
+    }
+
     const offs = offsets(cols.map((c) => c.units));
     cols.forEach((col, k) => {
       const x = p.x + spotOf(cols, k, edit) * p.w;

@@ -17,6 +17,8 @@ export function StrumCells({
 }) {
   const cells = pattern.cells.trimEnd().split("");
   const accents = pattern.accents ?? "";
+  // 셋으로 나누는 패턴은 셋씩 묶어야 박이 보인다
+  const per = pattern.per ?? 2;
   return (
     <span className={["font-mono tracking-wide", className ?? ""].join(" ")}>
       {cells.map((c, i) => {
@@ -28,7 +30,7 @@ export function StrumCells({
             className={accented ? "font-bold text-[var(--accent)]" : undefined}
           >
             {mark}
-            {i % 2 === 1 && i < cells.length - 1 ? " " : ""}
+            {i % per === per - 1 && i < cells.length - 1 ? " " : ""}
           </span>
         );
       })}
