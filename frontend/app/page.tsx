@@ -1197,7 +1197,14 @@ export default function Home() {
    * 음에서 프렛 숫자를 만들면 한 줄짜리 단선율이 되어, 편곡자가 적은
    * 손가락 뜯기와 전혀 다른 것이 나온다.
    */
-  const abcTab =
+  /*
+   * 싱크 손잡이를 낼지는 부르는 자리가 정한다.
+   *
+   * 전체보기는 곡을 펴 놓고 치기만 하는 자리다 — 치다가 싱크를 잘못
+   * 건드리면 커서가 통째로 밀린다. 연습실에서는 손전화의 유일한 싱크
+   * 손잡이라 그대로 둔다.
+   */
+  const makeAbcTab = (withSync: boolean) =>
     result && abcEntry ? (
       abcEntry.tabScore ? (
         <TabSheet
@@ -1214,7 +1221,7 @@ export default function Home() {
           flats={flats}
           lyrics={result.lyrics ?? undefined}
           sync={sync}
-          onSync={setSync}
+          onSync={withSync ? setSync : undefined}
           chordNote={unified}
           musicKey={result.key}
           timeSignature={result.time_signature}
@@ -1235,7 +1242,7 @@ export default function Home() {
           }
           transpose={abcTranspose}
           sync={sync}
-          onSync={setSync}
+          onSync={withSync ? setSync : undefined}
           barOffset={abcEntry.barOffset}
           follow={abcEntry.follow ?? false}
           musicKey={result.key}
@@ -1247,6 +1254,8 @@ export default function Home() {
         />
       )
     ) : null;
+  /** 연습실·재생 화면이 쓰는 타브. 싱크 손잡이가 함께 온다 */
+  const abcTab = makeAbcTab(true);
 
 
 
@@ -2112,7 +2121,8 @@ export default function Home() {
                       online={!!health}
                     />
                   )}
-                  {sheetTab === "score" && abcTab}
+                  {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}
+                  {sheetTab === "score" && makeAbcTab(canFix)}
                   {sheetTab === "score" && !abcTab && (
                     /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
                     <ChordScore
@@ -2123,7 +2133,7 @@ export default function Home() {
                       lyrics={shown?.lyrics}
                       strums={result.strums}
                       sync={sync}
-                      onSync={setSync}
+                      onSync={canFix ? setSync : undefined}
                       perLine={settings.chordPerLine}
                       onPerLine={(n) =>
                         setSettings({ ...settings, chordPerLine: n })
@@ -2168,7 +2178,7 @@ export default function Home() {
                       }
                       transpose={abcTranspose}
                       sync={sync}
-                      onSync={setSync}
+                      onSync={canFix ? setSync : undefined}
                       barOffset={abcEntry.barOffset}
                       follow={abcEntry.follow ?? false}
                       onFollow={
@@ -2236,7 +2246,7 @@ export default function Home() {
                           setSettings({ ...settings, sheetZoom: n })
                         }
                         sync={sync}
-                        onSync={setSync}
+                        onSync={canFix ? setSync : undefined}
                         onShiftBar={
                           canFix && health ? shiftBar : undefined
                         }
@@ -2345,7 +2355,7 @@ export default function Home() {
                       transpose={noteShift}
                       follow={false}
                       sync={sync}
-                      onSync={setSync}
+                      onSync={canFix ? setSync : undefined}
                       perRow={settings.gridPerRow}
                       onPerRow={(n) =>
                         setSettings({ ...settings, gridPerRow: n })
