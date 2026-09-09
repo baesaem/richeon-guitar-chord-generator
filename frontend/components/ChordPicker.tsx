@@ -35,18 +35,40 @@ const QUALITIES = [
 export function ChordPicker({
   barNumber,
   current,
+  slots,
+  slot,
+  onSlot,
+  canAdd,
   flats,
   onPick,
   onClear,
+  onDrop,
   onClose,
 }: {
   barNumber: number;
-  /** 지금 이 마디의 코드. { root, quality } */
+  /** 지금 고르고 있는 자리의 코드. { root, quality } */
   current: { root: string; quality: string } | null;
+  /**
+   * 이 마디에 놓인 코드들. 한 마디에 둘 이상인 곡이 흔하다 —
+   * 「Am … B7」처럼 가운데서 바뀐다. 눌러서 고칠 자리를 고른다.
+   */
+  slots: string[];
+  /** 몇 번째 자리를 고치는가. slots 길이와 같으면 새로 놓는 자리다 */
+  slot: number;
+  onSlot: (i: number) => void;
+  /** 한 자리를 더 놓을 수 있는가. 마디가 너무 잘게 나뉘면 못 놓는다 */
+  canAdd: boolean;
   flats: boolean;
   onPick: (root: string, quality: string) => void;
-  /** 이 마디의 코드를 지운다. 간주처럼 코드를 잡지 않는 자리에 쓴다 */
+  /** 고른 자리의 코드를 지운다. 간주처럼 코드를 잡지 않는 자리에 쓴다 */
   onClear: () => void;
+  /**
+   * 고른 자리를 아예 없앤다. 앞 코드가 그 자리까지 이어진다.
+   *
+   * 지우기와 다르다 — 지우면 빈칸이 남고, 없애면 한 마디에 둘로 잡힌
+   * 코드가 하나로 돌아간다. 자리가 둘 이상일 때만 낸다.
+   */
+  onDrop?: () => void;
   onClose: () => void;
 }) {
   const [root, setRoot] = useState(current?.root ?? "C");
@@ -56,6 +78,41 @@ export function ChordPicker({
 
   return (
     <Popup title={`${barNumber}마디 코드`} onClose={onClose}>
+      {/* 이 마디에 놓인 코드들. 어느 자리를 고치는지 눌러서 고른다 */}
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        <span className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+          이 마디
+        </span>
+        {slots.map((name, i) => (
+          <button
+            key={i}
+            onClick={() => onSlot(i)}
+            className={[
+              "rounded px-2 py-0.5 text-[12px] font-semibold",
+              slot === i
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
+                : "bg-[var(--chip)] text-[var(--foreground)]",
+            ].join(" ")}
+          >
+            {name || "빈칸"}
+          </button>
+        ))}
+        {canAdd && (
+          <button
+            onClick={() => onSlot(slots.length)}
+            className={[
+              "rounded px-2 py-0.5 text-[12px] font-semibold",
+              slot >= slots.length
+                ? "bg-[var(--pick)] text-[var(--pick-ink)]"
+                : "bg-[var(--chip)] text-[var(--foreground)]",
+            ].join(" ")}
+            title="이 마디 뒤쪽 절반에 코드를 하나 더 놓습니다"
+          >
+            ＋ 추가
+          </button>
+        )}
+      </div>
+
       <div className="mb-2 flex items-center gap-3">
         <div className="shrink-0">
           <ChordDiagram voicing={voicingFor(root, quality)} label={label} width={84} />
@@ -70,7 +127,9 @@ export function ChordPicker({
             </div>
           )}
           <p className="mt-1 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-            이 마디만 바뀝니다. 앞뒤 마디는 그대로입니다.
+            {slot >= slots.length
+              ? "이 마디 뒤쪽 절반에 새로 놓습니다."
+              : "고른 자리만 바뀝니다. 앞뒤 마디는 그대로입니다."}
           </p>
         </div>
       </div>
@@ -125,13 +184,25 @@ export function ChordPicker({
           className="mt-1.5 w-full rounded py-2.5 text-sm text-red-600"
           onClick={() => setConfirmClear(true)}
         >
-          이 마디 코드 지우기
+          이 자리 코드 지우기
+        </button>
+      )}
+      {/* 한 마디에 둘 이상일 때만. 앞 코드가 이 자리까지 이어진다 */}
+      {onDrop && slots.length > 1 && slot < slots.length && (
+        <button
+          className="w-full rounded py-2 text-[12px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2"
+          onClick={() => {
+            onDrop();
+            onClose();
+          }}
+        >
+          이 자리 없애기 (앞 코드가 이어짐)
         </button>
       )}
       {confirmClear && (
         <AskConfirm
           title="코드 지우기"
-          message="이 마디의 코드를 지웁니다. 되돌리기로 되살릴 수 있습니다."
+          message="고른 자리의 코드를 지웁니다. 되돌리기로 되살릴 수 있습니다."
           confirmLabel="지우기"
           danger
           onConfirm={() => {

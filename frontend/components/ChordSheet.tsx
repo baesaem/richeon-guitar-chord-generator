@@ -44,9 +44,6 @@ interface Props {
    * 눈으로 찾아야 하고, 아래에 가사를 놓을 자리도 없다.
    */
   visibleRows?: number;
-  /** 코드 싱크(초) */
-  sync?: number;
-  onSync?: (sec: number) => void;
   /**
    * 지금 재생 위치(초). 주면 지금 마디 안에서 진행바가 지나간다.
    *
@@ -94,8 +91,6 @@ export function ChordSheet({
   onSeek,
   perRow = 0,
   onPerRow,
-  sync,
-  onSync,
   time,
   getTime,
   visibleRows = 0,
@@ -133,14 +128,12 @@ export function ChordSheet({
 
   return (
     <div>
-      {/* 코드악보·멜로디와 같은 조절. 화면을 옮길 때마다 단추를 새로
-          찾게 하지 않는다. 여기서 「마디」는 한 줄에 놓는 칸 수다. */}
-      {(onSync || onPerRow) && (
+      {/* 한 줄에 놓는 칸 수만 여기서 고친다. 싱크는 멜로디에서 맞춘다 —
+          그리드는 코드를 짚어 가며 치는 자리라 손잡이가 적을수록 좋다 */}
+      {onPerRow && (
         <div className="mb-1.5 flex justify-end text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           <ViewSteppers
-            sync={sync}
-            onSync={onSync}
-            bars={onPerRow ? perRow : undefined}
+            bars={perRow}
             onBars={onPerRow}
             barsMax={8}
             barsLabel="자동"

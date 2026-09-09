@@ -59,7 +59,14 @@ import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { localLlmKey, localLlmModel } from "@/lib/llmClient";
 import { measureOutputLatency } from "@/lib/latency";
 import { stemKey, type StemChoice } from "@/lib/sharedFiles";
-import { clearChordAt, parseLabel, setChordAt } from "@/lib/editChords";
+import {
+  barSlots,
+  clearChordAt,
+  dropSlot,
+  nextSlot,
+  parseLabel,
+  setChordAt,
+} from "@/lib/editChords";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { StrumPickModal } from "@/components/StrumPick";
@@ -175,6 +182,9 @@ export default function Home() {
   const [showStrums, setShowStrums] = useState(false);
   // 코드 고치기: 지금 고르고 있는 마디 번호(없으면 null)
   const [editBar, setEditBar] = useState<number | null>(null);
+  /* 마디 안의 몇 번째 코드를 고치는가. 한 마디에 코드가 둘 이상인 곡이
+     흔하다 — 「Am … B7」처럼 가운데서 바뀐다 */
+  const [editSlot, setEditSlot] = useState(0);
   // 편집으로 들어왔는가. 고치는 데 쓰지 않는 탭은 감춘다
   const [editMode, setEditMode] = useState(false);
   /*
@@ -877,23 +887,57 @@ export default function Home() {
     void saveLocal(r).catch(() => {});
   };
 
+  /** 고치는 마디에 놓인 코드 자리들. 창이 이것을 늘어놓는다 */
+  const editBarSlots = useMemo(() => {
+    if (editBar === null || !result || !bars[editBar]) return [];
+    return barSlots(result.chords, bars[editBar].start, bars[editBar].end);
+  }, [editBar, result, bars]);
+
+  /**
+   * 마디 안의 한 자리를 없앤다. 앞 코드가 그 자리까지 이어진다.
+   *
+   * 한 마디에 둘로 잡힌 코드를 하나로 되돌리는 길이다 — 지우기는 빈칸을
+   * 남기지만 이것은 앞 코드를 늘인다.
+   */
+  const dropChordSlot = async (barIndex: number, slot: number) => {
+    if (!result) return;
+    const bar = bars[barIndex];
+    if (!bar) return;
+    const chords = dropSlot(result.chords, bar.start, bar.end, slot);
+    if (chords === result.chords) return;
+    setUndo((prev) => [...prev, result.chords].slice(-20));
+    const next = { ...result, chords };
+    setResult(next);
+    setEditSlot(0);
+    void pushToServer(next);
+    if (settings.autoSave) saveLocal(next).catch(() => {});
+  };
+
   const applyChordEdit = async (
     barIndex: number,
     change: { root: string; quality: string } | null,
+    slot = 0,
   ) => {
     if (!result) return;
     const bar = bars[barIndex];
     if (!bar) return;
 
+    /* 고른 자리만 바꾼다. 마디를 통째로 덮으면 한 마디에 둘 있던 코드가
+       하나로 뭉쳐, 가운데서 바뀌는 곡을 고칠 수가 없다 */
+    const slots = barSlots(result.chords, bar.start, bar.end);
+    const at = slots[slot] ?? nextSlot(result.chords, bar.start, bar.end) ?? {
+      start: bar.start,
+      end: bar.end,
+    };
     const chords = change
       ? setChordAt(
           result.chords,
-          bar.start,
-          bar.end,
+          at.start,
+          at.end,
           transposeRoot(change.root, -noteShift) ?? change.root,
           change.quality,
         )
-      : clearChordAt(result.chords, bar.start, bar.end);
+      : clearChordAt(result.chords, at.start, at.end);
 
     // 고치기 전 상태를 쌓아 둔다. 20단계면 충분하다
     setUndo((prev) => [...prev, result.chords].slice(-20));
@@ -2621,8 +2665,6 @@ export default function Home() {
                       flats={flats}
                       transpose={noteShift}
                       follow={false}
-                      sync={sync}
-                      onSync={canFix ? setSync : undefined}
                       perRow={settings.gridPerRow}
                       onPerRow={(n) =>
                         setSettings({ ...settings, gridPerRow: n })
@@ -2631,7 +2673,10 @@ export default function Home() {
                         playback?.seek(t);
                         setTime(t);
                       }}
-                      onEditBar={setEditBar}
+                      onEditBar={(i) => {
+                        setEditSlot(0);
+                        setEditBar(i);
+                      }}
                       barLabels={scoreBarNumbers}
                       barMarks={scoreBarMarks}
                     />
@@ -2957,7 +3002,6 @@ export default function Home() {
                             transpose={noteShift}
                             follow
                             /* 싱크·칸 수 손잡이는 위 설정줄에 있다 — 중복 */
-                            sync={sync}
                             perRow={settings.gridPerRow}
                             time={time + sync - settings.latency}
                             getTime={
@@ -2970,7 +3014,10 @@ export default function Home() {
                               playback?.seek(t);
                               setTime(t);
                             }}
-                            onEditBar={setEditBar}
+                            onEditBar={(i) => {
+                              setEditSlot(0);
+                              setEditBar(i);
+                            }}
                             barLabels={scoreBarNumbers}
                             barMarks={scoreBarMarks}
                           />
@@ -3892,22 +3939,32 @@ export default function Home() {
         {/* 마디 코드 고르기 */}
         {editBar !== null && result && bars[editBar] && (
           <ChordPicker
-            barNumber={bars[editBar].number}
+            barNumber={scoreBarNumbers?.[editBar] ?? bars[editBar].number}
+            slots={editBarSlots.map((one) =>
+              one.root
+                ? labelFor(transposeRoot(one.root, noteShift), one.quality, flats)
+                : "",
+            )}
+            slot={editSlot}
+            onSlot={setEditSlot}
+            canAdd={
+              !!nextSlot(result.chords, bars[editBar].start, bars[editBar].end)
+            }
             current={(() => {
-              const c =
-                shownChords[chordIndexAt(shownChords, bars[editBar].start)];
-              return c?.root
+              const one = editBarSlots[editSlot];
+              return one?.root
                 ? {
-                    root: transposeRoot(c.root, noteShift) ?? c.root,
-                    quality: c.quality,
+                    root: transposeRoot(one.root, noteShift) ?? one.root,
+                    quality: one.quality,
                   }
                 : null;
             })()}
             flats={flats}
             onPick={(root, quality) =>
-              applyChordEdit(editBar, { root, quality })
+              applyChordEdit(editBar, { root, quality }, editSlot)
             }
-            onClear={() => applyChordEdit(editBar, null)}
+            onClear={() => applyChordEdit(editBar, null, editSlot)}
+            onDrop={() => dropChordSlot(editBar, editSlot)}
             onClose={() => setEditBar(null)}
           />
         )}

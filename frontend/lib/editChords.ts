@@ -184,3 +184,24 @@ export function nextSlot(
   if (last.end - mid < 0.12) return null;
   return { start: +mid.toFixed(3), end: last.end };
 }
+
+/**
+ * 마디 안의 한 자리를 없앤다.
+ *
+ * 지우기(clearChordAt)와 다르다. 지우면 그 자리가 빈칸으로 남지만,
+ * 없애면 **앞 코드가 그 자리까지 이어진다** — 한 마디에 둘로 잡힌 코드를
+ * 하나로 되돌릴 때 쓴다. 첫 자리를 없애면 뒷 코드가 앞으로 당겨진다.
+ */
+export function dropSlot(
+  chords: Chord[],
+  from: number,
+  to: number,
+  index: number,
+): Chord[] {
+  const slots = barSlots(chords, from, to);
+  if (slots.length < 2 || !slots[index]) return chords;
+  const gone = slots[index];
+  const keep = slots[index - 1] ?? slots[index + 1];
+  if (!keep?.root) return clearChordAt(chords, gone.start, gone.end);
+  return setChordAt(chords, gone.start, gone.end, keep.root, keep.quality);
+}
