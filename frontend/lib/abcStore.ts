@@ -11,7 +11,7 @@
  * 악보는 여기 — 서로 독립이라 한쪽이 깨져도 다른 쪽은 산다).
  */
 
-import type { TabScore } from "./msczToAbc";
+import type { TabCol, TabScore } from "./msczToAbc";
 
 const KEY = "chordgen.abc";
 
@@ -51,6 +51,13 @@ export interface AbcEntry {
 
 /** 마디 하나를 손으로 고친 내용 */
 export interface TabBarEdit {
+  /**
+   * 이 마디의 자리를 통째로 새로 적은 것. 없으면 악보에서 읽어 온 대로.
+   *
+   * 「10-60,20,30」처럼 적는다 — 첫 글자가 줄(1번이 맨 윗줄), 나머지가
+   * 프렛, 한 자리에 겹쳐 짚는 것은 -로 잇고, 자리는 쉼표로 나눈다.
+   */
+  cols?: TabCol[];
   /** 자리를 박 길이대로 놓는다. 없으면 고르게 나눈다 */
   beat?: boolean;
   /** 빈 자리를 끼울 자리 번호들. 그 앞이 한 칸씩 벌어진다 */

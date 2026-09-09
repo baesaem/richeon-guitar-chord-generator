@@ -8,7 +8,7 @@ import type { TabBarEdit } from "@/lib/abcStore";
 import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
 import { barIndexAt } from "@/lib/bars";
-import type { TabBar, TabScore } from "@/lib/msczToAbc";
+import type { TabCol, TabScore } from "@/lib/msczToAbc";
 import { shiftChordLabel } from "@/lib/notation";
 import type { StrumChoice } from "@/lib/strumLibrary";
 import type { LyricLine } from "@/lib/types";
@@ -112,19 +112,23 @@ interface Props {
  * 빈 자리를 끼우거나 한 자리만 반 칸씩 밀 수도 있다 — 종이 악보의
  * 손글씨처럼, 짚는 때를 눈에 보이게 하려고.
  */
-function spotOf(bar: TabBar, k: number, edit: TabBarEdit | undefined): number {
+function spotOf(
+  cols: TabCol[],
+  k: number,
+  edit: TabBarEdit | undefined,
+): number {
   const gaps = edit?.gaps ?? [];
   const nudge = edit?.nudge?.[k] ?? 0;
   let at: number;
   let step: number;
   if (edit?.beat) {
-    const units = bar.cols.map((c) => c.units);
+    const units = cols.map((c) => c.units);
     const total = units.reduce((a, b) => a + b, 0) || 1;
     const offs = offsets(units);
     step = units[k] / total;
     at = offs[k] + step / 2;
   } else {
-    const slots = bar.cols.length + gaps.length || 1;
+    const slots = cols.length + gaps.length || 1;
     const before = gaps.filter((g) => g <= k).length;
     step = 1 / slots;
     at = (k + before + 0.5) * step;
@@ -171,6 +175,37 @@ function spaceLyrics(raw: string[], lines: LyricLine[] | undefined): string[] {
     }
     from = at + syls.length;
     return out;
+  });
+}
+
+/**
+ * 한 자리를 「10-60」처럼 적는다.
+ *
+ * 첫 글자가 줄이다 — 1번이 맨 윗줄(가장 가는 줄), 6번이 맨 아랫줄.
+ * 나머지가 프렛이라 「112」는 1번 줄 12프렛이다. 한 자리에 겹쳐 짚는
+ * 것은 -로 잇는다. 아무것도 짚지 않는 자리는 빈 칸이다.
+ */
+function colText(col: TabCol): string {
+  return col.frets
+    .slice()
+    .sort((a, b) => a.string - b.string)
+    .map((f) => `${f.string + 1}${f.fret}`)
+    .join("-");
+}
+
+/** 마디 하나를 적은 글 → 자리들. 못 읽는 토막은 쉼으로 둔다 */
+function readCols(text: string, units: number): TabCol[] {
+  const parts = text.split(",");
+  const each = units / Math.max(parts.length, 1);
+  return parts.map((one) => {
+    const frets: { string: number; fret: number }[] = [];
+    for (const bit of one.split("-")) {
+      const m = bit.trim().match(/^([1-6])(\d{1,2})$/);
+      if (!m) continue;
+      const fret = +m[2];
+      if (fret <= 24) frets.push({ string: +m[1] - 1, fret });
+    }
+    return { units: each, frets };
   });
 }
 
@@ -428,9 +463,11 @@ export function TabSheet({
 
     // ---- 숫자와 코드 ----
     const edit = edits?.[j];
-    const offs = offsets(bar.cols.map((c) => c.units));
-    bar.cols.forEach((col, k) => {
-      const x = p.x + spotOf(bar, k, edit) * p.w;
+    // 손으로 새로 적은 마디가 있으면 그것을 그린다
+    const cols = edit?.cols ?? bar.cols;
+    const offs = offsets(cols.map((c) => c.units));
+    cols.forEach((col, k) => {
+      const x = p.x + spotOf(cols, k, edit) * p.w;
       const picked = fixing?.bar === j && fixing.col === k;
       const live =
         at?.bar === j &&
@@ -544,12 +581,16 @@ export function TabSheet({
   /* ---- 마디 하나를 고치는 창 ---- */
   const fixBar = fixing ? score.bars[fixing.bar] : null;
   const fixEdit = fixing ? edits?.[fixing.bar] : undefined;
+  const fixCols = fixEdit?.cols ?? fixBar?.cols ?? [];
   /** 이 마디의 고친 내용을 갈아 끼운다. 빈 것이 되면 줄째 지운다 */
   const putEdit = (next: TabBarEdit) => {
     if (!fixing || !onEdits) return;
     const all = { ...(edits ?? {}) };
     const empty =
-      !next.beat && !next.gaps?.length && !Object.keys(next.nudge ?? {}).length;
+      !next.cols?.length &&
+      !next.beat &&
+      !next.gaps?.length &&
+      !Object.keys(next.nudge ?? {}).length;
     if (empty) delete all[fixing.bar];
     else all[fixing.bar] = next;
     onEdits(all);
@@ -569,10 +610,10 @@ export function TabSheet({
             </p>
             {/* 이 마디의 자리들. 누르면 골라진다 */}
             <div className="flex flex-wrap gap-1">
-              {fixBar.cols.map((col, k) => (
+              {fixCols.map((col, k) => (
                 <button
                   key={k}
-                  onClick={() => setFixing({ bar: fixing.bar, col: k })}
+                  onClick={() => setFixing({ ...fixing, col: k })}
                   className={[
                     "rounded px-2 py-1 text-[12px] font-semibold tabular-nums",
                     fixing.col === k
@@ -581,13 +622,7 @@ export function TabSheet({
                   ].join(" ")}
                   title={`${k + 1}번째 자리`}
                 >
-                  {col.frets.length
-                    ? col.frets
-                        .slice()
-                        .sort((a, b) => a.string - b.string)
-                        .map((f) => f.fret)
-                        .join("·")
-                    : "쉼"}
+                  {colText(col) || "쉼"}
                 </button>
               ))}
             </div>
@@ -661,6 +696,37 @@ export function TabSheet({
                 박 길이대로
               </button>
             </div>
+            {/* 마디를 통째로 적어 넣는다. 미는 것보다 빠를 때가 있고,
+                없는 자리를 새로 넣거나 잘못 읽어 온 것을 고칠 수 있다 */}
+            <label className="flex flex-col gap-1 border-t border-[var(--panel-line)] pt-3">
+              <span className="text-[12px] font-semibold">이 마디를 적어 넣기</span>
+              <input
+                className="w-full rounded border border-[var(--panel-line)] bg-[var(--background)] px-2 py-1.5 font-mono text-[12px]"
+                defaultValue={fixCols.map(colText).join(",")}
+                key={`${fixing.bar}.${fixCols.length}`}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  const cols = readCols(
+                    (e.target as HTMLInputElement).value,
+                    fixBar.units,
+                  );
+                  putEdit({ ...fixEdit, cols, gaps: [], nudge: {} });
+                }}
+                onBlur={(e) => {
+                  const cols = readCols(e.target.value, fixBar.units);
+                  if (
+                    cols.map(colText).join(",") !== fixCols.map(colText).join(",")
+                  )
+                    putEdit({ ...fixEdit, cols, gaps: [], nudge: {} });
+                }}
+                title="첫 글자가 줄(1번이 맨 윗줄), 나머지가 프렛입니다"
+              />
+              <span className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+                첫 글자가 줄(1번이 맨 윗줄), 나머지가 프렛입니다. 한 자리에
+                겹쳐 짚는 것은 -로 잇고, 자리는 쉼표로 나눕니다 —
+                「10-60,20,30」. 빈 칸은 쉼입니다.
+              </span>
+            </label>
             <div className="flex items-center justify-between gap-2 border-t border-[var(--panel-line)] pt-3">
               <button
                 className="rounded px-2 py-1.5 text-[12px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2"
