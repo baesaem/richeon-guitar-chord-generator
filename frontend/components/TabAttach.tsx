@@ -137,15 +137,15 @@ export function TabAttach({
         onClick={() => pick.current?.click()}
         title={
           online
-            ? "인쇄된 타브 악보(PDF)의 프렛 숫자를 읽어 이 화면에 그립니다"
+            ? "인쇄된 타브 악보(PDF)의 프렛 숫자를 읽어 이 곡에 담아 둡니다. 악보 파일이 붙은 곡은 그 뒤 「악보에 넣기」를 눌러야 화면이 바뀝니다"
             : "분석 서버에 연결되어야 읽을 수 있습니다"
         }
       >
         {busy
           ? "읽는 중…"
           : tab
-            ? `타브 바꾸기 (${tab.measures.length}마디)`
-            : "타브 읽어 붙이기"}
+            ? `그림 타브 다시 읽기 (${tab.measures.length}마디)`
+            : "그림에서 타브 읽기"}
       </button>
       {/* 붙여 둔 악보 그림에서 AI로 읽는다. 자로 재는 길이 안 될 때 쓴다 */}
       <button

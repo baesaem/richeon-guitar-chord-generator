@@ -2194,10 +2194,10 @@ export default function Home() {
                       <button
                         className="mb-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                         onClick={() => fillTabFromPicture()}
-                        title="종이 악보에서 읽어 둔 타브 숫자를 이 악보의 마디마다 넣습니다. 마디별로 되돌릴 수 있습니다"
+                        title="읽어 둔 그림 타브의 숫자와 코드를 이 악보의 마디마다 얹습니다. 마디별로 되돌릴 수 있습니다"
                       >
-                        그림 타브로 채우기 ({result.picked_tab.measures.length}
-                        마디)
+                        읽은 타브를 악보에 넣기 (
+                        {result.picked_tab.measures.length}마디)
                       </button>
                     )}
                   {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}
