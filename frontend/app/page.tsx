@@ -59,7 +59,7 @@ import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { localLlmKey, localLlmModel } from "@/lib/llmClient";
 import { measureOutputLatency } from "@/lib/latency";
 import { stemKey, type StemChoice } from "@/lib/sharedFiles";
-import { clearChordAt, setChordAt } from "@/lib/editChords";
+import { clearChordAt, parseLabel, setChordAt } from "@/lib/editChords";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { StrumPickModal } from "@/components/StrumPick";
@@ -516,22 +516,37 @@ export default function Home() {
    * 악보의 조표에서 곧바로 읽는다 — 코드 맞추기가 어느 쪽을 골랐는지에
    * 기대면, 맞추기가 손을 놓은 곡에서는 표시가 통째로 사라진다.
    */
-  const sourceKey = useMemo(() => {
-    if (!result || !abcEntry?.abc) return undefined;
+  /**
+   * 악보가 소리보다 몇 반음 낮게 적혔는가(카포 프렛 수).
+   *
+   * 악보의 조표와 음원이 찾은 키를 견주어 센다. 카포로 옮겨 적힌 악보는
+   * 종이에 Em이라 적어 두고 G단조로 울린다 — 그림에서 읽은 코드를 음원
+   * 코드 목록에 얹으려면 이만큼 올려야 한다.
+   */
+  const scoreShift = useMemo(() => {
+    if (!result || !abcEntry?.abc) return 0;
     const m = abcEntry.abc.match(/^K:\s*([A-G][#b♯♭]?)(m|min)?/m);
-    if (!m) return undefined;
+    if (!m) return 0;
     const [tonic, mode = ""] = result.key.split(" ");
     const minor = /min/i.test(mode);
     /* 조표만 적힌 악보(K:G)는 장조로 읽힌다. 곡이 단조면 나란한 단조가
        그 악보의 조다 — 사장조 조표와 마단조 조표는 같은 것이다 */
     let root = m[1].replace(/♯/g, "#").replace(/♭/g, "b");
     if (minor && !m[2]) root = transposeRoot(root, -3) ?? root;
-    const same = transposeRoot(root, 0) === transposeRoot(tonic, 0);
-    // 옮겨 적히지 않은 악보면 곁들일 것이 없다
-    if (!root || same) return undefined;
-    const full = `${root} ${mode}`.trim();
-    return spell(root, prefersFlats(full)) + (minor ? "m" : "");
+    for (let by = 0; by < 12; by++)
+      if (transposeRoot(root, by) === transposeRoot(tonic, 0)) return by;
+    return 0;
   }, [result, abcEntry?.abc]);
+
+  /** 악보에 **적힌** 조. 원키(음원이 찾은 키)와 나란히 보인다 */
+  const sourceKey = useMemo(() => {
+    if (!result || !scoreShift) return undefined;
+    const [tonic, mode = ""] = result.key.split(" ");
+    const root = transposeRoot(tonic, -scoreShift);
+    if (!root) return undefined;
+    const full = `${root} ${mode}`.trim();
+    return spell(root, prefersFlats(full)) + (/min/i.test(mode) ? "m" : "");
+  }, [result, scoreShift]);
 
   const abcTranspose =
     noteShift + (unified?.source === "score" ? unified.capo : 0);
@@ -1425,7 +1440,46 @@ export default function Home() {
     saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
     setAbcFollow(result.id, true);
     setAbcEntry(getAbc(result.id));
+    putPictureChordsOnAudio(byBar);
     setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
+  };
+
+  /**
+   * 그림에서 읽은 코드를 **음원 코드 목록**에도 얹는다.
+   *
+   * 그리드와 파형은 악보(ABC)가 아니라 음원에서 딴 코드 목록을 그린다.
+   * 악보만 고치면 멜로디만 바뀌고 그리드는 옛 코드를 그대로 부른다 —
+   * 같은 곡을 두 이름으로 부르게 된다. 악보에 적힌 조를 울리는 높이로
+   * 올려 목록에 적어 넣는다.
+   */
+  const putPictureChordsOnAudio = (byBar: Record<number, string[]>) => {
+    if (!result) return;
+    let chords = result.chords;
+    const off = abcEntry?.barOffset ?? 0;
+    bars.forEach((bar, k) => {
+      const no = scoreBarNumbers?.[k];
+      const j = no !== undefined ? no - 1 : k - off;
+      const names = byBar[j];
+      if (!names?.length) return;
+      // 마디를 코드 수만큼 고르게 나눈다
+      const span = (bar.end - bar.start) / names.length;
+      names.forEach((name, i) => {
+        const { root, quality } = parseLabel(name);
+        const sounding = transposeRoot(root, scoreShift) ?? root;
+        chords = setChordAt(
+          chords,
+          bar.start + i * span,
+          bar.start + (i + 1) * span,
+          sounding,
+          quality,
+        );
+      });
+    });
+    if (chords === result.chords) return;
+    setUndo((prev) => [...prev, result.chords].slice(-20));
+    const next = { ...result, chords };
+    setResult(next);
+    void pushToServer(next);
   };
 
   const fillChordsFromPicture = () => {
@@ -1444,6 +1498,7 @@ export default function Home() {
     saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
     setAbcFollow(result.id, true);
     setAbcEntry(getAbc(result.id));
+    putPictureChordsOnAudio(byBar);
     setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
   };
 

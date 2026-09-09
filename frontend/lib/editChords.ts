@@ -135,3 +135,52 @@ function mergeSame(chords: Chord[]): Chord[] {
   }
   return out;
 }
+
+/**
+ * 이 마디 안에 놓인 코드 자리들.
+ *
+ * 한 마디에 코드가 둘 이상인 곡이 흔하다 — 「Am … B7」처럼 마디 가운데서
+ * 바뀐다. 마디를 통째로 하나로 보면 그런 자리를 고칠 수가 없어, 마디를
+ * 코드가 바뀌는 자리에서 잘라 보여 준다. 코드가 없으면 빈 자리 하나다.
+ */
+export interface BarSlot {
+  start: number;
+  end: number;
+  root: string | null;
+  quality: string;
+}
+
+export function barSlots(chords: Chord[], from: number, to: number): BarSlot[] {
+  const out: BarSlot[] = [];
+  for (const c of chords) {
+    if (c.end <= from + EPS || c.start >= to - EPS) continue;
+    out.push({
+      start: Math.max(c.start, from),
+      end: Math.min(c.end, to),
+      root: c.root,
+      quality: c.quality,
+    });
+  }
+  out.sort((a, b) => a.start - b.start);
+  if (!out.length) return [{ start: from, end: to, root: null, quality: "maj" }];
+  return out;
+}
+
+/**
+ * 이 마디에 코드를 하나 더 놓을 자리.
+ *
+ * 마지막 자리를 반으로 가른 뒤쪽이다 — 마디 전체를 다시 나누면 이미
+ * 맞춰 둔 앞자리까지 움직여, 고친 사람이 놀란다.
+ */
+export function nextSlot(
+  chords: Chord[],
+  from: number,
+  to: number,
+): { start: number; end: number } | null {
+  const slots = barSlots(chords, from, to);
+  const last = slots[slots.length - 1];
+  const mid = (last.start + last.end) / 2;
+  // 반으로 갈라도 너무 짧으면 더 놓지 않는다
+  if (last.end - mid < 0.12) return null;
+  return { start: +mid.toFixed(3), end: last.end };
+}
