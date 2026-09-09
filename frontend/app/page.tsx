@@ -16,8 +16,13 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
 import { applyBarChords } from "@/lib/abcChordSwap";
+import {
+  getTabEdits,
+  setTabEdits,
+  type TabBarEdit,
+} from "@/lib/tabEdits";
 import type { TabScore } from "@/lib/msczToAbc";
-import type { TabBarEdit } from "@/lib/abcStore";
+
 import { unifyChords } from "@/lib/abcChords";
 import { abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
@@ -27,7 +32,6 @@ import {
   getAbc,
   removeAbc,
   saveAbc,
-  setAbcTabEdits,
   setAbcFollow,
   setAbcOffset,
   type AbcEntry,
@@ -310,6 +314,11 @@ export default function Home() {
   // 「화면에 그릴 결과」보다 먼저 선언해야 한다 — 악보·파형·타브의 코드를
   // 한 벌로 모으는 셈이 이 값을 본다. 아래에 두면 렌더마다 터진다.
   const [abcEntry, setAbcEntry] = useState<AbcEntry | null>(null);
+  /* 손으로 고친 타브 자리. 악보와 딴 칸에 담는다 — 악보를 붙이지 않은
+     곡에서도 고칠 수 있어야 한다 */
+  const [tabEdits, setTabEditsState] = useState<
+    Record<number, TabBarEdit> | undefined
+  >(undefined);
 
   /* 악보·파형·타브가 서로 다른 코드를 말하지 않게 한 벌로 모은다.
    *
@@ -675,6 +684,7 @@ export default function Home() {
                 saveAbc(r.id, pendingAbc.current);
                 pendingAbc.current = null;
                 setAbcEntry(getAbc(r.id));
+      setTabEditsState(getTabEdits(r.id));
                 setToast(
                   `음원목록에 등록하고 악보를 붙였습니다 — ${r.title || r.id}`,
                 );
@@ -1285,14 +1295,14 @@ export default function Home() {
         chordShift={abcTranspose}
         flats={flats}
         lyrics={result.lyrics ?? undefined}
-        edits={abcEntry?.tabEdits}
+        edits={tabEdits}
         /* 자리를 옮기는 일은 편집에서만. 치는 자리에서 잘못 누르면
            악보가 바뀐다 */
         onEdits={
           withFix && abcEntry
             ? (next) => {
-                setAbcTabEdits(result.id, next);
-                setAbcEntry(getAbc(result.id));
+                setTabEdits(result.id, next);
+                setTabEditsState(getTabEdits(result.id));
               }
             : undefined
         }
@@ -1318,9 +1328,9 @@ export default function Home() {
    */
   const fillTabFromPicture = () => {
     const picked = result?.picked_tab;
-    const score = abcEntry?.tabScore;
+    const score = tabFrame;
     if (!result || !picked || !score) return;
-    const next: Record<number, TabBarEdit> = { ...(abcEntry?.tabEdits ?? {}) };
+    const next: Record<number, TabBarEdit> = { ...(tabEdits ?? {}) };
     let put = 0;
     for (const m of picked.measures) {
       const j = m.no - 1 + (picked.bar_offset ?? 0);
@@ -1347,8 +1357,8 @@ export default function Home() {
       };
       put++;
     }
-    setAbcTabEdits(result.id, next);
-    setAbcEntry(getAbc(result.id));
+    setTabEdits(result.id, next);
+    setTabEditsState(getTabEdits(result.id));
     setToast(`그림 악보의 숫자를 ${put}마디에 넣었습니다`);
   };
 
@@ -2270,11 +2280,10 @@ export default function Home() {
                       result={result}
                       onResult={adoptResult}
                       online={!!health}
-                      onFillTab={
-                        abcEntry?.tabScore && result.picked_tab
-                          ? fillTabFromPicture
-                          : undefined
-                      }
+                      /* 그림을 읽었으면 곧바로 넣을 수 있어야 한다.
+                         숫자는 악보가 없어도 넣는다(틀을 그림에서 세운다).
+                         코드는 적어 넣을 악보가 있어야 한다 */
+                      onFillTab={result.picked_tab ? fillTabFromPicture : undefined}
                       onFillChords={
                         abcEntry?.abc && result.picked_tab
                           ? fillChordsFromPicture

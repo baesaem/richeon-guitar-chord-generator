@@ -11,7 +11,7 @@
  * 악보는 여기 — 서로 독립이라 한쪽이 깨져도 다른 쪽은 산다).
  */
 
-import type { TabCol, TabScore } from "./msczToAbc";
+import type { TabScore } from "./msczToAbc";
 
 const KEY = "chordgen.abc";
 
@@ -39,39 +39,8 @@ export interface AbcEntry {
    * 보표가 들어 있으면 짚는 줄과 프렛을 적힌 그대로 담아 둔다.
    */
   tabScore?: TabScore;
-  /**
-   * 강사님이 손으로 옮긴 타브 자리. 마디 번호(0부터) → 고친 내용.
-   *
-   * 악보에서 읽어 온 것(tabScore)은 건드리지 않고 그 위에 얹는다.
-   * 그래야 「이 마디 되돌리기」가 한 줄 지우는 일이 되고, 악보를 다시
-   * 붙여도 고쳐 둔 것이 살아남는다.
-   */
-  tabEdits?: Record<number, TabBarEdit>;
 }
 
-/** 마디 하나를 손으로 고친 내용 */
-export interface TabBarEdit {
-  /**
-   * 이 마디의 자리를 통째로 새로 적은 것. 없으면 악보에서 읽어 온 대로.
-   *
-   * 「10-60,20,30」처럼 적는다 — 첫 글자가 줄(1번이 맨 윗줄), 나머지가
-   * 프렛, 한 자리에 겹쳐 짚는 것은 -로 잇고, 자리는 쉼표로 나눈다.
-   */
-  cols?: TabCol[];
-  /**
-   * 이 마디에 적을 코드 이름들. 없으면 악보 파일의 코드를 쓴다.
-   *
-   * 그림 악보로 편곡하면 짚는 자리는 그림에서 오는데 이름은 악보
-   * 파일에서 온다 — 둘이 다른 곡이면 자리와 이름이 어긋난다.
-   */
-  chords?: string[];
-  /** 자리를 박 길이대로 놓는다. 없으면 고르게 나눈다 */
-  beat?: boolean;
-  /** 빈 자리를 끼울 자리 번호들. 그 앞이 한 칸씩 벌어진다 */
-  gaps?: number[];
-  /** 자리마다 반 칸씩 미는 값. 왼쪽이 음수 */
-  nudge?: Record<number, number>;
-}
 
 type Store = Record<string, AbcEntry>;
 
@@ -125,18 +94,6 @@ export function setAbcTabScore(songId: string, tabScore: TabScore | null): void 
   write(store);
 }
 
-/** 손으로 옮긴 타브 자리를 적어 둔다. 빈 값이면 그 마디는 악보대로 */
-export function setAbcTabEdits(
-  songId: string,
-  tabEdits: Record<number, TabBarEdit>,
-): void {
-  const store = read();
-  const cur = store[songId];
-  if (!cur) return;
-  const kept = Object.keys(tabEdits).length ? tabEdits : undefined;
-  store[songId] = { ...cur, tabEdits: kept };
-  write(store);
-}
 
 /** 이 곡은 악보 코드를 그대로 따를 것인지 정한다 */
 export function setAbcFollow(songId: string, follow: boolean): void {

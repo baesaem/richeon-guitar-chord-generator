@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
-import type { TabBarEdit } from "@/lib/abcStore";
+import type { TabBarEdit } from "@/lib/tabEdits";
 import type { Bar } from "@/lib/bars";
 import { barIndexAt } from "@/lib/bars";
 import type { TabCol, TabScore } from "@/lib/msczToAbc";
@@ -526,7 +526,7 @@ export function TabSheet({
           });
             return out;
           })()
-        : cols.map((c) => c.chord);
+        : bar.cols.map((c) => c.chord);
     /*
      * 숫자가 없는 마디는 **훑는 마디**다.
      *
