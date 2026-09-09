@@ -45,7 +45,7 @@ export function TabAttach({
         setNote(
           `타브 ${t.measures.length}마디를 읽었습니다` +
             (strum ? ` (훑는 마디 ${strum})` : "") +
-            ". 자리가 밀리면 「◀ 타브 · 타브 ▶」로 맞추세요.",
+            ". 「읽은 타브를 악보에 넣기」를 누르면 악보에 얹힙니다.",
         );
       }
     } catch (e) {
@@ -117,18 +117,6 @@ export function TabAttach({
     await write({ ...result, picked_tab: null }, "떼지 못했습니다");
   };
 
-  /** 악보 첫 마디가 음원 몇 번째 마디인지. 전주 길이가 다르면 통째로 민다 */
-  const shift = async (by: number) => {
-    if (!tab) return;
-    await write(
-      {
-        ...result,
-        picked_tab: { ...tab, bar_offset: (tab.bar_offset ?? 0) + by },
-      },
-      "밀지 못했습니다",
-    );
-  };
-
   return (
     <div className="flex flex-wrap items-center gap-1.5 pb-1 text-[11px]">
       <button
@@ -166,26 +154,6 @@ export function TabAttach({
             title="같은 그림 악보를 골라 넣으면 거기 적힌 코드 이름을 읽어 타브 마디에 싣습니다"
           >
             그림 코드 읽기
-          </button>
-          {/* 전주 길이가 악보와 다르면 숫자가 통째로 밀린다 */}
-          <button
-            className="rounded bg-[var(--chip)] px-2 py-0.5 disabled:opacity-40"
-            disabled={busy || !online}
-            onClick={() => void shift(-1)}
-            title="타브를 한 마디 앞으로"
-          >
-            ◀ 타브
-          </button>
-          <span className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-            {tab.bar_offset ?? 0}
-          </span>
-          <button
-            className="rounded bg-[var(--chip)] px-2 py-0.5 disabled:opacity-40"
-            disabled={busy || !online}
-            onClick={() => void shift(1)}
-            title="타브를 한 마디 뒤로"
-          >
-            타브 ▶
           </button>
           <button
             className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
