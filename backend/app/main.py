@@ -1340,19 +1340,22 @@ _tab_reads: dict[str, dict] = {}
 
 
 def _merge_picked(old: dict | None, got: dict) -> dict:
-    """AI가 읽은 것을 앞서 읽어 둔 타브에 얹는다.
+    """새로 읽은 것을 앞서 읽어 둔 타브에 얹는다.
 
-    자로 재어 읽은 숫자는 인쇄가 또렷하면 AI보다 정확하다 — 이미 읽어
-    둔 자리가 있으면 그대로 두고, 못 읽은 마디만 AI 것으로 채운다.
-    코드 이름은 자로 잴 수 없으니 늘 AI 것을 쓴다.
+    **새로 읽은 것이 이긴다.** 다시 읽었는데 화면이 그대로면 읽힌 것인지
+    알 수가 없다 — 무엇이 잘못 읽혔길래 다시 읽는 것이므로, 새 것이
+    나타나야 옳다.
+
+    다만 이번에 **한 자리도 못 읽은 마디**는 앞서 읽어 둔 것을 남긴다.
+    못 읽었다고 있던 것까지 지우면 악보에 구멍이 난다.
     """
     was = {m.get("no"): m for m in ((old or {}).get("measures") or [])}
     for m in got["measures"]:
         before = was.get(m.get("no"))
-        if not before:
+        if not before or m.get("cols"):
             continue
+        # 이번에 숫자를 못 읽은 마디만 앞서 읽은 것으로 메운다
         if before.get("kind") == "strum":
-            # 훑는 마디는 코드 한 벌과 손 방향이라 숫자로 덮지 않는다
             keep = dict(before)
             if m.get("chords"):
                 keep["chords"] = m["chords"]
