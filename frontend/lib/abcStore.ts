@@ -64,9 +64,23 @@ export function getAbc(songId: string): AbcEntry | null {
   return read()[songId] ?? null;
 }
 
+/**
+ * 악보 글을 싣는다. 타브 보표와 「악보 따르기」는 건드리지 않는다.
+ *
+ * 예전에는 칸을 통째로 새로 만들었다. 그래서 「ABC 수정」으로 음표
+ * 하나만 고쳐도 타브가 사라져, 타브 화면이 멜로디에서 숫자를 지어내는
+ * 옛 모습으로 돌아갔다. 악보를 갈아 끼우는 자리(scoreAtRegister)는
+ * 새 타브를 곧바로 얹으므로 여기서 지울 까닭이 없다.
+ */
 export function saveAbc(songId: string, abc: string, barOffset = 0): void {
   const store = read();
-  store[songId] = { abc, barOffset, at: Date.now() };
+  const cur = store[songId];
+  store[songId] = {
+    ...cur,
+    abc,
+    barOffset,
+    at: Date.now(),
+  };
   write(store);
 }
 

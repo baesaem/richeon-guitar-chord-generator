@@ -167,6 +167,15 @@ export default function Home() {
   const [editBar, setEditBar] = useState<number | null>(null);
   // 편집으로 들어왔는가. 고치는 데 쓰지 않는 탭은 감춘다
   const [editMode, setEditMode] = useState(false);
+  /*
+   * 고치는 손잡이를 낼 것인가.
+   *
+   * 악보 화면은 「편집」과 「전체보기」가 함께 쓴다. 전체보기는 곡을
+   * 넓게 펴 놓고 보며 치는 자리다 — 거기까지 붙이고 떼고 읽어 오는
+   * 단추가 따라다니면, 치다가 잘못 눌러 악보가 바뀐다. 고치는 일은
+   * 「편집」으로 들어왔을 때만 한다.
+   */
+  const canFix = settings.adminMode && editMode;
   // 되돌리기용. 고치기 전 코드를 쌓아 둔다 — 잘못 눌렀을 때 돌아갈 자리다
   const [undo, setUndo] = useState<Chord[][]>([]);
   // 가사 고치기: 지금 고르고 있는 줄 번호(없으면 null)
@@ -2096,7 +2105,7 @@ export default function Home() {
                 <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
                   {/* 타브 붙이기는 타브 화면에 둔다 — 읽어 온 숫자가
                       제자리에 앉았는지 보면서 밀어야 맞출 수 있다 */}
-                  {sheetTab === "score" && settings.adminMode && (
+                  {sheetTab === "score" && canFix && (
                     <TabAttach
                       result={result}
                       onResult={adoptResult}
@@ -2163,15 +2172,15 @@ export default function Home() {
                       barOffset={abcEntry.barOffset}
                       follow={abcEntry.follow ?? false}
                       onFollow={
-                        settings.adminMode
+                        canFix
                           ? (on) => {
                               setAbcFollow(result.id, on);
                               setAbcEntry({ ...abcEntry, follow: on });
                             }
                           : undefined
                       }
-                      onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
-                      onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
+                      onFitBars={canFix && health ? fitBarsToScore : undefined}
+                      onSetBpm={canFix && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
                       playedBars={abcPlayedBars}
                       audioBars={audioBarCount}
@@ -2187,7 +2196,7 @@ export default function Home() {
                       onPickStrum={() => setShowStrums(true)}
                       playStyle={playStyle}
                       headerRight={
-                        settings.adminMode ? (
+                        canFix ? (
                           <button
                             className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                             onClick={() => openAbcStudio()}
@@ -2229,13 +2238,13 @@ export default function Home() {
                         sync={sync}
                         onSync={setSync}
                         onShiftBar={
-                          settings.adminMode && health ? shiftBar : undefined
+                          canFix && health ? shiftBar : undefined
                         }
                         lines={999}
                         // 악보 붙이기·마디 맞추기. 곡 전체가 보이는 이 자리에서
                         // 해야 한다 — 재생 화면에서는 두 줄만 보인다.
                         topBar={
-                          settings.adminMode ? (
+                          canFix ? (
                             <div className="pb-1 pt-1.5">
                               <ScoreAttach
                                 result={result}
@@ -2259,7 +2268,7 @@ export default function Home() {
                   ABC 악보로 보는 곡에도 세운다 — 박 고르기·기준값 저장이
                   이 줄에만 있는데, ABC가 붙는 순간 줄째 사라졌었다. */}
                   {sheetTab === "melody" &&
-                    settings.adminMode &&
+                    canFix &&
                     (abcEntry || !sheetImg) && (
                       <div className="pb-1 pt-1.5">
                         <ScoreAttach
@@ -2850,15 +2859,10 @@ export default function Home() {
                   vocalBusy={vocalBusy}
                   sync={sync}
                   onSync={setSync}
-                  barOffset={abcEntry?.barOffset ?? 0}
-                  onBarOffset={
-                    abcEntry && settings.adminMode
-                      ? (v) => {
-                          setAbcOffset(result.id, v);
-                          setAbcEntry({ ...abcEntry, barOffset: v });
-                        }
-                      : undefined
-                  }
+                  onFullView={() => {
+                    setEditMode(false);
+                    setShowSheet(true);
+                  }}
                   videoCompact={settings.videoCompact}
                   onVideoCompact={(v) =>
                     setSettings({ ...settings, videoCompact: v })

@@ -10,7 +10,8 @@ import {
 } from "./library";
 import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { instKey, stemKey } from "./sharedFiles";
-import { getAbc, saveAbc } from "./abcStore";
+import { getAbc, saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
+import type { TabScore } from "./msczToAbc";
 import { loadSheets, saveSheets } from "./sheetCache";
 import { getSheetPage, saveSheetPage } from "./library";
 import type { AnalysisResult } from "./types";
@@ -57,12 +58,21 @@ export interface SongBundle {
    */
   sheetPages?: string[];
   /**
-   * ABC 악보와 그 마디 밀기.
+   * ABC 악보와 그 마디 밀기, 타브 보표, 악보 따르기.
    *
    * 악보 파일(.mscz)이나 AI 채보로 만든 악보는 강사님 기기에만 있었다 —
    * 코드도 가사도 가는데 정작 악보만 안 갔다. 몇 KB뿐이라 담아 보낸다.
+   *
+   * 타브 보표(tabScore)도 함께 담는다. 이것이 빠지면 받는 기기는 타브를
+   * 멜로디에서 지어내어, 편곡자가 적은 것과 전혀 다른 숫자를 늘어놓는다
+   * — 파일로 저장했다 읽어 오면 예전 판으로 보이던 까닭이 이것이다.
    */
-  abc?: { abc: string; barOffset: number };
+  abc?: {
+    abc: string;
+    barOffset: number;
+    tabScore?: TabScore;
+    follow?: boolean;
+  };
 }
 
 export function isBundle(data: unknown): data is SongBundle {
@@ -217,7 +227,13 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
 
   // ABC 악보. 그림악보가 없는 곡은 이것이 유일한 악보다.
   const abc = getAbc(result.id);
-  if (abc?.abc?.trim()) bundle.abc = { abc: abc.abc, barOffset: abc.barOffset };
+  if (abc?.abc?.trim())
+    bundle.abc = {
+      abc: abc.abc,
+      barOffset: abc.barOffset,
+      tabScore: abc.tabScore,
+      follow: abc.follow,
+    };
 
   // loadSetup은 늘 값을 준다. 손대지 않은 기본값까지 담을 이유는 없다.
   // 어느 값 하나라도 손댔으면 통째로 담는다 — 항목이 늘 때마다 여기를
@@ -261,6 +277,8 @@ export async function bundleAdds(bundle: SongBundle): Promise<string[]> {
     // 악보 글은 같아도 마디 맞춤(barOffset)을 고쳤을 수 있다
     else if ((mine.barOffset ?? 0) !== (bundle.abc.barOffset ?? 0))
       adds.push("악보 마디 맞춤");
+    // 악보 글이 같아도 타브 보표는 새로 붙였을 수 있다
+    if (bundle.abc.tabScore && !mine?.tabScore) adds.push("타브 악보");
   }
   if (bundle.sheetPages?.length) {
     // 첫 쪽만 보면 쪽수가 달라진 것(다시 자른 악보)을 놓친다
@@ -360,6 +378,12 @@ export async function openBundle(
     try {
       saveAbc(bundle.result.id, bundle.abc.abc, bundle.abc.barOffset ?? 0);
       got.push("ABC 악보");
+      /* saveAbc는 칸을 새로 만든다 — 타브와 따르기는 그 뒤에 얹는다 */
+      if (bundle.abc.tabScore) {
+        setAbcTabScore(bundle.result.id, bundle.abc.tabScore);
+        got.push("타브 악보");
+      }
+      if (bundle.abc.follow) setAbcFollow(bundle.result.id, true);
     } catch {
       /* 자리가 모자라도 코드·가사는 들어간다 */
     }

@@ -183,7 +183,11 @@ export async function attachScoreAfterAnalysis(
    * 적은 손가락 뜯기와 전혀 다른 것이 나온다. 파일 안에 진짜 타브가
    * 있는데 그것을 두고 지어낼 이유가 없다.
    */
-  if (MSCZ_KINDS.test(file.name)) {
+  if (!MSCZ_KINDS.test(file.name)) {
+    /* 뮤즈스코어가 아닌 악보에는 타브 보표가 없다. 앞서 붙여 둔 것을
+       그대로 두면 새 악보와 짝이 맞지 않는 타브가 남는다 */
+    setAbcTabScore(cur.id, null);
+  } else {
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const parts = msczParts(bytes, file.name);

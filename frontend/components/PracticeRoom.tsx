@@ -143,13 +143,12 @@ interface Props {
   sync: number;
   onSync: (sec: number) => void;
   /**
-   * 악보를 음원 위에서 한 마디씩 미는 손잡이(강사님).
+   * 악보를 통째로 펼쳐 보는 자리로 간다.
    *
-   * 싱크 옆에 있어야 한다 — 어긋난 것이 한 마디인지 반 박인지는
-   * 눌러 보며 가리는 일이라, 두 손잡이가 떨어져 있으면 오가야 한다.
+   * 연습실은 영상과 악보가 자리를 나눠 쓴다. 마디를 오래 들여다보거나
+   * 가사·내 악보까지 함께 볼 때는 악보만 있는 화면이 낫다.
    */
-  barOffset?: number;
-  onBarOffset?: (v: number) => void;
+  onFullView?: () => void;
   /**
    * 영상을 감춰 악보에 자리를 넘긴다.
    *
@@ -193,8 +192,7 @@ export function PracticeRoom({
   vocalBusy,
   sync,
   onSync,
-  barOffset,
-  onBarOffset,
+  onFullView,
   videoCompact,
   onVideoCompact,
   viewTabs,
@@ -378,6 +376,15 @@ export function PracticeRoom({
                   {videoCompact ? "영상 보기" : "영상 감추기"}
                 </button>
               )}
+              {onFullView && (
+                <button
+                  onClick={onFullView}
+                  className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                  title="악보만 있는 화면으로 갑니다 — 멜로디·타브·그리드·가사를 넓게 봅니다"
+                >
+                  전체보기
+                </button>
+              )}
               {/* 싱크·마디·음높이·빠르기는 한 줄에 나란히 둔다.
               따로 흘려 두면 좁은 화면에서 빠르기만 아래로 떨어져,
               같은 성격의 손잡이가 두 줄로 갈린다. 자리가 정 모자라면
@@ -395,25 +402,6 @@ export function PracticeRoom({
                   minusTitle="화면을 늦춥니다 — 커서가 소리보다 이를 때"
                   plusTitle="화면을 당깁니다 — 커서가 소리보다 늦을 때"
                 />
-                {/* 값도 단추도 「커서」를 기준으로 읽는다 — ＋를 누르면 커서가
-              뒤로 간다. 속으로 세는 마디밀기(barOffset)는 그 반대이므로
-              부호를 뒤집어 보여 준다. */}
-                {onBarOffset && (
-                  <Step
-                    label="마디"
-                    value={
-                      -(barOffset ?? 0) > 0
-                        ? `+${-(barOffset ?? 0)}`
-                        : String(-(barOffset ?? 0))
-                    }
-                    onMinus={() => onBarOffset((barOffset ?? 0) + 1)}
-                    onPlus={() => onBarOffset((barOffset ?? 0) - 1)}
-                    onReset={() => onBarOffset(0)}
-                    width="w-7"
-                    minusTitle="커서를 한 마디 왼쪽으로 — 커서가 노래보다 이르게 갈 때"
-                    plusTitle="커서를 한 마디 오른쪽으로 — 커서가 노래보다 늦게 갈 때"
-                  />
-                )}
                 <Step
                   show="hidden big:flex"
                   label="음높이"
