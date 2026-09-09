@@ -407,6 +407,10 @@ ${abc}`;
               : `음원 ${audioBars}마디 ≠ 악보 ${playedBars}마디 · 맞추기`}
           </button>
         )}
+      </SongInfoLine>
+      {/* ♩ 값과 「악보 따르기」는 아랫줄에 세운다. 마디 맞추기까지가 한
+          줄이고, 그 뒤로 더 붙이면 손잡이가 화면 밖으로 밀려난다 */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 pb-0.5 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
         {/* 빠르기를 손으로 정한다.
             마디 수로 나누는 길은 곡 끝이 페이드로 잦아들면 마디를 짧게
             잡아 커서가 갈수록 앞선다 — 그럴 때는 귀로 잰 ♩값이 낫다. */}
@@ -459,7 +463,7 @@ ${abc}`;
             {chordNote.shift > 0 ? "높음" : "낮음"}
           </span>
         )}
-      </SongInfoLine>
+      </div>
       {/* 타브만 보일 때 오선의 음표·기둥·이음줄을 가린다 */}
       {/* abcjs는 currentColor로 그린다 — 다크 모드의 연회색 글자색이
           상속되면 흰 종이 위 악보가 흐려진다. 종이는 늘 흰색·검정이다 */}
