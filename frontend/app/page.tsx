@@ -16,6 +16,7 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { ChordScore } from "@/components/ChordScore";
 import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
+import type { TabBarEdit } from "@/lib/abcStore";
 import { unifyChords } from "@/lib/abcChords";
 import { abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
@@ -1269,6 +1270,47 @@ export default function Home() {
   /** 연습실·재생 화면이 쓰는 타브. 싱크 손잡이가 함께 온다 */
   const abcTab = makeAbcTab(true);
 
+  /**
+   * 읽어 둔 그림 타브를 악보의 마디에 붓는다.
+   *
+   * 악보 파일의 타브와 종이 악보의 타브는 같은 곡이라도 조금씩 다르다 —
+   * 옮겨 적은 사람이 다르기 때문이다. 종이 쪽으로 편곡하려면 서른 몇
+   * 마디를 손으로 옮겨야 하는데, 부어 놓고 어긋난 마디만 손보는 편이
+   * 빠르다. 마디마다 담기므로 「이 마디 되돌리기」도 그대로 듣는다.
+   */
+  const fillTabFromPicture = () => {
+    const picked = result?.picked_tab;
+    const score = abcEntry?.tabScore;
+    if (!result || !picked || !score) return;
+    const next: Record<number, TabBarEdit> = { ...(abcEntry?.tabEdits ?? {}) };
+    let put = 0;
+    for (const m of picked.measures) {
+      const j = m.no - 1 + (picked.bar_offset ?? 0);
+      const bar = score.bars[j];
+      // 훑는 마디는 숫자가 아니라 코드 한 벌이라 여기서 다루지 않는다
+      if (!bar || m.kind !== "pick" || !m.cols.length) continue;
+      const each = bar.units / m.cols.length;
+      next[j] = {
+        ...next[j],
+        cols: m.cols.map((col) => ({
+          units: each,
+          frets: Object.entries(col).map(([string, fret]) => ({
+            // 그림에서 읽은 줄은 1번부터, 우리는 0번부터 센다
+            string: +string - 1,
+            fret,
+          })),
+        })),
+        gaps: [],
+        nudge: {},
+      };
+      put++;
+    }
+    setAbcTabEdits(result.id, next);
+    setAbcEntry(getAbc(result.id));
+    setToast(`그림 악보의 타브를 ${put}마디에 넣었습니다`);
+  };
+
+
 
 
   /* 가사 칸. 넓은 화면에서는 오른쪽 기둥에, 파형 화면에서는 파형 아래에
@@ -2133,6 +2175,22 @@ export default function Home() {
                       online={!!health}
                     />
                   )}
+                  {/* 읽어 둔 그림 타브를 악보의 마디에 통째로 붓는다.
+                      한 마디씩 옮겨 적자면 서른 번을 해야 한다 — 부어 놓고
+                      어긋난 마디만 길게 눌러 손보는 편이 빠르다 */}
+                  {sheetTab === "score" &&
+                    canFix &&
+                    abcEntry?.tabScore &&
+                    result.picked_tab && (
+                      <button
+                        className="mb-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                        onClick={() => fillTabFromPicture()}
+                        title="종이 악보에서 읽어 둔 타브 숫자를 이 악보의 마디마다 넣습니다. 마디별로 되돌릴 수 있습니다"
+                      >
+                        그림 타브로 채우기 ({result.picked_tab.measures.length}
+                        마디)
+                      </button>
+                    )}
                   {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}
                   {sheetTab === "score" && makeAbcTab(canFix, canFix)}
                   {sheetTab === "score" && !abcTab && (

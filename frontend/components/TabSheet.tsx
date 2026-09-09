@@ -465,6 +465,29 @@ export function TabSheet({
     const edit = edits?.[j];
     // 손으로 새로 적은 마디가 있으면 그것을 그린다
     const cols = edit?.cols ?? bar.cols;
+    /*
+     * 코드 이름은 자리를 새로 적어도 남아야 한다.
+     *
+     * 코드는 자리에 붙어 있으므로, 자리를 갈아 끼우면 함께 지워졌다 —
+     * 그림 타브를 부어 넣자 악보 위 코드가 통째로 사라진 까닭이다.
+     * 원래 마디의 코드를 자리 비율로 옮겨 온다.
+     */
+    const chords: (string | undefined)[] = edit?.cols
+      ? (() => {
+          const out: (string | undefined)[] = new Array(cols.length).fill(
+            undefined,
+          );
+          bar.cols.forEach((c, i) => {
+            if (!c.chord) return;
+            const at = Math.min(
+              Math.round((i / Math.max(bar.cols.length, 1)) * cols.length),
+              cols.length - 1,
+            );
+            if (at >= 0 && !out[at]) out[at] = c.chord;
+          });
+          return out;
+        })()
+      : cols.map((c) => c.chord);
     const offs = offsets(cols.map((c) => c.units));
     cols.forEach((col, k) => {
       const x = p.x + spotOf(cols, k, edit) * p.w;
@@ -473,7 +496,8 @@ export function TabSheet({
         at?.bar === j &&
         at.f >= offs[k] &&
         (k + 1 >= offs.length || at.f < offs[k + 1]);
-      if (col.chord)
+      const chord = chords[k];
+      if (chord)
         marks.push(
           <text
             key={`c${j}.${k}`}
@@ -484,7 +508,7 @@ export function TabSheet({
             textAnchor="middle"
             fill="var(--tab-ink)"
           >
-            {shiftChordLabel(col.chord, chordShift, flats)}
+            {shiftChordLabel(chord, chordShift, flats)}
           </text>,
         );
       for (const f of col.frets) {
