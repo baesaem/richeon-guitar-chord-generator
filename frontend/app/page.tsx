@@ -13,9 +13,9 @@ import { BottomNav, NAV_ITEMS, type Tab } from "@/components/BottomNav";
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
-import { ChordScore } from "@/components/ChordScore";
 import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
+import type { TabScore } from "@/lib/msczToAbc";
 import type { TabBarEdit } from "@/lib/abcStore";
 import { unifyChords } from "@/lib/abcChords";
 import { abcOrders } from "@/lib/abcOrder";
@@ -1103,20 +1103,6 @@ export default function Home() {
   const busy =
     status !== null && status.stage !== "done" && status.stage !== "failed";
 
-  /**
-   * 그림 타브에서 읽어 온 마디들을 음원의 마디 번호로 옮겨 둔다.
-   * 악보 첫 마디가 음원 몇 번째 마디인지는 bar_offset이 정한다 —
-   * 전주 길이가 악보와 다를 때 통째로 민다.
-   */
-  const pickedBars = useMemo(() => {
-    const t = shown?.picked_tab;
-    if (!t?.measures?.length) return undefined;
-    const map: Record<number, (typeof t.measures)[number]> = {};
-    t.measures.forEach((m, i) => {
-      map[i + (t.bar_offset ?? 0)] = m;
-    });
-    return map;
-  }, [shown?.picked_tab]);
 
   const shownChords = shown?.chords ?? [];
   const current = chordIdx >= 0 ? shownChords[chordIdx] : undefined;
@@ -1206,68 +1192,119 @@ export default function Home() {
    * 건드리면 커서가 통째로 밀린다. 연습실에서는 손전화의 유일한 싱크
    * 손잡이라 그대로 둔다.
    */
+  /**
+   * 그림 악보에서 읽은 타브를 **악보 마디 번호**로 모은다.
+   *
+   * 읽은 것은 그림의 마디 차례(1부터)이고, 타브 화면이 그리는 것은 악보의
+   * 마디다. 전주 길이가 다르면 통째로 밀리므로 bar_offset만큼 옮겨 짝짓는다.
+   */
+  const pickedByBar = useMemo(() => {
+    const picked = result?.picked_tab;
+    if (!picked?.measures?.length) return undefined;
+    const off = picked.bar_offset ?? 0;
+    const out: Record<number, (typeof picked.measures)[number]> = {};
+    for (const m of picked.measures) out[m.no - 1 + off] = m;
+    return out;
+  }, [result?.picked_tab]);
+  /** 그림에서 숫자를 하나라도 읽었는가. 타브 화면을 낼지 정한다 */
+  const hasPickedTab = !!result?.picked_tab?.measures?.some(
+    (m) => m.kind === "pick" && m.cols.length,
+  );
+
+  /**
+   * 타브가 없는 곡에 내는 말.
+   *
+   * 타브 숫자는 그림 악보에서만 온다. 없는 곡에 빈 여섯 줄을 그려 두면
+   * 「왜 숫자가 없나」로 남으므로, 없다고 적는다.
+   */
+  const noTab = (
+    <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-10">
+      <p className="text-center text-[13px] leading-relaxed text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
+        이 음원에서는 타브 악보를 제공하지 않습니다.
+        {settings.adminMode && (
+          <>
+            <br />
+            <span className="text-[12px]">
+              편집 화면에서 그림 악보(PDF·사진)를 골라 「그림에서 타브 읽기」를
+              누르면 그 악보의 타브가 나옵니다.
+            </span>
+          </>
+        )}
+      </p>
+    </div>
+  );
+
+  /**
+   * 타브를 그릴 틀.
+   *
+   * 마디·되돌이·세뇨·가사·코드는 붙여 둔 악보에서 온다. 악보가 없으면
+   * 그림에서 읽은 마디 수만큼 빈 틀을 세운다 — 숫자는 어차피 그림에서
+   * 오므로, 틀이 없다고 타브를 못 낼 까닭이 없다.
+   */
+  const tabFrame = useMemo((): TabScore | null => {
+    if (abcEntry?.tabScore) return abcEntry.tabScore;
+    const picked = result?.picked_tab;
+    if (!picked?.measures?.length || !result) return null;
+    const [n = 4, d = 4] = (result.time_signature || "4/4").split("/").map(Number);
+    const units = (16 * n) / (d || 4);
+    const last = Math.max(
+      ...picked.measures.map((m) => m.no + (picked.bar_offset ?? 0)),
+    );
+    return {
+      title: result.title || "",
+      bpm: result.bpm,
+      meter: result.time_signature || "4/4",
+      bars: Array.from({ length: last }, () => ({
+        cols: [],
+        lyric: "",
+        lyric2: "",
+        startRepeat: false,
+        endRepeat: false,
+        volta: null,
+        marks: [],
+        units,
+      })),
+    };
+  }, [abcEntry?.tabScore, result]);
+
   const makeAbcTab = (withSync: boolean, withFix = false) =>
-    result && abcEntry ? (
-      abcEntry.tabScore ? (
-        <TabSheet
-          score={abcEntry.tabScore}
-          bars={bars}
-          time={time + sync - settings.latency}
-          getTime={
-            playback ? () => playback.getTime() + sync - settings.latency : undefined
-          }
-          scoreBarNumbers={scoreBarNumbers}
-          barOffset={abcEntry.barOffset}
-          /* 프렛은 적힌 그대로, 코드 이름만 다른 화면과 같게 옮긴다 */
-          chordShift={abcTranspose}
-          flats={flats}
-          lyrics={result.lyrics ?? undefined}
-          edits={abcEntry.tabEdits}
-          /* 자리를 옮기는 일은 편집에서만. 치는 자리에서 잘못 누르면
-             악보가 바뀐다 */
-          onEdits={
-            withFix
-              ? (next) => {
-                  setAbcTabEdits(result.id, next);
-                  setAbcEntry(getAbc(result.id));
-                }
-              : undefined
-          }
-          sync={sync}
-          onSync={withSync ? setSync : undefined}
-          chordNote={unified}
-          musicKey={result.key}
-          timeSignature={result.time_signature}
-          playNotes={playNotes}
-          strum={shownStrum}
-          onPickStrum={() => setShowStrums(true)}
-          playStyle={playStyle}
-        />
-      ) : (
-        <AbcScore
-          tab
-          abc={unified?.abc ?? abcEntry.abc}
-          chordNote={unified}
-          bars={bars}
-          time={time + sync - settings.latency}
-          getTime={
-            playback ? () => playback.getTime() + sync - settings.latency : undefined
-          }
-          transpose={abcTranspose}
-          sync={sync}
-          onSync={withSync ? setSync : undefined}
-          barOffset={abcEntry.barOffset}
-          follow={abcEntry.follow ?? false}
-          musicKey={result.key}
-          timeSignature={result.time_signature}
-          playNotes={playNotes}
-          strum={shownStrum}
-          onPickStrum={() => setShowStrums(true)}
-          playStyle={playStyle}
-        />
-      )
+    result && tabFrame && hasPickedTab ? (
+      <TabSheet
+        score={tabFrame}
+        bars={bars}
+        time={time + sync - settings.latency}
+        getTime={
+          playback ? () => playback.getTime() + sync - settings.latency : undefined
+        }
+        scoreBarNumbers={scoreBarNumbers}
+        barOffset={abcEntry?.barOffset}
+        picked={pickedByBar}
+        /* 프렛은 적힌 그대로, 코드 이름만 다른 화면과 같게 옮긴다 */
+        chordShift={abcTranspose}
+        flats={flats}
+        lyrics={result.lyrics ?? undefined}
+        edits={abcEntry?.tabEdits}
+        /* 자리를 옮기는 일은 편집에서만. 치는 자리에서 잘못 누르면
+           악보가 바뀐다 */
+        onEdits={
+          withFix && abcEntry
+            ? (next) => {
+                setAbcTabEdits(result.id, next);
+                setAbcEntry(getAbc(result.id));
+              }
+            : undefined
+        }
+        sync={sync}
+        onSync={withSync ? setSync : undefined}
+        chordNote={unified}
+        musicKey={result.key}
+        timeSignature={result.time_signature}
+        playNotes={playNotes}
+        strum={shownStrum}
+        onPickStrum={() => setShowStrums(true)}
+        playStyle={playStyle}
+      />
     ) : null;
-  /** 연습실·재생 화면이 쓰는 타브. 싱크 손잡이가 함께 온다 */
   const abcTab = makeAbcTab(true);
 
   /**
@@ -2182,65 +2219,21 @@ export default function Home() {
                       result={result}
                       onResult={adoptResult}
                       online={!!health}
-                    />
-                  )}
-                  {/* 읽어 둔 그림 타브를 악보의 마디에 통째로 붓는다.
-                      한 마디씩 옮겨 적자면 서른 번을 해야 한다 — 부어 놓고
-                      어긋난 마디만 길게 눌러 손보는 편이 빠르다 */}
-                  {sheetTab === "score" &&
-                    canFix &&
-                    abcEntry?.tabScore &&
-                    result.picked_tab && (
-                      <button
-                        className="mb-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
-                        onClick={() => fillTabFromPicture()}
-                        title="읽어 둔 그림 타브의 숫자와 코드를 이 악보의 마디마다 얹습니다. 마디별로 되돌릴 수 있습니다"
-                      >
-                        읽은 타브를 악보에 넣기 (
-                        {result.picked_tab.measures.length}마디)
-                      </button>
-                    )}
-                  {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}
-                  {sheetTab === "score" && makeAbcTab(canFix, canFix)}
-                  {sheetTab === "score" && !abcTab && (
-                    /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
-                    <ChordScore
-                      bars={bars}
-                      chords={shownChords}
-                      pickedTab={pickedBars}
-                      barLabels={scoreBarNumbers}
-                      lyrics={shown?.lyrics}
-                      strums={result.strums}
-                      sync={sync}
-                      onSync={canFix ? setSync : undefined}
-                      perLine={settings.chordPerLine}
-                      onPerLine={(n) =>
-                        setSettings({ ...settings, chordPerLine: n })
-                      }
-                      arp={arp}
-                      strumName={strumName}
-                      playNotes={playNotes}
-                      playStyle={playStyle}
-                      currentBar={barIdx}
-                      time={time + sync - settings.latency}
-                      getTime={
-                        playback
-                          ? () => playback.getTime() + sync - settings.latency
+                      onFill={
+                        abcEntry?.tabScore && result.picked_tab
+                          ? fillTabFromPicture
                           : undefined
                       }
-                      flats={flats}
-                      transpose={noteShift}
-                      timeSignature={result.time_signature}
-                      musicKey={result.key}
-                      bpm={result.bpm}
-                      onSeek={(t) => {
-                        playback?.seek(t);
-                        setTime(t);
-                      }}
-                      onEditBar={setEditBar}
-                      follow
+                      fillLabel={
+                        result.picked_tab
+                          ? `읽은 타브를 악보에 넣기 (${result.picked_tab.measures.length}마디)`
+                          : undefined
+                      }
                     />
                   )}
+                  {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}
+                  {sheetTab === "score" && makeAbcTab(canFix, canFix)}
+                  {sheetTab === "score" && !abcTab && noTab}
 
                   {/* ABC 악보가 붙어 있으면 어디서 보든 그것이 기준이다 —
                   재생 화면과 전체보기가 다른 악보를 보여주면 헷갈린다 */}
@@ -2654,51 +2647,7 @@ export default function Home() {
                         {abcTab}
                       </div>
                     ) : roomView === "tab" ? (
-                      /* 타브 아래에도 가사를 둔다 — 코드를 짚으면서
-                       지금 어디를 부르는지 함께 봐야 따라 칠 수 있다 */
-                      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-2 py-1">
-                        <div className="shrink-0 overflow-y-auto">
-                          <ChordScore
-                            bars={bars}
-                            chords={shownChords}
-                            pickedTab={pickedBars}
-                      barLabels={scoreBarNumbers}
-                            lyrics={shown?.lyrics}
-                            strums={result.strums}
-                            /* 싱크·줄당 마디 손잡이는 위 설정줄에 있다.
-                           악보 칸에 또 두면 같은 것이 두 벌이 된다 */
-                            sync={sync}
-                            perLine={settings.chordPerLine}
-                            arp={arp}
-                            strumName={strumName}
-                            playNotes={playNotes}
-                            playStyle={playStyle}
-                            currentBar={barIdx}
-                            time={time + sync - settings.latency}
-                            getTime={
-                              playback
-                                ? () =>
-                                    playback.getTime() + sync - settings.latency
-                                : undefined
-                            }
-                            flats={flats}
-                            transpose={noteShift}
-                            timeSignature={result.time_signature}
-                            musicKey={result.key}
-                            bpm={result.bpm}
-                            onPickStrum={() => setShowStrums(true)}
-                            onSeek={(t) => playback?.seek(t)}
-                            visibleLines={wide ? 5 : 2}
-                            follow
-                          />
-                        </div>
-                        {/* 가사는 재생에 맞춰 지금 줄이 따라 올라온다.
-                          넓은 화면에서는 오른쪽 기둥에 이미 있으므로 감춘다 */}
-                        <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--panel-line)] md:hidden">
-                          {lyricsPane}
-                        </section>
-                      </div>
-                    ) : roomView === "wave" ? (
+                      noTab) : roomView === "wave" ? (
                       /* 파형 · 지금·다음 코드 · 가사를 위에서 아래로.
                        파형만으로는 지금 무슨 코드를 잡아야 하는지 알 수
                        없고, 노래를 따라가려면 가사가 함께 있어야 한다. */
@@ -3487,75 +3436,7 @@ export default function Home() {
                             {/* 악보가 붙어 있으면 타브도 그 악보를 보인다 */}
                             {abcTab}
                             {/* 지금 줄과 다음 줄만. 현재 줄이 늘 위에 온다 */}
-                            {!abcTab && (
-                            <ChordScore
-                              bars={bars}
-                              chords={shownChords}
-                              pickedTab={pickedBars}
-                      barLabels={scoreBarNumbers}
-                              lyrics={shown?.lyrics}
-                              strums={result.strums}
-                              sync={sync}
-                              onSync={setSync}
-                              perLine={settings.chordPerLine}
-                              onPerLine={(n) =>
-                                setSettings({ ...settings, chordPerLine: n })
-                              }
-                              arp={arp}
-                              strumName={strumName}
-                              playNotes={playNotes}
-                              playStyle={playStyle}
-                              headerRight={
-                                <button
-                                  className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
-                                  onClick={() => {
-                                    setEditMode(false);
-                                    setShowSheet(true);
-                                  }}
-                                >
-                                  <svg
-                                    viewBox="0 0 24 24"
-                                    className="h-3 w-3"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth={1.9}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    aria-hidden="true"
-                                  >
-                                    <rect
-                                      x="3"
-                                      y="4"
-                                      width="18"
-                                      height="16"
-                                      rx="2"
-                                    />
-                                    <path d="M3 9h18M8 4v16" />
-                                  </svg>
-                                  전체보기
-                                </button>
-                              }
-                              currentBar={barIdx}
-                              time={time + sync - settings.latency}
-                              getTime={
-                                playback
-                                  ? () =>
-                                      playback.getTime() +
-                                      sync -
-                                      settings.latency
-                                  : undefined
-                              }
-                              flats={flats}
-                              transpose={noteShift}
-                              timeSignature={result.time_signature}
-                              musicKey={result.key}
-                              bpm={result.bpm}
-                              onPickStrum={() => setShowStrums(true)}
-                              onSeek={(t) => playback?.seek(t)}
-                              visibleLines={wide ? 5 : 2}
-                              follow
-                            />
-                            )}
+                            {!abcTab && noTab}
                           </div>
                         )}
 

@@ -19,10 +19,15 @@ export function TabAttach({
   result,
   onResult,
   online,
+  onFill,
+  fillLabel,
 }: {
   result: AnalysisResult;
   onResult: (r: AnalysisResult) => void;
   online: boolean;
+  /** 읽어 둔 그림 타브를 악보 마디에 얹는다(악보가 붙은 곡에서만) */
+  onFill?: () => void;
+  fillLabel?: string;
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
   const pickAi = useRef<HTMLInputElement | null>(null);
@@ -126,6 +131,15 @@ export function TabAttach({
       </button>
       {tab && (
         <>
+          {onFill && (
+            <button
+              className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)]"
+              onClick={onFill}
+              title="읽어 둔 그림 타브의 숫자와 코드를 악보 마디마다 얹어, 마디별로 고칠 수 있게 굳힙니다"
+            >
+              {fillLabel ?? "읽은 타브를 악보에 넣기"}
+            </button>
+          )}
           <button
             className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
             disabled={busy || !online}

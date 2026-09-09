@@ -11,7 +11,7 @@ import { barIndexAt } from "@/lib/bars";
 import type { TabCol, TabScore } from "@/lib/msczToAbc";
 import { shiftChordLabel } from "@/lib/notation";
 import type { StrumChoice } from "@/lib/strumLibrary";
-import type { LyricLine } from "@/lib/types";
+import type { LyricLine, PickedBar } from "@/lib/types";
 import { useSmoothTime } from "@/lib/useSmoothTime";
 
 /*
@@ -93,6 +93,14 @@ interface Props {
   flats?: boolean;
   /** 이 곡의 가사. 악보의 음절에 띄어쓰기를 되살리는 데 쓴다 */
   lyrics?: LyricLine[];
+  /**
+   * 그림 악보에서 읽은 타브. 악보 마디 번호(0부터)로 찾는다.
+   *
+   * 타브 숫자는 **그림 악보에서만** 온다. 멜로디 음에서 지어내면
+   * 편곡자가 적은 것과 전혀 다른 한 줄짜리가 나오고, 악보 파일의 타브
+   * 보표는 옮겨 적은 사람이 달라 종이와 어긋난다.
+   */
+  picked?: Record<number, PickedBar>;
   /** 손으로 옮겨 둔 자리. 마디 번호(0부터) → 고친 내용 */
   edits?: Record<number, TabBarEdit>;
   /**
@@ -242,6 +250,7 @@ export function TabSheet({
   chordShift = 0,
   flats = false,
   lyrics,
+  picked,
   edits,
   onEdits,
 }: Props) {
@@ -463,8 +472,21 @@ export function TabSheet({
 
     // ---- 숫자와 코드 ----
     const edit = edits?.[j];
-    // 손으로 새로 적은 마디가 있으면 그것을 그린다
-    const cols = edit?.cols ?? bar.cols;
+    /* 손으로 고친 것이 먼저, 없으면 그림 악보에서 읽은 것. 둘 다 없으면
+       그 마디는 비워 둔다 — 그림에 없는 것을 지어내지 않는다 */
+    const fromPic = picked?.[j];
+    const picCols: TabCol[] =
+      fromPic && fromPic.kind === "pick" && fromPic.cols.length
+        ? fromPic.cols.map((col) => ({
+            units: bar.units / fromPic.cols.length,
+            frets: Object.entries(col).map(([string, fret]) => ({
+              // 그림에서 읽은 줄은 1번부터, 우리는 0번부터 센다
+              string: +string - 1,
+              fret,
+            })),
+          }))
+        : [];
+    const cols = edit?.cols ?? picCols;
     /*
      * 코드 이름은 자리를 새로 적어도 남아야 한다.
      *
@@ -472,16 +494,17 @@ export function TabSheet({
      * 그림 타브를 부어 넣자 악보 위 코드가 통째로 사라진 까닭이다.
      * 원래 마디의 코드를 자리 비율로 옮겨 온다.
      */
-    const chords: (string | undefined)[] = edit?.chords?.length
+    const picNames = edit?.chords?.length ? edit.chords : fromPic?.chords;
+    const chords: (string | undefined)[] = picNames?.length
       ? (() => {
           /* 그림 악보에서 읽어 온 코드. 마디를 코드 수만큼 나눠 얹는다 */
           const out: (string | undefined)[] = new Array(cols.length).fill(
             undefined,
           );
-          edit.chords.forEach((name, i) => {
+          picNames.forEach((name, i) => {
             const at = Math.min(
-              Math.round((i * cols.length) / edit.chords!.length),
-              cols.length - 1,
+              Math.round((i * cols.length) / picNames.length),
+              Math.max(cols.length - 1, 0),
             );
             if (at >= 0) out[at] = name;
           });
@@ -620,7 +643,18 @@ export function TabSheet({
   /* ---- 마디 하나를 고치는 창 ---- */
   const fixBar = fixing ? score.bars[fixing.bar] : null;
   const fixEdit = fixing ? edits?.[fixing.bar] : undefined;
-  const fixCols = fixEdit?.cols ?? fixBar?.cols ?? [];
+  const fixPic = fixing ? picked?.[fixing.bar] : undefined;
+  const fixCols: TabCol[] =
+    fixEdit?.cols ??
+    (fixPic && fixPic.kind === "pick" && fixBar
+      ? fixPic.cols.map((col) => ({
+          units: fixBar.units / fixPic.cols.length,
+          frets: Object.entries(col).map(([string, fret]) => ({
+            string: +string - 1,
+            fret,
+          })),
+        }))
+      : []);
   /** 이 마디의 고친 내용을 갈아 끼운다. 빈 것이 되면 줄째 지운다 */
   const putEdit = (next: TabBarEdit) => {
     if (!fixing || !onEdits) return;
