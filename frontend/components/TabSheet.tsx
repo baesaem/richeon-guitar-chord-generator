@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Popup } from "@/components/Popup";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
 import type { TabBarEdit } from "@/lib/abcStore";
@@ -212,7 +211,12 @@ export function TabSheet({
   onEdits,
 }: Props) {
   /** 지금 고치고 있는 마디와 고른 자리 */
-  const [fixing, setFixing] = useState<{ bar: number; col: number } | null>(null);
+  const [fixing, setFixing] = useState<{
+    bar: number;
+    col: number;
+    /** 창을 아래쪽에 열까. 고치는 마디를 가리지 않으려고 */
+    low?: boolean;
+  } | null>(null);
   const holdRef = useRef<number | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   /** 지금 치는 줄의 자리표. 창을 굴려 이 자리를 가운데로 끌어온다 */
@@ -466,10 +470,25 @@ export function TabSheet({
   const holds = onEdits
     ? score.bars.map((bar, j) => {
         const p = placeOf(j);
-        const open = () => setFixing({ bar: j, col: 0 });
-        const start = () => {
+        /* 창은 고치는 마디의 **반대쪽**에 연다 — 열자마자 그 마디를
+           덮어 버리면 미는 것이 보이지 않는다. 그 뒤로는 끌어 옮긴다 */
+        const open = (e: { currentTarget: SVGRectElement }) => {
+          let low = true;
+          try {
+            const r = e.currentTarget.getBoundingClientRect();
+            low = r.top + r.height / 2 < window.innerHeight / 2;
+          } catch {
+            /* 못 재면 아래에 연다 */
+          }
+          setFixing({ bar: j, col: 0, low });
+        };
+        const start = (e: React.PointerEvent<SVGRectElement>) => {
+          const target = e.currentTarget;
           if (holdRef.current) window.clearTimeout(holdRef.current);
-          holdRef.current = window.setTimeout(open, 3000);
+          holdRef.current = window.setTimeout(
+            () => open({ currentTarget: target }),
+            3000,
+          );
         };
         const stop = () => {
           if (holdRef.current) window.clearTimeout(holdRef.current);
@@ -490,7 +509,7 @@ export function TabSheet({
             onPointerCancel={stop}
             onContextMenu={(e) => {
               e.preventDefault();
-              open();
+              open(e);
             }}
           />
         );
@@ -532,8 +551,9 @@ export function TabSheet({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {fixing && fixBar && (
-        <Popup
+        <DragPanel
           title={`${fixing.bar + 1}마디 자리 고치기`}
+          low={fixing.low}
           onClose={() => setFixing(null)}
         >
           <div className="flex flex-col gap-3 px-4 pb-4 text-sm">
@@ -649,7 +669,7 @@ export function TabSheet({
               </button>
             </div>
           </div>
-        </Popup>
+        </DragPanel>
       )}
       <SongInfoLine
         musicKey={musicKey}
@@ -713,6 +733,92 @@ export function TabSheet({
           {cursor}
         </svg>
       </div>
+    </div>
+  );
+}
+
+/**
+ * 끌어 옮길 수 있는 작은 창.
+ *
+ * 가운데 박힌 창에 검은 막까지 덮으면, 자리를 미는 동안 정작 그 마디가
+ * 보이지 않는다 — 반 칸 밀 때마다 창을 닫았다 열어야 했다. 막을 걷고
+ * 제목줄을 잡아 옆으로 치울 수 있게 한다. 창 밖은 그대로 살아 있어,
+ * 옮기는 동안 악보에서 파란 숫자가 움직이는 것이 보인다.
+ */
+function DragPanel({
+  title,
+  low,
+  onClose,
+  children,
+}: {
+  title: string;
+  /** 처음에 아래쪽에 연다. 고치는 마디가 위에 있을 때 */
+  low?: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const grab = useRef<{ dx: number; dy: number } | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+
+  /** 창을 화면 안에 붙들어 둔다 — 끌다 놓쳐 밖으로 나가면 되찾을 수 없다 */
+  const clamp = (x: number, y: number) => {
+    const box = boxRef.current;
+    const w = box?.offsetWidth ?? 320;
+    const h = box?.offsetHeight ?? 240;
+    return {
+      x: Math.min(Math.max(x, 4), Math.max(window.innerWidth - w - 4, 4)),
+      y: Math.min(Math.max(y, 4), Math.max(window.innerHeight - h - 4, 4)),
+    };
+  };
+
+  const start = (e: React.PointerEvent) => {
+    const box = boxRef.current;
+    if (!box) return;
+    const r = box.getBoundingClientRect();
+    grab.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const move = (e: React.PointerEvent) => {
+    const g = grab.current;
+    if (!g) return;
+    setAt(clamp(e.clientX - g.dx, e.clientY - g.dy));
+  };
+  const end = () => {
+    grab.current = null;
+  };
+
+  return (
+    <div
+      ref={boxRef}
+      className="fixed z-50 w-[min(22rem,calc(100vw-1rem))] rounded-xl border border-[var(--panel-line)] bg-[var(--background)] text-[var(--foreground)] shadow-2xl"
+      style={
+        at
+          ? { left: at.x, top: at.y }
+          : low
+            ? { left: "50%", bottom: "1rem", transform: "translateX(-50%)" }
+            : { left: "50%", top: "1rem", transform: "translateX(-50%)" }
+      }
+    >
+      {/* 제목줄이 손잡이다. 잡아 끌면 창이 따라온다 */}
+      <div
+        className="flex cursor-move touch-none items-center justify-between px-4 pb-2 pt-3"
+        onPointerDown={start}
+        onPointerMove={move}
+        onPointerUp={end}
+        onPointerCancel={end}
+        title="여기를 잡아 창을 옮기세요"
+      >
+        <h3 className="select-none text-base font-bold">{title}</h3>
+        <button
+          className="rounded px-2 py-1 text-sm text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
+          onClick={onClose}
+          aria-label="닫기"
+        >
+          ✕
+        </button>
+      </div>
+      {children}
     </div>
   );
 }
