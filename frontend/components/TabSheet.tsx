@@ -216,6 +216,13 @@ export function TabSheet({
     col: number;
     /** 창을 아래쪽에 열까. 고치는 마디를 가리지 않으려고 */
     low?: boolean;
+    /**
+     * 창을 열 때 이 마디가 어떤 모습이었나.
+     *
+     * 미는 것은 곧바로 악보에 나타난다 — 그래야 어디로 가는지 보인다.
+     * 대신 열 때의 모습을 여기 적어 두었다가 「취소」면 되돌린다.
+     */
+    was?: TabBarEdit;
   } | null>(null);
   const holdRef = useRef<number | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -480,7 +487,7 @@ export function TabSheet({
           } catch {
             /* 못 재면 아래에 연다 */
           }
-          setFixing({ bar: j, col: 0, low });
+          setFixing({ bar: j, col: 0, low, was: edits?.[j] });
         };
         const start = (e: React.PointerEvent<SVGRectElement>) => {
           const target = e.currentTarget;
@@ -658,15 +665,28 @@ export function TabSheet({
               <button
                 className="rounded px-2 py-1.5 text-[12px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2"
                 onClick={() => putEdit({})}
+                title="악보 파일에 적힌 그대로 되돌립니다"
               >
                 이 마디 되돌리기
               </button>
-              <button
-                className="rounded bg-[var(--pick)] px-4 py-1.5 font-semibold text-[var(--pick-ink)]"
-                onClick={() => setFixing(null)}
-              >
-                다 됐습니다
-              </button>
+              <span className="flex items-center gap-1.5">
+                <button
+                  className="rounded bg-[var(--panel)] px-3 py-1.5 font-semibold"
+                  onClick={() => {
+                    // 열 때의 모습으로 되돌리고 닫는다
+                    putEdit(fixing.was ?? {});
+                    setFixing(null);
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  className="rounded bg-[var(--pick)] px-4 py-1.5 font-semibold text-[var(--pick-ink)]"
+                  onClick={() => setFixing(null)}
+                >
+                  수정
+                </button>
+              </span>
             </div>
           </div>
         </DragPanel>
