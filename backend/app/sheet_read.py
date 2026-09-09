@@ -454,14 +454,22 @@ _TAB_PROMPT = """이 악보 그림에서 **타브(TAB) 여섯 줄에 적힌 프�
 보기: 마디에 「1번 줄 3 · 6번 줄 3」이 함께, 그다음 「4번 줄 0」, 그다음
 「3번 줄 0」이 있으면  →  "3/1+3/6 0/4 0/3"
 
+**코드 이름도 함께 읽어 주세요.** 보표 위(또는 아래)에 적힌 Em, B7,
+G/B 같은 글자입니다. 그 마디에 적힌 것을 왼쪽에서 오른쪽 차례로 담고,
+없으면 빈 배열로 두세요.
+
 JSON만 답하세요. 못 읽은 마디는 넣지 마세요.
 
-{"tab": [{"bar": 마디번호, "cols": "3/1+3/6 0/4 0/3"}, ...]}
+{"tab": [{"bar": 마디번호, "cols": "3/1+3/6 0/4 0/3", "chords": ["Em","B7"]}, ...]}
 """
 
 
 def read_tab_ai(pages, images: list[bytes]) -> dict:
-    """그림 악보의 타브를 AI에게 읽힌다. picked_tab 모양으로 낸다."""
+    """그림 악보의 타브와 **코드 이름**을 한 번에 읽힌다.
+
+    숫자와 코드를 따로 물으면 AI를 두 번 부르게 되고, 두 번 사이에 마디
+    번호가 어긋날 수도 있다. 한 그림을 한 번 보여 주고 둘을 함께 받는다.
+    """
     import re
 
     shots: list[bytes] = []
@@ -475,6 +483,7 @@ def read_tab_ai(pages, images: list[bytes]) -> dict:
 
     found = _ask(shots, prompt=_TAB_PROMPT)
     per: dict[int, list[dict[str, int]]] = {}
+    names: dict[int, list[str]] = {}
     for row in found.get("tab") or []:
         if not isinstance(row, dict):
             continue
@@ -498,12 +507,19 @@ def read_tab_ai(pages, images: list[bytes]) -> dict:
                 cols.append(col)
         if cols:
             per[i] = cols
+        got = [str(c).strip() for c in (row.get("chords") or []) if str(c).strip()]
+        if got:
+            names[i] = got[:4]
 
-    measures = [
-        {"no": i, "kind": "pick", "cols": per.get(i, [])} for i in range(1, count + 1)
-    ]
+    measures: list[dict] = []
+    for i in range(1, count + 1):
+        one: dict = {"no": i, "kind": "pick", "cols": per.get(i, [])}
+        if names.get(i):
+            one["chords"] = names[i]
+        measures.append(one)
     return {
         "bar_offset": 0,
         "measures": measures,
+        "chord_bars": len(names),
         "unread": sum(1 for m in measures if not m["cols"]),
     }

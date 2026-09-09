@@ -233,7 +233,12 @@ export async function readSheetImage(id: string): Promise<AnalysisResult> {
 export async function readSheetTabAi(
   id: string,
   file: File,
-): Promise<{ bars: number; read: number; result: AnalysisResult }> {
+): Promise<{
+  bars: number;
+  read: number;
+  chordBars: number;
+  result: AnalysisResult;
+}> {
   const form = new FormData();
   form.append("file", file);
   await fetch(`${apiBase()}/api/results/${id}/sheet/tab`, {
@@ -243,43 +248,26 @@ export async function readSheetTabAi(
   for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 1500));
     const st = await fetch(`${apiBase()}/api/results/${id}/sheet/tab`).then(
-      json<{ state: string; detail?: string; bars?: number; read?: number }>,
+      json<{
+        state: string;
+        detail?: string;
+        bars?: number;
+        read?: number;
+        chord_bars?: number;
+      }>,
     );
     if (st.state === "done")
-      return { bars: st.bars ?? 0, read: st.read ?? 0, result: await getResult(id) };
+      return {
+        bars: st.bars ?? 0,
+        read: st.read ?? 0,
+        chordBars: st.chord_bars ?? 0,
+        result: await getResult(id),
+      };
     if (st.state === "failed") throw new Error(st.detail || "읽지 못했습니다");
   }
   throw new Error("너무 오래 걸립니다. 잠시 뒤 다시 눌러 주세요");
 }
 
-/**
- * 그림 악보에 적힌 **코드 이름**을 읽어 타브 마디에 실어 둔다.
- *
- * 숫자는 자로 재어 읽을 수 있지만 코드는 글자라 그럴 수 없다. 종이
- * 악보대로 편곡하려면 둘이 함께 와야 한다 — 짚는 자리는 그림에서
- * 가져왔는데 이름은 다른 악보의 것이면 서로 어긋난다.
- */
-export async function readTabChords(
-  id: string,
-  file: File,
-): Promise<{ bars: number; result: AnalysisResult }> {
-  const form = new FormData();
-  form.append("file", file);
-  await fetch(`${apiBase()}/api/results/${id}/sheet/tabchords`, {
-    method: "POST",
-    body: form,
-  }).then(json<{ state: string }>);
-  for (let i = 0; i < 120; i++) {
-    await new Promise((r) => setTimeout(r, 1500));
-    const st = await fetch(
-      `${apiBase()}/api/results/${id}/sheet/tabchords`,
-    ).then(json<{ state: string; detail?: string; bars?: number }>);
-    if (st.state === "done")
-      return { bars: st.bars ?? 0, result: await getResult(id) };
-    if (st.state === "failed") throw new Error(st.detail || "읽지 못했습니다");
-  }
-  throw new Error("너무 오래 걸립니다. 잠시 뒤 다시 눌러 주세요");
-}
 
 /**
  * 종이 악보의 코드를 AI로 읽어 코드만 적힌 ABC를 받는다.

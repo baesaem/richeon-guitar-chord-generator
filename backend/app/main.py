@@ -1339,6 +1339,31 @@ async def _run_chord_read(result_id: str) -> None:
 _tab_reads: dict[str, dict] = {}
 
 
+def _merge_picked(old: dict | None, got: dict) -> dict:
+    """AI가 읽은 것을 앞서 읽어 둔 타브에 얹는다.
+
+    자로 재어 읽은 숫자는 인쇄가 또렷하면 AI보다 정확하다 — 이미 읽어
+    둔 자리가 있으면 그대로 두고, 못 읽은 마디만 AI 것으로 채운다.
+    코드 이름은 자로 잴 수 없으니 늘 AI 것을 쓴다.
+    """
+    was = {m.get("no"): m for m in ((old or {}).get("measures") or [])}
+    for m in got["measures"]:
+        before = was.get(m.get("no"))
+        if not before:
+            continue
+        if before.get("kind") == "strum":
+            # 훑는 마디는 코드 한 벌과 손 방향이라 숫자로 덮지 않는다
+            keep = dict(before)
+            if m.get("chords"):
+                keep["chords"] = m["chords"]
+            m.clear()
+            m.update(keep)
+        elif before.get("cols"):
+            m["cols"] = before["cols"]
+    got["bar_offset"] = (old or {}).get("bar_offset", 0)
+    return got
+
+
 async def _run_tab_read(result_id: str, data: bytes, is_pdf: bool) -> None:
     """고른 그림 악보의 타브를 AI로 읽어 곡에 싣는다(뒤에서)."""
     try:
@@ -1352,15 +1377,18 @@ async def _run_tab_read(result_id: str, data: bytes, is_pdf: bool) -> None:
             pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
 
         got = await asyncio.to_thread(sheet_read.read_tab_ai, pages, images)
+        chord_bars = got.get("chord_bars", 0)
         read = sum(1 for m in got["measures"] if m["cols"])
-        if not read:
-            raise ValueError("타브 숫자를 하나도 읽지 못했습니다")
-        result.picked_tab = got
+        if not read and not chord_bars:
+            raise ValueError("숫자도 코드도 읽지 못했습니다")
+
+        result.picked_tab = _merge_picked(result.picked_tab, got)
         save_result(result)
         _tab_reads[result_id] = {
             "state": "done",
             "bars": len(got["measures"]),
             "read": read,
+            "chord_bars": chord_bars,
         }
     except Exception as exc:
         _tab_reads[result_id] = {"state": "failed", "detail": str(exc)}
@@ -1395,95 +1423,6 @@ async def read_sheet_tab(
     _tab_reads[result_id] = {"state": "running"}
     asyncio.create_task(_run_tab_read(result_id, data, is_pdf))
     return {"state": "running"}
-
-
-_tab_chord_reads: dict[str, dict] = {}
-
-
-async def _run_tab_chord_read(result_id: str, data: bytes, is_pdf: bool) -> None:
-    """고른 그림 악보의 **코드 이름**을 읽어 타브 마디에 실어 둔다(뒤에서)."""
-    try:
-        result = load_result(result_id)
-        if result is None:
-            raise ValueError("분석 결과가 없습니다")
-        picked = result.picked_tab or {}
-        measures = picked.get("measures") or []
-        if not measures:
-            raise ValueError("먼저 그림 타브를 읽어 두세요")
-
-        if is_pdf:
-            pages, images = await asyncio.to_thread(sheet_layout.from_pdf, data)
-        else:
-            pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
-
-        got = await asyncio.to_thread(
-            sheet_read.read_chords, pages, images, result.title or ""
-        )
-        per: dict[int, list[str]] = {}
-        for row in got["found"].get("chords") or []:
-            if not isinstance(row, dict):
-                continue
-            try:
-                no = int(row.get("bar"))
-            except (TypeError, ValueError):
-                continue
-            names = [str(c).strip() for c in (row.get("chords") or []) if str(c).strip()]
-            if names:
-                per[no] = names[:4]
-        if not per:
-            raise ValueError("코드를 하나도 읽지 못했습니다")
-
-        # 타브 마디에 얹는다. 자로 재어 읽은 숫자는 그대로 둔다
-        put = 0
-        for m in measures:
-            names = per.get(m.get("no"))
-            if not names:
-                continue
-            m["chords"] = names
-            put += 1
-        result.picked_tab = {**picked, "measures": measures}
-        save_result(result)
-        _tab_chord_reads[result_id] = {"state": "done", "bars": put}
-    except Exception as exc:
-        _tab_chord_reads[result_id] = {"state": "failed", "detail": str(exc)}
-
-
-@app.post("/api/results/{result_id}/sheet/tabchords")
-async def read_tab_chords(result_id: str, file: UploadFile = File(...)) -> dict:
-    """그림 악보에 적힌 **코드 이름**을 읽어 타브 마디에 실어 둔다.
-
-    숫자는 자로 재어 읽을 수 있지만 코드는 글자라 그럴 수 없다. 종이
-    악보대로 편곡하려면 숫자와 코드가 함께 와야 한다 — 숫자는 그림에서
-    가져왔는데 코드는 다른 악보의 것이면 짚는 자리와 이름이 어긋난다.
-    """
-    _guard_id(result_id)
-
-    result = load_result(result_id)
-    if result is None:
-        raise HTTPException(404, "분석 결과가 없습니다")
-    if not (result.picked_tab or {}).get("measures"):
-        raise HTTPException(400, "먼저 그림 타브를 읽어 주세요")
-
-    kind = (file.content_type or "").lower()
-    is_pdf = kind == "application/pdf"
-    if not is_pdf and not kind.startswith("image/"):
-        raise HTTPException(400, "PDF나 사진만 읽을 수 있습니다")
-    data = await file.read(_SHEET_MAX_BYTES + 1)
-    if len(data) > _SHEET_MAX_BYTES:
-        raise HTTPException(413, "파일이 너무 큽니다 (20MB까지)")
-
-    if _tab_chord_reads.get(result_id, {}).get("state") == "running":
-        return {"state": "running"}
-    _tab_chord_reads[result_id] = {"state": "running"}
-    asyncio.create_task(_run_tab_chord_read(result_id, data, is_pdf))
-    return {"state": "running"}
-
-
-@app.get("/api/results/{result_id}/sheet/tabchords")
-async def read_tab_chords_state(result_id: str) -> dict:
-    """코드 읽기가 끝났는지 물어본다."""
-    _guard_id(result_id)
-    return _tab_chord_reads.get(result_id) or {"state": "idle"}
 
 
 @app.get("/api/results/{result_id}/sheet/tab")

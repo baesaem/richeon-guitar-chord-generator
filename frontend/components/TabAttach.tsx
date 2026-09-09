@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-import { putResult, putTabImage, readSheetTabAi, readTabChords } from "@/lib/api";
+import { putResult, putTabImage, readSheetTabAi } from "@/lib/api";
 import type { AnalysisResult } from "@/lib/types";
 
 /**
@@ -26,7 +26,6 @@ export function TabAttach({
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
   const pickAi = useRef<HTMLInputElement | null>(null);
-  const pickChord = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,28 +67,9 @@ export function TabAttach({
     try {
       const got = await readSheetTabAi(result.id, file);
       onResult(got.result);
-      setNote(`AI가 ${got.bars}마디 가운데 ${got.read}마디를 읽었습니다.`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "읽지 못했습니다");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  /**
-   * 그림 악보에 적힌 코드 이름을 읽어 타브 마디에 싣는다.
-   *
-   * 숫자는 자로 재어 읽지만 코드는 글자라 그럴 수 없다. 짚는 자리는
-   * 그림에서 가져왔는데 이름은 다른 악보의 것이면 서로 어긋난다.
-   */
-  const readChords = async (file: File) => {
-    setBusy(true);
-    setError(null);
-    setNote(null);
-    try {
-      const got = await readTabChords(result.id, file);
-      onResult(got.result);
-      setNote(`그림 악보의 코드를 ${got.bars}마디에서 읽었습니다.`);
+      setNote(
+        `AI가 ${got.bars}마디 가운데 숫자 ${got.read}마디, 코드 ${got.chordBars}마디를 읽었습니다.`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "읽지 못했습니다");
     } finally {
@@ -140,21 +120,12 @@ export function TabAttach({
         className="rounded bg-[var(--chip)] px-2 py-0.5 disabled:opacity-40"
         disabled={busy || !online}
         onClick={() => pickAi.current?.click()}
-        title="그림 악보(PDF·사진)를 골라 넣으면 AI가 눈으로 읽어 이 화면의 타브에 적습니다. 자로 재어 읽는 길이 안 될 때 쓰세요"
+        title="그림 악보(PDF·사진)를 골라 넣으면 AI가 숫자와 코드 이름을 한 번에 읽습니다. 자로 재어 읽어 둔 숫자가 있으면 그대로 두고 못 읽은 마디와 코드만 채웁니다"
       >
-        AI로 타브 읽기
+        AI로 그림 읽기 (숫자·코드)
       </button>
       {tab && (
         <>
-          {/* 숫자를 그림에서 가져왔으면 코드도 그 그림의 것이어야 한다 */}
-          <button
-            className="rounded bg-[var(--chip)] px-2 py-0.5 disabled:opacity-40"
-            disabled={busy || !online}
-            onClick={() => pickChord.current?.click()}
-            title="같은 그림 악보를 골라 넣으면 거기 적힌 코드 이름을 읽어 타브 마디에 싣습니다"
-          >
-            그림 코드 읽기
-          </button>
           <button
             className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
             disabled={busy || !online}
@@ -166,17 +137,6 @@ export function TabAttach({
       )}
       {note && <span className="text-green-700 dark:text-green-400">{note}</span>}
       {error && <span className="text-red-600 dark:text-red-400">{error}</span>}
-      <input
-        ref={pickChord}
-        type="file"
-        accept="application/pdf,image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) void readChords(file);
-        }}
-      />
       <input
         ref={pickAi}
         type="file"
