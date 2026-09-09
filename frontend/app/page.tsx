@@ -24,7 +24,7 @@ import {
 import type { TabScore } from "@/lib/msczToAbc";
 
 import { unifyChords } from "@/lib/abcChords";
-import { abcOrders } from "@/lib/abcOrder";
+import { abcMeasures, abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { PracticeRoom } from "@/components/PracticeRoom";
 import { MelodyScore } from "@/components/MelodyScore";
@@ -460,6 +460,53 @@ export default function Home() {
     const out: Record<number, number> = {};
     order.forEach((d, k) => {
       out[k + (abcEntry.barOffset ?? 0)] = d + 1;
+    });
+    return out;
+  }, [abcEntry?.abc, abcEntry?.barOffset]);
+
+  /**
+   * 음원 마디마다 붙는 **악보의 표** — 도돌이표·1·2번 괄호·세뇨·코다.
+   *
+   * 그리드는 음원 마디를 늘어놓을 뿐이라, 어디서 되돌아가고 어디로
+   * 건너뛰는지가 보이지 않았다. 종이 악보를 보며 치는 사람에게는 그
+   * 표가 마디 번호만큼 중요하다 — 악보에서 읽어 마디에 얹는다.
+   */
+  const scoreBarMarks = useMemo(() => {
+    if (!abcEntry?.abc) return undefined;
+    let ms: ReturnType<typeof abcMeasures>;
+    let order: number[] | null = null;
+    try {
+      ms = abcMeasures(abcEntry.abc);
+      order = abcOrders(abcEntry.abc)?.withJump ?? null;
+    } catch {
+      return undefined;
+    }
+    if (!order?.length) return undefined;
+    const SEGNO = String.fromCodePoint(0x1d10b);
+    const CODA = String.fromCodePoint(0x1d10c);
+    const per = ms.map((m) => {
+      const marks: string[] = [];
+      if (/!segno!/.test(m.text)) marks.push(SEGNO);
+      if (/!coda!/.test(m.text)) marks.push(CODA);
+      if (/!fine!/.test(m.text)) marks.push("Fine");
+      const jump = m.text.match(/!D\.([SC])\.al(coda|fine)!/i);
+      if (jump)
+        marks.push(
+          `D.${jump[1].toUpperCase()}. al ${
+            jump[2].toLowerCase() === "coda" ? "Coda" : "Fine"
+          }`,
+        );
+      return {
+        open: m.startRepeat,
+        close: m.endRepeat,
+        volta: m.volta ?? undefined,
+        marks,
+      };
+    });
+    const out: Record<number, (typeof per)[number]> = {};
+    order.forEach((d, k) => {
+      const one = per[d];
+      if (one) out[k + (abcEntry.barOffset ?? 0)] = one;
     });
     return out;
   }, [abcEntry?.abc, abcEntry?.barOffset]);
@@ -2585,6 +2632,8 @@ export default function Home() {
                         setTime(t);
                       }}
                       onEditBar={setEditBar}
+                      barLabels={scoreBarNumbers}
+                      barMarks={scoreBarMarks}
                     />
                   )}
 
@@ -2922,6 +2971,8 @@ export default function Home() {
                               setTime(t);
                             }}
                             onEditBar={setEditBar}
+                            barLabels={scoreBarNumbers}
+                            barMarks={scoreBarMarks}
                           />
                         </div>
                         {/* 가사는 재생에 맞춰 지금 줄이 따라 올라온다.

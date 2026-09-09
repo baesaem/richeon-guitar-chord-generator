@@ -22,6 +22,16 @@ interface Props {
   follow: boolean;
   /** 마디를 길게 누르거나 오른쪽 클릭했을 때. 코드 고치기에 쓴다 */
   onEditBar?: (barIndex: number) => void;
+  /**
+   * 음원 마디 → **악보의 마디 번호**. 도돌이를 돌면 음원 마디는 계속
+   * 늘지만 악보는 같은 마디를 다시 부른다 — 종이와 같은 번호를 적는다.
+   */
+  barLabels?: Record<number, number>;
+  /** 음원 마디 → 악보에 적힌 표(도돌이·괄호·세뇨·코다) */
+  barMarks?: Record<
+    number,
+    { open?: boolean; close?: boolean; volta?: number; marks?: string[] }
+  >;
   /** 마디를 짧게 눌렀을 때 그 자리로 건너뛴다 */
   onSeek?: (t: number) => void;
   /** 한 줄에 놓을 칸 수. 0이면 자동(좁으면 4칸, 넓으면 8칸) */
@@ -79,6 +89,8 @@ export function ChordSheet({
   transpose,
   follow,
   onEditBar,
+  barLabels,
+  barMarks,
   onSeek,
   perRow = 0,
   onPerRow,
@@ -154,6 +166,8 @@ export function ChordSheet({
             key={bar.number}
             innerRef={active ? activeRef : undefined}
             active={active}
+            label={barLabels?.[i] ?? bar.number}
+            mark={barMarks?.[i]}
             // 지금 마디 안에서 몇 박째인지 — 시각을 받았을 때만
             progress={
               active && time !== undefined && bar.end > bar.start
@@ -225,6 +239,8 @@ function BarCell({
   innerRef,
   active,
   progress,
+  label,
+  mark,
   onSeek,
   onEdit,
   children,
@@ -233,6 +249,10 @@ function BarCell({
   active: boolean;
   /** 이 마디를 얼마나 지났는지(0~1). 지금 마디에만 준다 */
   progress?: number;
+  /** 칸 왼쪽 위에 적을 마디 번호 */
+  label?: number;
+  /** 악보에 적힌 표 — 도돌이·1·2번 괄호·세뇨·코다 */
+  mark?: { open?: boolean; close?: boolean; volta?: number; marks?: string[] };
   onSeek?: () => void;
   onEdit?: () => void;
   children: React.ReactNode;
@@ -265,7 +285,37 @@ function BarCell({
           style={{ left: `${progress * 100}%` }}
         />
       )}
-      <span className="relative block">{children}</span>
+      {/* 도돌이표는 칸의 양 끝에 굵은 선으로. 종이 악보와 같은 자리다 */}
+      {mark?.open && (
+        <span className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-[var(--foreground)]" />
+      )}
+      {mark?.close && (
+        <span className="pointer-events-none absolute inset-y-0 right-0 w-[3px] bg-[var(--foreground)]" />
+      )}
+      {/* 마디 번호와 1·2번 괄호는 왼쪽 위 구석에 작게 */}
+      <span
+        className={[
+          "pointer-events-none absolute left-0.5 top-0 text-[9px] leading-none",
+          active
+            ? "text-[var(--pick-ink)] opacity-70"
+            : "text-[color-mix(in_srgb,var(--foreground)_45%,transparent)]",
+        ].join(" ")}
+      >
+        {mark?.volta ? `${mark.volta}. ` : ""}
+        {label ?? ""}
+      </span>
+      {/* 세뇨·코다·달세뇨는 오른쪽 위에 — 부르는 차례를 정하는 표다 */}
+      {!!mark?.marks?.length && (
+        <span
+          className={[
+            "pointer-events-none absolute right-0.5 top-0 text-[9px] font-bold leading-none",
+            active ? "text-[var(--pick-ink)]" : "text-[var(--accent)]",
+          ].join(" ")}
+        >
+          {mark.marks.join(" ")}
+        </span>
+      )}
+      <span className="relative block pt-1.5">{children}</span>
     </div>
   );
 }
