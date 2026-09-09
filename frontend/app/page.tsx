@@ -507,21 +507,31 @@ export default function Home() {
   };
 
   /**
-   * 악보에 적힌 조(원키).
+   * 악보에 **적힌** 조. 원키(음원이 찾은 키)와 나란히 보인다.
    *
    * 카포로 옮겨 적힌 악보는 종이에 Em이라 적어 두고 소리는 그보다 높다.
-   * 화면 코드는 울리는 높이로 적으므로 종이와 글자가 달라, 대조할 때
-   * 「안 바뀌었다」로 보인다. 적힌 조를 곁들여 어느 쪽인지 알린다.
+   * 화면 코드는 울리는 높이로 적으므로 종이와 글자가 달라, 그림 악보와
+   * 대조하면 「코드가 안 바뀌었다」로 보인다.
+   *
+   * 악보의 조표에서 곧바로 읽는다 — 코드 맞추기가 어느 쪽을 골랐는지에
+   * 기대면, 맞추기가 손을 놓은 곡에서는 표시가 통째로 사라진다.
    */
   const sourceKey = useMemo(() => {
-    const capo = unified?.source === "score" ? unified.capo : 0;
-    if (!result || !capo) return undefined;
+    if (!result || !abcEntry?.abc) return undefined;
+    const m = abcEntry.abc.match(/^K:\s*([A-G][#b♯♭]?)(m|min)?/m);
+    if (!m) return undefined;
     const [tonic, mode = ""] = result.key.split(" ");
-    const moved = transposeRoot(tonic, -capo);
-    if (!moved) return undefined;
-    const full = `${moved} ${mode}`.trim();
-    return spell(moved, prefersFlats(full)) + (mode === "minor" ? "m" : "");
-  }, [result, unified]);
+    const minor = /min/i.test(mode);
+    /* 조표만 적힌 악보(K:G)는 장조로 읽힌다. 곡이 단조면 나란한 단조가
+       그 악보의 조다 — 사장조 조표와 마단조 조표는 같은 것이다 */
+    let root = m[1].replace(/♯/g, "#").replace(/♭/g, "b");
+    if (minor && !m[2]) root = transposeRoot(root, -3) ?? root;
+    const same = transposeRoot(root, 0) === transposeRoot(tonic, 0);
+    // 옮겨 적히지 않은 악보면 곁들일 것이 없다
+    if (!root || same) return undefined;
+    const full = `${root} ${mode}`.trim();
+    return spell(root, prefersFlats(full)) + (minor ? "m" : "");
+  }, [result, abcEntry?.abc]);
 
   const abcTranspose =
     noteShift + (unified?.source === "score" ? unified.capo : 0);

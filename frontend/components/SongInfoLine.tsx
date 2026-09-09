@@ -23,11 +23,11 @@ export function SongInfoLine({
 }: {
   musicKey: string;
   /**
-   * 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 함께 보인다.
+   * 악보에 **적힌** 조. 카포로 옮겨 적힌 악보에서만 곁들인다.
    *
-   * 화면의 코드는 울리는 높이로 적히므로, 종이에 Em이라 적힌 자리가
-   * 앱에서는 B♭m으로 나온다. 종이와 견줄 때 어느 쪽이 어느 쪽인지
-   * 알 수 없어, 적힌 조를 곁들여 둔다.
+   * 원키는 음원이 찾은 키다. 화면의 코드도 그 높이로 적히므로, 종이에
+   * Em이라 적힌 자리가 앱에서는 B♭m으로 나온다. 종이와 견줄 때 어느
+   * 쪽이 어느 쪽인지 알 수 있게 둘을 나란히 적는다.
    */
   sourceKey?: string;
   timeSignature: string;
@@ -58,9 +58,10 @@ export function SongInfoLine({
         {/* 「조성」·「박자」라고 적지 않는다. 자리가 정해져 있어 값만 봐도
             무엇인지 안다. 한 줄에 담아야 해서 한 글자가 아깝다. */}
         <span className="shrink-0">
+          {sourceKey ? "원키 " : ""}
           {spellKey(musicKey) || "조성 미상"}
           {sourceKey && (
-            <span className="text-[var(--accent)]"> (원키 {sourceKey})</span>
+            <span className="text-[var(--accent)]"> (악보 {sourceKey})</span>
           )}{" "}
           · {timeSignature}
         </span>
