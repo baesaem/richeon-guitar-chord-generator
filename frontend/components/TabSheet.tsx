@@ -74,6 +74,8 @@ interface Props {
   onShiftBar?: (delta: number) => void;
   headerRight?: React.ReactNode;
   musicKey: string;
+  /** 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 곁들인다 */
+  sourceKey?: string;
   timeSignature: string;
   playNotes?: string[];
   strum?: StrumChoice | null;
@@ -239,6 +241,7 @@ export function TabSheet({
   onShiftBar,
   headerRight,
   musicKey,
+  sourceKey,
   timeSignature,
   playNotes,
   strum,
@@ -894,6 +897,7 @@ export function TabSheet({
       )}
       <SongInfoLine
         musicKey={musicKey}
+        sourceKey={sourceKey}
         timeSignature={timeSignature}
         playNotes={playNotes}
         strum={strum}

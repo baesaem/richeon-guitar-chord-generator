@@ -66,6 +66,8 @@ interface Props {
   onShiftBar?: (delta: number) => void;
   headerRight?: React.ReactNode;
   musicKey: string;
+  /** 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 곁들인다 */
+  sourceKey?: string;
   timeSignature: string;
   playNotes?: string[];
   /** 안내줄에 함께 적을 스트로크. 모든 플레이 화면이 같은 것을 보인다 */
@@ -106,6 +108,7 @@ export function AbcScore({
   onShiftBar,
   headerRight,
   musicKey,
+  sourceKey,
   timeSignature,
   playNotes,
   strum,
@@ -377,6 +380,7 @@ ${abc}`;
     <div className="flex min-h-0 flex-1 flex-col">
       <SongInfoLine
         musicKey={musicKey}
+        sourceKey={sourceKey}
         timeSignature={timeSignature}
         playNotes={playNotes}
         strum={strum}

@@ -90,8 +90,10 @@ import { LYRIC_LEAD, groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
 import { lyricIndexAt } from "@/lib/lrc";
 import {
   labelFor,
+  prefersFlats,
   resolveFlats,
   simplifyQuality,
+  spell,
   spellKey,
   transposeRoot,
 } from "@/lib/notation";
@@ -503,6 +505,23 @@ export default function Home() {
       setError((e as Error).message);
     }
   };
+
+  /**
+   * 악보에 적힌 조(원키).
+   *
+   * 카포로 옮겨 적힌 악보는 종이에 Em이라 적어 두고 소리는 그보다 높다.
+   * 화면 코드는 울리는 높이로 적으므로 종이와 글자가 달라, 대조할 때
+   * 「안 바뀌었다」로 보인다. 적힌 조를 곁들여 어느 쪽인지 알린다.
+   */
+  const sourceKey = useMemo(() => {
+    const capo = unified?.source === "score" ? unified.capo : 0;
+    if (!result || !capo) return undefined;
+    const [tonic, mode = ""] = result.key.split(" ");
+    const moved = transposeRoot(tonic, -capo);
+    if (!moved) return undefined;
+    const full = `${moved} ${mode}`.trim();
+    return spell(moved, prefersFlats(full)) + (mode === "minor" ? "m" : "");
+  }, [result, unified]);
 
   const abcTranspose =
     noteShift + (unified?.source === "score" ? unified.capo : 0);
@@ -1309,6 +1328,7 @@ export default function Home() {
         sync={sync}
         onSync={withSync ? setSync : undefined}
         musicKey={result.key}
+        sourceKey={sourceKey}
         timeSignature={result.time_signature}
         playNotes={playNotes}
         strum={shownStrum}
@@ -2332,6 +2352,7 @@ export default function Home() {
                         setAbcEntry({ ...abcEntry, barOffset: v });
                       }}
                       musicKey={result.key}
+                      sourceKey={sourceKey}
                       timeSignature={result.time_signature}
                       playNotes={playNotes}
                       strum={shownStrum}
@@ -2873,6 +2894,7 @@ export default function Home() {
                       playedBars={abcPlayedBars}
                       audioBars={audioBarCount}
                         musicKey={result.key}
+                        sourceKey={sourceKey}
                         timeSignature={result.time_signature}
                         playNotes={playNotes}
                         strum={shownStrum}
