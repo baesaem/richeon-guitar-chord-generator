@@ -1287,21 +1287,30 @@ export default function Home() {
     for (const m of picked.measures) {
       const j = m.no - 1 + (picked.bar_offset ?? 0);
       const bar = score.bars[j];
-      // 훑는 마디는 숫자가 아니라 코드 한 벌이라 여기서 다루지 않는다
-      if (!bar || m.kind !== "pick" || !m.cols.length) continue;
-      const each = bar.units / m.cols.length;
+      if (!bar) continue;
+      const numbers = m.kind === "pick" && m.cols.length ? m.cols : null;
+      // 그림에서 코드까지 읽어 두었으면 이름도 그림 것을 쓴다
+      const names = m.chords?.length ? m.chords : undefined;
+      if (!numbers && !names) continue;
+      /* 훑는 마디에는 숫자가 없다 — 그래도 코드는 그림 것을 쓴다.
+         짚는 자리는 악보 파일 것이 남고 이름만 그림을 따른다 */
       next[j] = {
         ...next[j],
-        cols: m.cols.map((col) => ({
-          units: each,
-          frets: Object.entries(col).map(([string, fret]) => ({
-            // 그림에서 읽은 줄은 1번부터, 우리는 0번부터 센다
-            string: +string - 1,
-            fret,
-          })),
-        })),
-        gaps: [],
-        nudge: {},
+        chords: names ?? next[j]?.chords,
+        ...(numbers
+          ? {
+              cols: numbers.map((col) => ({
+                units: bar.units / numbers.length,
+                frets: Object.entries(col).map(([string, fret]) => ({
+                  // 그림에서 읽은 줄은 1번부터, 우리는 0번부터 센다
+                  string: +string - 1,
+                  fret,
+                })),
+              })),
+              gaps: [],
+              nudge: {},
+            }
+          : {}),
       };
       put++;
     }

@@ -79,9 +79,10 @@ export interface AnalysisMeta {
 }
 
 /** 그림 타브에서 읽어 온 한 마디. 뜯는 마디는 숫자, 훑는 마디는 손 방향 */
-export type PickedBar =
-  | { no: number; kind: "pick"; cols: Record<string, number>[] }
-  | { no: number; kind: "strum"; chord: Record<string, number>; strokes: string };
+export type PickedBar = { no: number; chords?: string[] } & (
+  | { kind: "pick"; cols: Record<string, number>[] }
+  | { kind: "strum"; chord: Record<string, number>; strokes: string }
+);
 
 export interface PickedTab {
   /** 악보 첫 마디가 음원의 몇 번째 마디인지. 전주 길이가 다르면 민다 */
