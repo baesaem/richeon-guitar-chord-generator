@@ -59,14 +59,7 @@ import { NotKnown, analyzeWithAi } from "@/lib/aiAnalyze";
 import { localLlmKey, localLlmModel } from "@/lib/llmClient";
 import { measureOutputLatency } from "@/lib/latency";
 import { stemKey, type StemChoice } from "@/lib/sharedFiles";
-import {
-  barSlots,
-  clearChordAt,
-  dropSlot,
-  nextSlot,
-  parseLabel,
-  setChordAt,
-} from "@/lib/editChords";
+import { parseLabel } from "@/lib/editChords";
 import { Popup } from "@/components/Popup";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { StrumPickModal } from "@/components/StrumPick";
@@ -123,6 +116,7 @@ import {
   type LyricLine,
   type Health,
   type JobStatus,
+  type PickedTab,
   type ResultSummary,
 } from "@/lib/types";
 import { voicingFor } from "@/lib/voicings";
@@ -899,65 +893,84 @@ export default function Home() {
     void saveLocal(r).catch(() => {});
   };
 
-  /** 고치는 마디에 놓인 코드 자리들. 창이 이것을 늘어놓는다 */
-  const editBarSlots = useMemo(() => {
-    if (editBar === null || !result || !bars[editBar]) return [];
-    return barSlots(result.chords, bars[editBar].start, bars[editBar].end);
-  }, [editBar, result, bars]);
+  /**
+   * 고치는 마디에 **악보가 적어 둔** 코드들.
+   *
+   * 코드는 악보가 정한다 — 타브·그리드·파형이 모두 여기서 만든 것을
+   * 쓴다. 그러니 고치는 것도 악보의 코드 글자여야 한다.
+   */
+  const editBarChords = useMemo(() => {
+    if (editBar === null || !abcEntry?.abc) return [];
+    let ms;
+    try {
+      ms = abcMeasures(abcEntry.abc);
+    } catch {
+      return [];
+    }
+    const one = ms[editBar];
+    if (!one) return [];
+    return [...one.text.matchAll(/"([^"^_<>@][^"]*)"/g)].map((m) => m[1].trim());
+  }, [editBar, abcEntry?.abc]);
+
+;
 
   /**
-   * 마디 안의 한 자리를 없앤다. 앞 코드가 그 자리까지 이어진다.
+   * 손으로 고친 자국을 지운다.
    *
-   * 한 마디에 둘로 잡힌 코드를 하나로 되돌리는 길이다 — 지우기는 빈칸을
-   * 남기지만 이것은 앞 코드를 늘인다.
+   * 예전에는 손으로 고친 코드가 악보보다 위였다 — 고쳐 놓은 자리를 악보가
+   * 덮으면 아무리 고쳐도 되돌아오기 때문이다. 이제 고치는 자리가 악보로
+   * 옮겨졌으니 그 자국은 악보를 막기만 한다. 지워서 길을 터 준다.
    */
-  const dropChordSlot = async (barIndex: number, slot: number) => {
-    if (!result) return;
-    const bar = bars[barIndex];
-    if (!bar) return;
-    const chords = dropSlot(result.chords, bar.start, bar.end, slot);
-    if (chords === result.chords) return;
-    setUndo((prev) => [...prev, result.chords].slice(-20));
-    const next = { ...result, chords };
+  const clearHandChords = () => {
+    if (!result?.chords.some((c) => c.edited)) return;
+    const next = {
+      ...result,
+      chords: result.chords.map((c) => (c.edited ? { ...c, edited: false } : c)),
+    };
     setResult(next);
-    setEditSlot(0);
     void pushToServer(next);
-    if (settings.autoSave) saveLocal(next).catch(() => {});
   };
 
+  /**
+   * 악보 한 마디의 코드를 갈아 끼운다.
+   *
+   * 음원 코드 목록에는 손대지 않는다 — 악보만 고치면 코드 통합이 마디마다
+   * 펴 주고, 타브·그리드·파형이 그것을 따른다. 목록에 직접 쓰면 그 자리가
+   * 「손으로 고친 것」이 되어 도리어 악보를 막는다.
+   *
+   * 창에서 고른 이름은 **울리는 높이**다. 악보에는 적힌 높이로 되돌려
+   * 넣는다 — 카포 악보에 울리는 이름을 적으면 두 번 옮겨진다.
+   */
   const applyChordEdit = async (
-    barIndex: number,
+    measure: number,
     change: { root: string; quality: string } | null,
     slot = 0,
   ) => {
-    if (!result) return;
-    const bar = bars[barIndex];
-    if (!bar) return;
+    if (!result || !abcEntry?.abc) return;
+    const names = [...editBarChords];
+    if (!change) {
+      // 지우기 — 자리가 둘 이상이면 그 자리만, 하나뿐이면 마디를 비운다
+      if (names.length > 1 && slot < names.length) names.splice(slot, 1);
+      else names.length = 0;
+    } else {
+      const label = labelFor(
+        transposeRoot(change.root, -scoreShift),
+        change.quality,
+        flats,
+      );
+      if (slot < names.length) names[slot] = label;
+      else names.push(label);
+    }
 
-    /* 고른 자리만 바꾼다. 마디를 통째로 덮으면 한 마디에 둘 있던 코드가
-       하나로 뭉쳐, 가운데서 바뀌는 곡을 고칠 수가 없다 */
-    const slots = barSlots(result.chords, bar.start, bar.end);
-    const at = slots[slot] ?? nextSlot(result.chords, bar.start, bar.end) ?? {
-      start: bar.start,
-      end: bar.end,
-    };
-    const chords = change
-      ? setChordAt(
-          result.chords,
-          at.start,
-          at.end,
-          transposeRoot(change.root, -noteShift) ?? change.root,
-          change.quality,
-        )
-      : clearChordAt(result.chords, at.start, at.end);
-
-    // 고치기 전 상태를 쌓아 둔다. 20단계면 충분하다
     setUndo((prev) => [...prev, result.chords].slice(-20));
-
-    const next = { ...result, chords };
-    setResult(next);
-    await saveLocal(next).catch(() => {});
-    pushToServer(next);
+    saveAbc(
+      result.id,
+      applyBarChords(abcEntry.abc, { [measure]: names }),
+      abcEntry.barOffset ?? 0,
+    );
+    setAbcEntry(getAbc(result.id));
+    // 손자국이 남아 있으면 악보가 그 마디를 못 편다
+    clearHandChords();
   };
 
   /**
@@ -1474,8 +1487,8 @@ export default function Home() {
    * 마디를 손으로 옮겨야 하는데, 부어 놓고 어긋난 마디만 손보는 편이
    * 빠르다. 마디마다 담기므로 「이 마디 되돌리기」도 그대로 듣는다.
    */
-  const fillTabFromPicture = () => {
-    const picked = result?.picked_tab;
+  const fillTabFromPicture = (fresh?: PickedTab) => {
+    const picked = fresh ?? result?.picked_tab;
     const score = tabFrame;
     if (!result || !picked || !score) return;
     const next: Record<number, TabBarEdit> = { ...(tabEdits ?? {}) };
@@ -1547,43 +1560,7 @@ export default function Home() {
     setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
   };
 
-  /**
-   * 손으로 고친 자국을 지운다.
-   *
-   * 손으로 고친 코드는 악보보다 위다 — 고쳐 놓은 자리를 악보가 덮으면
-   * 아무리 고쳐도 되돌아오기 때문이다. 그런데 「코드 넣기」는 이 곡의
-   * 코드를 악보가 정하겠다는 뜻이므로, 그 자국을 먼저 지워야 악보가
-   * 마디마다 펴진다. 지우지 않으면 그리드·파형이 옛 코드에 붙들린다.
-   */
-  const clearHandChords = () => {
-    if (!result?.chords.some((c) => c.edited)) return;
-    const next = {
-      ...result,
-      chords: result.chords.map((c) => (c.edited ? { ...c, edited: false } : c)),
-    };
-    setResult(next);
-    void pushToServer(next);
-  };
-
-  const fillChordsFromPicture = () => {
-    const picked = result?.picked_tab;
-    const entry = abcEntry;
-    if (!result || !picked || !entry?.abc) return;
-    const off = picked.bar_offset ?? 0;
-    const byBar: Record<number, string[]> = {};
-    for (const m of picked.measures)
-      if (m.chords?.length) byBar[m.no - 1 + off] = m.chords;
-    const put = Object.keys(byBar).length;
-    if (!put) {
-      setToast("그림에서 읽어 둔 코드가 없습니다");
-      return;
-    }
-    saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
-    setAbcFollow(result.id, true);
-    setAbcEntry(getAbc(result.id));
-    clearHandChords();
-    setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
-  };
+;
 
 
 
@@ -2451,12 +2428,7 @@ export default function Home() {
                       /* 그림을 읽었으면 곧바로 넣을 수 있어야 한다.
                          숫자는 악보가 없어도 넣는다(틀을 그림에서 세운다).
                          코드는 적어 넣을 악보가 있어야 한다 */
-                      onFillTab={result.picked_tab ? fillTabFromPicture : undefined}
-                      onFillChords={
-                        abcEntry?.abc && result.picked_tab
-                          ? fillChordsFromPicture
-                          : undefined
-                      }
+                      onFillTab={fillTabFromPicture}
                     />
                   )}
                   {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}
@@ -2490,6 +2462,16 @@ export default function Home() {
                         setAbcOffset(result.id, v);
                         setAbcEntry({ ...abcEntry, barOffset: v });
                       }}
+                      /* 코드 고치기는 악보에서 한다 — 타브·그리드·파형이
+                         모두 여기서 만든 코드를 쓴다 */
+                      onEditBar={
+                        canFix
+                          ? (m) => {
+                              setEditSlot(0);
+                              setEditBar(m);
+                            }
+                          : undefined
+                      }
                       musicKey={result.key}
                       sourceKey={sourceKey}
                       timeSignature={result.time_signature}
@@ -2655,10 +2637,6 @@ export default function Home() {
                       onSeek={(t) => {
                         playback?.seek(t);
                         setTime(t);
-                      }}
-                      onEditBar={(i) => {
-                        setEditSlot(0);
-                        setEditBar(i);
                       }}
                       barLabels={scoreBarNumbers}
                       barMarks={scoreBarMarks}
@@ -2996,10 +2974,6 @@ export default function Home() {
                             onSeek={(t) => {
                               playback?.seek(t);
                               setTime(t);
-                            }}
-                            onEditBar={(i) => {
-                              setEditSlot(0);
-                              setEditBar(i);
                             }}
                             barLabels={scoreBarNumbers}
                             barMarks={scoreBarMarks}
@@ -3902,34 +3876,34 @@ export default function Home() {
         {/* 곡 전체 악보. 재생 화면은 좁으므로 볼 때만 크게 펼친다. */}
 
         {/* 마디 코드 고르기 */}
-        {editBar !== null && result && bars[editBar] && (
+        {editBar !== null && result && abcEntry?.abc && (
           <ChordPicker
-            barNumber={scoreBarNumbers?.[editBar] ?? bars[editBar].number}
-            slots={editBarSlots.map((one) =>
-              one.root
-                ? labelFor(transposeRoot(one.root, noteShift), one.quality, flats)
-                : "",
-            )}
+            barNumber={editBar + 1}
+            slots={editBarChords.map((name) => {
+              const one = parseLabel(name);
+              return labelFor(
+                transposeRoot(one.root, scoreShift),
+                one.quality,
+                flats,
+              );
+            })}
             slot={editSlot}
             onSlot={setEditSlot}
-            canAdd={
-              !!nextSlot(result.chords, bars[editBar].start, bars[editBar].end)
-            }
+            canAdd={editBarChords.length < 4}
             current={(() => {
-              const one = editBarSlots[editSlot];
-              return one?.root
-                ? {
-                    root: transposeRoot(one.root, noteShift) ?? one.root,
-                    quality: one.quality,
-                  }
-                : null;
+              const name = editBarChords[editSlot];
+              if (!name) return null;
+              const one = parseLabel(name);
+              return {
+                root: transposeRoot(one.root, scoreShift) ?? one.root,
+                quality: one.quality,
+              };
             })()}
             flats={flats}
             onPick={(root, quality) =>
               applyChordEdit(editBar, { root, quality }, editSlot)
             }
             onClear={() => applyChordEdit(editBar, null, editSlot)}
-            onDrop={() => dropChordSlot(editBar, editSlot)}
             onClose={() => setEditBar(null)}
           />
         )}

@@ -21,6 +21,7 @@ import { ViewSteppers } from "@/components/ViewSteppers";
 import { abcOrders } from "@/lib/abcOrder";
 import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
+import { EDIT_HOLD_MS } from "@/lib/editChords";
 import { useSmoothTime } from "@/lib/useSmoothTime";
 
 /** abcjs가 마디마다 알려 주는 타이밍. 필요한 것만 추린다 */
@@ -64,6 +65,14 @@ interface Props {
   barOffset?: number;
   /** 악보를 한 마디씩 미는 손잡이(강사님) */
   onShiftBar?: (delta: number) => void;
+  /**
+   * 마디를 3초 길게 누르면(마우스는 오른쪽 클릭) 그 마디의 코드를 고친다.
+   *
+   * 코드는 악보가 정한다 — 타브·그리드·파형이 모두 여기서 만든 코드를
+   * 쓴다. 그러니 고치는 자리도 악보여야 한다. 넘기는 값은 **악보에 적힌
+   * 마디 번호**(0부터)다.
+   */
+  onEditBar?: (measure: number) => void;
   headerRight?: React.ReactNode;
   musicKey: string;
   /** 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 곁들인다 */
@@ -103,6 +112,7 @@ export function AbcScore({
   onSync,
   barOffset: barOffsetProp,
   onShiftBar,
+  onEditBar,
   headerRight,
   musicKey,
   sourceKey,
@@ -127,6 +137,10 @@ export function AbcScore({
   /** 악보 첫 마디가 음원의 몇 번째 마디인지. 곡에 저장된 값을 쓴다 */
   const barOffset = barOffsetProp ?? 0;
   const now = useSmoothTime(time, getTime);
+  /* 고치는 손잡이는 ref로 든다. 프롭이 바뀔 때마다 악보를 다시 그리면
+     커서가 튀고 스크롤이 처음으로 돌아간다 */
+  const onEditRef = useRef(onEditBar);
+  onEditRef.current = onEditBar;
 
   // ---- 악보 그리기 ----
   useEffect(() => {
@@ -175,6 +189,7 @@ ${abc}`;
         if (e.measureStart) idx++;
         return { ...e, playMeasure: Math.max(idx, 0) };
       });
+      if (onEditRef.current) markMeasures(hostRef.current, onEditRef.current);
       setTimings(list);
       // 다시 그렸으니 커서와 음표 표시도 새로 잡는다 (옛 노드는 사라졌다)
       cursorRef.current = null;
@@ -458,4 +473,71 @@ ${abc}`;
   );
 }
 
-
+/**
+ * 마디마다 눌러서 고칠 판을 깐다.
+ *
+ * abcjs는 음표마다 abcjs-mm{번호} 딱지를 붙인다 — 악보에 적힌 마디
+ * 번호(0부터)다. 같은 번호끼리 묶어 그 넓이를 재면 마디 하나가 차지한
+ * 자리가 나온다. 그 위에 보이지 않는 판을 얹고, 3초 길게 누르거나
+ * 오른쪽 클릭하면 그 마디를 연다.
+ */
+function markMeasures(host: HTMLElement, onEdit: (m: number) => void): void {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  const boxes = new Map<number, { x: number; y: number; r: number; b: number }>();
+  for (const g of svg.querySelectorAll<SVGGraphicsElement>("g.abcjs-note")) {
+    let mm: number | null = null;
+    for (const c of (g.getAttribute("class") ?? "").split(" "))
+      if (c.startsWith("abcjs-mm")) {
+        const n = Number(c.slice("abcjs-mm".length));
+        if (Number.isInteger(n)) mm = n;
+      }
+    if (mm === null) continue;
+    let box;
+    try {
+      box = g.getBBox();
+    } catch {
+      continue;
+    }
+    if (!box.width && !box.height) continue;
+    const had = boxes.get(mm);
+    boxes.set(
+      mm,
+      had
+        ? {
+            x: Math.min(had.x, box.x),
+            y: Math.min(had.y, box.y),
+            r: Math.max(had.r, box.x + box.width),
+            b: Math.max(had.b, box.y + box.height),
+          }
+        : { x: box.x, y: box.y, r: box.x + box.width, b: box.y + box.height },
+    );
+  }
+  let hold: number | null = null;
+  for (const [mm, box] of boxes) {
+    const hit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    hit.setAttribute("x", String(box.x - 4));
+    hit.setAttribute("y", String(box.y - 6));
+    hit.setAttribute("width", String(Math.max(box.r - box.x + 8, 8)));
+    hit.setAttribute("height", String(Math.max(box.b - box.y + 12, 12)));
+    hit.setAttribute("fill", "transparent");
+    hit.style.cursor = "context-menu";
+    const stop = () => {
+      if (hold) window.clearTimeout(hold);
+      hold = null;
+    };
+    hit.addEventListener("pointerdown", () => {
+      stop();
+      hold = window.setTimeout(() => onEdit(mm), EDIT_HOLD_MS);
+    });
+    hit.addEventListener("pointerup", stop);
+    hit.addEventListener("pointerleave", stop);
+    hit.addEventListener("pointercancel", stop);
+    hit.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      stop();
+      onEdit(mm);
+    });
+    svg.appendChild(hit);
+  }
+}

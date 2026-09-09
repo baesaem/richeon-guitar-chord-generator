@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 
 import { putResult, putTabImage, readSheetTabAi } from "@/lib/api";
-import type { AnalysisResult } from "@/lib/types";
+import type { AnalysisResult, PickedTab } from "@/lib/types";
 
 /**
  * 인쇄된 타브 악보(PDF) 읽어 붙이기 — 강사님 화면에만 나온다.
@@ -20,15 +20,17 @@ export function TabAttach({
   onResult,
   online,
   onFillTab,
-  onFillChords,
 }: {
   result: AnalysisResult;
   onResult: (r: AnalysisResult) => void;
   online: boolean;
-  /** 읽어 둔 그림 타브의 **숫자**를 악보 마디에 얹는다 */
-  onFillTab?: () => void;
-  /** 읽어 둔 그림 타브의 **코드 이름**을 곡의 악보에 적어 넣는다 */
-  onFillChords?: () => void;
+  /**
+   * 읽은 그림 타브의 숫자를 악보 마디에 얹는다.
+   *
+   * 읽자마자 부른다 — 읽어 두기만 하고 넣지 않으면 화면이 그대로라
+   * 「안 읽혔다」로 보인다. 갓 읽은 것을 함께 넘긴다(상태는 아직 옛 것이다).
+   */
+  onFillTab?: (picked?: PickedTab) => void;
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
   const pickAi = useRef<HTMLInputElement | null>(null);
@@ -46,6 +48,7 @@ export function TabAttach({
       onResult(next);
       const t = next.picked_tab;
       if (t) {
+        onFillTab?.(t);
         const strum = t.measures.filter((m) => m.kind === "strum").length;
         setNote(
           `타브 ${t.measures.length}마디를 읽었습니다` +
@@ -73,6 +76,7 @@ export function TabAttach({
     try {
       const got = await readSheetTabAi(result.id, file);
       onResult(got.result);
+      if (got.result.picked_tab) onFillTab?.(got.result.picked_tab);
       setNote(
         `AI가 ${got.bars}마디 가운데 숫자 ${got.read}마디, 코드 ${got.chordBars}마디를 읽었습니다.`,
       );
@@ -132,27 +136,6 @@ export function TabAttach({
       </button>
       {tab && (
         <>
-          {/* 넣는 일을 숫자와 코드로 가른다 — 숫자는 타브에만 얹히지만
-              코드는 멜로디·그리드까지 함께 바뀌므로, 하나만 하고 싶을 때가
-              있다 */}
-          {onFillTab && (
-            <button
-              className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)]"
-              onClick={onFillTab}
-              title="읽어 둔 그림 타브의 프렛 숫자를 악보 마디마다 얹습니다. 마디별로 되돌릴 수 있습니다"
-            >
-              숫자 넣기
-            </button>
-          )}
-          {onFillChords && (
-            <button
-              className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)]"
-              onClick={onFillChords}
-              title="읽어 둔 그림 악보의 코드 이름을 곡의 악보에 적어 넣습니다. 멜로디·그리드·타브가 모두 이 코드를 따릅니다"
-            >
-              코드 넣기
-            </button>
-          )}
           <button
             className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
             disabled={busy || !online}
