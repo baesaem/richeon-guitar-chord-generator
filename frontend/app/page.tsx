@@ -1536,10 +1536,29 @@ export default function Home() {
       setToast("그림에서 코드를 읽지 못했습니다");
       return;
     }
-    saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
+    const next = applyBarChords(entry.abc, byBar);
+    /* 몇 마디가 실제로 달라졌는지 센다.
+       「넣었습니다」만 적으면, 이미 같은 코드가 들어 있어 아무것도 바뀌지
+       않았을 때 「안 먹었다」로 보인다 — 달라진 것이 없다고 적어야 안다 */
+    let moved = 0;
+    try {
+      const was = abcMeasures(entry.abc);
+      const now = abcMeasures(next);
+      const names = (t: string) =>
+        [...t.matchAll(/"([^"^_<>@][^"]*)"/g)].map((m) => m[1].trim()).join(" ");
+      for (const j of Object.keys(byBar).map(Number))
+        if (was[j] && now[j] && names(was[j].text) !== names(now[j].text)) moved++;
+    } catch {
+      moved = -1;
+    }
+    saveAbc(result.id, next, entry.barOffset ?? 0);
     setAbcFollow(result.id, true);
     setAbcEntry(getAbc(result.id));
-    setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
+    setToast(
+      moved === 0
+        ? `그림 악보의 코드 ${put}마디를 읽었습니다 — 이미 같아서 달라진 마디가 없습니다`
+        : `그림 악보의 코드를 읽어 ${moved < 0 ? put : moved}마디를 고쳤습니다`,
+    );
   };
 
 
