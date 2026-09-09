@@ -1543,44 +1543,24 @@ export default function Home() {
     saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
     setAbcFollow(result.id, true);
     setAbcEntry(getAbc(result.id));
-    putPictureChordsOnAudio(byBar);
+    clearHandChords();
     setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
   };
 
   /**
-   * 그림에서 읽은 코드를 **음원 코드 목록**에도 얹는다.
+   * 손으로 고친 자국을 지운다.
    *
-   * 그리드와 파형은 악보(ABC)가 아니라 음원에서 딴 코드 목록을 그린다.
-   * 악보만 고치면 멜로디만 바뀌고 그리드는 옛 코드를 그대로 부른다 —
-   * 같은 곡을 두 이름으로 부르게 된다. 악보에 적힌 조를 울리는 높이로
-   * 올려 목록에 적어 넣는다.
+   * 손으로 고친 코드는 악보보다 위다 — 고쳐 놓은 자리를 악보가 덮으면
+   * 아무리 고쳐도 되돌아오기 때문이다. 그런데 「코드 넣기」는 이 곡의
+   * 코드를 악보가 정하겠다는 뜻이므로, 그 자국을 먼저 지워야 악보가
+   * 마디마다 펴진다. 지우지 않으면 그리드·파형이 옛 코드에 붙들린다.
    */
-  const putPictureChordsOnAudio = (byBar: Record<number, string[]>) => {
-    if (!result) return;
-    let chords = result.chords;
-    const off = abcEntry?.barOffset ?? 0;
-    bars.forEach((bar, k) => {
-      const no = scoreBarNumbers?.[k];
-      const j = no !== undefined ? no - 1 : k - off;
-      const names = byBar[j];
-      if (!names?.length) return;
-      // 마디를 코드 수만큼 고르게 나눈다
-      const span = (bar.end - bar.start) / names.length;
-      names.forEach((name, i) => {
-        const { root, quality } = parseLabel(name);
-        const sounding = transposeRoot(root, scoreShift) ?? root;
-        chords = setChordAt(
-          chords,
-          bar.start + i * span,
-          bar.start + (i + 1) * span,
-          sounding,
-          quality,
-        );
-      });
-    });
-    if (chords === result.chords) return;
-    setUndo((prev) => [...prev, result.chords].slice(-20));
-    const next = { ...result, chords };
+  const clearHandChords = () => {
+    if (!result?.chords.some((c) => c.edited)) return;
+    const next = {
+      ...result,
+      chords: result.chords.map((c) => (c.edited ? { ...c, edited: false } : c)),
+    };
     setResult(next);
     void pushToServer(next);
   };
@@ -1601,7 +1581,7 @@ export default function Home() {
     saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
     setAbcFollow(result.id, true);
     setAbcEntry(getAbc(result.id));
-    putPictureChordsOnAudio(byBar);
+    clearHandChords();
     setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
   };
 
