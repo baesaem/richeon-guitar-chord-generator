@@ -39,6 +39,24 @@ export interface AbcEntry {
    * 보표가 들어 있으면 짚는 줄과 프렛을 적힌 그대로 담아 둔다.
    */
   tabScore?: TabScore;
+  /**
+   * 강사님이 손으로 옮긴 타브 자리. 마디 번호(0부터) → 고친 내용.
+   *
+   * 악보에서 읽어 온 것(tabScore)은 건드리지 않고 그 위에 얹는다.
+   * 그래야 「이 마디 되돌리기」가 한 줄 지우는 일이 되고, 악보를 다시
+   * 붙여도 고쳐 둔 것이 살아남는다.
+   */
+  tabEdits?: Record<number, TabBarEdit>;
+}
+
+/** 마디 하나를 손으로 고친 내용 */
+export interface TabBarEdit {
+  /** 자리를 박 길이대로 놓는다. 없으면 고르게 나눈다 */
+  beat?: boolean;
+  /** 빈 자리를 끼울 자리 번호들. 그 앞이 한 칸씩 벌어진다 */
+  gaps?: number[];
+  /** 자리마다 반 칸씩 미는 값. 왼쪽이 음수 */
+  nudge?: Record<number, number>;
 }
 
 type Store = Record<string, AbcEntry>;
@@ -90,6 +108,19 @@ export function setAbcTabScore(songId: string, tabScore: TabScore | null): void 
   const cur = store[songId];
   if (!cur) return;
   store[songId] = { ...cur, tabScore: tabScore ?? undefined };
+  write(store);
+}
+
+/** 손으로 옮긴 타브 자리를 적어 둔다. 빈 값이면 그 마디는 악보대로 */
+export function setAbcTabEdits(
+  songId: string,
+  tabEdits: Record<number, TabBarEdit>,
+): void {
+  const store = read();
+  const cur = store[songId];
+  if (!cur) return;
+  const kept = Object.keys(tabEdits).length ? tabEdits : undefined;
+  store[songId] = { ...cur, tabEdits: kept };
   write(store);
 }
 

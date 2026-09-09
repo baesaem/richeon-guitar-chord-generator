@@ -10,7 +10,14 @@ import {
 } from "./library";
 import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { instKey, stemKey } from "./sharedFiles";
-import { getAbc, saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
+import {
+  getAbc,
+  saveAbc,
+  setAbcFollow,
+  setAbcTabEdits,
+  setAbcTabScore,
+} from "./abcStore";
+import type { TabBarEdit } from "./abcStore";
 import type { TabScore } from "./msczToAbc";
 import { loadSheets, saveSheets } from "./sheetCache";
 import { getSheetPage, saveSheetPage } from "./library";
@@ -72,6 +79,8 @@ export interface SongBundle {
     barOffset: number;
     tabScore?: TabScore;
     follow?: boolean;
+    /** 강사님이 손으로 옮긴 타브 자리. 곡과 함께 간다 */
+    tabEdits?: Record<number, TabBarEdit>;
   };
 }
 
@@ -233,6 +242,7 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
       barOffset: abc.barOffset,
       tabScore: abc.tabScore,
       follow: abc.follow,
+      tabEdits: abc.tabEdits,
     };
 
   // loadSetup은 늘 값을 준다. 손대지 않은 기본값까지 담을 이유는 없다.
@@ -384,6 +394,8 @@ export async function openBundle(
         got.push("타브 악보");
       }
       if (bundle.abc.follow) setAbcFollow(bundle.result.id, true);
+      if (bundle.abc.tabEdits)
+        setAbcTabEdits(bundle.result.id, bundle.abc.tabEdits);
     } catch {
       /* 자리가 모자라도 코드·가사는 들어간다 */
     }

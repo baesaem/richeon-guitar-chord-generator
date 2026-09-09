@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Popup } from "@/components/Popup";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
+import type { TabBarEdit } from "@/lib/abcStore";
 import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
 import { barIndexAt } from "@/lib/bars";
-import type { TabScore } from "@/lib/msczToAbc";
+import type { TabBar, TabScore } from "@/lib/msczToAbc";
 import { shiftChordLabel } from "@/lib/notation";
 import type { StrumChoice } from "@/lib/strumLibrary";
 import type { LyricLine } from "@/lib/types";
@@ -92,6 +94,43 @@ interface Props {
   flats?: boolean;
   /** 이 곡의 가사. 악보의 음절에 띄어쓰기를 되살리는 데 쓴다 */
   lyrics?: LyricLine[];
+  /** 손으로 옮겨 둔 자리. 마디 번호(0부터) → 고친 내용 */
+  edits?: Record<number, TabBarEdit>;
+  /**
+   * 자리를 옮기는 손잡이(강사님, 편집 화면에서만).
+   *
+   * 없으면 마디를 길게 눌러도 아무 일이 없다 — 전체보기와 연습실은
+   * 치기만 하는 자리라 잘못 눌러 악보가 바뀌면 안 된다.
+   */
+  onEdits?: (next: Record<number, TabBarEdit>) => void;
+}
+
+/**
+ * 마디 안에서 자리 k가 가로로 어디에 서는가(0~1).
+ *
+ * 기본은 **고르게 나누기**다. 음표 머리도 기둥도 없는 타브에서는 그래야
+ * 몇 번째에 짚는지 눈으로 센다. 마디마다 「박 길이대로」로 바꿀 수 있고,
+ * 빈 자리를 끼우거나 한 자리만 반 칸씩 밀 수도 있다 — 종이 악보의
+ * 손글씨처럼, 짚는 때를 눈에 보이게 하려고.
+ */
+function spotOf(bar: TabBar, k: number, edit: TabBarEdit | undefined): number {
+  const gaps = edit?.gaps ?? [];
+  const nudge = edit?.nudge?.[k] ?? 0;
+  let at: number;
+  let step: number;
+  if (edit?.beat) {
+    const units = bar.cols.map((c) => c.units);
+    const total = units.reduce((a, b) => a + b, 0) || 1;
+    const offs = offsets(units);
+    step = units[k] / total;
+    at = offs[k] + step / 2;
+  } else {
+    const slots = bar.cols.length + gaps.length || 1;
+    const before = gaps.filter((g) => g <= k).length;
+    step = 1 / slots;
+    at = (k + before + 0.5) * step;
+  }
+  return Math.min(Math.max(at + (nudge * step) / 2, 0.02), 0.98);
 }
 
 /**
@@ -169,7 +208,12 @@ export function TabSheet({
   chordShift = 0,
   flats = false,
   lyrics,
+  edits,
+  onEdits,
 }: Props) {
+  /** 지금 고치고 있는 마디와 고른 자리 */
+  const [fixing, setFixing] = useState<{ bar: number; col: number } | null>(null);
+  const holdRef = useRef<number | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   /** 지금 치는 줄의 자리표. 창을 굴려 이 자리를 가운데로 끌어온다 */
   const markRef = useRef<SVGRectElement | null>(null);
@@ -372,11 +416,11 @@ export function TabSheet({
     });
 
     // ---- 숫자와 코드 ----
+    const edit = edits?.[j];
     const offs = offsets(bar.cols.map((c) => c.units));
     bar.cols.forEach((col, k) => {
-      /* 자리는 박 길이가 아니라 **고른 간격**으로 나눈다. 음표 머리도
-         기둥도 없는 타브에서는 그래야 몇 번째에 짚는지 눈으로 센다 */
-      const x = p.x + ((k + 0.5) * p.w) / bar.cols.length;
+      const x = p.x + spotOf(bar, k, edit) * p.w;
+      const picked = fixing?.bar === j && fixing.col === k;
       const live =
         at?.bar === j &&
         at.f >= offs[k] &&
@@ -407,7 +451,7 @@ export function TabSheet({
               fontSize={13}
               fontWeight={700}
               textAnchor="middle"
-              fill={live ? "#dc2626" : "var(--tab-ink)"}
+              fill={picked ? "#2563eb" : live ? "#dc2626" : "var(--tab-ink)"}
             >
               {f.fret}
             </text>
@@ -416,6 +460,42 @@ export function TabSheet({
       }
     });
   });
+
+  /* 마디를 3초 길게 누르면 그 마디를 고친다 — 코드 고칠 때와 같은 손짓.
+     마우스는 오른쪽 클릭. 편집 화면에서만 판을 깐다 */
+  const holds = onEdits
+    ? score.bars.map((bar, j) => {
+        const p = placeOf(j);
+        const open = () => setFixing({ bar: j, col: 0 });
+        const start = () => {
+          if (holdRef.current) window.clearTimeout(holdRef.current);
+          holdRef.current = window.setTimeout(open, 3000);
+        };
+        const stop = () => {
+          if (holdRef.current) window.clearTimeout(holdRef.current);
+          holdRef.current = null;
+        };
+        return (
+          <rect
+            key={`hit${j}`}
+            x={p.x}
+            y={p.top - HEAD + 10}
+            width={p.w}
+            height={HEAD + STAFF + FOOT - 12}
+            fill="transparent"
+            style={{ cursor: "context-menu" }}
+            onPointerDown={start}
+            onPointerUp={stop}
+            onPointerLeave={stop}
+            onPointerCancel={stop}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              open();
+            }}
+          />
+        );
+      })
+    : null;
 
   // ---- 커서 ----
   let cursor: React.ReactNode = null;
@@ -435,8 +515,142 @@ export function TabSheet({
     );
   }
 
+  /* ---- 마디 하나를 고치는 창 ---- */
+  const fixBar = fixing ? score.bars[fixing.bar] : null;
+  const fixEdit = fixing ? edits?.[fixing.bar] : undefined;
+  /** 이 마디의 고친 내용을 갈아 끼운다. 빈 것이 되면 줄째 지운다 */
+  const putEdit = (next: TabBarEdit) => {
+    if (!fixing || !onEdits) return;
+    const all = { ...(edits ?? {}) };
+    const empty =
+      !next.beat && !next.gaps?.length && !Object.keys(next.nudge ?? {}).length;
+    if (empty) delete all[fixing.bar];
+    else all[fixing.bar] = next;
+    onEdits(all);
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {fixing && fixBar && (
+        <Popup
+          title={`${fixing.bar + 1}마디 자리 고치기`}
+          onClose={() => setFixing(null)}
+        >
+          <div className="flex flex-col gap-3 px-4 pb-4 text-sm">
+            <p className="text-[12px] leading-snug text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
+              옮길 자리를 고르고 ◀ ▶로 미세요. 반 칸씩 움직입니다.
+            </p>
+            {/* 이 마디의 자리들. 누르면 골라진다 */}
+            <div className="flex flex-wrap gap-1">
+              {fixBar.cols.map((col, k) => (
+                <button
+                  key={k}
+                  onClick={() => setFixing({ bar: fixing.bar, col: k })}
+                  className={[
+                    "rounded px-2 py-1 text-[12px] font-semibold tabular-nums",
+                    fixing.col === k
+                      ? "bg-[var(--pick)] text-[var(--pick-ink)]"
+                      : "bg-[var(--chip)] text-[var(--foreground)]",
+                  ].join(" ")}
+                  title={`${k + 1}번째 자리`}
+                >
+                  {col.frets.length
+                    ? col.frets
+                        .slice()
+                        .sort((a, b) => a.string - b.string)
+                        .map((f) => f.fret)
+                        .join("·")
+                    : "쉼"}
+                </button>
+              ))}
+            </div>
+            {/* 고른 자리를 반 칸씩 민다 */}
+            <div className="flex items-center gap-1.5">
+              <button
+                className="rounded bg-[var(--chip)] px-3 py-1.5 font-semibold"
+                onClick={() => {
+                  const nudge = { ...(fixEdit?.nudge ?? {}) };
+                  nudge[fixing.col] = (nudge[fixing.col] ?? 0) - 1;
+                  if (!nudge[fixing.col]) delete nudge[fixing.col];
+                  putEdit({ ...fixEdit, nudge });
+                }}
+              >
+                ◀ 반 칸
+              </button>
+              <span className="min-w-8 text-center text-[12px] tabular-nums text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]">
+                {fixEdit?.nudge?.[fixing.col] ?? 0}
+              </span>
+              <button
+                className="rounded bg-[var(--chip)] px-3 py-1.5 font-semibold"
+                onClick={() => {
+                  const nudge = { ...(fixEdit?.nudge ?? {}) };
+                  nudge[fixing.col] = (nudge[fixing.col] ?? 0) + 1;
+                  if (!nudge[fixing.col]) delete nudge[fixing.col];
+                  putEdit({ ...fixEdit, nudge });
+                }}
+              >
+                반 칸 ▶
+              </button>
+            </div>
+            {/* 빈 자리를 끼우면 그 뒤가 통째로 벌어진다 */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                className="rounded bg-[var(--chip)] px-2 py-1.5 text-[12px] font-semibold"
+                onClick={() =>
+                  putEdit({
+                    ...fixEdit,
+                    gaps: [...(fixEdit?.gaps ?? []), fixing.col].sort(
+                      (a, b) => a - b,
+                    ),
+                  })
+                }
+                title="고른 자리 앞을 한 칸 벌립니다"
+              >
+                빈 자리 넣기
+              </button>
+              <button
+                className="rounded bg-[var(--chip)] px-2 py-1.5 text-[12px] font-semibold disabled:opacity-40"
+                disabled={!fixEdit?.gaps?.length}
+                onClick={() => {
+                  const gaps = [...(fixEdit?.gaps ?? [])];
+                  const at = gaps.lastIndexOf(fixing.col);
+                  if (at >= 0) gaps.splice(at, 1);
+                  else gaps.pop();
+                  putEdit({ ...fixEdit, gaps });
+                }}
+              >
+                빈 자리 빼기
+              </button>
+              <button
+                className={[
+                  "rounded px-2 py-1.5 text-[12px] font-semibold",
+                  fixEdit?.beat
+                    ? "bg-[var(--pick)] text-[var(--pick-ink)]"
+                    : "bg-[var(--chip)]",
+                ].join(" ")}
+                onClick={() => putEdit({ ...fixEdit, beat: !fixEdit?.beat })}
+                title="음표 길이만큼 자리를 벌립니다. 끄면 고르게 나눕니다"
+              >
+                박 길이대로
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-[var(--panel-line)] pt-3">
+              <button
+                className="rounded px-2 py-1.5 text-[12px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2"
+                onClick={() => putEdit({})}
+              >
+                이 마디 되돌리기
+              </button>
+              <button
+                className="rounded bg-[var(--pick)] px-4 py-1.5 font-semibold text-[var(--pick-ink)]"
+                onClick={() => setFixing(null)}
+              >
+                다 됐습니다
+              </button>
+            </div>
+          </div>
+        </Popup>
+      )}
       <SongInfoLine
         musicKey={musicKey}
         timeSignature={timeSignature}
@@ -484,6 +698,7 @@ export function TabSheet({
           {staves}
           {ink}
           {marks}
+          {holds}
           {liveRow >= 0 && (
             <rect
               ref={markRef}

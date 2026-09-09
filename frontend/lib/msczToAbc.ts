@@ -106,6 +106,14 @@ interface NoteEv {
   notes: { midi: number; tpc: number; tie: boolean; fret: number | null; string: number | null }[];
   lyric: string | null;
   lyric2: string | null;
+  /**
+   * 셋잇단 따위의 길이 비율(2/3 같은 것). 없으면 1.
+   *
+   * units는 그대로 둔다 — ABC로 옮길 때 쓰는 값이라, 여기서 줄이면
+   * 「1.333/2」 같은 적을 수 없는 길이가 나온다. 타브를 박 길이대로
+   * 놓을 때만 이 비율을 곱한다.
+   */
+  tuplet?: number;
   harmony: { root?: string; name?: string; base?: string } | null;
 }
 
@@ -152,6 +160,14 @@ function parseStaff(body: string): Measure[] {
   const measures: Measure[] = [];
   for (const mm of body.matchAll(/<Measure([^>]*)>([\s\S]*?)<\/Measure>/g)) {
     const content = mm[2];
+    /* 셋잇단은 마디 앞에 <Tuplet id="185">로 한 번 적어 두고, 그 안의
+       음마다 <Tuplet>185</Tuplet>로 가리킨다. 끝을 알리는 표는 없다 */
+    const ratios = new Map<string, number>();
+    for (const t of content.matchAll(/<Tuplet id="(\d+)">([\s\S]*?)<\/Tuplet>/g)) {
+      const normal = +((t[2].match(/<normalNotes>(\d+)/) ?? [])[1] ?? 0);
+      const actual = +((t[2].match(/<actualNotes>(\d+)/) ?? [])[1] ?? 0);
+      if (normal > 0 && actual > 0) ratios.set(t[1], normal / actual);
+    }
     const events: NoteEv[] = [];
     let pendingHarmony: NoteEv["harmony"] = null;
     let keysig: number | null = null;
@@ -180,9 +196,11 @@ function parseStaff(body: string): Measure[] {
           if (dots === 1) units *= 1.5;
           if (dots === 2) units *= 1.75;
         }
+        const inTuplet = inner.match(/<Tuplet>(\d+)<\/Tuplet>/);
+        const tuplet = inTuplet ? ratios.get(inTuplet[1]) : undefined;
         if (tag === "Rest") {
           events.push({
-            type: "rest", units, notes: [],
+            type: "rest", units, notes: [], tuplet,
             lyric: null, lyric2: null, harmony: pendingHarmony,
           });
         } else {
@@ -210,7 +228,7 @@ function parseStaff(body: string): Measure[] {
             if (verse <= 1) lyrics[verse] = text;
           }
           events.push({
-            type: "note", units, notes,
+            type: "note", units, notes, tuplet,
             lyric: lyrics[0] ?? null, lyric2: lyrics[1] ?? null,
             harmony: pendingHarmony,
           });
@@ -535,7 +553,8 @@ export function msczToTab(
     const lend = own.length ? [] : (f?.events ?? []).filter((e) => e.harmony?.root);
 
     const cols: TabCol[] = m.events.map((ev) => ({
-      units: ev.units,
+      // 셋잇단은 여기서 줄인다 — 마디 길이 합이 맞아야 박대로 놓을 수 있다
+      units: ev.units * (ev.tuplet ?? 1),
       frets: ev.notes
         .filter((n) => n.fret !== null && n.string !== null)
         .map((n) => ({ string: n.string as number, fret: n.fret as number })),

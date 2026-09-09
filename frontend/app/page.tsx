@@ -25,6 +25,7 @@ import {
   getAbc,
   removeAbc,
   saveAbc,
+  setAbcTabEdits,
   setAbcFollow,
   setAbcOffset,
   type AbcEntry,
@@ -1204,7 +1205,7 @@ export default function Home() {
    * 건드리면 커서가 통째로 밀린다. 연습실에서는 손전화의 유일한 싱크
    * 손잡이라 그대로 둔다.
    */
-  const makeAbcTab = (withSync: boolean) =>
+  const makeAbcTab = (withSync: boolean, withFix = false) =>
     result && abcEntry ? (
       abcEntry.tabScore ? (
         <TabSheet
@@ -1220,6 +1221,17 @@ export default function Home() {
           chordShift={abcTranspose}
           flats={flats}
           lyrics={result.lyrics ?? undefined}
+          edits={abcEntry.tabEdits}
+          /* 자리를 옮기는 일은 편집에서만. 치는 자리에서 잘못 누르면
+             악보가 바뀐다 */
+          onEdits={
+            withFix
+              ? (next) => {
+                  setAbcTabEdits(result.id, next);
+                  setAbcEntry(getAbc(result.id));
+                }
+              : undefined
+          }
           sync={sync}
           onSync={withSync ? setSync : undefined}
           chordNote={unified}
@@ -2122,7 +2134,7 @@ export default function Home() {
                     />
                   )}
                   {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}
-                  {sheetTab === "score" && makeAbcTab(canFix)}
+                  {sheetTab === "score" && makeAbcTab(canFix, canFix)}
                   {sheetTab === "score" && !abcTab && (
                     /* 곡 전체를 줄줄이 — 창을 씌우지 않아 처음부터 끝까지 훑는다 */
                     <ChordScore
