@@ -467,20 +467,16 @@ export function unifyChords(
   const laid: Chord[] = [];
   let first = Infinity;
   let last = -Infinity;
-  /* 강사님이 손수 고친 코드는 그대로 둔다.
+  /* 손으로 고친 코드를 비켜 가지 않는다.
    *
-   * 고쳐 놓은 자리를 악보로 덮으면 아무리 고쳐도 되돌아오는 꼴이 된다.
-   * 사람이 정한 것이 악보보다도 위다.
+   * 예전에는 음원 코드 목록에서 고쳤으므로 그 자리를 악보가 덮으면 안
+   * 됐다. 이제 고치는 자리가 악보로 옮겨졌으니, 목록에 남은 옛 자국은
+   * 악보를 막기만 한다 — 마디 하나가 막히는 것이 아니라 통째로 손을
+   * 놓아 그리드·파형이 옛 코드에 붙들렸다.
    */
-  const byHand = bars
-    .flatMap((b) => b.chords)
-    .filter((c, i, all) => c.edited && all.indexOf(c) === i);
-  const touched = (from: number, to: number) =>
-    byHand.some((c) => c.start < to && c.end > from);
-
   orders.withJump.forEach((d, k) => {
     const bar = bars[k + barOffset];
-    if (!bar || touched(bar.start, bar.end)) return;
+    if (!bar) return;
     first = Math.min(first, bar.start);
     last = Math.max(last, bar.end);
     const slots = meas[d]?.slots ?? [];
@@ -515,7 +511,7 @@ export function unifyChords(
   const outside = bars
     .flatMap((b) => b.chords)
     .filter((c, i, all) => all.indexOf(c) === i)
-    .filter((c) => c.edited || c.end <= first || c.start >= last);
+    .filter((c) => c.end <= first || c.start >= last);
   const chords = [...outside, ...laid].sort((x, y) => x.start - y.start);
 
   // 몇 자리나 달랐나 — 음원이 잘못 들었던 자리 수다

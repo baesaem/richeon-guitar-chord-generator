@@ -521,6 +521,10 @@ function markMeasures(host: HTMLElement, onEdit: (m: number) => void): void {
     hit.setAttribute("width", String(Math.max(box.r - box.x + 8, 8)));
     hit.setAttribute("height", String(Math.max(box.b - box.y + 12, 12)));
     hit.setAttribute("fill", "transparent");
+    /* 테두리를 못 박아 지운다. abcjs가 svg에 stroke를 걸어 두어, 그냥
+       두면 마디마다 검은 네모가 그려진다 — 보이지 않아야 할 판이다 */
+    hit.setAttribute("stroke", "none");
+    hit.setAttribute("pointer-events", "all");
     hit.style.cursor = "context-menu";
     const stop = () => {
       if (hold) window.clearTimeout(hold);

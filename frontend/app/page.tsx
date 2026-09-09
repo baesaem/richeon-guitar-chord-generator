@@ -914,22 +914,7 @@ export default function Home() {
 
 ;
 
-  /**
-   * 손으로 고친 자국을 지운다.
-   *
-   * 예전에는 손으로 고친 코드가 악보보다 위였다 — 고쳐 놓은 자리를 악보가
-   * 덮으면 아무리 고쳐도 되돌아오기 때문이다. 이제 고치는 자리가 악보로
-   * 옮겨졌으니 그 자국은 악보를 막기만 한다. 지워서 길을 터 준다.
-   */
-  const clearHandChords = () => {
-    if (!result?.chords.some((c) => c.edited)) return;
-    const next = {
-      ...result,
-      chords: result.chords.map((c) => (c.edited ? { ...c, edited: false } : c)),
-    };
-    setResult(next);
-    void pushToServer(next);
-  };
+;
 
   /**
    * 악보 한 마디의 코드를 갈아 끼운다.
@@ -969,8 +954,6 @@ export default function Home() {
       abcEntry.barOffset ?? 0,
     );
     setAbcEntry(getAbc(result.id));
-    // 손자국이 남아 있으면 악보가 그 마디를 못 편다
-    clearHandChords();
   };
 
   /**
@@ -1556,11 +1539,9 @@ export default function Home() {
     saveAbc(result.id, applyBarChords(entry.abc, byBar), entry.barOffset ?? 0);
     setAbcFollow(result.id, true);
     setAbcEntry(getAbc(result.id));
-    clearHandChords();
     setToast(`그림 악보의 코드를 ${put}마디에 넣었습니다`);
   };
 
-;
 
 
 
