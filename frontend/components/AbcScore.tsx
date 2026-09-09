@@ -78,9 +78,6 @@ interface Props {
   /** 악보·파형·타브의 코드를 한 벌로 모은 결과. 표시줄에 알려 준다 */
   chordNote?: SongChordResult | null;
   /** 음원 분석과 얼마나 다르든 악보 코드를 따르는가 */
-  follow?: boolean;
-  /** 그것을 켜고 끄는 손잡이(강사님). 없으면 단추를 두지 않는다 */
-  onFollow?: (on: boolean) => void;
   /**
    * 음원의 박을 악보의 펼친 마디 수에 맞춰 고르게 다시 깐다(강사님).
    * 박 찾기가 정수로 돌아오지 않는 배율로 어긋났을 때의 마지막 길이다.
@@ -115,8 +112,6 @@ export function AbcScore({
   onPickStrum,
   playStyle,
   chordNote,
-  follow = false,
-  onFollow,
   onFitBars,
   onSetBpm,
   audioBpm = 0,
@@ -442,21 +437,6 @@ ${abc}`;
               맞추기
             </button>
           </span>
-        )}
-        {/* 음원 분석이 통째로 빗나간 곡에서 쓴다 — 얼마나 다르든 악보를 따른다 */}
-        {onFollow && (
-          <button
-            className={[
-              "rounded px-1.5 py-0.5 text-[11px]",
-              follow
-                ? "bg-[var(--chip-on)] font-semibold text-[var(--foreground)]"
-                : "bg-[var(--chip)] text-[color-mix(in_srgb,var(--foreground)_60%,transparent)]",
-            ].join(" ")}
-            onClick={() => onFollow(!follow)}
-            title="켜면 음원 분석과 얼마나 다르든 악보에 적힌 코드를 그대로 씁니다. 마디가 어긋난 악보라면 오히려 헝클어지니, 「악보 밀기」로 자리를 맞춘 뒤 켜세요"
-          >
-            악보 따르기 {follow ? "켬" : "끔"}
-          </button>
         )}
         {!!chordNote?.shift && chordNote.matched > 0 && (
           <span

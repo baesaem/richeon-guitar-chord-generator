@@ -352,6 +352,18 @@ export default function Home() {
           })),
       bpm,
     );
+  /**
+   * 악보를 따를 것인가.
+   *
+   * 규칙은 하나다 — **악보가 있으면 악보를 따르고, 없으면 음원 분석을
+   * 따른다.** 사람이 적어 둔 악보가 귀로 딴 것보다 낫다.
+   *
+   * 예전에는 「열에 여덟이 맞아야」라는 빗장과 켜고 끄는 손잡이가 있었다.
+   * 그 탓에 카포로 옮겨 적힌 악보에서는 오히려 음원이 이겨, 그리드가
+   * 멜로디와 다른 코드를 불렀다 — 같은 곡을 두 이름으로 부른 것이다.
+   */
+  const followScore = !!abcEntry?.abc?.trim();
+
   const unified = useMemo(
     () =>
       result && abcEntry
@@ -360,12 +372,12 @@ export default function Home() {
             rawBars,
             abcEntry.barOffset,
             asShown(result.chords, result.bpm),
-            abcEntry.follow ?? false,
+            followScore,
           )
         : null,
     // asShown은 어휘 설정만 보므로 그것을 함께 본다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [result, abcEntry, rawBars, settings.chordVocab],
+    [result, abcEntry, rawBars, settings.chordVocab, followScore],
   );
   const tuned: AnalysisResult | null = useMemo(
     () =>
@@ -2488,16 +2500,7 @@ export default function Home() {
                       sync={sync}
                       onSync={canFix ? setSync : undefined}
                       barOffset={abcEntry.barOffset}
-                      follow={abcEntry.follow ?? false}
-                      onFollow={
-                        canFix
-                          ? (on) => {
-                              setAbcFollow(result.id, on);
-                              setAbcEntry({ ...abcEntry, follow: on });
-                            }
-                          : undefined
-                      }
-                      onFitBars={canFix && health ? fitBarsToScore : undefined}
+                                    onFitBars={canFix && health ? fitBarsToScore : undefined}
                       onSetBpm={canFix && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
                       playedBars={abcPlayedBars}
@@ -3042,15 +3045,6 @@ export default function Home() {
                         transpose={abcTranspose}
                         sync={sync}
                         barOffset={abcEntry.barOffset}
-                        follow={abcEntry.follow ?? false}
-                        onFollow={
-                          settings.adminMode
-                            ? (on) => {
-                                setAbcFollow(result.id, on);
-                                setAbcEntry({ ...abcEntry, follow: on });
-                              }
-                            : undefined
-                        }
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
                       onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
@@ -3498,15 +3492,6 @@ export default function Home() {
                                 sync={sync}
                                 onSync={setSync}
                                 barOffset={abcEntry.barOffset}
-                                follow={abcEntry.follow ?? false}
-                                onFollow={
-                                  settings.adminMode
-                                    ? (on) => {
-                                        setAbcFollow(result.id, on);
-                                        setAbcEntry({ ...abcEntry, follow: on });
-                                      }
-                                    : undefined
-                                }
                           onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
                       onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
