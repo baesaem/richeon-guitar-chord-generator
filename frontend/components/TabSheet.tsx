@@ -566,10 +566,10 @@ export function TabSheet({
         ink.push(
           <line
             key={`sl${j}.${i}`}
-            x1={x - 4.5}
-            x2={x + 4.5}
-            y1={y0 + GAP * 3.6}
-            y2={y0 + GAP * 1.4}
+            x1={x - 3.4}
+            x2={x + 3.4}
+            y1={y0 + GAP * 3.3}
+            y2={y0 + GAP * 1.7}
             stroke="var(--tab-line)"
             strokeWidth={hit ? 2.4 : 1.4}
           />,
