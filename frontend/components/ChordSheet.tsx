@@ -121,11 +121,13 @@ export function ChordSheet({
   }, []);
   const cols = perRow || (wideCols ? 8 : 4);
   const rowCount = Math.ceil(bars.length / cols);
-  /* 지금 줄이 늘 맨 위에 온다(타브와 같은 규칙) — 눈이 한 자리를 본다.
-     곡 끝에서는 마지막 줄들이 보이도록 더 내려가지 않는다 */
+  /* 치는 줄은 둘째 줄에 둔다(멜로디와 같은 규칙) — 위에 방금 친 줄이
+     남아 있어야 어디서 넘어왔는지 보이고, 아래로 다음 줄을 미리 읽는다.
+     곡 처음에는 첫 줄부터, 곡 끝에서는 마지막 줄들이 보이도록 멈춘다 */
+  const lead = visibleRows > 1 ? 1 : 0;
   const firstRow = visibleRows
     ? Math.min(
-        Math.max(Math.floor(Math.max(currentBar, 0) / cols), 0),
+        Math.max(Math.floor(Math.max(currentBar, 0) / cols) - lead, 0),
         Math.max(rowCount - visibleRows, 0),
       )
     : 0;
