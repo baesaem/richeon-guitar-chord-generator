@@ -9,6 +9,7 @@ import { ViewSteppers } from "@/components/ViewSteppers";
 import { apiBase } from "@/lib/api";
 import { getSheetPage, saveSheetPage, sheetRev } from "@/lib/library";
 import { useSmoothTime } from "@/lib/useSmoothTime";
+import { ChordLabel } from "@/components/ChordLabel";
 
 /** 그림 위 마디 하나. 자리는 0~1 비율이라 화면 크기와 무관하다 */
 export interface SheetBar {
@@ -658,7 +659,7 @@ function SystemRow({
               )}%`,
             }}
           >
-            {c.label}
+            <ChordLabel label={c.label} />
           </span>
         );
       })}

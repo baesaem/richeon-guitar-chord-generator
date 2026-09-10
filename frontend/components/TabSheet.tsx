@@ -12,6 +12,7 @@ import { shiftChordLabel } from "@/lib/notation";
 import type { StrumChoice } from "@/lib/strumLibrary";
 import type { LyricLine, PickedBar } from "@/lib/types";
 import { useSmoothTime } from "@/lib/useSmoothTime";
+import { chordLabelSvg } from "@/components/ChordLabel";
 
 /*
  * 타브 악보를 처음부터 우리가 그린다.
@@ -562,7 +563,7 @@ export function TabSheet({
             textAnchor="middle"
             fill="var(--tab-ink)"
           >
-            {shiftChordLabel(name, chordShift, flats)}
+            {chordLabelSvg(shiftChordLabel(name, chordShift, flats))}
           </text>,
         );
       });
@@ -622,7 +623,7 @@ export function TabSheet({
             textAnchor="middle"
             fill="var(--tab-ink)"
           >
-            {shiftChordLabel(chord, chordShift, flats)}
+            {chordLabelSvg(shiftChordLabel(chord, chordShift, flats))}
           </text>,
         );
       for (const f of col.frets) {

@@ -32,6 +32,11 @@ _LINE_FILL = 0.45
 _BAR_FILL = 0.995
 #: 세로줄이 오선 밖으로 삐져나온 정도. 이보다 많으면 마디선이 아니라 기둥이다
 _SPILL_FILL = 0.2
+#: 기둥으로 볼 「가로로 붙은 행」의 폭(오선 높이에 대한 비율).
+#: 기둥은 음표 머리와 이음보로 오선 높이의 15~18%쯤이 나온다(「밤이
+#: 깊었네」 8~10행/57). 마디선은 0~2행(붙임줄이 가로지를 때)이고, 겹세로줄·
+#: 도돌이처럼 굵은 줄은 그보다 훨씬 많다(「그건 너」 20행) — 그 사이만 걸러 낸다.
+_HEAD_ROWS = (0.09, 0.27)
 
 
 @dataclass
@@ -200,12 +205,20 @@ def _keep_inside(
     앞 마디선이 이음보 때문에 0.14로 걸려 사라졌다. 기둥은 0.6을
     넘으므로 그 사이에서 끊으면 둘 다 산다.
 
+    그것만으로는 모자랐다. 음이 높으면 기둥이 **아래로** 내려오고 이음보도
+    오선 안쪽에 걸려, 밖으로 삐져나오지 않는다 — 「밤이 깊었네」의 8분음표
+    줄이 마디선으로 잡혀 66마디가 88마디가 되었다. 그런 기둥은 가로로
+    붙은 잉크(머리·이음보)로 한 번 더 가른다(_attached_rows).
+
     양 끝은 건드리지 않는다. 단의 첫 줄과 끝 줄에는 겹세로줄·괄호가
     붙어 아래로 뻗는 일이 흔하다.
     """
     height = max(system.bottom - system.top, 1)
     reach = max(int(height * 0.15), 4)
     top, bottom = system.top, system.bottom
+    band = ink[top : bottom + 1, :]
+    rows = band.mean(axis=1)
+    lines = np.nonzero(rows > _LINE_FILL)[0]
     out: list[tuple[int, int]] = []
     for i, (a, b) in enumerate(hits):
         if i == 0 or i == len(hits) - 1:
@@ -218,9 +231,48 @@ def _keep_inside(
             float(up.mean()) if up.size else 0.0,
             float(down.mean()) if down.size else 0.0,
         )
-        if spill <= _SPILL_FILL:
-            out.append((a, b))
+        if spill > _SPILL_FILL:
+            continue
+        # 오선 안에 머무는 기둥 — 머리와 이음보가 가로로 붙어 있다
+        wide = _attached_rows(band, (a + b) // 2, lines, height)
+        if _HEAD_ROWS[0] * height <= wide <= _HEAD_ROWS[1] * height:
+            continue
+        out.append((a, b))
     return out
+
+
+def _attached_rows(
+    band: np.ndarray, x: int, lines: np.ndarray, height: int
+) -> int:
+    """세로줄에 **가로로 이어 붙은** 잉크가 넉넉한 행이 몇인가.
+
+    마디선은 위에서 아래까지 1~2px 굵기의 줄뿐이다. 기둥에는 한 끝에
+    음표 머리, 다른 끝에 이음보가 붙어 가로로 퍼진다. 오선 줄이 지나는
+    행은 어느 세로줄에나 가로로 붙으므로 뺀다.
+
+    **붙은** 것만 센다. 세로줄 곁의 잉크를 세었더니 마디선에 바싹 붙어
+    적힌(그러나 닿지는 않은) 음표까지 걸려 멀쩡한 마디선이 몰려났다.
+    """
+    h, w = band.shape
+    need = max(int(height * 0.12), 5)
+    n = 0
+    for r in range(h):
+        if lines.size and int(np.abs(lines - r).min()) <= 1:
+            continue
+        row = band[r]
+        best = 0
+        for xx in (x - 1, x, x + 1):
+            if 0 <= xx < w and row[xx]:
+                lo = xx
+                while lo > 0 and row[lo - 1]:
+                    lo -= 1
+                hi = xx
+                while hi < w - 1 and row[hi + 1]:
+                    hi += 1
+                best = max(best, hi - lo + 1)
+        if best >= need:
+            n += 1
+    return n
 
 
 def _dot_rows(lines: int) -> tuple[tuple[float, float], tuple[float, float]]:

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 /**
  * 코드 라벨 표시.
  *
@@ -26,4 +28,33 @@ export function ChordLabel({ label }: { label: string }) {
       )}
     </>
   );
+}
+
+
+/**
+ * SVG 글자용 코드 이름. <text> 안에 넣는다.
+ *
+ * 규칙은 ChordLabel과 같다 — ♭·♯은 조금 올려 작게, 숫자는 작게. 오선
+ * 악보·타브처럼 SVG로 그리는 화면도 그리드와 같은 모양이어야 한다.
+ */
+export function chordLabelSvg(label: string): ReactNode {
+  return label
+    .split(/([♭♯]|\d+)/)
+    .filter(Boolean)
+    .map((part, i) =>
+      part === "♭" || part === "♯" ? (
+        <tspan key={i} dy="-0.35em" fontSize="70%">
+          {part}
+          <tspan dy="0.5em" fontSize="1">
+            {" "}
+          </tspan>
+        </tspan>
+      ) : /^\d+$/.test(part) ? (
+        <tspan key={i} fontSize="75%">
+          {part}
+        </tspan>
+      ) : (
+        <tspan key={i}>{part}</tspan>
+      ),
+    );
 }

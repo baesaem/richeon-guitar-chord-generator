@@ -160,11 +160,16 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
     const ACC_FONT = "700 10px system-ui, sans-serif";
     ctx.textBaseline = "middle";
 
+    /* 숫자(7·9·5)는 작게 — 그리드·악보와 같은 규칙. ♭·♯은 조금 올린다 */
+    const fontOf = (part: string): string =>
+      part === "♭" || part === "♯" || /^\d+$/.test(part) ? ACC_FONT : CHIP_FONT;
+    const partsOf = (text: string): string[] =>
+      text.split(/([♭♯]|\d+)/).filter(Boolean);
+
     const measureLabel = (text: string): number => {
       let width = 0;
-      for (const part of text.split(/([♭♯])/)) {
-        if (!part) continue;
-        ctx.font = part === "♭" || part === "♯" ? ACC_FONT : CHIP_FONT;
+      for (const part of partsOf(text)) {
+        ctx.font = fontOf(part);
         width += ctx.measureText(part).width;
       }
       return width;
@@ -172,11 +177,10 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
 
     const drawLabel = (text: string, startX: number, midY: number): void => {
       let cx2 = startX;
-      for (const part of text.split(/([♭♯])/)) {
-        if (!part) continue;
+      for (const part of partsOf(text)) {
         const accidental = part === "♭" || part === "♯";
-        ctx.font = accidental ? ACC_FONT : CHIP_FONT;
-        ctx.fillText(part, cx2, accidental ? midY - 4 : midY);
+        ctx.font = fontOf(part);
+        ctx.fillText(part, cx2, accidental ? midY - 4 : /^\d+$/.test(part) ? midY + 1 : midY);
         cx2 += ctx.measureText(part).width;
       }
     };

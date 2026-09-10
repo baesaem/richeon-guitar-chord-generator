@@ -190,6 +190,8 @@ ${abc}`;
         if (e.measureStart) idx++;
         return { ...e, playMeasure: Math.max(idx, 0) };
       });
+      // 코드 이름의 숫자는 작게 — 다른 화면과 같은 규칙
+      shrinkChordDigits(hostRef.current);
       if (onEditRef.current) markMeasures(hostRef.current, onEditRef.current);
       setTimings(list);
       // 다시 그렸으니 커서와 음표 표시도 새로 잡는다 (옛 노드는 사라졌다)
@@ -524,4 +526,41 @@ function markMeasures(host: HTMLElement, onEdit: (m: number) => void): void {
     });
     svg.appendChild(hit);
   }
+}
+
+
+/**
+ * abcjs가 그린 코드 이름에서 **숫자만** 작게 줄인다.
+ *
+ * 그리드·타브·파형은 E7의 7을 작게 적는데, 오선 악보만 abcjs가 한 크기로
+ * 그려 화면마다 모양이 달랐다. abcjs의 글자 자리(x·y)는 건드리지 않고,
+ * 맨 안쪽 글자 조각 안에서만 숫자를 작은 tspan으로 감싼다.
+ */
+function shrinkChordDigits(host: HTMLElement): void {
+  const NS = "http://www.w3.org/2000/svg";
+  host.querySelectorAll(".abcjs-chord").forEach((group) => {
+    const leaves: Element[] = [];
+    const collect = (el: Element) => {
+      if (el.children.length === 0) leaves.push(el);
+      else [...el.children].forEach(collect);
+    };
+    collect(group);
+    for (const leaf of leaves) {
+      if (leaf.getAttribute("data-small")) continue;
+      const text = leaf.textContent ?? "";
+      if (!/\d/.test(text)) continue;
+      leaf.textContent = "";
+      for (const part of text.split(/(\d+)/).filter(Boolean)) {
+        if (/^\d+$/.test(part)) {
+          const t = document.createElementNS(NS, "tspan");
+          t.setAttribute("font-size", "75%");
+          t.textContent = part;
+          leaf.appendChild(t);
+        } else {
+          leaf.appendChild(document.createTextNode(part));
+        }
+      }
+      leaf.setAttribute("data-small", "1");
+    }
+  });
 }

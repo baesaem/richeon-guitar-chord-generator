@@ -38,20 +38,11 @@ import {
 } from "@/lib/smufl";
 import { useSmoothTime } from "@/lib/useSmoothTime";
 import type { Chord, LyricLine, Note } from "@/lib/types";
+import { chordLabelSvg } from "@/components/ChordLabel";
 
 /** SVG 텍스트 안에서 ♭·♯를 위첨자로 올린다. dy는 누적이라 복귀시켜야 한다. */
-function svgLabel(label: string): React.ReactNode {
-  return label.split(/([♭♯])/).map((part, i) =>
-    part === "♭" || part === "♯" ? (
-      <tspan key={i} dy="-0.35em" fontSize="70%">
-        {part}
-        <tspan dy="0.5em" fontSize="1"> </tspan>
-      </tspan>
-    ) : (
-      <tspan key={i}>{part}</tspan>
-    ),
-  );
-}
+/** 코드 이름(SVG). 그리드와 같은 규칙 — ♭·♯ 올려 작게, 숫자 작게 */
+const svgLabel = chordLabelSvg;
 
 // 좌표계. ChordScore와 같은 폭을 써서 두 화면의 마디가 같은 자리에 온다.
 const VB_W = 400;
