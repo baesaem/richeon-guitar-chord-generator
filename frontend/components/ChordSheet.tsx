@@ -186,7 +186,12 @@ export function ChordSheet({
                     key={j}
                     style={{ gridColumn: `span ${span.beats}` }}
                     className={[
-                      "min-w-0 truncate text-center text-sm font-bold leading-tight",
+                      "min-w-0 truncate text-sm font-bold leading-tight",
+                      /* 마디에 코드가 하나뿐이면 왼쪽에 붙인다. 가운데에 두면
+                         마디마다 글자가 떠 있어, 마디가 시작하는 자리와 코드가
+                         바뀌는 자리가 한눈에 맞지 않는다. 둘 이상이면 박 칸마다
+                         가운데에 두어 어느 박에서 바뀌는지 보이게 한다 */
+                      spans.length === 1 ? "text-left" : "text-center",
                       // 같은 마디 안에서 지금 울리는 코드를 구분한다
                       sounding ? "" : active ? "opacity-50" : "",
                     ].join(" ")}
