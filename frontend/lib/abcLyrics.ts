@@ -16,14 +16,28 @@
  * 같은 마디에 둘이 붙는다.
  */
 
+import { barsOfLine } from "./abcReflow";
+
 /** 한 마디에 붙는 가사 */
 export interface BarLyric {
   lyric: string;
   lyric2: string;
 }
 
-/** 음악 줄 하나를 마디로 끊고, 마디마다 음표를 센다 */
+/**
+ * 음악 줄 하나를 마디로 끊고, 마디마다 음표를 센다.
+ *
+ * 1·2번 괄호 「[1」「[2」와 겹세로줄 뒤 도돌이 「||:」를 알아보는 쪽(악보
+ * 줄 다시 나누기와 같은 것)을 쓴다. 예전 셈은 「[1」을 화음으로 읽어 그 줄의
+ * 나머지를 통째로 삼켰다 — 「광화문 연가」 타브는 1번 괄호(11마디)부터
+ * 가사가 「히」「힌」「깊이 그리워지」로 한두 마디씩 밀렸다.
+ */
 function notesPerBar(line: string): number[] {
+  return barsOfLine(line).map((b) => b.notes);
+}
+
+/** 예전 셈. 괄호가 없는 줄에서 새 셈과 같은지 견줄 때만 쓴다 */
+export function notesPerBarLegacy(line: string): number[] {
   const out: number[] = [];
   let notes = 0;
   let seen = false; // 이 칸에 음표든 쉼표든 있었나 — 마디로 셀지 가른다
