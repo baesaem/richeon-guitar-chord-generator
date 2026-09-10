@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { AskConfirm } from "@/components/Ask";
 import { putResult, putTabImage, readSheetTabAi } from "@/lib/api";
 import type { AnalysisResult, PickedTab } from "@/lib/types";
 
@@ -37,6 +38,9 @@ export function TabAttach({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /* 「타브 떼기」 확인창. 시스템 confirm()은 이 앱을 여는 환경(미리보기
+     창·폰 웹앱)에서 막혀 곧바로 「취소」가 되어, 눌러도 아무 일이 없었다 */
+  const [asking, setAsking] = useState(false);
   const tab = result.picked_tab;
 
   const attach = async (file: File) => {
@@ -102,7 +106,6 @@ export function TabAttach({
   };
 
   const detach = async () => {
-    if (!confirm("읽어 둔 타브를 뗍니다. 계속할까요?")) return;
     setNote(null);
     await write({ ...result, picked_tab: null }, "떼지 못했습니다");
   };
@@ -139,11 +142,21 @@ export function TabAttach({
           <button
             className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
             disabled={busy || !online}
-            onClick={detach}
+            onClick={() => setAsking(true)}
           >
             타브 떼기
           </button>
         </>
+      )}
+      {asking && (
+        <AskConfirm
+          title="타브 떼기"
+          message="읽어 둔 타브를 뗍니다. 계속할까요?"
+          confirmLabel="떼기"
+          danger
+          onConfirm={() => void detach()}
+          onClose={() => setAsking(false)}
+        />
       )}
       {note && <span className="text-green-700 dark:text-green-400">{note}</span>}
       {error && <span className="text-red-600 dark:text-red-400">{error}</span>}

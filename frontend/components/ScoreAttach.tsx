@@ -19,6 +19,7 @@ import type { AnalysisResult } from "@/lib/types";
 import { msczParts, type MsczPart } from "@/lib/msczToAbc";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { Popup } from "@/components/Popup";
+import { AskConfirm } from "@/components/Ask";
 
 /**
  * 정식 악보 붙이기 — 강사님 화면에만 나온다.
@@ -241,8 +242,11 @@ export function ScoreAttach({
     }
   };
 
+  /* 지우기 확인창. 시스템 confirm()은 이 앱을 여는 환경(미리보기 창·폰
+     웹앱)에서 막혀 곧바로 「취소」가 되어, 눌러도 아무 일이 없었다 */
+  const [asking, setAsking] = useState<"image" | "score" | null>(null);
+
   const detachImage = async () => {
-    if (!confirm("붙여 둔 배경악보를 지웁니다. 계속할까요?")) return;
     setBusy(true);
     try {
       onResult(await dropSheetImage(result.id));
@@ -254,7 +258,6 @@ export function ScoreAttach({
   };
 
   const detach = async () => {
-    if (!confirm("붙여 둔 악보를 통째로 지웁니다. 계속할까요?")) return;
     setBusy(true);
     setError(null);
     try {
@@ -268,6 +271,20 @@ export function ScoreAttach({
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] roomy:text-[13px]">
+      {asking && (
+        <AskConfirm
+          title={asking === "image" ? "배경악보 제거" : "악보전체 제거"}
+          message={
+            asking === "image"
+              ? "붙여 둔 배경악보를 지웁니다. 계속할까요?"
+              : "붙여 둔 악보를 통째로 지웁니다. 계속할까요?"
+          }
+          confirmLabel="지우기"
+          danger
+          onConfirm={() => void (asking === "image" ? detachImage() : detach())}
+          onClose={() => setAsking(null)}
+        />
+      )}
       {score && align ? (
         <>
           <span className="text-[var(--foreground)]">
@@ -448,7 +465,7 @@ export function ScoreAttach({
           <button
             className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
             disabled={busy || !online}
-            onClick={detachImage}
+            onClick={() => setAsking("image")}
           >
             배경악보 제거
           </button>
@@ -502,7 +519,7 @@ export function ScoreAttach({
           <button
             className="rounded px-2 py-0.5 text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline decoration-dotted underline-offset-2 disabled:opacity-40"
             disabled={busy || !online}
-            onClick={detach}
+            onClick={() => setAsking("score")}
           >
             악보전체 제거
           </button>
