@@ -30,6 +30,8 @@ _LINE_FILL = 0.45
 #: 58개가 되었고, 악보 파일과 마디 수가 달라 정렬이 조용히 버려졌다.
 #: 빈틈이 하나도 없을 것을 요구한다.
 _BAR_FILL = 0.995
+#: 오선 바로 위아래로 삐져나온 잉크. 이보다 짙으면 마디선이 아니라 기둥이다
+_SPILL_FILL = 0.1
 
 
 @dataclass
@@ -148,8 +150,12 @@ def find_systems(ink: np.ndarray) -> list[System]:
     return out
 
 
-def find_bars(ink: np.ndarray, system: System) -> list[int]:
-    """묶음 안에서 세로줄(마디선)을 찾는다."""
+def find_bars(ink: np.ndarray, system: System, solo: bool = False) -> list[int]:
+    """묶음 안에서 세로줄(마디선)을 찾는다.
+
+    solo면 오선 한 줄로만 짜인 악보다 - 마디선이 오선 밖으로 나가지
+    않으므로, 밖으로 삐져나온 것은 음표 기둥이라고 보고 걷어 낸다.
+    """
     band = ink[system.top : system.bottom + 1, :]
     height = max(band.shape[0], 1)
     cols = band.sum(axis=0) / float(height)
@@ -160,6 +166,8 @@ def find_bars(ink: np.ndarray, system: System) -> list[int]:
     hits = _runs((cols > _BAR_FILL) & touches, gap=2)
     if not hits:
         return []
+    if solo:
+        hits = _keep_inside(ink, system, hits)
 
     # 겹줄(겹세로줄·되돌이표)은 하나로 본다
     bars: list[int] = []
@@ -169,6 +177,48 @@ def find_bars(ink: np.ndarray, system: System) -> list[int]:
             continue
         bars.append(x)
     return bars
+
+
+def _keep_inside(
+    ink: np.ndarray, system: System, hits: list[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    """오선만 있는 악보에서 음표 기둥을 걷어 낸다.
+
+    타브가 딸린 악보는 마디를 타브에서 센다 - 여섯 줄 사이에는 기둥이
+    없어 위아래를 꿰는 세로줄은 마디선뿐이다. 오선만 있는 악보에는 그
+    길이 없다. 낮은 음의 기둥은 오선 아래 음표에서 위로 솟아 다섯 줄을
+    모두 꿰므로, 있는 그대로 세면 마디가 곱절이 된다 - 「그건 너」는
+    82마디가 116마디로 나왔다.
+
+    가르는 것은 **오선 밖**이다. 마디선은 맨 윗줄에서 맨 아랫줄까지,
+    딱 오선만큼이다. 기둥은 음표나 이음보가 오선 밖에 있어 반드시
+    비어져 나온다. 바로 위아래를 들여다보아 잉크가 있으면 기둥이다.
+
+    맞닿은 데만 본다. 넓게 보면 오선 위의 코드 이름과 아래의 가사
+    글자가 걸려, 멀쩡한 마디선을 기둥으로 몰아낸다 - 30%까지 보았을
+    때 네 단이 한 마디씩 어긋났다.
+
+    양 끝은 건드리지 않는다. 단의 첫 줄과 끝 줄에는 겹세로줄·괄호가
+    붙어 아래로 뻗는 일이 흔하다.
+    """
+    height = max(system.bottom - system.top, 1)
+    reach = max(int(height * 0.15), 4)
+    top, bottom = system.top, system.bottom
+    out: list[tuple[int, int]] = []
+    for i, (a, b) in enumerate(hits):
+        if i == 0 or i == len(hits) - 1:
+            out.append((a, b))
+            continue
+        lo, hi = max(a - 1, 0), min(b + 2, ink.shape[1])
+        up = ink[max(top - reach, 0) : max(top - 1, 0), lo:hi]
+        down = ink[min(bottom + 2, ink.shape[0]) : bottom + reach, lo:hi]
+        spill = max(
+            float(up.mean()) if up.size else 0.0,
+            float(down.mean()) if down.size else 0.0,
+        )
+        if spill <= _SPILL_FILL:
+            out.append((a, b))
+    return out
 
 
 def _dot_rows(lines: int) -> tuple[tuple[float, float], tuple[float, float]]:
@@ -412,6 +462,27 @@ def _braced(ink: np.ndarray, a: System, b: System) -> float:
     return float(band.any(axis=1).mean()) if band.size else 0.0
 
 
+def _looks_paired(ink: np.ndarray, systems: list[System]) -> bool:
+    """오선 두 줄이 한 단으로 묶여 있나 - 마디선을 세기 전에 잰다.
+
+    2단 악보(멜로디 + 반주)는 마디선이 두 오선을 **꿰뚫는다**. 그러니
+    두 오선 사이가 통째로 잉크인 세로줄이 있으면 한 단이다. 「혜화동」은
+    묶인 자리가 1.00, 단과 단 사이는 0.27이었다 - 갈리는 것이 또렷하다.
+
+    _braced로도 가릴 수 있지만 그것은 마디선을 이미 찾아 두었어야 한다.
+    마디선을 어떻게 셀지가 이 답에 달렸으니 먼저 알아야 한다.
+    """
+    pairs = 0
+    for a, b in zip(systems, systems[1:]):
+        lo, hi = a.bottom + 3, b.top - 3
+        if hi - lo < 6:
+            continue
+        band = ink[lo:hi, :]
+        if band.size and float(band.mean(axis=0).max()) >= 0.95:
+            pairs += 1
+    return pairs >= 2
+
+
 def _fold_tab_groups(systems: list[System]) -> list[System]:
     """타브가 딸린 악보는 한 단이 여러 보표다.
 
@@ -468,8 +539,14 @@ def _fold_pairs(ink: np.ndarray, systems: list[System]) -> list[System]:
 def layout(image: Image.Image, index: int = 0) -> Page:
     ink = _ink(_gray(image))
     page = Page(index=index, width=image.width, height=image.height)
-    for system in find_systems(ink):
-        system.bars = find_bars(ink, system)
+    found = find_systems(ink)
+    # 타브도 아래 단도 없이 오선 한 줄로만 짜인 악보인가.
+    # 그런 악보에서만 마디선이 오선 밖으로 나가지 않는다.
+    solo = bool(found) and all(s.lines == 5 for s in found) and not _looks_paired(
+        ink, found
+    )
+    for system in found:
+        system.bars = find_bars(ink, system, solo=solo)
         if len(system.bars) < 2:
             # 마디선이 둘도 없으면 악보 줄이 아니라고 본다
             continue
