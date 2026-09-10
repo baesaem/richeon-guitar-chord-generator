@@ -42,6 +42,15 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
   // YouTube 곡에서 영상 대신 소리를 내는 반주 트랙
   const instRef = useRef<HTMLAudioElement | null>(null);
   const playingRef = useRef(false);
+  /**
+   * **치려고 하는가.** 실제로 소리가 나는지(playingRef)와 다르다.
+   *
+   * 유튜브 플레이어는 멈춰 있지 않은 상태(cued·ended)에서 자리를 옮기면
+   * 스스로 재생을 시작한다 — 유튜브가 정해 둔 규칙이다. 그래서 ⏮로
+   * 처음으로 돌아가기만 해도 노래가 흘러나왔다. 사람이 누른 뜻을 따로
+   * 적어 두었다가, 칠 뜻이 없었으면 도로 멈춘다.
+   */
+  const wantPlayRef = useRef(false);
   const rateRef = useRef(1);
 
   const isYouTube = result.source === "youtube";
@@ -108,16 +117,28 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
         return audioRef.current?.currentTime ?? 0;
       },
       seek: (t) => {
-        if (ytRef.current?.seekTo) ytRef.current.seekTo(t, true);
-        else if (audioRef.current) audioRef.current.currentTime = t;
+        const keepPaused = !wantPlayRef.current;
+        if (ytRef.current?.seekTo) {
+          ytRef.current.seekTo(t, true);
+          /* 자리를 옮겼다고 저절로 치기 시작하면 안 된다. 한 번 멈추고,
+             유튜브가 뒤늦게 켜는 일이 있어 조금 뒤에 한 번 더 본다 */
+          if (keepPaused) {
+            ytRef.current.pauseVideo?.();
+            window.setTimeout(() => {
+              if (!wantPlayRef.current) ytRef.current?.pauseVideo?.();
+            }, 200);
+          }
+        } else if (audioRef.current) audioRef.current.currentTime = t;
         if (instRef.current) instRef.current.currentTime = t;
       },
       play: () => {
+        wantPlayRef.current = true;
         if (ytRef.current?.playVideo) ytRef.current.playVideo();
         else audioRef.current?.play();
         instRef.current?.play().catch(() => {});
       },
       pause: () => {
+        wantPlayRef.current = false;
         if (ytRef.current?.pauseVideo) ytRef.current.pauseVideo();
         else audioRef.current?.pause();
         instRef.current?.pause();
@@ -226,6 +247,8 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
             }}
             onStateChange={(e) => {
               playingRef.current = e.data === 1;
+              // 유튜브 창을 직접 눌러 켰을 때도 사람의 뜻으로 친다
+              if (e.data === 1) wantPlayRef.current = true;
               // 재생·버퍼링 동안만 영상을 드러낸다
               setYtPlaying(e.data === 1 || e.data === 3);
               const inst = instRef.current;
@@ -268,7 +291,10 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
       className="w-full"
       src={audioSrc}
       onLoadedMetadata={publish}
-      onPlay={() => (playingRef.current = true)}
+      onPlay={() => {
+        playingRef.current = true;
+        wantPlayRef.current = true;
+      }}
       onPause={() => (playingRef.current = false)}
     />
   );

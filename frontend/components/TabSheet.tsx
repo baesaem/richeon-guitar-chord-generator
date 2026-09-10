@@ -89,6 +89,13 @@ interface Props {
    * 타브가 Em이라 부르면 서로 짚어 말할 수가 없다.
    */
   chordShift?: number;
+  /**
+   * 마디마다의 코드 — **멜로디가 정한 것**.
+   *
+   * 코드는 어느 화면에서나 하나여야 한다. 타브가 제 그림에서 읽은 것을
+   * 쓰면 멜로디·그리드·파형과 어긋난다. 손으로 고친 것만 이보다 앞선다.
+   */
+  barChords?: Record<number, string[]>;
   /** ♭로 적을지 ♯로 적을지. 곡의 조를 보고 앱이 정한 값 */
   flats?: boolean;
   /** 이 곡의 가사. 악보의 음절에 띄어쓰기를 되살리는 데 쓴다 */
@@ -248,6 +255,7 @@ export function TabSheet({
   onPickStrum,
   playStyle,
   chordShift = 0,
+  barChords,
   flats = false,
   lyrics,
   picked,
@@ -498,7 +506,10 @@ export function TabSheet({
      * 그림 타브를 부어 넣자 악보 위 코드가 통째로 사라진 까닭이다.
      * 원래 마디의 코드를 자리 비율로 옮겨 온다.
      */
-    const picNames = edit?.chords?.length ? edit.chords : fromPic?.chords;
+    /* 손으로 고친 것 > 멜로디 > 그림에서 읽은 것 */
+    const picNames = edit?.chords?.length
+      ? edit.chords
+      : (barChords?.[j]?.length ? barChords[j] : fromPic?.chords);
     const chords: (string | undefined)[] = picNames?.length
       ? (() => {
           /* 그림 악보에서 읽어 온 코드. 마디를 코드 수만큼 나눠 얹는다 */

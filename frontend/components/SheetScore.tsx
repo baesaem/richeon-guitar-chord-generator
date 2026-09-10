@@ -40,6 +40,19 @@ export interface SheetData {
    * 연주할 때 D.S.를 만나면 사람도 그 마디로 되돌아간다. 화면도 그런다.
    */
   passes: { bar: number; start: number; end: number }[][];
+  /**
+   * AI가 그림에서 읽은 되돌이표·1·2번 괄호·세뇨·코다.
+   *
+   * 악보 파일이 없는 곡은 이것이 유일한 출처다 — 타브 악보도 여기서
+   * 표를 받아 그린다.
+   */
+  read?: {
+    start_repeats?: number[];
+    end_repeats?: { bar: number; times?: number }[];
+    voltas?: { bar: number; endings?: number[]; span?: number }[];
+    markers?: { bar: number; label: string }[];
+    jumps?: { bar: number; to?: string; until?: string; at?: string }[];
+  };
   /** "score"면 악보 파일의 정렬, "grid"면 박 격자에 고르게 얹은 것 */
   source: "score" | "grid";
   offset: number;

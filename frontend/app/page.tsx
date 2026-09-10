@@ -478,20 +478,39 @@ export default function Home() {
    * 「몇 마디」로 짚어 말할 수가 없다.
    */
   const scoreBarNumbers = useMemo(() => {
-    if (!abcEntry?.abc) return undefined;
-    let order: number[] | null = null;
-    try {
-      order = abcOrders(abcEntry.abc)?.withJump ?? null;
-    } catch {
-      order = null;
+    if (abcEntry?.abc) {
+      let order: number[] | null = null;
+      try {
+        order = abcOrders(abcEntry.abc)?.withJump ?? null;
+      } catch {
+        order = null;
+      }
+      if (order?.length) {
+        const out: Record<number, number> = {};
+        order.forEach((d, k) => {
+          out[k + (abcEntry.barOffset ?? 0)] = d + 1;
+        });
+        return out;
+      }
     }
-    if (!order?.length) return undefined;
+    /* 악보 파일이 없는 곡은 **그림 악보의 부르는 차례**를 쓴다.
+       ABC에만 기대면 멜로디까지 그림인 곡은 차례가 없어 타브 커서가
+       도돌이를 돌지 않고 곧장 지나갔다 - 되돌이가 없는 악보처럼 굴었다.
+       그림 쪽 차례는 마디마다의 시각으로 오므로 음원 마디와 시각으로
+       맞춘다. */
+    const pass = (result?.sheet as SheetData | null)?.passes?.[0];
+    if (!pass?.length || !bars.length) return undefined;
     const out: Record<number, number> = {};
-    order.forEach((d, k) => {
-      out[k + (abcEntry.barOffset ?? 0)] = d + 1;
+    let k = 0;
+    bars.forEach((b, i) => {
+      const mid = (b.start + b.end) / 2;
+      while (k + 1 < pass.length && pass[k].end <= mid) k += 1;
+      const step = pass[k];
+      if (step && mid >= step.start - 0.05 && mid < step.end + 0.05)
+        out[i] = step.bar + 1;
     });
-    return out;
-  }, [abcEntry?.abc, abcEntry?.barOffset]);
+    return Object.keys(out).length ? out : undefined;
+  }, [abcEntry?.abc, abcEntry?.barOffset, result?.sheet, bars]);
 
   /**
    * 음원 마디마다 붙는 **악보의 표** — 도돌이표·1·2번 괄호·세뇨·코다.
@@ -1436,6 +1455,64 @@ export default function Home() {
     return out;
   }, [result?.picked_tab]);
 
+  /**
+   * 그림 악보에서 읽은 되돌이·세뇨·코다를 마디마다 갈라 둔다.
+   *
+   * 악보 파일이 없는 곡은 이것뿐이다. 없으면 타브가 되돌이표를 그리지도
+   * 않고 커서도 돌지 않아, 되돌이가 없는 악보처럼 굴었다.
+   */
+  const pickedMarks = useMemo(() => {
+    const read = (result?.sheet as SheetData | null)?.read;
+    if (!read) return null;
+    const starts = new Set(read.start_repeats ?? []);
+    const ends = new Set((read.end_repeats ?? []).map((r) => r.bar));
+    const volta: Record<number, string> = {};
+    for (const v of read.voltas ?? [])
+      if (v.endings?.length) volta[v.bar] = v.endings.join("·");
+    const marks: Record<number, string[]> = {};
+    const put = (bar: number, text: string) => {
+      (marks[bar] ??= []).push(text);
+    };
+    for (const m of read.markers ?? []) {
+      if (m.label === "segno") put(m.bar, String.fromCodePoint(0x1d10b));
+      else if (m.label === "coda") put(m.bar, String.fromCodePoint(0x1d10c));
+      else if (m.label === "codab")
+        put(m.bar, `To ${String.fromCodePoint(0x1d10c)}`);
+    }
+    for (const j of read.jumps ?? [])
+      put(j.bar, j.to === "start" ? "D.C. al Coda" : "D.S. al Coda");
+    return { starts, ends, volta, marks };
+  }, [result?.sheet]);
+
+  /**
+   * 마디마다의 코드 — **멜로디가 정한 것**. 타브도 이것을 쓴다.
+   *
+   * 코드는 어느 화면에서나 하나여야 한다. 타브가 제 그림에서 읽은 것을
+   * 쓰면 멜로디·그리드·파형과 어긋난다 — 「광화문 연가」는 멜로디가
+   * Am·B7/D♯인 자리를 타브만 C·B7로 적고 있었다.
+   *
+   * 악보 파일이 없는 곡은 여기가 빈다. 그럴 때는 타브가 제 그림에서
+   * 읽은 코드를 그대로 쓴다 — 음원에서 딴 코드로 덮으면 인쇄된 B7이
+   * B로 뭉개져 되레 나빠진다.
+   */
+  const songChords = useMemo(() => {
+    const out: Record<number, string[]> = {};
+    if (!abcEntry?.abc) return out;
+    let ms: ReturnType<typeof abcMeasures>;
+    try {
+      ms = abcMeasures(abcEntry.abc);
+    } catch {
+      return out;
+    }
+    ms.forEach((m, i) => {
+      const names = [...m.text.matchAll(/"([^"^_<>@][^"]*)"/g)].map((x) =>
+        x[1].trim(),
+      );
+      if (names.length) out[i] = names.slice(0, 4);
+    });
+    return out;
+  }, [abcEntry?.abc]);
+
   const tabFrame = useMemo((): TabScore | null => {
     if (abcEntry?.tabScore) return abcEntry.tabScore;
     const picked = result?.picked_tab;
@@ -1456,14 +1533,14 @@ export default function Home() {
            것과 같다 */
         lyric: songWords[j]?.lyric || pickedWords[j]?.lyric || "",
         lyric2: songWords[j]?.lyric2 || pickedWords[j]?.lyric2 || "",
-        startRepeat: false,
-        endRepeat: false,
-        volta: null,
-        marks: [],
+        startRepeat: pickedMarks?.starts.has(j + 1) ?? false,
+        endRepeat: pickedMarks?.ends.has(j + 1) ?? false,
+        volta: pickedMarks?.volta[j + 1] ?? null,
+        marks: pickedMarks?.marks[j + 1] ?? [],
         units,
       })),
     };
-  }, [abcEntry?.tabScore, result, songWords, pickedWords]);
+  }, [abcEntry?.tabScore, result, songWords, pickedWords, pickedMarks]);
 
   const makeAbcTab = (withSync: boolean, withFix = false) =>
     result && tabFrame && hasPickedTab ? (
@@ -1477,6 +1554,8 @@ export default function Home() {
         scoreBarNumbers={scoreBarNumbers}
         barOffset={abcEntry?.barOffset}
         picked={pickedByBar}
+        /* 코드는 어느 화면에서나 하나여야 한다 — 멜로디의 것을 쓴다 */
+        barChords={songChords}
         /* 프렛은 적힌 그대로, 코드 이름만 다른 화면과 같게 옮긴다 */
         chordShift={abcTranspose}
         flats={flats}
