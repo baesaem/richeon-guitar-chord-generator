@@ -1228,6 +1228,50 @@ export default function Home() {
     return no;
   };
 
+  /**
+   * 붙여 둔 가사를 그리드의 마디에 나눠 담는다.
+   *
+   * 가사 줄은 부르기 시작하는 시각만 안다. 줄이 시작하는 마디는 가사 탭의
+   * 「12마디」와 같은 자(barOfTime)로 잡는다 — 거기서 －＋로 옮기면
+   * 그리드도 따라온다. 다음 줄이 시작하기 전까지의 마디에 낱말을 글자
+   * 수만큼 나눠 담는다. 사이에 간주가 끼면 가사가 간주까지 번지므로, 한
+   * 줄이 차지하는 마디는 이 곡의 보통 줄 길이의 두 배를 넘기지 않는다.
+   */
+  const gridLyrics = useMemo(() => {
+    const lines = result?.lyrics ?? [];
+    if (!lines.length || !bars.length) return undefined;
+    const startOf = (t: number) => {
+      let at = 0;
+      for (let i = 0; i < bars.length; i++) {
+        if (bars[i].start <= t) at = i;
+        else break;
+      }
+      return at;
+    };
+    const starts = lines.map((l) => startOf(l.t));
+    const spans = starts.map(
+      (s, i) => (i + 1 < starts.length ? starts[i + 1] : bars.length) - s,
+    );
+    const sorted = spans.filter((n) => n > 0).sort((a, b) => a - b);
+    const typical = sorted[sorted.length >> 1] || 2;
+    const out = bars.map(() => "");
+    lines.forEach((line, i) => {
+      const from = starts[i];
+      const span = Math.max(1, Math.min(spans[i], typical * 2));
+      const words = line.text.split(/\s+/).filter(Boolean);
+      const total = words.reduce((n, w) => n + w.length, 0) || 1;
+      let seen = 0;
+      for (const w of words) {
+        // 낱말 가운데가 줄의 어디쯤인지로 마디를 고른다
+        const mid = (seen + w.length / 2) / total;
+        seen += w.length;
+        const at = Math.min(from + Math.floor(mid * span), bars.length - 1);
+        out[at] = out[at] ? `${out[at]} ${w}` : w;
+      }
+    });
+    return out;
+  }, [result?.lyrics, bars]);
+
   /** 손가락이 지나는 자리의 가사 줄 번호. 없으면 null */
   const lyricUnder = (x: number, y: number): number | null => {
     const el = document
@@ -2903,6 +2947,7 @@ export default function Home() {
                       }}
                       barLabels={scoreBarNumbers}
                       barMarks={scoreBarMarks}
+                      lyrics={gridLyrics}
                     />
                   )}
 
@@ -3242,6 +3287,7 @@ export default function Home() {
                             }}
                             barLabels={scoreBarNumbers}
                             barMarks={scoreBarMarks}
+                            lyrics={gridLyrics}
                           />
                         </div>
                         {/* 가사는 재생에 맞춰 지금 줄이 따라 올라온다.

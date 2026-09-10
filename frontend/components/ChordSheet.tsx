@@ -54,6 +54,13 @@ interface Props {
    */
   time?: number;
   getTime?: () => number;
+  /**
+   * 마디마다 부르는 가사(음원 마디 순서). 주면 코드 아래에 한 줄로 적는다.
+   *
+   * 코드만 보고 치면 노래의 어디쯤인지 놓친다 — 가사 탭을 따로 보지 않아도
+   * 「이 말에서 코드가 바뀐다」가 한 칸 안에서 읽힌다.
+   */
+  lyrics?: string[];
 }
 
 interface Span {
@@ -97,6 +104,7 @@ export function ChordSheet({
   time,
   getTime,
   visibleRows = 0,
+  lyrics,
 }: Props) {
   const activeRef = useRef<HTMLDivElement | null>(null);
   const now = useSmoothTime(time ?? 0, getTime);
@@ -216,6 +224,16 @@ export function ChordSheet({
                 );
               })}
             </div>
+            {/* 가사는 한 줄로. 넘치면 말줄임으로 자른다 — 칸마다 높이가
+                달라지면 마디가 가지런히 늘어서지 않는다 */}
+            {lyrics && (
+              <div
+                className="mt-0.5 truncate text-[11px] font-normal leading-tight opacity-80"
+                title={lyrics[i] || undefined}
+              >
+                {lyrics[i] || " "}
+              </div>
+            )}
             <div className="mt-0.5 text-[10px] leading-none opacity-40">{bar.number}</div>
           </BarCell>
         );

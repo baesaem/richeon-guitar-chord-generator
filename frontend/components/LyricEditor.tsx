@@ -173,7 +173,9 @@ export function LyricRow({
                 －
               </button>
             )}
-            <span className="w-7 text-center">{bar}마디</span>
+            {/* 「12마디」가 두 줄로 꺾이지 않게 한 줄로 묶는다. 오른쪽에
+                맞춰 「마디」 글자가 줄마다 같은 자리에 온다 */}
+            <span className="min-w-9 whitespace-nowrap text-right">{bar}마디</span>
             {selected && onBar && (
               <button
                 className="rounded bg-[var(--chip)] px-1 text-[11px] font-bold leading-4 text-[var(--foreground)]"
