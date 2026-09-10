@@ -2882,6 +2882,14 @@ export default function Home() {
                       chords={shownChords}
                       currentBar={barIdx}
                       currentChord={chordIdx}
+                      /* 재생 시각을 넘겨야 치는 칸에 진행바가 그려진다 — 이
+                         화면만 빠져 있어, 마디는 칠해져도 줄이 지나가지 않았다 */
+                      time={time + sync - settings.latency}
+                      getTime={
+                        playback
+                          ? () => playback.getTime() + sync - settings.latency
+                          : undefined
+                      }
                       flats={flats}
                       transpose={noteShift}
                       follow={false}

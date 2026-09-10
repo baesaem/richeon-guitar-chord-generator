@@ -139,8 +139,9 @@ def fit_offset(
     반주는 대개 마디 첫머리에서 코드를 바꾼다. 그러니 「코드가 바뀐 시각」이
     마디선에 얼마나 가까운가를 재면, 악보를 얼마나 밀어야 하는지 알 수 있다.
 
-    한 마디 통째로 옮기는 일은 하지 않는다 — 그것은 가사를 봐야 알 수 있고,
-    사람이 ◀ ▶로 정하는 몫이다. 여기서는 **한 마디 안에서만** 다듬는다.
+    마디선으로는 한 마디 안의 자리만 가린다. 앞뒤 한 마디는 그림에서 읽은
+    코드가 있을 때만 코드 이름으로 가리고, 그보다 멀리 옮기는 일은 사람이
+    ◀ ▶로 정한다(가사를 봐야 알 수 있다).
     """
     changes = [c["start"] for c in result.get("chords") or [] if c.get("root")]
     if len(changes) < 8:
@@ -171,7 +172,81 @@ def fit_offset(
         score = total / n
         if score < best[0]:
             best = (score, offset)
-    return round(best[1], 2)
+    offset = round(best[1], 2)
+    # 마디선만 보면 한 마디 앞뒤를 가리지 못한다 — 마디선은 마디마다
+    # 되풀이되니 4.5와 5.5가 똑같이 맞아 보인다. 찾는 폭의 끝에 정답이
+    # 걸리면 한 마디 틀린 쪽을 골라, 「밤이 깊었네」는 누를 때마다 한 마디씩
+    # 걸어가 악보 전체가 2초 밀렸다. 그림·악보에서 읽은 코드가 있으면
+    # 코드 이름이 음원과 가장 많이 맞는 쪽을 고른다(비기면 그대로).
+    rows = (sheet.get("read") or {}).get("chords") or []
+    if rows:
+        offset = _bar_by_chords(result, count, order, offset, rows)
+    return offset
+
+
+_PC = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+
+
+def _pitch(name: str) -> int | None:
+    """코드 이름의 뿌리음(0~11). 모르면 None."""
+    if not name or name[0] not in _PC:
+        return None
+    pc = _PC[name[0]]
+    if len(name) > 1 and name[1] in "#♯":
+        pc += 1
+    elif len(name) > 1 and name[1] in "b♭":
+        pc -= 1
+    return pc % 12
+
+
+def _bar_by_chords(
+    result: dict,
+    count: int,
+    order: list[int] | None,
+    offset: float,
+    rows: list[dict],
+) -> float:
+    """offset과 그 앞뒤 한 마디 가운데 코드 이름이 음원과 가장 많이 맞는 쪽."""
+    by = {int(r.get("bar", 0)): (r.get("chords") or []) for r in rows}
+    sheet_pc: dict[int, int | None] = {}
+    cur: int | None = None
+    for b in range(1, count + 1):
+        if by.get(b):
+            cur = _pitch(str(by[b][0]))
+        sheet_pc[b] = cur
+    audio = [c for c in result.get("chords") or [] if c.get("root")]
+
+    def heard(t0: float, t1: float) -> int | None:
+        best, got = 0.0, None
+        for c in audio:
+            ov = min(c["end"], t1) - max(c["start"], t0)
+            if ov > best:
+                best, got = ov, _pitch(str(c.get("label") or c.get("root") or ""))
+        return got
+
+    def agree(off: float) -> int:
+        """이 자리에서 코드가 음원과 몇 마디 맞나 — 조를 옮겨 가장 잘 맞는 쪽.
+
+        카포로 옮겨 적은 악보는 적힌 조와 울리는 조가 다르다(광화문 연가는
+        Em으로 적고 G단조로 울린다). 이름을 그대로 견주면 한 번도 맞지 않아
+        잡음만 보고 마디를 옮기게 된다.
+        """
+        steps = times_from_grid(result, count, off, 1, order)[0]
+        pairs = [
+            (sheet_pc.get(st["bar"] + 1), heard(st["start"], st["end"]))
+            for st in steps
+        ]
+        pairs = [(a, b) for a, b in pairs if a is not None and b is not None]
+        return max(
+            sum(1 for a, b in pairs if (a + t) % 12 == b) for t in range(12)
+        )
+
+    scores = {k: agree(offset + k) for k in (-1, 0, 1)}
+    k = max(scores, key=scores.get)
+    # 확실히 더 맞을 때만 옮긴다. 몇 마디 차이는 코드 인식의 잡음이다.
+    if k != 0 and scores[k] >= scores[0] + 3:
+        return round(offset + k, 2)
+    return offset
 
 
 def _order_of(score: dict | None, count: int) -> list[int] | None:

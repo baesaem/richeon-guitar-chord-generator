@@ -196,10 +196,10 @@ export function ChordSheet({
                       sounding ? "" : active ? "opacity-50" : "",
                     ].join(" ")}
                   >
-                    {carried ? (
-                      // 앞 마디에서 이어지는 중 — 악보의 반복 기호
-                      <span className="opacity-30">%</span>
-                    ) : chord ? (
+                    {/* 앞 마디에서 이어지는 코드는 적지 않는다. 「%」를
+                        적었더니 마디마다 기호가 가득해 코드가 바뀌는 자리가
+                        오히려 묻혔다 — 비어 있으면 앞 코드가 이어진다는 뜻이다 */}
+                    {carried ? null : chord ? (
                       <ChordLabel
                         label={chordText(chord, transpose, flats, exactLabels)}
                       />
