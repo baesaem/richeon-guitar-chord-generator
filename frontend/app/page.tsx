@@ -92,6 +92,7 @@ import { LYRIC_LEAD, groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
 import { lyricIndexAt } from "@/lib/lrc";
 import {
   chordText,
+  shiftChordLabel,
   labelFor,
   prefersFlats,
   resolveFlats,
@@ -418,8 +419,17 @@ export default function Home() {
         else out.push(chordAt(name, from, to));
       });
     }
-    return out.length ? out : null;
-  }, [abcEntry?.abc, pictureBarChords, result?.sheet]);
+    if (!out.length) return null;
+    /* 악보가 닿지 않는 앞뒤(전주·후주)는 음원에서 딴 코드를 그대로 둔다.
+       악보 파일 곡은 그렇게 해 왔는데 그림 곡은 비워 두어, 「밤이 깊었네」
+       는 악보가 시작하는 10초까지 코드가 하나도 없었다 */
+    const first = pass[0].start;
+    const last = pass[pass.length - 1].end;
+    const outside = (result?.chords ?? []).filter(
+      (c) => c.end <= first + 0.05 || c.start >= last - 0.05,
+    );
+    return [...outside, ...out].sort((x, y) => x.start - y.start);
+  }, [abcEntry?.abc, pictureBarChords, result?.sheet, result?.chords]);
 
   const tuned: AnalysisResult | null = useMemo(
     () => {
@@ -2109,6 +2119,22 @@ export default function Home() {
   // 다. 여기서 또 -transpose를 걸면 두 번 옮겨져 엉뚱한 코드가 된다.
   const sheetChordList = useMemo(() => {
     if (transpose === 0) return [];
+    /* 악보 파일이 없는 곡은 **그림에서 읽은 코드**를 옮겨 덮는다.
+       악보 파일에서만 받았더니, 그림뿐인 곡은 카포를 잡아도 인쇄된 원키
+       코드가 그대로 보였다 — 「밤이 깊었네」를 G키로 잡아도 A가 남았다.
+       그림의 코드는 마디 첫머리에 적히므로 마디 시작을 기점으로 나눈다. */
+    if (!result?.score && pictureBarChords.length) {
+      const out: { bar: number; at: number; label: string }[] = [];
+      for (const row of pictureBarChords)
+        row.chords.forEach((name, i) =>
+          out.push({
+            bar: row.bar - 1,
+            at: i / row.chords.length,
+            label: shiftChordLabel(name, -transpose, flats),
+          }),
+        );
+      return out;
+    }
     const shift =
       ((result?.score_align ?? null) as { shift?: number } | null)?.shift ?? 0;
     return sheetChords(
@@ -2116,7 +2142,7 @@ export default function Home() {
       shift - transpose,
       flats,
     );
-  }, [result?.score, result?.score_align, transpose, flats]);
+  }, [result?.score, result?.score_align, transpose, flats, pictureBarChords]);
 
   /**
    * 악보에 코드가 인쇄돼 있지 않을 때 대신 얹을 코드.

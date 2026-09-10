@@ -272,6 +272,21 @@ function toChord(
   end: number,
   written?: string,
 ): Chord {
+  /* 「N.C.」(코드 없음)는 코드가 아니다. 풀면 안의 C를 뿌리음으로 읽어,
+     카포 2로 내리면 A♯이 되었다 — 「밤이 깊었네」 그리드 첫머리에 난데없는
+     A♯이 뜬 까닭이다 */
+  if (/^n\.?\s*c\.?$/i.test(plain(label)))
+    return {
+      start: +start.toFixed(3),
+      end: +end.toFixed(3),
+      label: "N.C.",
+      root: null,
+      quality: "",
+      bass: null,
+      score: written ? plain(written) : undefined,
+      confidence: 1,
+      edited: false,
+    };
   const [head, bass] = plain(label).split("/");
   const { root, quality } = parseLabel(head);
   return {
