@@ -205,6 +205,18 @@ async function findStem(
  * 없는 것은 그냥 빠진다 — 악보를 등록하지 않았다고 내보내기가 실패하면
  * 안 된다.
  */
+/**
+ * 곡에 적힌 **강사 기준값**(「기준값 저장」). 없으면 null.
+ *
+ * 서버는 카포·빠르기·싱크·가사 싱크·주법·스트로크·코드 자동만 적는다.
+ * 구간 반복은 연습하던 흔적이라 기준값이 아니다.
+ */
+export function baselineOf(result: AnalysisResult): SongSetup | null {
+  const raw = (result as { setup?: Partial<SongSetup> | null }).setup;
+  if (!raw || typeof raw !== "object" || !Object.keys(raw).length) return null;
+  return { ...DEFAULT_SETUP, ...raw, loop: null };
+}
+
 export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
   const bundle: SongBundle = { kind: KIND, version: 1, result };
 
@@ -254,14 +266,16 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
       tabEdits: getTabEdits(result.id),
     };
 
-  // loadSetup은 늘 값을 준다. 손대지 않은 기본값까지 담을 이유는 없다.
-  // 어느 값 하나라도 손댔으면 통째로 담는다 — 항목이 늘 때마다 여기를
-  // 고쳐야 하는 대신, 기본값과 다른지만 본다.
-  const setup = loadSetup(result.id);
-  const touched = (
-    Object.keys(DEFAULT_SETUP) as (keyof SongSetup)[]
-  ).some((key) => JSON.stringify(setup[key]) !== JSON.stringify(DEFAULT_SETUP[key]));
-  if (touched) bundle.setup = setup;
+  /*
+   * 연주설정은 **강사님이 「기준값 저장」으로 적어 둔 값**만 싣는다.
+   *
+   * 예전에는 이 기기에서 그 곡에 마지막으로 쓴 설정을 실었다. 그러면
+   * 강사님이 연습하느라 걸어 둔 구간 반복·0.8배 빠르기가 수강생에게까지
+   * 따라갔다. 기준값은 강사님이 「이 값으로 시작하라」고 정한 것이다.
+   * 적어 두지 않은 곡은 싣지 않는다 — 받는 쪽이 앱 기본값으로 시작한다.
+   */
+  const base = baselineOf(result);
+  if (base) bundle.setup = base;
 
   // 음원·반주도 담는다 — 파일 하나로 곡이 통째로 옮겨지도록.
   // 못 구하면 빠질 뿐, 내보내기가 실패하지는 않는다.
@@ -388,13 +402,19 @@ export async function openBundle(
       /* 없어도 곡은 열린다 */
     }
   }
-  if (bundle.setup) {
-    try {
-      saveSetup(bundle.result.id, bundle.setup);
-      got.push("연주설정");
-    } catch {
-      /* 무시 */
-    }
+  /*
+   * 받을 때마다 그 곡의 연주설정을 **처음부터 새로** 만든다.
+   *
+   * 새 곡이든 다시 받는 곡이든 같다. 수강생이 전에 맞춰 둔 값은 모두
+   * 지우고, 앱 기본값 위에 강사님이 보낸 기준값만 얹는다. 기준값이
+   * 없으면 앱 기본값으로 돌아간다. 구간 반복은 연습하던 흔적이라 늘 비운다.
+   */
+  try {
+    const base = baselineOf(bundle.result) ?? bundle.setup ?? null;
+    saveSetup(bundle.result.id, { ...DEFAULT_SETUP, ...(base ?? {}), loop: null });
+    got.push(base ? "강사 기준값" : "연주설정 초기화");
+  } catch {
+    /* 설정이 안 들어가도 곡은 열린다 */
   }
   if (bundle.abc?.abc?.trim()) {
     try {
