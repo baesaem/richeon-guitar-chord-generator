@@ -22,6 +22,7 @@ export function ViewSteppers({
   barsMax,
   barsLabel,
   onShiftBar,
+  shift,
 }: {
   /** 코드 싱크(초). 화면이 노래보다 이르거나 늦을 때 맞춘다 */
   sync?: number;
@@ -43,6 +44,13 @@ export function ViewSteppers({
    * 눌러 보며 가리는 일이라, 두 손잡이가 떨어져 있으면 오가야 한다.
    */
   onShiftBar?: (delta: number) => void;
+  /**
+   * 지금 악보가 밀려 있는 마디 수. ◀▶ 사이에 적는다.
+   *
+   * 숫자가 없으면 눌러도 무엇이 바뀌었는지 몰라, 몇 번 눌렀는지도 모른 채
+   * 한 마디가 밀려 남는다. 맞게 둔 값(예: 4.5)을 기억해 되돌릴 수도 없다.
+   */
+  shift?: number;
 }) {
   const max = barsMax ?? 8;
   return (
@@ -85,6 +93,14 @@ export function ViewSteppers({
           >
             ◀
           </button>
+          {shift !== undefined && (
+            <span
+              className="w-6 text-center tabular-nums roomy:w-7"
+              title="악보가 음원 위에서 밀려 있는 마디 수"
+            >
+              {Number.isInteger(shift) ? shift : shift.toFixed(1)}
+            </span>
+          )}
           <button
             className={STEP}
             onClick={() => onShiftBar(-1)}

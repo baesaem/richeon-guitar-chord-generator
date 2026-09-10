@@ -332,6 +332,7 @@ export function SheetScore({
           barsMax={MAX_BARS}
           barsLabel="줄 전체"
           onShiftBar={onShiftBar}
+          shift={sheet.offset}
         />
         {/* 빠르기 손잡이는 악보 종류를 가리지 않는다. 그린 악보에만
             있고 그림 악보에는 없어서, 커서가 밀려도 손댈 데가 없었다 */}

@@ -403,7 +403,12 @@ ${abc}`;
       >
         {/* 마디 손잡이는 손잡이를 받은 화면에서만 둔다 — 연습실은 위
             설정줄(싱크 옆)에 두었으므로 여기에 또 두지 않는다 */}
-        <ViewSteppers sync={sync} onSync={onSync} onShiftBar={onShiftBar} />
+        <ViewSteppers
+          sync={sync}
+          onSync={onSync}
+          onShiftBar={onShiftBar}
+          shift={barOffsetProp}
+        />
         {/* 악보에 마디 수를 맞추는 손잡이.
             한 마디만 달라도 알려 준다 — 그 한 마디가 곡 전체에 걸쳐
             벌어지면 커서가 갈수록 앞서 나간다. 수가 같아도 눌러 둘 수
