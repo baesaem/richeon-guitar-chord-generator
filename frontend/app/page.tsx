@@ -448,8 +448,11 @@ export default function Home() {
     /* 악보 코드로 모은 곡은 어휘를 낮추지도, 다듬지도 않는다.
        악보에 Cm6이라 적혀 있는데 파형만 C로 적거나, 반 마디짜리
        코드를 짧다고 걷어내면 또 서로 달라 보인다 — 실제로 한 마디가
-       그렇게 어긋났다. 사람이 적어 둔 것은 이미 다듬어진 것이다. */
-    if (unified?.source === "score") return tuned;
+       그렇게 어긋났다. 사람이 적어 둔 것은 이미 다듬어진 것이다.
+       그림 악보에서 읽은 코드도 같다 — 「회상」의 「D A7」 마디는 A7이
+       반 마디(1.7초)라 짧다고 걷혀, 그리드·타브에 D만 남았다. */
+    if (unified?.source === "score" || (!unified?.chords && pictureChords))
+      return tuned;
     const simplified =
       settings.chordVocab === "all"
         ? tuned.chords
@@ -458,7 +461,7 @@ export default function Home() {
             quality: simplifyQuality(c.quality, "basic"),
           }));
     return { ...tuned, chords: tidyChords(simplified, tuned.bpm) };
-  }, [tuned, unified, settings.chordVocab]);
+  }, [tuned, unified, pictureChords, settings.chordVocab]);
 
   const bars = useMemo(
     () => (tuned === result ? rawBars : tuned ? buildBars(tuned) : []),
