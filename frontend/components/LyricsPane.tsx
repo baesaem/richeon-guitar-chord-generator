@@ -38,6 +38,15 @@ interface Props {
    * 손댈 일이 없고, 잘못 눌러 지우면 곡을 다시 받아야 한다.
    */
   canEdit?: boolean;
+  /**
+   * 가사 목록 없이 찾기·AI로 찾기·바꾸기·지우기 손잡이만 편다.
+   *
+   * 가사를 손보는 일은 편집 → 가사 한 곳에서 한다. 연습실은 노래를 따라
+   * 보는 자리라 가사만 띄운다 — 치다가 잘못 눌러 지우는 일도 없다.
+   */
+  toolsOnly?: boolean;
+  /** 가사가 없고 고칠 수 없을 때 적을 말. 어디서 넣는지 알려 준다 */
+  emptyNote?: string;
 }
 
 /**
@@ -54,6 +63,8 @@ export function LyricsPane({
   onResult,
   onSeek,
   canEdit = true,
+  toolsOnly = false,
+  emptyNote,
 }: Props) {
   const lines = useMemo(() => result.lyrics ?? [], [result.lyrics]);
   // 문장 단위로 끊는다. 자막에서 온 가사는 숨 쉬는 자리마다 토막나
@@ -214,7 +225,7 @@ export function LyricsPane({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className={toolsOnly ? "" : "flex h-full min-h-0 flex-col"}>
       {/* 가사를 맞추는 데 몇 초 걸린다. 화면 한가운데에 알린다 —
           버튼 글자만 바꿔서는 눌렸는지 몰라 또 누르게 된다 */}
       {busy && (
@@ -302,14 +313,81 @@ export function LyricsPane({
         </p>
       )}
 
-      {lines.length === 0 ? (
+      {toolsOnly ? (
+        <div className="mb-2 flex flex-col gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              className="rounded bg-[var(--pick)] px-3 py-2 text-xs text-[var(--pick-ink)] disabled:opacity-40"
+              disabled={busy}
+              onClick={() => search("")}
+            >
+              {lines.length ? "다시 찾기" : "가사 찾기"}
+            </button>
+            {/* 웹에서 찾아 온 가사가 실제로 부르는 것과 다를 때(간주·반복·
+                개사) 이 길밖에 없다 — 가사가 있어도 둔다 */}
+            {result.source === "youtube" && canHearLyrics() && (
+              <button
+                className="rounded bg-[var(--accent)] px-3 py-2 text-xs text-white disabled:opacity-40"
+                disabled={busy || hearing !== null}
+                onClick={() => void hearFromVideo()}
+                title="AI가 이 영상을 직접 듣고, 실제 부르는 가사를 시각과 함께 받아 옵니다"
+              >
+                AI로 찾기
+              </button>
+            )}
+            <button
+              className="rounded bg-[var(--panel)] px-3 py-2 text-xs"
+              onClick={() => setPasting(true)}
+            >
+              {lines.length ? "가사 바꾸기" : "가사 붙여넣기"}
+            </button>
+            {lines.length > 0 && (
+              <button
+                className="rounded bg-[var(--panel)] px-3 py-2 text-xs text-red-500"
+                onClick={() => setConfirmClear(true)}
+              >
+                지우기
+              </button>
+            )}
+          </div>
+          <div className="flex gap-1.5">
+            <input
+              className="min-w-0 flex-1 rounded border px-2 py-1.5 text-xs"
+              placeholder="가수 곡명으로 직접 검색"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && query.trim()) search(query.trim());
+              }}
+            />
+            <button
+              className="shrink-0 rounded bg-[var(--panel)] px-2 py-1.5 text-xs disabled:opacity-40"
+              disabled={busy || !query.trim()}
+              onClick={() => search(query.trim())}
+            >
+              검색
+            </button>
+          </div>
+          {!online && !hasLocalLlm() && (
+            <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+              설정에서 가사 도우미 키를 넣으면 한국 가요도 잘 찾습니다.
+            </p>
+          )}
+          {lines.length > 0 && result.lyrics_approx && (
+            <p className="text-[10px] leading-snug text-amber-700">
+              동기화 가사를 못 찾아 줄을 고르게 폈습니다. 글자는 맞지만
+              넘어가는 시점은 맞지 않습니다.
+            </p>
+          )}
+        </div>
+      ) : lines.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-3 text-center">
           <p className="text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             {busy ? "가사를 찾는 중…" : "이 곡의 가사가 아직 없습니다."}
           </p>
           {!canEdit && (
             <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-              이 곡에는 가사가 들어 있지 않습니다.
+              {emptyNote ?? "이 곡에는 가사가 들어 있지 않습니다."}
             </p>
           )}
           {canEdit && !online && !hasLocalLlm() && (

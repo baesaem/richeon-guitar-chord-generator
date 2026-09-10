@@ -1830,13 +1830,19 @@ export default function Home() {
 
 
   /* 가사 칸. 넓은 화면에서는 오른쪽 기둥에, 파형 화면에서는 파형 아래에
-     같은 것이 놓인다 — 두 벌로 적어 두면 한쪽만 고치게 된다 */
+     같은 것이 놓인다 — 두 벌로 적어 두면 한쪽만 고치게 된다.
+     보기만 한다. 찾기·바꾸기·지우기는 편집 → 가사로 옮겼다 */
   const lyricsPane = result ? (
     <LyricsPane
       result={result}
       time={time + lyricSync - settings.latency}
       online={!!health}
-      canEdit={settings.adminMode}
+      canEdit={false}
+      emptyNote={
+        settings.adminMode
+          ? "편집 → 가사에서 찾거나 붙여넣을 수 있습니다."
+          : undefined
+      }
       onLyrics={(lines) =>
         setResult((prev) => (prev ? { ...prev, lyrics: lines } : prev))
       }
@@ -2953,6 +2959,29 @@ export default function Home() {
 
                   {sheetTab === "lyrics" && (
                     <div className="pt-2 text-[13px] leading-relaxed">
+                      {/* 가사를 찾고·바꾸고·지우는 손은 여기 한 곳에 둔다.
+                          연습실은 노래를 따라 보는 자리라 가사만 띄운다 */}
+                      {editMode && settings.adminMode && (
+                        <LyricsPane
+                          toolsOnly
+                          result={result}
+                          time={time + lyricSync - settings.latency}
+                          online={!!health}
+                          onLyrics={(lines) =>
+                            setResult((prev) =>
+                              prev ? { ...prev, lyrics: lines } : prev,
+                            )
+                          }
+                          onResult={(r) => {
+                            adoptResult(r);
+                            pushToServer(r);
+                          }}
+                          onSeek={(t) => {
+                            playback?.seek(t);
+                            setTime(t);
+                          }}
+                        />
+                      )}
                       {/* 자동 자막에서 온 가사를 다듬는다. 서버가 있어야 한다 */}
                       {health && (result.lyrics ?? []).length > 1 && (
                         <button
