@@ -239,7 +239,7 @@ export function ScoreAttach({
   };
 
   const detachImage = async () => {
-    if (!confirm("붙여 둔 악보 그림을 뗍니다. 계속할까요?")) return;
+    if (!confirm("붙여 둔 배경악보를 지웁니다. 계속할까요?")) return;
     setBusy(true);
     try {
       onResult(await dropSheetImage(result.id));
@@ -251,7 +251,7 @@ export function ScoreAttach({
   };
 
   const detach = async () => {
-    if (!confirm("붙여 둔 악보를 뗍니다. 계속할까요?")) return;
+    if (!confirm("붙여 둔 악보를 통째로 지웁니다. 계속할까요?")) return;
     setBusy(true);
     setError(null);
     try {
@@ -439,7 +439,7 @@ export function ScoreAttach({
           onClick={() => pickImage.current?.click()}
           title="인쇄된 악보를 그대로 띄우고 그 위로 커서가 지나갑니다"
         >
-          {sheet ? "그림 바꾸기" : "악보 그림 붙이기"}
+          {sheet ? "배경악보 바꾸기" : "배경악보 붙이기"}
         </button>
         {sheet && (
           <button
@@ -447,7 +447,7 @@ export function ScoreAttach({
             disabled={busy || !online}
             onClick={detachImage}
           >
-            그림 떼기
+            배경악보 제거
           </button>
         )}
         {/* 지금 맞춘 싱크·카포를 이 곡의 기준값으로. 곡 파일에 실려
@@ -464,9 +464,13 @@ export function ScoreAttach({
           className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)] disabled:opacity-40 roomy:px-3 roomy:py-1"
           disabled={busy || !online}
           onClick={() => pick.current?.click()}
-          title={online ? "" : "분석 서버에 연결되어야 붙일 수 있습니다"}
+          title={
+            online
+              ? "악보 파일을 붙여 음표·가사·코드·마디를 통째로 바꿉니다"
+              : "분석 서버에 연결되어야 붙일 수 있습니다"
+          }
         >
-          {busy ? "붙이는 중…" : score ? "악보 바꾸기" : "악보 붙이기"}
+          {busy ? "붙이는 중…" : score ? "악보전체 바꾸기" : "악보전체 붙이기"}
         </button>
         {onReadChords && (
           <button
@@ -484,7 +488,7 @@ export function ScoreAttach({
             disabled={busy || !online}
             onClick={detach}
           >
-            떼기
+            악보전체 제거
           </button>
         )}
       </span>
