@@ -104,8 +104,16 @@ def _numbered(page, image: Image.Image, first: int) -> tuple[bytes, int]:
     im = image.convert("RGB")
     draw = ImageDraw.Draw(im)
     n = first
+    # 줄의 첫 마디는 오선 왼쪽 끝부터 상자를 친다. 첫 마디선을 조표 뒤에서
+    # 찾은 줄은 상자가 조표 뒤에서 시작해, 그 바로 앞에 인쇄된 첫 코드가
+    # 상자 밖(또는 상자 선 밑)에 깔려 AI가 어느 마디 것인지 몰랐다 —
+    # 「밤이 깊었네」 38·60·64마디의 D가 그렇게 빠졌다. 그림에만 칠 뿐
+    # 마디 자리는 그대로다.
+    left = min((s.measures[0][0] for s in page.systems if s.measures), default=0)
     for system in page.systems:
-        for a, b in system.measures:
+        for k, (a, b) in enumerate(system.measures):
+            if k == 0:
+                a = min(a, left)
             draw.rectangle(
                 [a, system.view_top, b, system.view_bottom],
                 outline=(255, 0, 0),

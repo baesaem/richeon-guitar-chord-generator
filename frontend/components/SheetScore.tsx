@@ -552,6 +552,14 @@ function SystemRow({
   const viewW = Math.max(x1 - x0, 0.02);
   /** 쪽 가로 자리(0~1) → 창 안의 자리(0~1) */
   const toX = (px: number) => (px - x0) / viewW;
+  /* 이 쪽 오선의 왼쪽 끝(자리표가 시작하는 곳). 줄의 첫 코드를 덮는 기준 */
+  const staffLeft = Math.min(
+    first.x0,
+    ...sheet.bars.filter((b) => b.page === row.page).map((b) => b.x0),
+  );
+  /** 줄의 첫 코드를 앉힐 자리와 덮을 너비(쪽 가로 비율) */
+  const FIRST_AT = 0.045;
+  const FIRST_COVER = 0.09;
 
   // 창의 세로:가로 비율
   const ratio = (height * (page?.height ?? 1)) / (viewW * (page?.width ?? 1));
@@ -631,10 +639,17 @@ function SystemRow({
         // 글자에 맞춰 밀면 마디마다 조금씩 다른 자리에 앉아 어수선하다 —
         // 마디선에 맞춰야 어느 마디의 코드인지 한눈에 보인다.
         //
-        // 다만 줄의 첫 마디는 자리표와 조표가 앞을 차지하므로, 거기까지
-        // 왼쪽으로 붙이면 조표 위에 얹힌다.
-        const nudge = c.bar === row.bars[0] && nudged ? 0.12 : 0;
-        const x = toX(b.x0 + (b.x1 - b.x0) * (c.at + nudge));
+        // 다만 줄의 첫 마디는 자리표와 조표가 앞을 차지한다. 첫 코드는
+        // 조표 바로 뒤에 인쇄되는데 그 자리가 줄마다 다르다 — 도돌이표가
+        // 있으면 더 뒤고, 첫 마디선을 조표 뒤에서 찾은 줄은 마디선보다
+        // 앞이다. 마디선에 맞추면 인쇄된 「D」가 빨간 「C」 옆에 그대로
+        // 보였다. 오선 왼쪽 끝에서 자리표만큼 띄워 앉히고 흰 바탕을 넓게
+        // 깔아, 어느 줄이든 인쇄된 첫 코드를 덮는다.
+        const firstOfLine = c.bar === row.bars[0] && nudged;
+        const lead = firstOfLine && c.at === 0;
+        const x = lead
+          ? toX(staffLeft + FIRST_AT)
+          : toX(b.x0 + (b.x1 - b.x0) * (c.at + (firstOfLine ? 0.12 : 0)));
         return (
           <span
             key={i}
@@ -648,6 +663,7 @@ function SystemRow({
               // 줄 오른쪽 끝에 붙은 코드는 오른쪽으로 자라다 잘린다
               // (Dm의 m이 잘려 D로 보였다). 끝자락에서는 왼쪽으로 자란다.
               transform: x > 0.9 ? "translateX(-100%)" : undefined,
+              minWidth: lead ? `${(FIRST_COVER / viewW) * 100}%` : undefined,
               // 빨강. 인쇄된 검은 글자와 한눈에 갈린다 — 어느 것이 악보에
               // 적힌 코드이고 어느 것이 앱이 적은 코드인지 헷갈리면 안 된다.
               color: "#d32020",
