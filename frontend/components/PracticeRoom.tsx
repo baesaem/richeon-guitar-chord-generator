@@ -150,6 +150,18 @@ interface Props {
    */
   onFullView?: () => void;
   /**
+   * 악보 한 줄에 놓는 마디 수 — 「마디(확대)」. 줄이면 그만큼 크게 보인다.
+   *
+   * 전체보기 옆에 둔다. 악보 머리줄에 두었더니 폰에서는 코드·가사가 작아
+   * 확대하려는 사람이 손잡이를 찾지 못했다. value가 0이면 zeroLabel을 적는다.
+   */
+  zoom?: {
+    value: number;
+    max: number;
+    zeroLabel: string;
+    onChange: (n: number) => void;
+  };
+  /**
    * 영상을 감춰 악보에 자리를 넘긴다.
    *
    * 감춰도 영상은 화면에 남겨 둔다 — 떼어내면 소리가 끊긴다.
@@ -193,6 +205,7 @@ export function PracticeRoom({
   sync,
   onSync,
   onFullView,
+  zoom,
   videoCompact,
   onVideoCompact,
   viewTabs,
@@ -384,6 +397,25 @@ export function PracticeRoom({
                 >
                   전체보기
                 </button>
+              )}
+              {/* 한 줄 마디 수. 줄이면 그만큼 크게 보인다 — 폰에서 코드·가사를
+                  크게 보려고 쓴다. 숫자는 적힌 대로 움직인다(－를 누르면 줄어듦) */}
+              {zoom && (
+                <Step
+                  label="마디(확대)"
+                  value={zoom.value ? String(zoom.value) : zoom.zeroLabel}
+                  width="w-14"
+                  minusTitle="한 줄 마디를 줄입니다 — 그만큼 크게 보입니다"
+                  plusTitle="한 줄 마디를 늘립니다 — 그만큼 작게 보입니다"
+                  onMinus={() =>
+                    zoom.onChange(
+                      zoom.value === 0 ? zoom.max : Math.max(zoom.value - 1, 1),
+                    )
+                  }
+                  onPlus={() =>
+                    zoom.onChange(zoom.value >= zoom.max ? 0 : zoom.value + 1)
+                  }
+                />
               )}
               {/* 싱크·마디·음높이·빠르기는 한 줄에 나란히 둔다.
               따로 흘려 두면 좁은 화면에서 빠르기만 아래로 떨어져,

@@ -657,7 +657,7 @@ function SystemRow({
             // 넉넉히 두어 아래 글자가 비쳐 보이지 않게 한다.
             // 코드는 연주하며 힐끗 보는 글자라 눈에 들어와야 하지만,
             // 너무 키우면 인쇄된 음표와 가사를 덮는다. 그 사이를 잡는다.
-            className="pointer-events-none absolute whitespace-nowrap rounded-sm bg-white px-[2px] text-[10px] font-extrabold leading-[1.15] roomy:text-[12px]"
+            className="pointer-events-none absolute whitespace-nowrap rounded-sm bg-white px-[2px] text-[13px] font-extrabold leading-[1.15] roomy:text-[15px]"
             style={{
               left: `${x * 100}%`,
               // 줄 오른쪽 끝에 붙은 코드는 오른쪽으로 자라다 잘린다

@@ -20,6 +20,7 @@ import { BeatBpm } from "@/components/BeatBpm";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
 import { abcOrders } from "@/lib/abcOrder";
+import { reflowAbc } from "@/lib/abcReflow";
 import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
 import { EDIT_HOLD_MS } from "@/lib/editChords";
@@ -101,6 +102,14 @@ interface Props {
   playedBars?: number;
   /** 음원의 마디 수. 악보와 얼마나 다른지 보인다 */
   audioBars?: number;
+  /**
+   * 한 줄에 놓는 마디 수. 0이면 악보에 적힌 대로(보통 4마디).
+   *
+   * 폰 폭에서는 한 줄 4마디가 38%로 줄어 코드·가사가 8px쯤밖에 안 됐다.
+   * 마디를 줄이면 그만큼 크게 보인다 — 그림 악보의 「－ n마디 ＋」와 같다.
+   */
+  perLine?: number;
+  onPerLine?: (n: number) => void;
 }
 
 export function AbcScore({
@@ -128,6 +137,8 @@ export function AbcScore({
   audioBpm = 0,
   playedBars = 0,
   audioBars = 0,
+  perLine = 0,
+  onPerLine,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<SVGLineElement | null>(null);
@@ -152,25 +163,47 @@ export function AbcScore({
     (async () => {
       const ABCJS = (await import("abcjs")).default;
       if (cancelled || !hostRef.current) return;
+      /* 한 줄 N마디는 줄을 여기서 직접 끊어 정확히 맞춘다. 줄 구조가 특이한
+         악보만 abcjs 줄바꿈(wrap)으로 대신한다 — 그쪽은 빽빽한 마디를 한
+         줄에 덜 넣는다 */
+      const flowed = perLine > 0 ? reflowAbc(abc, perLine) : null;
       // barNumbers는 abcjs가 받는 값인데 타입 정의에 빠져 있다
       const params = {
         responsive: "resize",
         add_classes: true,
         visualTranspose: transpose,
-        staffwidth: 740,
+        /* 한 줄 마디 수를 줄이면 그만큼 좁게 그린다 — 화면 폭에 맞춰 늘려
+           보이므로 음표·코드·가사가 함께 커진다. 넓게 그리고 마디만 줄이면
+           간격만 벌어지고 글자는 그대로다 */
+        staffwidth: perLine > 0 ? (flowed ? 185 : 190) * perLine : 740,
+        ...(perLine > 0 && !flowed
+          ? {
+              wrap: {
+                /* 간격을 넉넉히 요구하면 16분음표가 빽빽한 마디는 한 줄에
+                   못 들어가 「2마디」인데 1마디씩 그렸다(최소 1.0에서도).
+                   악보대로(4마디를 740에) 그릴 때만큼은 좁혀도 된다 */
+                minSpacing: 0.6,
+                maxSpacing: 2.7,
+                preferredMeasuresPerLine: perLine,
+              },
+            }
+          : {}),
         // 줄마다 마디 번호를 작게 적는다 — 어디를 치는지 서로 짚어
         // 말할 때 「몇 마디」가 있어야 한다
         barNumbers: 1,
         format: {
-          gchordfont: "sans-serif 12 bold",
+          // 코드는 치면서 힐끗 보는 글자다. 12로는 폰 폭에서 악보가 줄어
+          // 읽기 어려웠다
+          gchordfont: "sans-serif 16 bold",
           measurefont: "sans-serif 9",
         },
       } as Parameters<typeof ABCJS.renderAbc>[2] & { barNumbers?: number };
       /* 마디 번호는 %%barnumbers 지시로 켠다.
          악보 원문은 건드리지 않고 그릴 때만 앞에 붙인다 — 저장되는
          악보에 우리 취향을 섞지 않기 위해서다. */
-      const drawn = /^%%barnumbers/m.test(abc) ? abc : `%%barnumbers 1
-${abc}`;
+      const src = flowed ?? abc;
+      const drawn = /^%%barnumbers/m.test(src) ? src : `%%barnumbers 1
+${src}`;
       const [obj] = ABCJS.renderAbc(hostRef.current, drawn, params);
       if (!obj) return;
       obj.setTiming();
@@ -203,7 +236,7 @@ ${abc}`;
     return () => {
       cancelled = true;
     };
-  }, [abc, transpose]);
+  }, [abc, transpose, perLine]);
 
   /**
    * 음원 마디 차례 → abcjs가 세는 마디 번호.
@@ -408,6 +441,10 @@ ${abc}`;
           onSync={onSync}
           onShiftBar={onShiftBar}
           shift={barOffsetProp}
+          bars={onPerLine ? perLine : undefined}
+          onBars={onPerLine}
+          barsMax={4}
+          barsLabel="악보대로"
         />
         {/* 악보에 마디 수를 맞추는 손잡이.
             한 마디만 달라도 알려 준다 — 그 한 마디가 곡 전체에 걸쳐

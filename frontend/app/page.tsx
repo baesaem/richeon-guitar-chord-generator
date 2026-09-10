@@ -2762,6 +2762,8 @@ export default function Home() {
                     <AbcScore
                       abc={unified?.abc ?? abcEntry.abc}
                       chordNote={unified}
+                      perLine={settings.abcPerLine ?? 0}
+                      onPerLine={(n) => setSettings({ ...settings, abcPerLine: n })}
                       bars={bars}
                       time={time + sync - settings.latency}
                       getTime={
@@ -3347,6 +3349,7 @@ export default function Home() {
                       <AbcScore
                         abc={unified?.abc ?? abcEntry.abc}
                         chordNote={unified}
+                      perLine={settings.abcPerLine ?? 0}
                         bars={bars}
                         time={time + sync - settings.latency}
                         getTime={
@@ -3398,7 +3401,7 @@ export default function Home() {
                         autoChords={autoSheetChords}
                         showChords={transpose !== 0}
                         barsView={settings.sheetZoom}
-                        onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
+                        /* 한 줄 마디 수는 전체보기 옆 「마디(확대)」가 맡는다 */
                         sync={sync}
                         onSync={setSync}
                         musicKey={result.key}
@@ -3512,6 +3515,28 @@ export default function Home() {
                   vocalBusy={vocalBusy}
                   sync={sync}
                   onSync={setSync}
+                  /* 멜로디를 볼 때만 — 악보의 한 줄 마디 수(줄이면 크게) */
+                  zoom={
+                    roomView !== "abc"
+                      ? undefined
+                      : melodyKind === "abc" && abcEntry
+                        ? {
+                            value: settings.abcPerLine ?? 0,
+                            max: 4,
+                            zeroLabel: "악보대로",
+                            onChange: (n) =>
+                              setSettings({ ...settings, abcPerLine: n }),
+                          }
+                        : melodyKind === "sheet"
+                          ? {
+                              value: settings.sheetZoom ?? 0,
+                              max: 8,
+                              zeroLabel: "줄 전체",
+                              onChange: (n) =>
+                                setSettings({ ...settings, sheetZoom: n }),
+                            }
+                          : undefined
+                  }
                   onFullView={() => {
                     setEditMode(false);
                     setShowSheet(true);
@@ -3853,6 +3878,8 @@ export default function Home() {
                               <AbcScore
                                 abc={unified?.abc ?? abcEntry.abc}
                                 chordNote={unified}
+                      perLine={settings.abcPerLine ?? 0}
+                      onPerLine={(n) => setSettings({ ...settings, abcPerLine: n })}
                                 bars={bars}
                                 time={time + sync - settings.latency}
                                 getTime={

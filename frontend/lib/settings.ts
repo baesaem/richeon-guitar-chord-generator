@@ -49,6 +49,11 @@ export interface Settings {
   /** 그리드 한 줄에 몇 칸씩. 0이면 자동(좁으면 4칸, 넓으면 8칸) */
   gridPerRow: number;
   /**
+   * ABC 악보 한 줄에 몇 마디씩. 0이면 악보에 적힌 대로(보통 4마디).
+   * 줄이면 그만큼 크게 그린다 — 폰에서 코드·가사를 크게 보려고 쓴다.
+   */
+  abcPerLine: number;
+  /**
    * 음표 아래에 계이름(도·레·미)을 적을지.
    *
    * 원본 악보에는 없다. 오선을 처음 보시는 분께는 도움이 되지만,
@@ -95,6 +100,7 @@ export const DEFAULT_SETTINGS: Settings = {
   settingsVersion: 2,
   chordPerLine: 4,
   gridPerRow: 0,
+  abcPerLine: 0,
   solfege: false,
   latency: 0,
   adminMode: false,

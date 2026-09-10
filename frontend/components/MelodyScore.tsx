@@ -307,7 +307,8 @@ export function MelodyScore({
       {shown.map(([lineIndex, line]) => {
         const hasActive = line.some((_, i) => lineIndex * per + i === barIndex);
         const measureW = (VB_W - PAD_X * 2) / per;
-        const chordFont = Math.max(5.2, Math.min(9, measureW * 0.145));
+        // 코드는 치면서 힐끗 보는 글자라 크게(예전의 1.3배)
+        const chordFont = Math.max(6.8, Math.min(11.7, measureW * 0.19));
 
         return (
           <div key={lineIndex} ref={hasActive ? activeRef : undefined}>
