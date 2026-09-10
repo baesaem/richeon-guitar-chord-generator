@@ -79,7 +79,14 @@ export interface AnalysisMeta {
 }
 
 /** 그림 타브에서 읽어 온 한 마디. 뜯는 마디는 숫자, 훑는 마디는 손 방향 */
-export type PickedBar = { no: number; chords?: string[] } & (
+export type PickedBar = {
+  no: number;
+  chords?: string[];
+  /** 그림에 인쇄된 가사. 멜로디까지 그림인 곡은 여기서만 온다 */
+  lyric?: string;
+  /** 2절 가사. 도돌이를 돌 때 부르는 말이라 한 마디에 둘이 붙는다 */
+  lyric2?: string;
+} & (
   | { kind: "pick"; cols: Record<string, number>[] }
   | { kind: "strum"; chord: Record<string, number>; strokes: string }
 );

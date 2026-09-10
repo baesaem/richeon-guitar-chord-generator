@@ -1357,8 +1357,11 @@ def _merge_picked(old: dict | None, got: dict) -> dict:
         # 이번에 숫자를 못 읽은 마디만 앞서 읽은 것으로 메운다
         if before.get("kind") == "strum":
             keep = dict(before)
-            if m.get("chords"):
-                keep["chords"] = m["chords"]
+            # 이번에 읽은 코드와 가사는 새것이 이긴다. 숫자만 앞서 읽은
+            # 것으로 메운다
+            for field in ("chords", "lyric", "lyric2"):
+                if m.get(field):
+                    keep[field] = m[field]
             m.clear()
             m.update(keep)
         elif before.get("cols"):

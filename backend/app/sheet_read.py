@@ -458,17 +458,28 @@ _TAB_PROMPT = """이 악보 그림에서 **타브(TAB) 여섯 줄에 적힌 프�
 G/B 같은 글자입니다. 그 마디에 적힌 것을 왼쪽에서 오른쪽 차례로 담고,
 없으면 빈 배열로 두세요.
 
+**가사도 함께 읽어 주세요.** 오선 아래에 음표마다 한 글자씩 적힌 말입니다.
+그 마디 아래에 적힌 것만, 왼쪽에서 오른쪽 차례로 **띄어 쓴 그대로** 담으세요.
+가사가 위아래 두 줄이면 윗줄이 1절("lyric"), 아랫줄이 2절("lyric2")입니다.
+한 줄뿐이면 1절만 담고 2절은 빈 문자열로 두세요. 가사가 없는 마디는
+둘 다 빈 문자열입니다. **없는 말을 지어내지 마세요** — 안 보이면 비웁니다.
+
 JSON만 답하세요. 못 읽은 마디는 넣지 마세요.
 
-{"tab": [{"bar": 마디번호, "cols": "3/1+3/6 0/4 0/3", "chords": ["Em","B7"]}, ...]}
+{"tab": [{"bar": 마디번호, "cols": "3/1+3/6 0/4 0/3", "chords": ["Em","B7"],
+          "lyric": "모 두 들", "lyric2": "어 제 는"}, ...]}
 """
 
 
 def read_tab_ai(pages, images: list[bytes]) -> dict:
-    """그림 악보의 타브와 **코드 이름**을 한 번에 읽힌다.
+    """그림 악보의 타브와 **코드 이름과 가사**를 한 번에 읽힌다.
 
-    숫자와 코드를 따로 물으면 AI를 두 번 부르게 되고, 두 번 사이에 마디
-    번호가 어긋날 수도 있다. 한 그림을 한 번 보여 주고 둘을 함께 받는다.
+    따로 물으면 AI를 여러 번 부르게 되고, 그 사이에 마디 번호가 어긋날
+    수도 있다. 한 그림을 한 번 보여 주고 셋을 함께 받는다.
+
+    가사도 그림에서 온다. 뮤즈스코어 파일로 뜬 타브는 노래 보표에서
+    가사를 함께 떠 오지만, 멜로디까지 그림인 곡은 가사가 어디에도
+    적혀 있지 않다 - 그림에는 인쇄돼 있으니 거기서 읽는다.
     """
     import re
 
@@ -484,6 +495,7 @@ def read_tab_ai(pages, images: list[bytes]) -> dict:
     found = _ask(shots, prompt=_TAB_PROMPT)
     per: dict[int, list[dict[str, int]]] = {}
     names: dict[int, list[str]] = {}
+    words: dict[int, tuple[str, str]] = {}
     for row in found.get("tab") or []:
         if not isinstance(row, dict):
             continue
@@ -510,16 +522,23 @@ def read_tab_ai(pages, images: list[bytes]) -> dict:
         got = [str(c).strip() for c in (row.get("chords") or []) if str(c).strip()]
         if got:
             names[i] = got[:4]
+        one = str(row.get("lyric") or "").strip()
+        two = str(row.get("lyric2") or "").strip()
+        if one or two:
+            words[i] = (one[:40], two[:40])
 
     measures: list[dict] = []
     for i in range(1, count + 1):
         one: dict = {"no": i, "kind": "pick", "cols": per.get(i, [])}
         if names.get(i):
             one["chords"] = names[i]
+        if words.get(i):
+            one["lyric"], one["lyric2"] = words[i]
         measures.append(one)
     return {
         "bar_offset": 0,
         "measures": measures,
         "chord_bars": len(names),
+        "lyric_bars": len(words),
         "unread": sum(1 for m in measures if not m["cols"]),
     }

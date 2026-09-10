@@ -1416,6 +1416,26 @@ export default function Home() {
     [abcEntry?.abc],
   );
 
+  /**
+   * 그림 타브에 인쇄된 가사. 멜로디까지 그림인 곡은 여기서만 온다.
+   *
+   * 악보가 붙은 곡은 멜로디의 것을 먼저 쓴다 — 마디도 코드도 멜로디를
+   * 따르기로 했으니 가사도 그렇다. 그림 것은 멜로디에 없을 때만 쓴다.
+   */
+  const pickedWords = useMemo(() => {
+    const picked = result?.picked_tab;
+    if (!picked?.measures?.length) return [];
+    const off = picked.bar_offset ?? 0;
+    const out: { lyric: string; lyric2: string }[] = [];
+    for (const m of picked.measures)
+      if (m.lyric || m.lyric2)
+        out[m.no - 1 + off] = {
+          lyric: m.lyric ?? "",
+          lyric2: m.lyric2 ?? "",
+        };
+    return out;
+  }, [result?.picked_tab]);
+
   const tabFrame = useMemo((): TabScore | null => {
     if (abcEntry?.tabScore) return abcEntry.tabScore;
     const picked = result?.picked_tab;
@@ -1434,8 +1454,8 @@ export default function Home() {
         /* 가사는 멜로디가 가지고 있다. 그림에서 읽은 타브에는 숫자와
            코드뿐이라 여기서 받아 온다 — 마디도 코드도 멜로디를 따르는
            것과 같다 */
-        lyric: songWords[j]?.lyric ?? "",
-        lyric2: songWords[j]?.lyric2 ?? "",
+        lyric: songWords[j]?.lyric || pickedWords[j]?.lyric || "",
+        lyric2: songWords[j]?.lyric2 || pickedWords[j]?.lyric2 || "",
         startRepeat: false,
         endRepeat: false,
         volta: null,
@@ -1443,7 +1463,7 @@ export default function Home() {
         units,
       })),
     };
-  }, [abcEntry?.tabScore, result, songWords]);
+  }, [abcEntry?.tabScore, result, songWords, pickedWords]);
 
   const makeAbcTab = (withSync: boolean, withFix = false) =>
     result && tabFrame && hasPickedTab ? (

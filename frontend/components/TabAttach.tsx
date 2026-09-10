@@ -132,7 +132,7 @@ export function TabAttach({
         onClick={() => pickAi.current?.click()}
         title="그림 악보(PDF·사진)를 골라 넣으면 AI가 숫자와 코드 이름을 한 번에 읽습니다. 자로 재어 읽어 둔 숫자가 있으면 그대로 두고 못 읽은 마디와 코드만 채웁니다"
       >
-        AI로 그림 읽기 (숫자·코드)
+        AI로 그림 읽기 (숫자·코드·가사)
       </button>
       {tab && (
         <>
