@@ -453,13 +453,16 @@ ${abc}`;
             </button>
           </span>
         )}
+        {/* 화면 코드는 악보에 적힌 그대로다. 음원과 조가 다르면 그대로
+            쳐서는 소리가 맞지 않으니, 몇 프렛에 카포를 끼우는지 적어 준다 */}
         {!!chordNote?.shift && chordNote.matched > 0 && (
           <span
-            className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]"
-            title="악보가 카포를 쓰도록 옮겨 적혀 있습니다"
+            className="text-[11px] font-semibold text-[var(--accent)]"
+            title="화면 코드는 악보에 적힌 그대로입니다. 카포를 끼우면 음원과 같은 소리가 납니다"
           >
-            악보가 음원보다 {Math.abs(chordNote.shift)}반음{" "}
-            {chordNote.shift > 0 ? "높음" : "낮음"}
+            {chordNote.shift < 0
+              ? `카포 ${-chordNote.shift}프렛`
+              : `음원보다 ${chordNote.shift}반음 높은 악보`}
           </span>
         )}
       </div>

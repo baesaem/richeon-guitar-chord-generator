@@ -445,9 +445,21 @@ export default function Home() {
     [result?.lyrics],
   );
 
+  /**
+   * 악보가 카포로 몇 프렛 올려 적혔는가.
+   *
+   * 「광화문 연가」 악보는 Em으로 적혀 있고 음원은 G단조로 울린다 — 세
+   * 프렛 차이다. 앱 안에서 코드는 언제나 울리는 높이(Gm)로 다니지만,
+   * **화면에 적을 때는 악보에 적힌 대로(Em)** 돌려놓는다. 기타는 잡는
+   * 모양이 Em이고 카포가 Gm 소리를 내주는 것이라, 손이 보는 이름은
+   * Em이라야 한다. 그림에서 Em을 읽어 넣고도 화면이 Gm이면 「안
+   * 바뀌었다」로 보이는 것도 이 때문이었다.
+   */
+  const scoreCapo = unified?.source === "score" ? unified.capo : 0;
+
   // 음높이 +n = 카포 n프렛. 카포가 소리를 n만큼 올려주므로
   // 화면 코드 표기는 반대로 n만큼 내린 모양이어야 원곡 소리가 난다.
-  const noteShift = -transpose;
+  const noteShift = -transpose - scoreCapo;
 
   /**
    * ABC 악보를 그릴 때 쓸 이조값.
@@ -611,8 +623,9 @@ export default function Home() {
     return spell(root, prefersFlats(full)) + (/min/i.test(mode) ? "m" : "");
   }, [result, scoreShift]);
 
-  const abcTranspose =
-    noteShift + (unified?.source === "score" ? unified.capo : 0);
+  /* ABC 악보에 적힌 코드는 이미 악보 조(Em)다. 화면도 악보 조로 적으므로
+     여기서 옮길 것은 사용자가 손으로 준 음높이뿐이다 */
+  const abcTranspose = noteShift + scoreCapo;
 
 
   /**
@@ -1267,8 +1280,8 @@ export default function Home() {
   const view = (c: typeof current) =>
     c
       ? {
-          root: transposeRoot(c.root, -transpose),
-          label: labelFor(transposeRoot(c.root, -transpose), c.quality, flats),
+          root: transposeRoot(c.root, noteShift),
+          label: labelFor(transposeRoot(c.root, noteShift), c.quality, flats),
           quality: c.quality,
         }
       : undefined;
