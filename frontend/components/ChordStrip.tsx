@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
-import { labelFor, transposeRoot } from "@/lib/notation";
+import { chordText } from "@/lib/notation";
 import type { AnalysisResult } from "@/lib/types";
 
 export interface ChordStripHandle {
@@ -12,6 +12,8 @@ export interface ChordStripHandle {
 interface Props {
   result: AnalysisResult;
   flats: boolean;
+  /** 악보에서 온 코드 이름을 **적힌 그대로** 쓸까 */
+  exactLabels?: boolean;
   transpose: number;
   /** 초당 픽셀. 클수록 확대된다 */
   pixelsPerSecond?: number;
@@ -36,7 +38,7 @@ const BAR_STEP = 3;
  * "언제 바뀌는지"가 눈에 보인다. 리액트 재렌더 없이 캔버스에 직접 그린다.
  */
 export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStrip(
-  { result, flats, transpose, pixelsPerSecond = 90, onSeek, height = 92 },
+  { result, flats, transpose, exactLabels, pixelsPerSecond = 90, onSeek, height = 92 },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -183,7 +185,7 @@ export const ChordStrip = forwardRef<ChordStripHandle, Props>(function ChordStri
       const x = originX + chord.start * pixelsPerSecond;
       if (x < -80 || x > w + 80) continue;
 
-      const text = labelFor(transposeRoot(chord.root, transpose), chord.quality, flats);
+      const text = chordText(chord, transpose, flats, exactLabels);
       // 코드가 없는 자리는 비워 둔다 — 「N.C.」라 적으면 잡을 코드처럼 읽힌다
       if (text === "N.C.") continue;
       const tw = measureLabel(text);

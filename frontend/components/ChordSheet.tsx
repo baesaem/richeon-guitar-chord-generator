@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChordLabel } from "@/components/ChordLabel";
 import { chordIndexAt, type Bar } from "@/lib/bars";
 import { EDIT_HOLD_MS } from "@/lib/editChords";
-import { labelFor, transposeRoot } from "@/lib/notation";
+import { chordText } from "@/lib/notation";
 import { useLongPress } from "@/lib/useLongPress";
 import { useSmoothTime } from "@/lib/useSmoothTime";
 import type { Chord } from "@/lib/types";
@@ -18,6 +18,8 @@ interface Props {
   /** 지금 울리는 코드의 인덱스. 마디 안에서 어느 코드가 울리는지 표시한다 */
   currentChord: number;
   flats: boolean;
+  /** 악보에서 온 코드 이름을 **적힌 그대로** 쓸까. 다시 적으면 ♭·♯이 뒤집힌다 */
+  exactLabels?: boolean;
   transpose: number;
   follow: boolean;
   /** 마디를 길게 누르거나 오른쪽 클릭했을 때. 코드 고치기에 쓴다 */
@@ -83,6 +85,7 @@ export function ChordSheet({
   currentBar,
   currentChord,
   flats,
+  exactLabels,
   transpose,
   follow,
   onEditBar,
@@ -193,11 +196,7 @@ export function ChordSheet({
                       <span className="opacity-30">%</span>
                     ) : chord ? (
                       <ChordLabel
-                        label={labelFor(
-                          transposeRoot(chord.root, transpose),
-                          chord.quality,
-                          flats,
-                        )}
+                        label={chordText(chord, transpose, flats, exactLabels)}
                       />
                     ) : (
                       "·"

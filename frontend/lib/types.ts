@@ -38,6 +38,15 @@ export interface Chord {
   root: string | null;
   quality: string;
   bass: string | null;
+  /**
+   * 악보에 **적힌 그대로**의 이름. 악보에서 온 코드에만 있다.
+   *
+   * 앱 안의 코드는 울리는 높이로 다닌다. 카포 악보를 따르면 적힌
+   * B7/E♭이 D7/F♯으로 옮겨져 실리고, 화면에서 다시 내릴 때는 ♯으로
+   * 적혀 B7/D♯이 된다 — 같은 음인데 악보와 글자가 다르다. 적힌 것을
+   * 함께 실어 두었다가 제자리로 돌아왔을 때 그대로 보인다.
+   */
+  score?: string;
   confidence: number;
   edited: boolean;
 }

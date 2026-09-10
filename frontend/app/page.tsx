@@ -90,6 +90,7 @@ import { getLocal, getLocalAudio, listLocal, saveLocal } from "@/lib/library";
 import { LYRIC_LEAD, groupBySentence, groupIndexAt } from "@/lib/lyricGroups";
 import { lyricIndexAt } from "@/lib/lrc";
 import {
+  chordText,
   labelFor,
   prefersFlats,
   resolveFlats,
@@ -646,6 +647,15 @@ export default function Home() {
   /* ABC 악보에 적힌 코드는 이미 악보 조(Em)다. 화면도 악보 조로 적으므로
      여기서 옮길 것은 사용자가 손으로 준 음높이뿐이다 */
   const abcTranspose = noteShift + scoreCapo;
+
+  /**
+   * 코드 이름을 **악보에 적힌 그대로** 쓸까.
+   *
+   * 악보를 따르는 곡은 이름을 다시 짓지 않는다 — 다시 지으면 ♭·♯이
+   * 뒤집혀 악보가 B7/E♭이라 적은 자리를 그리드만 B7/D♯으로 적는다.
+   * 음높이를 옮기면 더는 적힌 대로가 아니므로 새로 짓는다.
+   */
+  const exactLabels = unified?.source === "score" && transpose === 0;
 
 
   /**
@@ -1301,7 +1311,8 @@ export default function Home() {
     c
       ? {
           root: transposeRoot(c.root, noteShift),
-          label: labelFor(transposeRoot(c.root, noteShift), c.quality, flats),
+          /* 큰 코드 글자도 다른 화면과 같은 이름이어야 한다 */
+          label: chordText(c, noteShift, flats, exactLabels),
           quality: c.quality,
         }
       : undefined;
@@ -2761,6 +2772,7 @@ export default function Home() {
 
                   {sheetTab === "grid" && (
                     <ChordSheet
+                      exactLabels={exactLabels}
                       bars={bars}
                       chords={shownChords}
                       currentBar={barIdx}
@@ -3004,6 +3016,7 @@ export default function Home() {
                         />
                         <div className="shrink-0">
                           <ChordStrip
+                          exactLabels={exactLabels}
                             ref={stripRef}
                             result={shown ?? result}
                             flats={flats}
@@ -3092,6 +3105,7 @@ export default function Home() {
                         />
                         <div className="shrink-0">
                           <ChordSheet
+                      exactLabels={exactLabels}
                             visibleRows={wide ? 5 : 3}
                             bars={bars}
                             chords={shownChords}
@@ -3544,6 +3558,7 @@ export default function Home() {
                               </SongInfoLine>
                             </div>
                             <ChordStrip
+                          exactLabels={exactLabels}
                               ref={stripRef}
                               result={shown ?? result}
                               flats={flats}

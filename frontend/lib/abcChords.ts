@@ -257,7 +257,12 @@ export interface SongChordResult {
 }
 
 /** 코드 이름 → Chord 한 칸. 분수코드는 베이스를 떼어 낸다 */
-function toChord(label: string, start: number, end: number): Chord {
+function toChord(
+  label: string,
+  start: number,
+  end: number,
+  written?: string,
+): Chord {
   const [head, bass] = plain(label).split("/");
   const { root, quality } = parseLabel(head);
   return {
@@ -267,6 +272,7 @@ function toChord(label: string, start: number, end: number): Chord {
     root,
     quality,
     bass: bass ?? null,
+    score: written ? plain(written) : undefined,
     // 악보에 적힌 것이라 확신도는 최대다
     confidence: 1,
     edited: false,
@@ -480,7 +486,7 @@ export function unifyChords(
     first = Math.min(first, bar.start);
     last = Math.max(last, bar.end);
     const slots = meas[d]?.slots ?? [];
-    const put = (label: string, from: number, to: number) => {
+    const put = (label: string, from: number, to: number, written?: string) => {
       const prev = laid[laid.length - 1];
       if (
         prev &&
@@ -488,7 +494,7 @@ export function unifyChords(
         Math.abs(prev.end - from) < 0.05
       )
         prev.end = +to.toFixed(3);
-      else laid.push(toChord(label, from, to));
+      else laid.push(toChord(label, from, to, written));
     };
     if (!slots.length) {
       // 적힌 코드가 없으면 앞 코드를 이 마디 끝까지 늘인다
@@ -502,6 +508,7 @@ export function unifyChords(
         sounding(slot.label),
         bar.start + (span * i) / slots.length,
         bar.start + (span * (i + 1)) / slots.length,
+        slot.label,
       );
     });
   });

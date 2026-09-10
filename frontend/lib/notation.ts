@@ -120,6 +120,10 @@ export function shiftChordLabel(
   flats: boolean,
 ): string {
   if (!label) return label;
+  /* 옮길 것이 없으면 **적힌 그대로** 둔다. 다시 적으면 ♭·♯이 뒤집혀,
+     악보가 B7/E♭이라 적은 자리를 화면만 B7/D♯으로 적는다 — 같은
+     코드인데 글자가 달라 보인다. 기호만 예쁘게 고친다 */
+  if (!semitones) return prettyAccidentals(label);
   const [head, bass] = label.split("/");
   const m = head.match(/^([A-G][#b♯♭]?)(.*)$/);
   if (!m) return label;
@@ -136,4 +140,39 @@ export function shiftChordLabel(
         : spell(SHARP_NAMES[(((bp + semitones) % 12) + 12) % 12], flats));
   }
   return out;
+}
+
+
+/** b·#을 ♭·♯으로. 음 이름 뒤에 붙은 것만 고친다(sus4b9의 b는 놔둔다) */
+export function prettyAccidentals(label: string): string {
+  return label.replace(/([A-G])b/g, "$1♭").replace(/([A-G])#/g, "$1♯");
+}
+
+/**
+ * 화면에 적을 코드 이름. **베이스음(슬래시)까지** 담는다.
+ *
+ * 그리드와 파형은 뿌리와 성질만 적어 왔다. 그래서 악보가 B7/E♭이라
+ * 적은 자리를 B7로만 적어, 화면마다 코드가 다르게 보였다.
+ *
+ * exact면 악보에 적힌 이름을 그대로 쓴다 — 다시 적으면 ♭·♯이 뒤집힌다.
+ * 음높이를 옮겼거나 어휘를 낮춘 곡은 적힌 이름이 더는 맞지 않으므로
+ * 뿌리와 성질에서 새로 짓는다.
+ */
+export function chordText(
+  chord: {
+    root: string | null;
+    quality: string;
+    bass?: string | null;
+    /** 악보에 적힌 그대로의 이름 */
+    score?: string;
+  },
+  shift: number,
+  flats: boolean,
+  exact = false,
+): string {
+  if (exact && chord.score) return prettyAccidentals(chord.score);
+  const head = labelFor(transposeRoot(chord.root, shift), chord.quality, flats);
+  if (!chord.bass) return head;
+  const bass = transposeRoot(chord.bass, shift);
+  return `${head}/${bass ? spell(bass, flats) : prettyAccidentals(chord.bass)}`;
 }
