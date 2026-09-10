@@ -56,7 +56,10 @@ export function abcMeasures(abc: string): AbcMeasure[] {
       k += seg.length;
       continue;
     }
-    const bar = body.slice(k).match(/^(:\|:|::|\|:|:\||\|\]|\|\||\|)/);
+    // 겹세로줄 뒤에 도돌이가 시작하면 뮤즈스코어 변환이 「||:」로 적는다.
+    // 「||」만 떼어 가면 「:」가 다음 마디 글자로 남아 도돌이 시작을 놓쳤다 —
+    // 「첫사랑」은 22마디로 돌아가야 할 것을 1마디로 돌아가 51마디가 72마디가 되었다.
+    const bar = body.slice(k).match(/^(:\|:|::|\|\|:|\[\|:|\|:|:\||\|\]|\|\||\|)/);
     if (bar) {
       close(bar[1]);
       k += bar[1].length;

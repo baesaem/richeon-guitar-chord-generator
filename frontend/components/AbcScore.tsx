@@ -439,7 +439,11 @@ ${abc}`;
         <BeatBpm bpm={audioBpm} onSet={onSetBpm} />
         {/* 화면 코드는 악보에 적힌 그대로다. 음원과 조가 다르면 그대로
             쳐서는 소리가 맞지 않으니, 몇 프렛에 카포를 끼우는지 적어 준다 */}
-        {!!chordNote?.shift && chordNote.matched > 0 && (
+        {/* 열에 여덟이 맞을 때만 적는다. 반쯤 맞은 조는 믿을 수 없어 코드도
+            고치지 않는데, 글자만 「카포 5프렛」이라 떠 있으면 사람이 따라 끼운다 */}
+        {!!chordNote?.shift &&
+          chordNote.matched > 0 &&
+          chordNote.matched >= chordNote.total * 0.8 && (
           <span
             className="text-[11px] font-semibold text-[var(--accent)]"
             title="화면 코드는 악보에 적힌 그대로입니다. 카포를 끼우면 음원과 같은 소리가 납니다"
