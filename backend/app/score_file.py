@@ -393,14 +393,6 @@ def expand(bars: list[ScoreBar]) -> list[int]:
         guard += 1
         bar = bars[i]
 
-        # 「여기까지」에 닿으면 코다로 건너뛴다
-        if until and until in bar.markers:
-            if cont and cont in marker_at:
-                i = marker_at[cont]
-                until = cont = ""
-                continue
-            break
-
         if bar.start_repeat:
             start = i
 
@@ -413,6 +405,17 @@ def expand(bars: list[ScoreBar]) -> list[int]:
                 continue
 
         play.append(i)
+
+        # 「여기까지(To Coda)」에 닿으면 **이 마디까지 부르고** 코다로
+        # 건너뛴다. ⊕는 마디 끝의 세로줄 위에 적히므로 그 마디는 부르는
+        # 것이다 - 앞서 부르기 전에 뛰는 바람에 「그건 너」는 37마디가
+        # 통째로 빠졌고, 그 자리에서 진행바가 한 마디 앞서 나갔다.
+        if until and until in bar.markers:
+            if cont and cont in marker_at:
+                i = marker_at[cont]
+                until = cont = ""
+                continue
+            break
 
         # 되돌이표(𝄇)와 달세뇨가 **한 마디에 함께** 적혔으면 둘은 같은
         # 말이다. 편곡자가 「여기서 앞으로 돌아가라」를 두 가지로 적어
