@@ -1248,6 +1248,18 @@ async def fit_sheet(result_id: str) -> AnalysisResult:
         payload, count, offset, repeats, order
     )
     sheet["offset"] = offset
+    # 음원의 마디선을 악보 마디에 맞춘다. 악보가 반 마디(4.5)처럼 끝수가
+    # 붙은 자리에 놓이면 소리에는 맞지만, 그리드는 음원 마디선을 써서 코드가
+    # 마디 한가운데서 바뀌는 것처럼 쪼개졌다. 박의 시각은 그대로 두고 번호만
+    # 다시 매기므로 진행바·코드 시각은 하나도 바뀌지 않는다.
+    try:
+        per_bar = int(str(result.time_signature or "4/4").split("/")[0]) or 4
+    except ValueError:
+        per_bar = 4
+    rows = beats_even.rephase(
+        [b.model_dump() for b in result.beats], round(offset * per_bar), per_bar
+    )
+    result.beats = [Beat(**r) for r in rows]
     was = str(sheet.get("source") or "")
     sheet["source"] = was if (order and was in ("read", "repeat")) else ("repeat" if order else "grid")
     result.sheet = sheet

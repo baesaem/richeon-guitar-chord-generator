@@ -37,6 +37,30 @@ def _renumber(times: list[float], beats: list[dict], per_bar: int) -> list[dict]
     return out
 
 
+def rephase(beats: list[dict], first: int, per_bar: int = 4) -> list[dict]:
+    """``first``번째 박(0부터)이 마디 첫 박이 되게 마디·박 번호를 다시 매긴다.
+
+    박을 고르게 다시 깔면 마디 번호를 첫 박부터 넷씩 새로 매긴다. 그러면
+    음원의 마디선이 실제 강박에서 비껴나고, 악보는 반 마디(4.5)처럼 끝수가
+    붙은 자리에 놓여 소리에는 맞지만 — 그리드는 음원 마디선을 쓰므로 코드가
+    마디 한가운데서 바뀌는 것처럼 쪼개졌다(「밤이 깊었네」 42마디).
+
+    **박의 시각은 건드리지 않는다.** 악보 마디의 시각은 박의 순서로만
+    정해지므로(times_from_grid) 번호만 바꾸면 소리는 그대로이고, 그리드의
+    마디선만 악보 마디와 같은 자리로 온다. 그 앞의 박들은 못갖춘마디다.
+    """
+    lead = first % per_bar if per_bar > 0 else 0
+    out: list[dict] = []
+    for i, b in enumerate(beats):
+        if i < lead:
+            bar, beat = 1, per_bar - lead + i + 1
+        else:
+            j = i - lead
+            bar = (2 if lead else 1) + j // per_bar
+            beat = j % per_bar + 1
+        out.append({**b, "bar": bar, "beat": beat})
+    return out
+
 def even(beats: list[dict], per_bar: int = 4) -> tuple[list[dict], int]:
     """벌어진 곳은 메우고 좁은 곳은 덜어 고른 박으로. (새 박, 고친 자리 수)"""
     times = [float(b["t"]) for b in beats]
