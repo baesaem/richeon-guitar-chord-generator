@@ -2525,6 +2525,8 @@ export default function Home() {
                       /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
                    끊지 않고 곡 전체를 죽 편다. */
                       <SheetScore
+                        audioBpm={result.bpm}
+                        onSetBpm={canFix && health ? setBeatBpm : undefined}
                         resultId={result.id}
                         sheet={sheetImg}
                         time={time + sync - settings.latency}
@@ -3518,6 +3520,8 @@ export default function Home() {
                             ) : sheetImg ? (
                               /* 인쇄된 악보 그대로. 마디선만 찾아 그 위로 커서가 간다 */
                               <SheetScore
+                                audioBpm={result.bpm}
+                                onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
                                 resultId={result.id}
                                 sheet={sheetImg}
                                 // 악보는 코드와 같은 것을 짚는 도구다. 가사 싱크가

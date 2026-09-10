@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StrumChoice } from "@/lib/strumLibrary";
 
+import { BeatBpm } from "@/components/BeatBpm";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
 import { abcOrders } from "@/lib/abcOrder";
@@ -428,31 +429,7 @@ ${abc}`;
         {/* 빠르기를 손으로 정한다.
             마디 수로 나누는 길은 곡 끝이 페이드로 잦아들면 마디를 짧게
             잡아 커서가 갈수록 앞선다 — 그럴 때는 귀로 잰 ♩값이 낫다. */}
-        {onSetBpm && (
-          <span className="flex items-center gap-1 text-[11px]">
-            <span>♩</span>
-            <input
-              type="number"
-              className="w-12 rounded border border-[var(--panel-line)] bg-[var(--background)] px-1 py-0.5 text-right"
-              defaultValue={audioBpm ? Math.round(audioBpm) : 70}
-              min={20}
-              max={400}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onSetBpm(+(e.target as HTMLInputElement).value);
-              }}
-              title="이 빠르기로 박을 다시 깝니다. 커서가 갈수록 앞서면 조금 낮추고, 처지면 높이세요"
-            />
-            <button
-              className="rounded bg-[var(--chip)] px-1.5 py-0.5 font-semibold"
-              onClick={(e) => {
-                const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                onSetBpm(+input.value);
-              }}
-            >
-              맞추기
-            </button>
-          </span>
-        )}
+        <BeatBpm bpm={audioBpm} onSet={onSetBpm} />
         {/* 화면 코드는 악보에 적힌 그대로다. 음원과 조가 다르면 그대로
             쳐서는 소리가 맞지 않으니, 몇 프렛에 카포를 끼우는지 적어 준다 */}
         {!!chordNote?.shift && chordNote.matched > 0 && (

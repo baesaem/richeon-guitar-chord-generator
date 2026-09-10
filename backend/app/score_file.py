@@ -414,7 +414,13 @@ def expand(bars: list[ScoreBar]) -> list[int]:
 
         play.append(i)
 
-        if bar.end_repeat and played.get(i, 0) + 1 < bar.end_repeat:
+        # 되돌이표(𝄇)와 달세뇨가 **한 마디에 함께** 적혔으면 둘은 같은
+        # 말이다. 편곡자가 「여기서 앞으로 돌아가라」를 두 가지로 적어
+        # 둔 것뿐인데, 따로 세면 한 바퀴를 더 돈다 - 「그건 너」는 가사가
+        # 두 절인데 세 번 불렀다. 달세뇨가 한 바퀴를 맡으므로 되돌이는
+        # 그만큼 덜 돈다.
+        turns = bar.end_repeat - (1 if bar.jump else 0)
+        if bar.end_repeat and played.get(i, 0) + 1 < turns:
             played[i] = played.get(i, 0) + 1
             i = start
             continue
