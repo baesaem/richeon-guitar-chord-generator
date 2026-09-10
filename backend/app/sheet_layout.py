@@ -30,8 +30,8 @@ _LINE_FILL = 0.45
 #: 58개가 되었고, 악보 파일과 마디 수가 달라 정렬이 조용히 버려졌다.
 #: 빈틈이 하나도 없을 것을 요구한다.
 _BAR_FILL = 0.995
-#: 오선 바로 위아래로 삐져나온 잉크. 이보다 짙으면 마디선이 아니라 기둥이다
-_SPILL_FILL = 0.1
+#: 세로줄이 오선 밖으로 삐져나온 정도. 이보다 많으면 마디선이 아니라 기둥이다
+_SPILL_FILL = 0.2
 
 
 @dataclass
@@ -188,15 +188,17 @@ def _keep_inside(
     없어 위아래를 꿰는 세로줄은 마디선뿐이다. 오선만 있는 악보에는 그
     길이 없다. 낮은 음의 기둥은 오선 아래 음표에서 위로 솟아 다섯 줄을
     모두 꿰므로, 있는 그대로 세면 마디가 곱절이 된다 - 「그건 너」는
-    82마디가 116마디로 나왔다.
+    80마디가 116마디로 나왔다.
 
     가르는 것은 **오선 밖**이다. 마디선은 맨 윗줄에서 맨 아랫줄까지,
     딱 오선만큼이다. 기둥은 음표나 이음보가 오선 밖에 있어 반드시
-    비어져 나온다. 바로 위아래를 들여다보아 잉크가 있으면 기둥이다.
+    비어져 나온다.
 
-    맞닿은 데만 본다. 넓게 보면 오선 위의 코드 이름과 아래의 가사
-    글자가 걸려, 멀쩡한 마디선을 기둥으로 몰아낸다 - 30%까지 보았을
-    때 네 단이 한 마디씩 어긋났다.
+    맞닿은 데만, 그것도 넉넉한 자로 본다. 넓게 보면 오선 위의 코드
+    이름과 아래의 가사 글자가 걸리고, 자를 빡빡하게 잡으면 이음보가
+    스쳐 지나가는 마디선까지 몰려난다 - 실제로 「그건 너」의 29마디
+    앞 마디선이 이음보 때문에 0.14로 걸려 사라졌다. 기둥은 0.6을
+    넘으므로 그 사이에서 끊으면 둘 다 산다.
 
     양 끝은 건드리지 않는다. 단의 첫 줄과 끝 줄에는 겹세로줄·괄호가
     붙어 아래로 뻗는 일이 흔하다.
@@ -339,6 +341,27 @@ def _drop_slivers(bars: list[int]) -> list[int]:
             drop = i + 1
         out.pop(max(1, min(drop, len(out) - 2)))
     return out
+
+
+def _drop_head(bars: list[int]) -> list[int]:
+    """자리표와 조표만 든 첫 칸은 마디가 아니다.
+
+    줄 첫머리가 도돌이 시작(𝄆)이면 오선이 시작하는 자리와 그 𝄆 사이에
+    칸이 하나 생긴다. 거기 든 것은 자리표와 조표뿐인데 마디로 세어져,
+    「그건 너」는 6번 마디가 두 번 세어졌다.
+
+    넓이로 가린다. 보통 줄의 첫 칸은 자리표와 조표에 **첫 마디까지**
+    안고 있어 다른 칸보다 넓다 - 이 악보의 열네 단이 1.00~1.61배였다.
+    좁다면 마디가 들어 있지 않다는 뜻이다. 그 단만 0.57배였다.
+
+    자는 넉넉히 잡는다 - 「하얀나비」에는 첫 마디가 짧아 0.77배인 단이
+    있는데, 그것은 자리표 뒤에 음표가 있는 멀쩡한 마디다.
+    """
+    if len(bars) < 4:
+        return bars
+    gaps = [b - a for a, b in zip(bars, bars[1:])]
+    med = float(np.median(gaps))
+    return bars[1:] if med > 0 and gaps[0] < med * 0.65 else bars
 
 
 def _open_start(ink: np.ndarray, system: System) -> int | None:
@@ -557,6 +580,7 @@ def layout(image: Image.Image, index: int = 0) -> Page:
             system.bars.insert(0, start)
             system.made_start = True
         system.bars = _drop_slivers(system.bars)
+        system.bars = _drop_head(system.bars)
         end = _close_end(ink, system, system.bars)
         if end is not None:
             system.bars.append(end)
