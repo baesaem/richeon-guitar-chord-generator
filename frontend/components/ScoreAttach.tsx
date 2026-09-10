@@ -479,7 +479,7 @@ export function ScoreAttach({
             onClick={() => pickChords.current?.click()}
             title="그림 악보(PDF·사진)를 골라 넣으면 AI가 거기 적힌 코드 이름을 읽어 이 곡의 악보에 적습니다. 음표와 가사는 그대로 둡니다"
           >
-            {busy ? "읽는 중… (1분쯤)" : "그림에서 코드 읽어 바꾸기"}
+            {busy ? "읽는 중… (1분쯤)" : "코드만 바꾸기(AI)"}
           </button>
         )}
         {score && (

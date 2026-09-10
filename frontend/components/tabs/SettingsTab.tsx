@@ -83,7 +83,7 @@ export function SettingsTab({ settings, onChange, health }: Props) {
      서버가 붙어 있으면 손댈 일이 없는 자리다 — 접어 두고 「연결됨」만
      알린다. 연결이 끊겼을 때만 저절로 펴, 고칠 것을 바로 손대게 한다. */
   const [showAddr, setShowAddr] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string; local?: boolean } | null>(
     null,
   );
 
@@ -129,7 +129,13 @@ export function SettingsTab({ settings, onChange, health }: Props) {
         message: `연결됨 · ${body.device} · ${body.pipeline_version}`,
       });
     } catch (e) {
-      setTestResult({ ok: false, message: `연결 실패: ${(e as Error).message}` });
+      /* 「Failed to fetch」만 적으면 무엇을 해야 하는지 알 수 없다.
+         열에 아홉은 강사님 PC에서 서버가 꺼져 있는 것이다 */
+      setTestResult({
+        ok: false,
+        message: `연결 실패: ${(e as Error).message}`,
+        local: /^https?:\/\/(127\.0\.0\.1|localhost)/.test(base) || !base,
+      });
     } finally {
       setTesting(false);
     }
@@ -426,6 +432,30 @@ export function SettingsTab({ settings, onChange, health }: Props) {
             </span>
           )}
         </div>
+
+        {/* 웹 페이지는 PC의 프로그램을 켤 수 없다(브라우저가 막는다).
+            그러니 「눌러서 켜기」를 둘 수는 없고, 어디를 눌러야 켜지는지
+            적어 주는 것이 할 수 있는 전부다 */}
+        {testResult && !testResult.ok && (
+          <p className="mt-1.5 rounded bg-amber-50 p-2 text-[11px] leading-snug text-amber-800">
+            {testResult.local ? (
+              <>
+                <b>강사님 PC에서 분석 서버가 꺼져 있습니다.</b> 시작 폴더의
+                「리천 분석서버」를 실행해 주세요 — 윈도우 키+R에{" "}
+                <code>shell:startup</code>을 넣으면 그 폴더가 열립니다. 로그온할
+                때마다 저절로 켜지도록 이미 등록돼 있으니, PC를 다시 시작해도
+                됩니다. 켜지는 데 20초쯤 걸립니다.
+              </>
+            ) : (
+              <>
+                그 주소의 서버에 닿지 못했습니다. 서버가 켜져 있는지, 같은 공유기에
+                붙어 있는지, 주소와 포트가 맞는지 확인해 주세요.
+              </>
+            )}
+            <br />
+            웹 페이지는 PC의 프로그램을 대신 켤 수 없습니다 — 브라우저가 막습니다.
+          </p>
+        )}
 
         {mixedContent && (
           <p className="mt-1.5 rounded bg-amber-50 p-2 text-[11px] leading-snug text-amber-800">
