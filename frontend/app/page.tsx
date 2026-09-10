@@ -4115,7 +4115,9 @@ export default function Home() {
                 const ok = await openSaved(id);
                 if (!ok) return;
                 setEditMode(true);
-                setSheetTab("score");
+                /* 편집은 멜로디부터 연다. 마디·차례·코드·빠르기를 모두
+                   멜로디가 정하므로 고칠 것도 대개 거기서 시작한다 */
+                setSheetTab("melody");
                 setShowSheet(true);
               }}
             />

@@ -1297,7 +1297,16 @@ async def _run_read(result_id: str) -> None:
             order=got["order"],
             score=result.score,
         )
-        result.sheet["read"] = got["found"]
+        # 되돌이만 새로 읽는 길이다. 앞서 그림에서 읽어 둔 코드(손으로 고친
+        # 것 포함)는 남긴다 — 통째로 갈아 끼웠더니 「다시 읽기」 한 번에
+        # 코드가 모두 지워져 그리드·멜로디가 음원 코드로 돌아갔다.
+        found = dict(got["found"])
+        was = (result.sheet or {}).get("read") or {}
+        if not found.get("chords") and was.get("chords"):
+            found["chords"] = was["chords"]
+            if was.get("key") and not found.get("key"):
+                found["key"] = was["key"]
+        result.sheet["read"] = found
         save_result(result)
         _reads[result_id] = {"state": "done"}
     except Exception as exc:
