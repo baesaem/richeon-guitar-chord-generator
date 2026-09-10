@@ -191,8 +191,12 @@ export async function attachScoreAfterAnalysis(
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const parts = msczParts(bytes, file.name);
+      /* 타브 보표가 있으면 그것을, 없으면 기타 파트를 쓴다(오선뿐이면 음높이로
+         줄·프렛을 매긴다). 맨 끝 파트로 떨어지면 드럼이 타브가 되기도 했다 —
+         「나는 반딧불」은 피아노·기타·베이스·드럼 차례였다 */
       const tabPart =
-        parts.find((p) => /타브/.test(p.name)) ??
+        parts.find((p) => /타브|tab/i.test(p.name)) ??
+        parts.find((p) => p.index !== staff && /기타|guitar/i.test(p.name)) ??
         (parts.length > 1 ? parts[parts.length - 1] : null);
       if (tabPart && tabPart.index !== staff) {
         setAbcTabScore(cur.id, msczToTab(bytes, file.name, tabPart.index));

@@ -1674,7 +1674,7 @@ export default function Home() {
   }, [abcEntry?.tabScore, result, songWords, pickedWords, pickedMarks]);
 
   const makeAbcTab = (withSync: boolean, withFix = false) =>
-    result && tabFrame && hasPickedTab ? (
+    result && tabFrame && (hasPickedTab || tabFrame.ownFrets) ? (
       <TabSheet
         score={tabFrame}
         bars={bars}

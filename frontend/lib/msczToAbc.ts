@@ -499,6 +499,13 @@ export interface TabScore {
   bpm: number;
   meter: string;
   bars: TabBar[];
+  /**
+   * 숫자도 이 악보의 것을 쓴다. 보통 숫자는 그림 악보에서만 오고 이
+   * 틀은 마디·가사·되돌이만 준다 — 악보 파일의 타브는 옮겨 적은 사람이
+   * 달라 종이와 어긋난다. 사람이 「이 곡은 기타 파트를 타브로」라고 고른
+   * 곡만 켠다. 「나는 반딧불」은 종이 타브가 없고 기타 파트를 떠 달라 했다
+   */
+  ownFrets?: boolean;
 }
 
 /** ABC 기호로 적어 둔 되돌이 지시를 악보에 적는 글자로 */
@@ -517,8 +524,71 @@ function markLabels(abcMarks: string): string[] {
   return out;
 }
 
+/** 이 보표 악기의 줄 음높이(굵은 줄부터). 적힌 것이 없으면 표준 조율 */
+function tuningOf(xml: string, staffId: string): number[] {
+  for (const part of xml.matchAll(/<Part[ >][\s\S]*?<\/Part>/g)) {
+    if (!new RegExp(`<Staff id="${staffId}"[ >]`).test(part[0])) continue;
+    const sd = part[0].match(/<StringData>([\s\S]*?)<\/StringData>/);
+    if (sd) {
+      const s = [...sd[1].matchAll(/<string[^>]*>(\d+)<\/string>/g)].map((m) => +m[1]);
+      if (s.length >= 4) return s;
+    }
+  }
+  return [40, 45, 50, 55, 59, 64];
+}
+
+/**
+ * 오선으로만 적힌 기타 파트에 줄·프렛을 매긴다.
+ *
+ * 함께 울리는 음은 서로 다른 줄에, 높은 음일수록 가는 줄에 둔다. 손이
+ * 벌어지지 않게(개방현을 빼고 4프렛 안) 고르고, 그중에서 앞 자리에서 손이
+ * 있던 곳과 가깝고 낮은 자리를 고른다. 안 되면 폭을 넓혀 다시 찾는다.
+ * string 0이 가장 가는 1번 줄이다.
+ */
+function assignFrets(
+  pitches: number[],
+  tuning: number[],
+  hand: number,
+): { string: number; fret: number }[] | null {
+  const n = tuning.length;
+  const notes = [...new Set(pitches)].sort((a, b) => b - a).slice(0, n);
+  // 19프렛까지 — C5·D5·E5 같은 높은 음 뭉치는 3번 줄 17프렛이라야 짚인다
+  const MAX_FRET = 19;
+  for (const span of [4, 5, 7, 19]) {
+    let best: { cost: number; pick: { string: number; fret: number }[] } | null = null;
+    const pick: { string: number; fret: number }[] = [];
+    const go = (k: number) => {
+      if (k === notes.length) {
+        const fretted = pick.filter((p) => p.fret > 0).map((p) => p.fret);
+        const lo = fretted.length ? Math.min(...fretted) : hand;
+        const hi = fretted.length ? Math.max(...fretted) : hand;
+        if (hi - lo > span) return;
+        const center = (lo + hi) / 2;
+        const cost = (hi - lo) + Math.abs(center - hand) * 0.6 + center * 0.15;
+        if (!best || cost < best.cost) best = { cost, pick: pick.map((p) => ({ ...p })) };
+        return;
+      }
+      // 앞서 고른 음(더 높다)보다 굵은 줄에서만 찾는다
+      const from = pick.length ? pick[pick.length - 1].string + 1 : 0;
+      for (let s = from; s < n; s++) {
+        const fret = notes[k] - tuning[n - 1 - s];
+        if (fret < 0 || fret > MAX_FRET) continue;
+        pick.push({ string: s, fret });
+        go(k + 1);
+        pick.pop();
+      }
+    };
+    go(0);
+    if (best) return (best as { pick: { string: number; fret: number }[] }).pick;
+  }
+  return null;
+}
+
 /**
  * .mscz의 **기타 타브 보표**를 그대로 읽어 온다.
+ *
+ * 타브 보표가 없고 기타 파트가 오선으로만 적힌 악보(「나는 반딧불」)는
+ * 음높이에서 줄·프렛을 매긴다 — 조율은 그 악기에 적힌 것을 쓴다.
  *
  * ABC로 옮겨 abcjs에게 프렛을 다시 세게 하면, 편곡자가 어느 줄에서
  * 짚으라고 적었는지가 지워진다 — abcjs는 음높이만 보고 제 나름대로
@@ -543,6 +613,22 @@ export function msczToTab(
 
   const mine = parseStaff(blocks[staff][2]);
   const first = staff > 0 ? parseStaff(blocks[0][2]) : mine;
+  const tuning = tuningOf(xml, blocks[staff][1]);
+  let hand = 3;
+  /* 타브 보표면 적힌 줄·프렛을 그대로, 오선만 있는 기타 파트면 음높이로 매긴다 */
+  const fretsOf = (
+    notes: { midi: number; fret: number | null; string: number | null }[],
+  ): { string: number; fret: number }[] => {
+    const written = notes.filter((n) => n.fret !== null && n.string !== null);
+    if (written.length)
+      return written.map((n) => ({ string: n.string as number, fret: n.fret as number }));
+    if (!notes.length) return [];
+    const got = assignFrets(notes.map((n) => n.midi), tuning, hand);
+    if (!got) return [];
+    const fretted = got.filter((p) => p.fret > 0).map((p) => p.fret);
+    if (fretted.length) hand = (Math.min(...fretted) + Math.max(...fretted)) / 2;
+    return got;
+  };
 
   const bars: TabBar[] = mine.map((m, j) => {
     const f = first[j];
@@ -555,9 +641,7 @@ export function msczToTab(
     const cols: TabCol[] = m.events.map((ev) => ({
       // 셋잇단은 여기서 줄인다 — 마디 길이 합이 맞아야 박대로 놓을 수 있다
       units: ev.units * (ev.tuplet ?? 1),
-      frets: ev.notes
-        .filter((n) => n.fret !== null && n.string !== null)
-        .map((n) => ({ string: n.string as number, fret: n.fret as number })),
+      frets: fretsOf(ev.notes),
       chord: chordName(ev.harmony ?? {}),
     }));
     // 빌려 온 코드는 마디를 코드 수만큼 나눠 그 자리에 얹는다

@@ -486,7 +486,8 @@ export function TabSheet({
     // ---- 숫자와 코드 ----
     const edit = edits?.[j];
     /* 손으로 고친 것이 먼저, 없으면 그림 악보에서 읽은 것. 둘 다 없으면
-       그 마디는 비워 둔다 — 그림에 없는 것을 지어내지 않는다 */
+       그 마디는 비워 둔다 — 그림에 없는 것을 지어내지 않는다. 기타
+       파트를 타브로 쓰기로 고른 곡(ownFrets)만 악보의 숫자를 쓴다 */
     const fromPic = picked?.[j];
     const picCols: TabCol[] =
       fromPic && fromPic.kind === "pick" && fromPic.cols.length
@@ -498,7 +499,9 @@ export function TabSheet({
               fret,
             })),
           }))
-        : [];
+        : score.ownFrets
+          ? bar.cols
+          : [];
     const cols = edit?.cols ?? picCols;
     /*
      * 코드 이름은 자리를 새로 적어도 남아야 한다.
@@ -731,7 +734,9 @@ export function TabSheet({
             fret,
           })),
         }))
-      : []);
+      : score.ownFrets && fixBar
+        ? fixBar.cols
+        : []);
   /** 이 마디의 고친 내용을 갈아 끼운다. 빈 것이 되면 줄째 지운다 */
   const putEdit = (next: TabBarEdit) => {
     if (!fixing || !onEdits) return;
