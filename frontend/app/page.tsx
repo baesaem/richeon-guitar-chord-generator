@@ -2014,7 +2014,24 @@ export default function Home() {
    * 멜로디는 부른 음의 15~30%밖에 잡히지 않아, 그것을 악보라고 내놓으면
    * 틀린 음을 따라 치게 된다. 없으면 없다고 적는 편이 낫다.
    */
-  const hasMelody = hasScore || !!sheetImg;
+  /**
+   * 멜로디 칸에 무엇을 보일까 — **어느 화면에서나 같은 차례**로 고른다.
+   *
+   * 화면마다 따로 물었더니 답이 달랐다. 연습실은 ABC만 보고 배경악보는
+   * 묻지 않아, 「그건 너」처럼 그림으로 붙인 곡을 「멜로디 악보를
+   * 제공하지 않습니다」로 내보냈다 — 편집에서는 멀쩡히 보이는 악보였다.
+   *
+   * 붙인 것이 하나라도 있으면 보여 준다. abc(악보 파일) → sheet(배경악보)
+   * → drawn(악보 파일에서 그린 것) 차례다.
+   */
+  const melodyKind: "abc" | "sheet" | "drawn" | "none" = abcEntry
+    ? "abc"
+    : sheetImg
+      ? "sheet"
+      : hasScore
+        ? "drawn"
+        : "none";
+  const hasMelody = melodyKind !== "none";
 
   // 멜로디가 없어도 칸은 남긴다. 눌렀을 때 「이 음원은 멜로디 악보를
   // 지원하지 않습니다」라고 적어 주는 편이, 칸이 사라져 앱이 고장난 줄
@@ -2584,7 +2601,7 @@ export default function Home() {
 
                   {/* ABC 악보가 붙어 있으면 어디서 보든 그것이 기준이다 —
                   재생 화면과 전체보기가 다른 악보를 보여주면 헷갈린다 */}
-                  {sheetTab === "melody" && abcEntry && (
+                  {sheetTab === "melody" && melodyKind === "abc" && abcEntry && (
                     <AbcScore
                       abc={unified?.abc ?? abcEntry.abc}
                       chordNote={unified}
@@ -2638,10 +2655,7 @@ export default function Home() {
                       }
                     />
                   )}
-                  {sheetTab === "melody" &&
-                    !abcEntry &&
-                    hasMelody &&
-                    sheetImg && (
+                  {sheetTab === "melody" && melodyKind === "sheet" && sheetImg && (
                       /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
                    끊지 않고 곡 전체를 죽 편다. */
                       <SheetScore
@@ -2714,7 +2728,7 @@ export default function Home() {
                         />
                       </div>
                     )}
-                  {sheetTab === "melody" && !abcEntry && !hasMelody && (
+                  {sheetTab === "melody" && melodyKind === "none" && (
                     <div className="flex flex-col gap-2 p-3">
                       <NoMelody admin={settings.adminMode} />
                       {/* 악보가 없어도 노래는 따라가야 한다 */}
@@ -3137,7 +3151,7 @@ export default function Home() {
                           {lyricsPane}
                         </section>
                       </div>
-                    ) : abcEntry ? (
+                    ) : melodyKind === "abc" && abcEntry ? (
                       <AbcScore
                         abc={unified?.abc ?? abcEntry.abc}
                         chordNote={unified}
@@ -3173,6 +3187,79 @@ export default function Home() {
                             </button>
                           ) : undefined
                         }
+                      />
+                    ) : melodyKind === "sheet" && sheetImg ? (
+                      /* 붙여 둔 배경악보. ABC가 없어도 멜로디는 있다 —
+                         여기서 묻지 않아 「멜로디 악보가 없다」고 나왔다 */
+                      <SheetScore
+                        audioBpm={result.bpm}
+                        onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
+                        resultId={result.id}
+                        sheet={sheetImg}
+                        time={time + sync - settings.latency}
+                        getTime={
+                          playback
+                            ? () => playback.getTime() + sync - settings.latency
+                            : undefined
+                        }
+                        chords={sheetChordList}
+                        autoChords={autoSheetChords}
+                        showChords={transpose !== 0}
+                        barsView={settings.sheetZoom}
+                        onZoom={(n) => setSettings({ ...settings, sheetZoom: n })}
+                        sync={sync}
+                        onSync={setSync}
+                        musicKey={result.key}
+                        timeSignature={result.time_signature}
+                        playNotes={playNotes}
+                        strum={shownStrum}
+                        onPickStrum={() => setShowStrums(true)}
+                        playStyle={playStyle}
+                        onSeek={(t) => playback?.seek(t)}
+                        lines={3}
+                        headerRight={
+                          <button
+                            className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
+                            onClick={() => {
+                              setEditMode(false);
+                              setShowSheet(true);
+                            }}
+                          >
+                            전체보기
+                          </button>
+                        }
+                      />
+                    ) : melodyKind === "drawn" ? (
+                      /* 악보 파일은 있는데 그림이 없는 곡. 오선을 그려 준다 */
+                      <MelodyScore
+                        bars={bars}
+                        chords={shownChords}
+                        melody={result.melody ?? []}
+                        lyrics={result.lyrics}
+                        score={(result.score ?? null) as never}
+                        align={(result.score_align ?? null) as never}
+                        showChecks={settings.adminMode}
+                        autoChords={autoChords}
+                        getTime={
+                          playback
+                            ? () => playback.getTime() + lyricSync - settings.latency
+                            : undefined
+                        }
+                        solfege={settings.solfege}
+                        onSolfege={() =>
+                          setSettings({ ...settings, solfege: !settings.solfege })
+                        }
+                        time={time + lyricSync - settings.latency}
+                        playNotes={playNotes}
+                        strum={shownStrum}
+                        onPickStrum={() => setShowStrums(true)}
+                        playStyle={playStyle}
+                        transpose={noteShift}
+                        flats={flats}
+                        musicKey={result.key}
+                        timeSignature={result.time_signature}
+                        currentBar={barIdx}
+                        follow
                       />
                     ) : (
                       <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-3 py-2">
@@ -3579,7 +3666,7 @@ export default function Home() {
                                 </button>
                               </div>
                             )}
-                            {abcEntry ? (
+                            {melodyKind === "abc" && abcEntry ? (
                               /* 강사님이 붙인 ABC 악보. 음표가 빠짐없이 다 있다.
                        커서는 악보 템포가 아니라 음원 마디 격자를 따른다 */
                               <AbcScore
@@ -3639,9 +3726,9 @@ export default function Home() {
                                   </>
                                 }
                               />
-                            ) : !hasMelody ? (
+                            ) : melodyKind === "none" ? (
                               <NoMelody admin={settings.adminMode} />
-                            ) : sheetImg ? (
+                            ) : melodyKind === "sheet" && sheetImg ? (
                               /* 인쇄된 악보 그대로. 마디선만 찾아 그 위로 커서가 간다 */
                               <SheetScore
                                 audioBpm={result.bpm}
@@ -3677,7 +3764,7 @@ export default function Home() {
                                 onPickStrum={() => setShowStrums(true)}
                                 playStyle={playStyle}
                                 onSeek={(t) => playback?.seek(t)}
-                                lines={wide ? 3 : 2}
+                                lines={3}
                                 headerRight={
                                   <button
                                     className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"

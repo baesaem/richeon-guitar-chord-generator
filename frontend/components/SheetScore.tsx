@@ -277,11 +277,22 @@ export function SheetScore({
     return [...map.values()];
   }, [sheet.bars]);
 
-  // 창을 몇 줄만 띄울 때는 지금 줄이 맨 위에 온다. 곡 전체를 펴는
-  // 화면(전체보기)에서는 처음부터 죽 보인다.
+  /*
+   * 치는 줄을 **둘째 줄**에 둔다.
+   *
+   * 맨 위에 두면 다음에 올 것만 보이고 방금 지나온 줄이 사라진다 —
+   * 한 마디를 놓치면 되짚을 데가 없다. 위에 한 줄, 아래에 한 줄을
+   * 두면 앞뒤가 함께 보인다. 곡 전체를 펴는 화면(전체보기)에서는
+   * 처음부터 죽 보인다.
+   */
   const current = systems.findIndex((s) => s.bars.includes(at));
   const whole = lines >= systems.length;
-  const from = whole ? 0 : Math.max(current < 0 ? 0 : current, 0);
+  const from = whole
+    ? 0
+    : Math.min(
+        Math.max((current < 0 ? 0 : current) - 1, 0),
+        Math.max(systems.length - lines, 0),
+      );
   const shown = systems.slice(from, from + lines);
 
   // 곡 전체를 펴 놓으면 악보가 화면보다 길다. 노래가 나아가면 지금 줄이
