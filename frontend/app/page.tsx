@@ -24,6 +24,7 @@ import {
 import type { TabScore } from "@/lib/msczToAbc";
 
 import { unifyChords } from "@/lib/abcChords";
+import { abcBarLyrics } from "@/lib/abcLyrics";
 import { abcMeasures, abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { PracticeRoom } from "@/components/PracticeRoom";
@@ -1409,6 +1410,12 @@ export default function Home() {
    * 그림에서 읽은 마디 수만큼 빈 틀을 세운다 — 숫자는 어차피 그림에서
    * 오므로, 틀이 없다고 타브를 못 낼 까닭이 없다.
    */
+  /** 멜로디 악보에 적힌 마디마다의 가사. 타브에도 같은 말을 적는다 */
+  const songWords = useMemo(
+    () => (abcEntry?.abc ? abcBarLyrics(abcEntry.abc) : []),
+    [abcEntry?.abc],
+  );
+
   const tabFrame = useMemo((): TabScore | null => {
     if (abcEntry?.tabScore) return abcEntry.tabScore;
     const picked = result?.picked_tab;
@@ -1422,10 +1429,13 @@ export default function Home() {
       title: result.title || "",
       bpm: result.bpm,
       meter: result.time_signature || "4/4",
-      bars: Array.from({ length: last }, () => ({
+      bars: Array.from({ length: last }, (_, j) => ({
         cols: [],
-        lyric: "",
-        lyric2: "",
+        /* 가사는 멜로디가 가지고 있다. 그림에서 읽은 타브에는 숫자와
+           코드뿐이라 여기서 받아 온다 — 마디도 코드도 멜로디를 따르는
+           것과 같다 */
+        lyric: songWords[j]?.lyric ?? "",
+        lyric2: songWords[j]?.lyric2 ?? "",
         startRepeat: false,
         endRepeat: false,
         volta: null,
@@ -1433,7 +1443,7 @@ export default function Home() {
         units,
       })),
     };
-  }, [abcEntry?.tabScore, result]);
+  }, [abcEntry?.tabScore, result, songWords]);
 
   const makeAbcTab = (withSync: boolean, withFix = false) =>
     result && tabFrame && hasPickedTab ? (
