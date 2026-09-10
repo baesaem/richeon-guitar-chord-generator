@@ -96,7 +96,7 @@ export function ViewSteppers({
           {shift !== undefined && (
             <span
               className="w-6 text-center tabular-nums roomy:w-7"
-              title="악보가 음원 위에서 밀려 있는 마디 수"
+              title="악보 1마디가 음원의 몇 마디 뒤에서 시작하는지(전주 길이). ▶를 누르면 줄고 ◀를 누르면 늘어납니다"
             >
               {Number.isInteger(shift) ? shift : shift.toFixed(1)}
             </span>

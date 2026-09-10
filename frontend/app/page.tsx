@@ -1951,7 +1951,9 @@ export default function Home() {
     } | null;
     if (!result || !sh) return;
     try {
-      setResult(
+      /* 기기 사본에도 적는다. 화면만 바꾸면 기기에 옛 값이 남아, 다음에
+         가사를 고칠 때 곡 전체와 함께 서버로 올라가 도로 밀렸다 */
+      adoptResult(
         await moveSheetImage(
           result.id,
           Math.round(((sh.offset ?? 0) + delta) * 100) / 100,
