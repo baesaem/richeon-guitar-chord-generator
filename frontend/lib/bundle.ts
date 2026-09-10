@@ -14,7 +14,7 @@ import { getAbc, saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
 import { getTabEdits, setTabEdits, type TabBarEdit } from "./tabEdits";
 import type { TabScore } from "./msczToAbc";
 import { loadSheets, saveSheets } from "./sheetCache";
-import { getSheetPage, saveSheetPage } from "./library";
+import { getSheetPage, saveSheetPage, sheetRev } from "./library";
 import type { AnalysisResult } from "./types";
 
 /**
@@ -121,10 +121,20 @@ function extOf(mime: string): string {
  * 아무 일도 없다는 말이 이것이었다. 3분을 넘기면 그 트랙은 포기하고
  * 다음으로 간다 — 트랙이 빠질 뿐 내보내기는 끝까지 간다.
  */
+/**
+ * 곡 파일에 실을 것을 서버에서 받는다. **캐시는 건너뛴다.**
+ *
+ * 음원은 재생기(<audio>)가, 악보 쪽은 화면(<img>)이 먼저 불러 둔다. 그
+ * 둘은 CORS 없이 받으므로 CORS 표시가 없는 응답이 캐시에 남고, 여기서
+ * 같은 주소를 받으면 그것을 꺼내다 CORS에 막혀 실패한다 — 그래서
+ * 내보내기에서 악보가 조용히 빠졌다. 내보내기는 언제나 새로 받는다.
+ */
 function fetchWithTimeout(url: string, ms = 180_000): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
-  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  return fetch(url, { signal: ctrl.signal, cache: "no-store" }).finally(() =>
+    clearTimeout(timer),
+  );
 }
 
 async function findAudio(id: string): Promise<{ blob: Blob; ext: string } | null> {
@@ -204,15 +214,20 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
   // 악보 그림의 쪽들. 기기에 있으면 그것을, 없으면 서버에서 가져온다.
   const pages = (result.sheet as { pages?: unknown[] } | null)?.pages;
   if (pages?.length) {
+    /* 이 판의 쪽만 싣는다. 판을 안 따지면 악보를 바꾼 뒤에도 기기에 남은
+       옛 그림이 곡 파일에 실려, 수강생에게 틀린 악보가 간다 */
+    const rev = sheetRev(result.sheet as never);
     const got: string[] = [];
     for (let i = 0; i < pages.length; i++) {
       try {
-        const local = await getSheetPage(result.id, i);
+        const local = await getSheetPage(result.id, i, rev);
         if (local) {
           got.push(await toDataUrl(local));
           continue;
         }
-        const res = await fetchWithTimeout(`${apiBase()}/api/sheets/${result.id}/page/${i}`);
+        const res = await fetchWithTimeout(
+          `${apiBase()}/api/sheets/${result.id}/page/${i}?v=${rev}`,
+        );
         if (res.ok) got.push(await toDataUrl(await res.blob()));
       } catch {
         // 한 쪽이 빠져도 나머지는 담는다
@@ -286,8 +301,9 @@ export async function bundleAdds(bundle: SongBundle): Promise<string[]> {
   }
   if (bundle.sheetPages?.length) {
     // 첫 쪽만 보면 쪽수가 달라진 것(다시 자른 악보)을 놓친다
-    const first = await getSheetPage(id, 0).catch(() => null);
-    const last = await getSheetPage(id, bundle.sheetPages.length - 1).catch(
+    const rev = sheetRev(bundle.result?.sheet as never);
+    const first = await getSheetPage(id, 0, rev).catch(() => null);
+    const last = await getSheetPage(id, bundle.sheetPages.length - 1, rev).catch(
       () => null,
     );
     if (!first || !last) adds.push(`악보 그림 ${bundle.sheetPages.length}쪽`);
@@ -349,11 +365,13 @@ export async function openBundle(
 
   if (bundle.sheetPages?.length) {
     try {
+      const rev = sheetRev(bundle.result.sheet as never);
       for (let i = 0; i < bundle.sheetPages.length; i++) {
         await saveSheetPage(
           bundle.result.id,
           i,
           await fromDataUrl(bundle.sheetPages[i]),
+          rev,
         );
       }
       got.push(`악보 ${bundle.sheetPages.length}쪽`);

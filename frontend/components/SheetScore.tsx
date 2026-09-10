@@ -7,7 +7,7 @@ import { BeatBpm } from "@/components/BeatBpm";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
 import { apiBase } from "@/lib/api";
-import { getSheetPage } from "@/lib/library";
+import { getSheetPage, saveSheetPage, sheetRev } from "@/lib/library";
 import { useSmoothTime } from "@/lib/useSmoothTime";
 
 /** 그림 위 마디 하나. 자리는 0~1 비율이라 화면 크기와 무관하다 */
@@ -372,27 +372,59 @@ export function SheetScore({
 /**
  * 쪽 그림의 주소.
  *
- * 기기에 받아 둔 것을 먼저 본다 — 수강생 화면에는 분석 서버가 없다.
- * 곡 파일로 받은 악보는 기기에 들어 있으므로, 서버 없이도 펼쳐진다.
+ * **이 판**의 쪽만 쓴다(rev). 판을 따지지 않았더니 악보를 바꿔 붙여도
+ * 기기가 옛 그림을 꺼내, 새 마디 네모가 옛 그림 위에 얹혀 진행바가
+ * 엉뚱한 데 섰다.
+ *
+ * 차례: 기기에 담아 둔 이 판 → 서버 → 서버에 닿지 않을 때만 예전
+ * 방식으로 담아 둔 쪽(수강생 화면에는 분석 서버가 없다).
+ *
+ * 서버에 닿는지는 화면의 그림과 **같은 방법**(Image)으로 불러 보아
+ * 가린다. fetch 한 번으로 갈랐더니 잠깐 삐끗한 사이에 옛 그림으로
+ * 떨어졌다 — 그림은 멀쩡히 받아지는데도.
  */
-function usePageUrl(resultId: string, index: number): string {
-  const [local, setLocal] = useState<string | null>(null);
+function usePageUrl(resultId: string, index: number, rev: string): string {
+  const server = `${apiBase()}/api/sheets/${resultId}/page/${index}?v=${rev}`;
+  const [src, setSrc] = useState<string>(server);
   useEffect(() => {
     let alive = true;
-    let made = "";
-    getSheetPage(resultId, index)
-      .then((blob) => {
-        if (!alive || !blob) return;
-        made = URL.createObjectURL(blob);
-        setLocal(made);
-      })
-      .catch(() => {});
+    const made: string[] = [];
+    const show = (blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      made.push(url);
+      if (alive) setSrc(url);
+    };
+    (async () => {
+      const mine = await getSheetPage(resultId, index, rev).catch(() => null);
+      if (!alive) return;
+      if (mine) return show(mine);
+      setSrc(server);
+      const ok = await new Promise<boolean>((done) => {
+        const probe = new Image();
+        probe.onload = () => done(true);
+        probe.onerror = () => done(false);
+        probe.src = server;
+      });
+      if (!alive) return;
+      if (ok) {
+        /* 이 판 이름으로 기기에도 담아 둔다 — 다음엔 서버 없이도 펼쳐진다.
+           캐시는 건너뛴다. 방금 <img>가 CORS 없이 받아 둔 응답이 캐시에
+           남아, 그대로 꺼내 쓰면 CORS에 막혀 늘 실패했다 */
+        fetch(server, { cache: "no-store" })
+          .then((res) => (res.ok ? res.blob() : null))
+          .then((blob) => blob && saveSheetPage(resultId, index, blob, rev))
+          .catch(() => {});
+        return;
+      }
+      const old = await getSheetPage(resultId, index).catch(() => null);
+      if (old) show(old);
+    })();
     return () => {
       alive = false;
-      if (made) URL.revokeObjectURL(made);
+      made.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [resultId, index]);
-  return local ?? `${apiBase()}/api/sheets/${resultId}/page/${index}`;
+  }, [resultId, index, rev, server]);
+  return src;
 }
 
 /**
@@ -410,7 +442,7 @@ function usePageUrl(resultId: string, index: number): string {
  * 펴 보는 자리라 제목이 있어야 무슨 악보인지 안다.
  */
 function TitleBand({ resultId, sheet }: { resultId: string; sheet: SheetData }) {
-  const src = usePageUrl(resultId, 0);
+  const src = usePageUrl(resultId, 0, sheetRev(sheet));
   const page = sheet.pages[0];
   const first = sheet.bars.find((b) => b.page === 0);
   // 첫 줄 띠가 시작하는 바로 그 자리에서 끊는다. 조금이라도 겹치거나
@@ -476,7 +508,7 @@ function SystemRow({
 }) {
   const page = sheet.pages[row.page];
   const first = sheet.bars[row.bars[0]];
-  const src = usePageUrl(resultId, row.page);
+  const src = usePageUrl(resultId, row.page, sheetRev(sheet));
   // 잘라 보일 띠는 서버가 줄 사이 간격을 재어 정해 두었다
   const top = first.viewTop ?? Math.max(first.top - 0.05, 0);
   const bottom = first.viewBottom ?? Math.min(first.bottom + 0.05, 1);

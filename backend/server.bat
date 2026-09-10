@@ -12,19 +12,25 @@ rem  부터 이레 동안 「No Python at ...」만 적으며 돌았고, 그동안 강사님
 rem  화면에서는 단추가 모두 꺼져 있었다. 다른 길이 하나는 있어야 한다.
 rem
 rem  로그는 %TEMP% 폴더의 richeon-backend.log 에 쌓인다. 5MB가 넘으면
-rem  지운다 - 열어 볼 수 없을 만큼 커지면 로그가 아니다.
+rem  지운다 - 열어 볼 수 없을 만큼 커지면 로그가 아니다. 파이썬은 -u로
+rem  띄운다 - 파일로 내보내면 출력을 모아 두었다 한꺼번에 써서, 서버가
+rem  죽은 까닭이 로그에 닿기 전에 사라진다.
+rem
+rem  기다리기는 ping으로 한다. 숨은 창(server-hidden.vbs)에서는 timeout이
+rem  기다리지 않고 곧바로 끝나, 실패가 쉬지 않고 되풀이된다.
+rem
 rem  이 파일은 cp949로 저장한다 - cmd가 한글을 그 코드로 읽는다.
 cd /d "%~dp0"
-set "LOG=%TEMP%icheon-backend.log"
+set "LOG=%TEMP%\richeon-backend.log"
 set "PY=%~dp0.venv\Scripts\python.exe"
-set "ARGS=-m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+set "ARGS=-u -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
 
 :loop
 for %%F in ("%LOG%") do if %%~zF GTR 5000000 del "%LOG%" > nul 2>&1
 
 netstat -ano | findstr ":8000 " | findstr LISTENING > nul
 if not errorlevel 1 (
-  timeout /t 30 /nobreak > nul
+  ping -n 31 127.0.0.1 > nul
   goto loop
 )
 
@@ -36,5 +42,5 @@ if errorlevel 1 (
   uv run --project "%~dp0" python %ARGS% >> "%LOG%" 2>&1
 )
 echo ===== %date% %time% stopped, restarting in 5s ===== >> "%LOG%"
-timeout /t 5 /nobreak > nul
+ping -n 6 127.0.0.1 > nul
 goto loop

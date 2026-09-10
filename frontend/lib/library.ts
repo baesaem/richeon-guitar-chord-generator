@@ -173,18 +173,66 @@ export async function getLocalSheet(
  * 「악보」 화면이 빈 칸이 된다 — 코드와 가사는 오는데 악보만 안 온다.
  * 쪽마다 따로 담는다(id__p0, id__p1 …).
  */
-export const sheetPageKey = (id: string, index: number) => `${id}__p${index}`;
+export const sheetPageKey = (id: string, index: number, rev?: string) =>
+  rev ? `${id}__${rev}__p${index}` : `${id}__p${index}`;
+
+/**
+ * 악보 그림의 **판**. 악보를 바꿔 붙이면 달라진다.
+ *
+ * 쪽 그림을 곡 id와 쪽 번호로만 담아 두었더니, 악보를 바꿔도 기기는 옛
+ * 그림을 그대로 꺼냈다. 마디 자리는 새 악보 것이라 진행바가 엉뚱한 데
+ * 섰다 — 「그건 너」 휴대폰 화면이 악보가게 그림 위에 기타팁 악보의
+ * 마디 네모를 그렸다. 곡 파일로 내보낼 때도 옛 그림이 실렸다.
+ *
+ * 쪽 크기와 마디 자리로 만든다. 서버가 따로 적어 주지 않아도 되므로
+ * 이미 퍼진 곡에도 그대로 맞는다.
+ */
+export function sheetRev(
+  sheet:
+    | {
+        pages?: { width?: number; height?: number; left?: number; right?: number }[];
+        bars?: { page?: number; x0?: number; x1?: number; top?: number; bottom?: number }[];
+      }
+    | null
+    | undefined,
+): string {
+  if (!sheet) return "0";
+  const pages = (sheet.pages ?? [])
+    .map((p) => `${p.width}x${p.height}:${p.left ?? ""}:${p.right ?? ""}`)
+    .join("|");
+  const bars = sheet.bars ?? [];
+  const a = bars[0];
+  const z = bars[bars.length - 1];
+  const text = [
+    pages,
+    bars.length,
+    a ? [a.page, a.x0, a.top].join(",") : "",
+    z ? [z.page, z.x1, z.bottom].join(",") : "",
+  ].join("#");
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
 
 export async function saveSheetPage(
   id: string,
   index: number,
   blob: Blob,
+  rev?: string,
 ): Promise<void> {
-  await saveLocalSheet(sheetPageKey(id, index), blob, "image");
+  await saveLocalSheet(sheetPageKey(id, index, rev), blob, "image");
 }
 
-export async function getSheetPage(id: string, index: number): Promise<Blob | null> {
-  const got = await getLocalSheet(sheetPageKey(id, index));
+/**
+ * 기기에 담아 둔 쪽. rev를 주면 **그 판만** 꺼낸다 — 판을 주고도 옛
+ * 이름으로 되짚으면 바로 그 옛 그림이 나온다.
+ */
+export async function getSheetPage(
+  id: string,
+  index: number,
+  rev?: string,
+): Promise<Blob | null> {
+  const got = await getLocalSheet(sheetPageKey(id, index, rev));
   return got?.blob ?? null;
 }
 

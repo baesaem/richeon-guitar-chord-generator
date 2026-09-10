@@ -3282,17 +3282,6 @@ export default function Home() {
                         playStyle={playStyle}
                         onSeek={(t) => playback?.seek(t)}
                         lines={3}
-                        headerRight={
-                          <button
-                            className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
-                            onClick={() => {
-                              setEditMode(false);
-                              setShowSheet(true);
-                            }}
-                          >
-                            전체보기
-                          </button>
-                        }
                       />
                     ) : melodyKind === "drawn" ? (
                       /* 악보 파일은 있는데 그림이 없는 곡. 오선을 그려 준다 */
@@ -3779,15 +3768,6 @@ export default function Home() {
                                         ABC 수정
                                       </button>
                                     )}
-                                    <button
-                                      className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
-                                      onClick={() => {
-                                        setEditMode(false);
-                                        setShowSheet(true);
-                                      }}
-                                    >
-                                      전체보기
-                                    </button>
                                   </>
                                 }
                               />
@@ -3830,17 +3810,6 @@ export default function Home() {
                                 playStyle={playStyle}
                                 onSeek={(t) => playback?.seek(t)}
                                 lines={3}
-                                headerRight={
-                                  <button
-                                    className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
-                                    onClick={() => {
-                                      setEditMode(false);
-                                      setShowSheet(true);
-                                    }}
-                                  >
-                                    전체보기
-                                  </button>
-                                }
                               />
                             ) : (
                               /* 오선 위 음표 + 그 아래 가사. 코드악보와 같은 마디 배치라
@@ -3874,36 +3843,6 @@ export default function Home() {
                                 strum={shownStrum}
                                 onPickStrum={() => setShowStrums(true)}
                                 playStyle={playStyle}
-                                headerRight={
-                                  <button
-                                    className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
-                                    onClick={() => {
-                                      setEditMode(false);
-                                      setShowSheet(true);
-                                    }}
-                                  >
-                                    <svg
-                                      viewBox="0 0 24 24"
-                                      className="h-3 w-3"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth={1.9}
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      aria-hidden="true"
-                                    >
-                                      <rect
-                                        x="3"
-                                        y="4"
-                                        width="18"
-                                        height="16"
-                                        rx="2"
-                                      />
-                                      <path d="M3 9h18M8 4v16" />
-                                    </svg>
-                                    전체보기
-                                  </button>
-                                }
                                 currentBar={barIdx}
                                 flats={flats}
                                 transpose={noteShift}
