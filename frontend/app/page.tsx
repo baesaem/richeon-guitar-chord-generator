@@ -1229,6 +1229,19 @@ export default function Home() {
   };
 
   /**
+   * 가사 줄이 시작하는 마디를 **그리드 칸과 같은 번호**로 적는다.
+   *
+   * 음원 처음부터 세면 전주만큼 번호가 밀려, 가사 탭은 「6마디」인데
+   * 그리드와 멜로디는 같은 자리를 「1」로 적었다. 그리드 칸 왼쪽 위
+   * 번호(악보의 마디, 없으면 음원 마디)를 그대로 쓴다.
+   */
+  const barLabelOfTime = (t: number): number => {
+    const no = barOfTime(t);
+    if (no <= 0) return 0;
+    return scoreBarNumbers?.[no - 1] ?? bars[no - 1]?.number ?? no;
+  };
+
+  /**
    * 붙여 둔 가사를 그리드의 마디에 나눠 담는다.
    *
    * 가사 줄은 부르기 시작하는 시각만 안다. 줄이 시작하는 마디는 가사 탭의
@@ -3076,7 +3089,7 @@ export default function Home() {
                                 }}
                                 onEdit={() => setEditLyric(i)}
                                 selected={pickLyric === i}
-                                bar={barOfTime(line.t)}
+                                bar={barLabelOfTime(line.t)}
                                 onBar={(dir) => void shiftLyricsFrom(i, dir)}
                                 onAddAfter={() => void addLyricAfter(i)}
                                 onMergeDown={
