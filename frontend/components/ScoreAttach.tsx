@@ -38,6 +38,7 @@ export function ScoreAttach({
   online,
   onScoreAttached,
   onReadChords,
+  readNeedsFile = true,
 }: {
   result: AnalysisResult;
   onResult: (r: AnalysisResult) => void;
@@ -50,7 +51,9 @@ export function ScoreAttach({
    * 악보 파일의 음표는 그대로 두고 코드만 종이 것으로 바꾸고 싶을 때가
    * 있다 — 옮겨 적은 사람이 달라 코드가 어긋나는 일이 잦다.
    */
-  onReadChords?: (file: File) => void | Promise<void>;
+  onReadChords?: (file?: File) => void | Promise<void>;
+  /** 코드를 읽을 그림을 새로 골라야 하나. 아니면 붙여 둔 배경악보에서 읽는다 */
+  readNeedsFile?: boolean;
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
   const pickChords = useRef<HTMLInputElement | null>(null);
@@ -476,7 +479,20 @@ export function ScoreAttach({
           <button
             className="rounded bg-[var(--chip)] px-2 py-0.5 font-semibold text-[var(--foreground)] disabled:opacity-40 roomy:px-3 roomy:py-1"
             disabled={busy || !online}
-            onClick={() => pickChords.current?.click()}
+            onClick={() => {
+              if (readNeedsFile) {
+                pickChords.current?.click();
+                return;
+              }
+              // 붙여 둔 배경악보에서 읽는다 — 새로 고를 것이 없다
+              setBusy(true);
+              setError(null);
+              Promise.resolve(onReadChords())
+                .catch((err) =>
+                  setError(err instanceof Error ? err.message : "읽지 못했습니다"),
+                )
+                .finally(() => setBusy(false));
+            }}
             title="그림 악보(PDF·사진)를 골라 넣으면 AI가 거기 적힌 코드 이름을 읽어 이 곡의 악보에 적습니다. 음표와 가사는 그대로 둡니다"
           >
             {busy ? "읽는 중… (1분쯤)" : "코드만 바꾸기(AI)"}

@@ -51,6 +51,10 @@ export interface SheetData {
     end_repeats?: { bar: number; times?: number }[];
     voltas?: { bar: number; endings?: number[]; span?: number }[];
     markers?: { bar: number; label: string }[];
+    /** 마디마다 그림에 인쇄된 코드 이름. 악보 파일이 없는 곡의 유일한 출처다 */
+    chords?: { bar: number; chords: string[] }[];
+    /** 그림에서 읽은 조 */
+    key?: string;
     jumps?: { bar: number; to?: string; until?: string; at?: string }[];
   };
   /** "score"면 악보 파일의 정렬, "grid"면 박 격자에 고르게 얹은 것 */

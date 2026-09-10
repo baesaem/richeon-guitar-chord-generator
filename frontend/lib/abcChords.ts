@@ -257,6 +257,15 @@ export interface SongChordResult {
 }
 
 /** 코드 이름 → Chord 한 칸. 분수코드는 베이스를 떼어 낸다 */
+/** 코드 이름 하나를 시간 위의 코드로. 그림에서 읽은 코드를 펼 때 쓴다 */
+export function chordAt(
+  label: string,
+  start: number,
+  end: number,
+): Chord {
+  return toChord(label, start, end, label);
+}
+
 function toChord(
   label: string,
   start: number,

@@ -23,7 +23,7 @@ import {
 } from "@/lib/tabEdits";
 import type { TabScore } from "@/lib/msczToAbc";
 
-import { unifyChords } from "@/lib/abcChords";
+import { chordAt, unifyChords } from "@/lib/abcChords";
 import { abcBarLyrics } from "@/lib/abcLyrics";
 import { abcMeasures, abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
@@ -84,6 +84,7 @@ import {
   watchJob,
   fixBeats,
   readPictureChords,
+  readSheetChords,
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, getLocalAudio, listLocal, saveLocal } from "@/lib/library";
@@ -375,12 +376,57 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [result, abcEntry, rawBars, settings.chordVocab, followScore],
   );
+  /** 그림 멜로디에 인쇄된 코드. AI가 읽어 두면 곡의 코드가 된다 */
+  const pictureBarChords = useMemo(() => {
+    const rows = (result?.sheet as SheetData | null)?.read?.chords;
+    if (!rows?.length) return [];
+    return rows.filter(
+      (r) => typeof r?.bar === "number" && (r.chords?.length ?? 0) > 0,
+    );
+  }, [result?.sheet]);
+
+  /**
+   * 그림 멜로디에서 읽은 코드를 **음원의 시간 위에** 편다.
+   *
+   * 악보 파일이 없는 곡은 그리드·파형이 음원에서 딴 코드를 보였다.
+   * 그림에는 사람이 적어 둔 코드가 인쇄돼 있으니 그것이 낫다 - 음원은
+   * B7을 B로 뭉갠다. 마디마다의 시각은 그림 커서가 쓰는 것과 같은
+   * 것(passes)을 쓰므로 도돌이를 돌아도 제자리에 붙는다.
+   */
+  const pictureChords = useMemo((): Chord[] | null => {
+    if (abcEntry?.abc || !pictureBarChords.length) return null;
+    const pass = (result?.sheet as SheetData | null)?.passes?.[0];
+    if (!pass?.length) return null;
+    const byBar = new Map<number, string[]>();
+    for (const r of pictureBarChords) byBar.set(r.bar - 1, r.chords);
+    const out: Chord[] = [];
+    for (const step of pass) {
+      const names = byBar.get(step.bar);
+      if (!names?.length) {
+        // 코드가 안 적힌 마디는 앞 코드가 이어진다 — 악보를 읽는 법이 그렇다
+        const prev = out[out.length - 1];
+        if (prev) prev.end = +step.end.toFixed(3);
+        continue;
+      }
+      const span = step.end - step.start;
+      names.forEach((name, i) => {
+        const from = step.start + (span * i) / names.length;
+        const to = step.start + (span * (i + 1)) / names.length;
+        const prev = out[out.length - 1];
+        if (prev && prev.label === name && Math.abs(prev.end - from) < 0.05)
+          prev.end = +to.toFixed(3);
+        else out.push(chordAt(name, from, to));
+      });
+    }
+    return out.length ? out : null;
+  }, [abcEntry?.abc, pictureBarChords, result?.sheet]);
+
   const tuned: AnalysisResult | null = useMemo(
-    () =>
-      result && unified?.chords
-        ? { ...result, chords: unified.chords }
-        : result,
-    [result, unified],
+    () => {
+      const laid = unified?.chords ?? pictureChords;
+      return result && laid ? { ...result, chords: laid } : result;
+    },
+    [result, unified, pictureChords],
   );
 
   // 화면에 그릴 결과.
@@ -1508,7 +1554,11 @@ export default function Home() {
    */
   const songChords = useMemo(() => {
     const out: Record<number, string[]> = {};
-    if (!abcEntry?.abc) return out;
+    if (!abcEntry?.abc) {
+      /* 악보 파일이 없으면 **그림 멜로디에서 읽은 코드**가 기준이다 */
+      for (const row of pictureBarChords) out[row.bar - 1] = row.chords;
+      return out;
+    }
     let ms: ReturnType<typeof abcMeasures>;
     try {
       ms = abcMeasures(abcEntry.abc);
@@ -1522,7 +1572,7 @@ export default function Home() {
       if (names.length) out[i] = names.slice(0, 4);
     });
     return out;
-  }, [abcEntry?.abc]);
+  }, [abcEntry?.abc, pictureBarChords]);
 
   const tabFrame = useMemo((): TabScore | null => {
     if (abcEntry?.tabScore) return abcEntry.tabScore;
@@ -1660,13 +1710,26 @@ export default function Home() {
    * 바꾸며, 붙여 두었던 타브도 건드리지 않는다 — 코드를 고치려고 넣은
    * 그림 때문에 타브까지 바뀌면 고칠 생각이 없던 것을 잃는다.
    */
-  const readChordsFromPicture = async (file: File) => {
+  const readChordsFromPicture = async (file?: File) => {
     if (!result) return;
     const entry = getAbc(result.id);
     if (!entry?.abc?.trim()) {
-      setToast("먼저 악보를 붙여 주세요 — 코드를 적어 넣을 악보가 없습니다");
+      /* 악보 파일이 없는 곡은 **붙여 둔 배경악보**에서 읽는다. 읽은
+         코드는 곡에 실려 멜로디·그리드·파형·타브가 함께 쓴다 */
+      if (!result.sheet) {
+        setToast("먼저 배경악보나 악보를 붙여 주세요");
+        return;
+      }
+      const got = await readSheetChords(result.id);
+      adoptResult(got.result);
+      setToast(
+        got.chordBars
+          ? `배경악보에서 코드를 읽었습니다 — ${got.bars}마디 중 ${got.chordBars}마디`
+          : "그림에서 코드를 읽지 못했습니다",
+      );
       return;
     }
+    if (!file) return;
     const got = await readPictureChords(result.id, file);
     const off = got.barOffset;
     const byBar: Record<number, string[]> = {};
@@ -2699,6 +2762,7 @@ export default function Home() {
                                 online={!!health}
                                 onScoreAttached={() => setAbcEntry(getAbc(result.id))}
                                 onReadChords={readChordsFromPicture}
+                          readNeedsFile={!!abcEntry?.abc?.trim()}
                               />
                             </div>
                           ) : undefined
@@ -2725,6 +2789,7 @@ export default function Home() {
                           online={!!health}
                           onScoreAttached={() => setAbcEntry(getAbc(result.id))}
                           onReadChords={readChordsFromPicture}
+                          readNeedsFile={!!abcEntry?.abc?.trim()}
                         />
                       </div>
                     )}
