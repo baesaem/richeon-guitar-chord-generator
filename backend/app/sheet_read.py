@@ -277,7 +277,32 @@ def _fix_voltas(bars: list[ScoreBar]) -> None:
     ends = [i for i, b in enumerate(bars) if b.end_repeat]
     if not ends:
         return
+    starts = [i for i, b in enumerate(bars) if b.start_repeat]
     for end in ends:
+        turns = bars[end].end_repeat
+        begin = max([s for s in starts if s <= end], default=0)
+        second = next(
+            (i for i in range(end + 1, min(end + 3, len(bars))) if bars[i].volta),
+            None,
+        )
+        # AI가 이 되돌이 구간 안에 짚은 1번 괄호. 되돌이 **시작 마디나 그
+        # 바로 뒤**에 짚였으면 잘못 짚은 것이다 — 아래 옛 규칙으로 옮긴다.
+        # 그보다 뒤에 짚였으면 그 자리를 믿는다. 거기서부터 끝 도돌이까지가
+        # 「첫 바퀴에만 부르는 곳」이다. 괄호 선이 짧게 닫혀 있어도(겹세로줄
+        # 에서 닫고 후렴을 한참 이어 가는 판) 두 번째 바퀴는 거기서 2번
+        # 괄호로 건너뛴다 — 「밤이 깊었네」는 41마디의 1번 괄호를 58마디로
+        # 옮겨 후렴을 한 번 더 불렀고, 「광화문 연가」는 11~12마디 괄호를
+        # 12마디 하나로 줄여 11마디를 한 번 더 불렀다.
+        firsts = [i for i in range(begin, end + 1) if bars[i].volta]
+        trusted = next((i for i in firsts if i > begin + 1), None)
+        if trusted is not None:
+            for i in firsts:
+                if i != trusted:
+                    bars[i].volta = None
+            bars[trusted].volta = (tuple(range(1, turns)), end - trusted + 1)
+            if second is not None:
+                bars[second].volta = ((turns,), bars[second].volta[1])
+            continue
         # 괄호가 없는 악보에 괄호를 만들어 붙이면 안 된다 — 마지막
         # 바퀴에서 멀쩡한 마디 하나가 통째로 빠진다. 이 되돌이 언저리에
         # AI가 본 괄호가 있을 때만 자리를 바로잡는다.
