@@ -95,10 +95,12 @@ export function ViewSteppers({
           </button>
           {shift !== undefined && (
             <span
-              className="w-6 text-center tabular-nums roomy:w-7"
+              className="min-w-6 whitespace-nowrap text-center tabular-nums roomy:min-w-7"
               title="악보 1마디가 음원의 몇 마디 뒤에서 시작하는지(전주 길이). ▶를 누르면 줄고 ◀를 누르면 늘어납니다"
             >
-              {Number.isInteger(shift) ? shift : shift.toFixed(1)}
+              {/* 못갖춘마디로 시작하는 곡은 −0.75(3박 앞)처럼 박 단위로
+                  놓인다. 한 자리로 줄이면 −0.8로 보여 무엇인지 모른다 */}
+              {Math.round(shift * 100) / 100}
             </span>
           )}
           <button

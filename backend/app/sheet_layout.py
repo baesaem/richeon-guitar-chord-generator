@@ -231,14 +231,40 @@ def _keep_inside(
             float(up.mean()) if up.size else 0.0,
             float(down.mean()) if down.size else 0.0,
         )
-        if spill > _SPILL_FILL:
-            continue
         # 오선 안에 머무는 기둥 — 머리와 이음보가 가로로 붙어 있다
         wide = _attached_rows(band, (a + b) // 2, lines, height)
+        if spill > _SPILL_FILL:
+            # 밖에 잉크가 있어도 **그 세로줄 자체**가 오선 끝에서 멈추고
+            # 가로로 붙은 것이 하나도 없으면 마디선이다. 마디선 바로 곁에
+            # 높은 음표(덧줄·머리)가 붙으면 번짐이 0.5까지 재였다 —
+            # 「회상」 32·33마디 사이 마디선이 그렇게 몰려나 38마디가
+            # 37마디가 되었다. 기둥은 오선 밖으로 곧게 14~26px 이어진다.
+            ends = max(
+                _straight_run(ink, a, b, top - 1, -1),
+                _straight_run(ink, a, b, bottom + 1, 1),
+            )
+            if wide > 0 or ends > _BAR_OVERRUN:
+                continue
         if _HEAD_ROWS[0] * height <= wide <= _HEAD_ROWS[1] * height:
             continue
         out.append((a, b))
     return out
+
+
+#: 마디선이 오선 끝을 지나 더 그어질 수 있는 픽셀. 선 굵기·번짐 몫이다
+_BAR_OVERRUN = 2
+
+
+def _straight_run(ink: np.ndarray, a: int, b: int, start: int, step: int) -> int:
+    """세로줄 a~b가 start에서 step 쪽으로 몇 px 곧게 이어지는가.
+
+    곁의 잉크는 보지 않는다 — 그 세로줄 자리에만 잉크가 있는지 본다.
+    """
+    n, r = 0, start
+    while 0 <= r < ink.shape[0] and ink[r, a : b + 1].any():
+        n += 1
+        r += step
+    return n
 
 
 def _attached_rows(
