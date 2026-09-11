@@ -98,6 +98,13 @@ export const ARP_PATTERNS: ArpPattern[] = [
     note: "베이스를 뜯고 세 줄을 한 번에 튕깁니다. 반주가 두꺼워야 할 때 씁니다. 빈 칸은 쉼표입니다.",
     extra: true,
   },
+  {
+    no: 14, chords: ["G"],
+    seq: [["p"], ["i"], ["m"], ["a"], [], [], [], []],
+    songs: "가족사진 (김진호)",
+    note: "앞 두 박만 8분음표로 뜯고, 3·4박은 줄을 누른 채 길게 울립니다. 빈 칸은 울리는 자리입니다 — 「가족사진」 반주가 이 모양입니다.",
+    extra: true,
+  },
 ];
 
 export function arpPattern(no: number): ArpPattern | null {
