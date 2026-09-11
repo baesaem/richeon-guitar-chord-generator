@@ -133,9 +133,15 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
   const [keyRoot = "", keyMode = ""] = (props.songKey ?? "").split(" ");
   const tonic = PITCH_CLASS[keyRoot] ?? null;
   const mode = keyMode;
-  const origKey = tonic === null ? "" : keyName(tonic, mode);
+  /* 마이너 곡은 나란한 메이저 이름을 곁들인다 — Em은 G와 음·조표가 같다.
+     메이저 이름으로 조를 부르는 사람도 바로 고른다 */
+  const minor = mode === "minor";
+  const relMajor = (pc: number) => keyName((pc + 3) % 12, "major");
+  const withRel = (pc: number) =>
+    minor ? `${keyName(pc, mode)} (${relMajor(pc)})` : keyName(pc, mode);
+  const origKey = tonic === null ? "" : withRel(tonic);
   const nowKey =
-    tonic === null ? "" : keyName((((tonic + transpose) % 12) + 12) % 12, mode);
+    tonic === null ? "" : withRel((((tonic + transpose) % 12) + 12) % 12);
   // 기본값에서 벗어난 설정이 있으면 버튼에 점을 찍어 알린다
   const arp = props.arp ?? 0;
   const tweaked =
@@ -276,7 +282,12 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                             : `${-by}반음 내림`
                       }
                     >
-                      {keyName(to, mode)}
+                      <span className="block leading-tight">{keyName(to, mode)}</span>
+                      {minor && (
+                        <span className="block text-[10px] leading-tight opacity-70">
+                          {relMajor(to)}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
