@@ -122,6 +122,11 @@ interface Props {
    * 치기만 하는 자리라 잘못 눌러 악보가 바뀌면 안 된다.
    */
   onEdits?: (next: Record<number, TabBarEdit>) => void;
+  /**
+   * 마디를 누르면 그 마디 첫머리부터 친다. 받는 시각은 이 악보의 시각
+   * (싱크를 더한 값) — 음원 시각으로 되돌리는 것은 부르는 쪽 몫이다.
+   */
+  onSeek?: (t: number) => void;
 }
 
 /**
@@ -269,6 +274,7 @@ export function TabSheet({
   picked,
   edits,
   onEdits,
+  onSeek,
 }: Props) {
   /** 지금 고치고 있는 마디와 고른 자리 */
   const [fixing, setFixing] = useState<{
@@ -285,6 +291,8 @@ export function TabSheet({
     was?: TabBarEdit;
   } | null>(null);
   const holdRef = useRef<number | null>(null);
+  /** 방금 누른 것이 고치는 창을 열었나 — 그랬으면 손을 떼도 옮기지 않는다 */
+  const firedRef = useRef(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
   /** 지금 치는 줄의 자리표. 창을 굴려 이 자리를 가운데로 끌어온다 */
   const markRef = useRef<SVGRectElement | null>(null);
@@ -664,6 +672,28 @@ export function TabSheet({
     });
   });
 
+  /**
+   * 악보 마디 j를 치는 음원 마디로 옮긴다.
+   *
+   * 도돌이를 돌면 같은 악보 마디를 두 번 이상 친다 — 그중 지금 자리에서
+   * 가장 가까운 것으로 간다. 2절을 치다가 누르면 2절의 그 마디다.
+   */
+  const seekBar = (j: number) => {
+    if (!onSeek) return;
+    let best = -1;
+    let gap = Infinity;
+    bars.forEach((b, i) => {
+      const no = scoreBarNumbers?.[i];
+      if ((no !== undefined ? no - 1 : i - barOffset) !== j) return;
+      const d = Math.abs(b.start - now);
+      if (d < gap) {
+        gap = d;
+        best = i;
+      }
+    });
+    if (best >= 0) onSeek(bars[best].start);
+  };
+
   /* 마디를 3초 길게 누르면 그 마디를 고친다 — 코드 고칠 때와 같은 손짓.
      마우스는 오른쪽 클릭. 편집 화면에서만 판을 깐다 */
   const holds = onEdits
@@ -679,10 +709,12 @@ export function TabSheet({
           } catch {
             /* 못 재면 아래에 연다 */
           }
+          firedRef.current = true;
           setFixing({ bar: j, col: 0, low, was: edits?.[j] });
         };
         const start = (e: React.PointerEvent<SVGRectElement>) => {
           const target = e.currentTarget;
+          firedRef.current = false;
           if (holdRef.current) window.clearTimeout(holdRef.current);
           holdRef.current = window.setTimeout(
             () => open({ currentTarget: target }),
@@ -701,7 +733,12 @@ export function TabSheet({
             width={p.w}
             height={HEAD + STAFF + FOOT - 12}
             fill="transparent"
-            style={{ cursor: "context-menu" }}
+            style={{ cursor: onSeek ? "pointer" : "context-menu" }}
+            onClick={() => {
+              // 길게 눌러 창이 열렸으면 떼는 손은 옮기지 않는다
+              if (firedRef.current) firedRef.current = false;
+              else seekBar(j);
+            }}
             onPointerDown={start}
             onPointerUp={stop}
             onPointerLeave={stop}
@@ -714,6 +751,26 @@ export function TabSheet({
         );
       })
     : null;
+
+  /* 치기만 하는 화면(전체보기·연습실)에서는 누르면 옮기기만 한다 */
+  const seeks =
+    !onEdits && onSeek
+      ? score.bars.map((_, j) => {
+          const p = placeOf(j);
+          return (
+            <rect
+              key={`seek${j}`}
+              x={p.x}
+              y={p.top - HEAD + 10}
+              width={p.w}
+              height={HEAD + STAFF + FOOT - 12}
+              fill="transparent"
+              style={{ cursor: "pointer" }}
+              onClick={() => seekBar(j)}
+            />
+          );
+        })
+      : null;
 
   // ---- 커서 ----
   let cursor: React.ReactNode = null;
@@ -975,6 +1032,7 @@ export function TabSheet({
           {ink}
           {marks}
           {holds}
+          {seeks}
           {liveRow >= 0 && (
             <rect
               ref={markRef}

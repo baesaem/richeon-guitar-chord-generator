@@ -1747,6 +1747,8 @@ export default function Home() {
         }
         sync={sync}
         onSync={withSync ? setSync : undefined}
+        /* 마디를 누르면 거기서부터 친다 — 멜로디 악보와 같은 손짓 */
+        onSeek={seekFromScore}
         /* 음높이 손잡이는 전체보기에서만 — 연습실은 마디(확대) 옆에 따로 있다 */
         pitch={withPitch ? capoShown : undefined}
         onPitch={withPitch ? setCapoShown : undefined}
