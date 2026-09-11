@@ -31,12 +31,14 @@ import { PracticeRoom } from "@/components/PracticeRoom";
 import { MelodyScore } from "@/components/MelodyScore";
 import {
   getAbc,
+  listAbc,
   removeAbc,
   saveAbc,
   setAbcFollow,
   setAbcOffset,
   type AbcEntry,
 } from "@/lib/abcStore";
+import { fitAbcToAudioKey, type KeyFix } from "@/lib/abcKeyFix";
 import { clearDirty, listDirty, markDirty } from "@/lib/dirty";
 import { ScoreAttach } from "@/components/ScoreAttach";
 import { TabAttach } from "@/components/TabAttach";
@@ -151,6 +153,12 @@ export default function Home() {
   const [health, setHealth] = useState<Health | null>(null);
   const [status, setStatus] = useState<JobStatus | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  /** 멜로디를 음원 조로 옮긴 곡들 — 드라이브에 다시 올릴 것을 알려 준다 */
+  const [keyFixes, setKeyFixes] = useState<KeyFix[]>([]);
+  const addKeyFixes = (more: KeyFix[]) =>
+    setKeyFixes((all) => [...all, ...more.filter((f) => !all.some((x) => x.id === f.id))]);
+  const openIdRef = useRef<string | null>(null);
+  openIdRef.current = result?.id ?? null;
   const [error, setError] = useState<string | null>(null);
 
   const [playback, setPlayback] = useState<Playback | null>(null);
@@ -323,6 +331,34 @@ export default function Home() {
   // 「화면에 그릴 결과」보다 먼저 선언해야 한다 — 악보·파형·타브의 코드를
   // 한 벌로 모으는 셈이 이 값을 본다. 아래에 두면 렌더마다 터진다.
   const [abcEntry, setAbcEntry] = useState<AbcEntry | null>(null);
+
+  /*
+   * 앱을 켤 때 이 기기의 곡들을 한 번 훑어, 음원과 다른 조로 적힌 멜로디를
+   * 음원 조로 옮긴다. 곡을 열 때도 옮기지만(showSong), 열지 않은 곡은
+   * 그대로 드라이브에 올라가 버린다 — 무엇을 다시 올려야 하는지 알려 준다.
+   */
+  useEffect(() => {
+    /* 옮긴 것은 이미 기기에 적혔다 — 화면을 떠났다고 알림을 버리면, 다음에
+       켤 때는 옮길 것이 없어 무엇을 옮겼는지 영영 모른다. 그래서 끝까지
+       알린다(개발 화면은 이 일을 두 번 돌리고 첫 번은 걷어 낸다) */
+    (async () => {
+      const found: KeyFix[] = [];
+      for (const id of listAbc()) {
+        const r = await getLocal(id).catch(() => null);
+        const f = r ? fitAbcToAudioKey(r) : null;
+        if (f) found.push(f);
+      }
+      if (!found.length) return;
+      addKeyFixes(found);
+      // 지금 열린 곡이 옮겨졌으면 화면도 새 악보·음높이로
+      const open = openIdRef.current;
+      if (open && found.some((f) => f.id === open)) {
+        setAbcEntry(getAbc(open));
+        setTranspose(loadSetup(open).transpose);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /* 손으로 고친 타브 자리. 악보와 딴 칸에 담는다 — 악보를 붙이지 않은
      곡에서도 고칠 수 있어야 한다 */
   const [tabEdits, setTabEditsState] = useState<
@@ -820,6 +856,9 @@ export default function Home() {
    * 받자마자 맞는 자리에서 시작해야 한다.
    */
   const showSong = (r: AnalysisResult) => {
+    // 악보 파일로 붙인 멜로디가 음원과 다른 조면 먼저 음원 조로 옮긴다
+    const fix = fitAbcToAudioKey(r);
+    if (fix) addKeyFixes([fix]);
     const setup = hasSetup(r.id)
       ? loadSetup(r.id)
       : {
@@ -4416,6 +4455,33 @@ export default function Home() {
 
         {/* ABC 악보 붙이기/수정 — 악보생성 앱에서 만든 ABC를 곡에 싣는다 */}
         {/* 저장·등록을 알리는 짧은 알림. 메뉴 바로 위에 잠깐 떴다 사라진다 */}
+        {keyFixes.length > 0 && (
+          <div className="fixed inset-x-0 top-14 z-50 flex justify-center px-4">
+            <div className="max-w-md rounded-lg border border-[var(--accent)] bg-[var(--background)] px-3 py-2 text-[13px] shadow-lg">
+              <div className="mb-1 flex items-center justify-between gap-3 font-bold text-[var(--accent)]">
+                <span>멜로디를 음원과 같은 조로 옮긴 곡</span>
+                <button
+                  type="button"
+                  onClick={() => setKeyFixes([])}
+                  aria-label="닫기"
+                  className="shrink-0 px-1 text-[var(--foreground)] opacity-60"
+                >
+                  ✕
+                </button>
+              </div>
+              <ul className="space-y-0.5">
+                {keyFixes.map((f) => (
+                  <li key={f.id}>
+                    {f.title} — {f.from} → {f.to}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[12px] opacity-70">
+                이 곡들은 곡 파일을 다시 내보내 드라이브에 올려 주세요.
+              </p>
+            </div>
+          </div>
+        )}
         {toast && (
           <div className="pointer-events-none fixed inset-x-0 bottom-16 z-50 flex justify-center px-4 roomy:bottom-6">
             <div className="max-w-[92%] rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-[13px] font-medium text-white shadow-lg">
