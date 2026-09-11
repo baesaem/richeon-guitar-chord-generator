@@ -201,7 +201,18 @@ export function AbcScore({
       /* 마디 번호는 %%barnumbers 지시로 켠다.
          악보 원문은 건드리지 않고 그릴 때만 앞에 붙인다 — 저장되는
          악보에 우리 취향을 섞지 않기 위해서다. */
-      const src = flowed ?? abc;
+      /* 성부가 하나뿐인 악보는 성부 이름(「멜로디」)을 줄마다 적지 않는다 —
+         가를 것이 없는 이름표가 줄 앞자리만 차지했다(「혜화동」) */
+      const body = flowed ?? abc;
+      const voices = new Set(
+        [...body.matchAll(/^V:\s*(\S+)/gm)].map((m) => m[1]),
+      );
+      const src =
+        voices.size <= 1
+          ? body.replace(/^V:.*$/gm, (line) =>
+              line.replace(/\s+(?:name|nm|subname|sname|snm)=(?:"[^"]*"|\S+)/g, ""),
+            )
+          : body;
       const drawn = /^%%barnumbers/m.test(src) ? src : `%%barnumbers 1
 ${src}`;
       const [obj] = ABCJS.renderAbc(hostRef.current, drawn, params);
