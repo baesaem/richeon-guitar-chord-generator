@@ -2114,6 +2114,8 @@ export default function Home() {
     // 전체보기 창이 본문을 덮고 있으면 먼저 닫는다 — 탭만 바꾸면
     // 뒤에서 바뀔 뿐이라 눌러도 아무 일이 없는 것처럼 보인다.
     setShowSheet(false);
+    // 편집은 강사님 메뉴다 — 수강생 기기에서는 가지 않는다
+    if (next === "edit" && !settings.adminMode) next = "home";
     // 악보 만들기 창은 음원등록 뷰 안에 있다 — 다른 메뉴로 가면 접는다
     if (next !== "import") setAbcAttach(false);
     if (next !== "player") {
@@ -4346,7 +4348,7 @@ export default function Home() {
             />
           )}
 
-          {tab === "edit" && (
+          {tab === "edit" && settings.adminMode && (
             <EditTab
               onPick={async (id) => {
                 // 고르면 그 곡을 열고 악보를 바로 펼친다. 고치는 자리가

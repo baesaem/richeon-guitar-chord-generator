@@ -14,13 +14,22 @@ export type Tab =
 interface Props {
   tab: Tab;
   onChange: (tab: Tab) => void;
-  /** 음원등록은 강사님 일 — 수강생 메뉴에서는 숨긴다 */
+  /** 음원등록·편집은 강사님 일 — 수강생 메뉴에서는 숨긴다 */
   adminMode?: boolean;
 }
 
-/** 지금 권한으로 보이는 메뉴 항목 */
+/** 강사님만 쓰는 메뉴. 수강생은 곡을 받아 치기만 한다 */
+const ADMIN_ONLY: Tab[] = ["import", "edit"];
+
+/**
+ * 지금 권한으로 보이는 메뉴 항목.
+ *
+ * 음원등록 화면은 수강생에게 「음원받기」(강사님 곡 받기)로 쓰이지만,
+ * 거기로 가는 길은 홈의 「음원받기」와 새 자료 알림이다 — 메뉴에는 두지
+ * 않는다. 편집은 강사님 모드에서만 고칠 수 있어 수강생에게는 빈 화면이다.
+ */
 export function navItemsFor(adminMode: boolean | undefined) {
-  return NAV_ITEMS.filter((item) => item.id !== "import" || adminMode);
+  return NAV_ITEMS.filter((item) => adminMode || !ADMIN_ONLY.includes(item.id));
 }
 
 /** 주메뉴 항목. 폰의 아래 탭과 태블릿·PC의 왼쪽 사이드바가 함께 쓴다 */
