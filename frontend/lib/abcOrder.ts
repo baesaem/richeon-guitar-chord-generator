@@ -30,10 +30,13 @@ export function abcMeasures(abc: string): AbcMeasure[] {
     let text = buf.trim();
     buf = "";
     let volta: number | null = null;
-    const v = text.match(/^\[(\d+)[-,.\d]*\s*/); // 1·2번 괄호
+    /* 1·2번 괄호. 줄 머리의 [V:1] 같은 줄 안 지시 뒤에 오기도 한다 —
+       「혜화동」은 「[V:1] [1」이라 1번 괄호를 못 알아봐 두 번째 돌 때도
+       1번 괄호 9마디를 쳐서, 97마디가 106마디로 셈해졌다 */
+    const v = text.match(/^((?:\[[A-Za-z]:[^\]]*\]\s*)*)\[(\d+)[-,.\d]*\s*/);
     if (v) {
-      volta = +v[1];
-      text = text.slice(v[0].length);
+      volta = +v[2];
+      text = v[1] + text.slice(v[0].length);
     }
     if (/[A-Ga-gz]/.test(text))
       out.push({ text, volta, startRepeat, endRepeat: /^:/.test(bar) });
