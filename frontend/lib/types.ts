@@ -97,7 +97,17 @@ export type PickedBar = {
   lyric2?: string;
 } & (
   | { kind: "pick"; cols: Record<string, number>[] }
-  | { kind: "strum"; chord: Record<string, number>; strokes: string }
+  | {
+      kind: "strum";
+      chord: Record<string, number>;
+      /**
+       * 손 방향. D 내리기·U 올리기·. 쉬기를 한 칸씩 고르게 — 16칸이면
+       * 16분음표 한 칸이다. 칸 없이 방향만 적힌 것(DDUDU)도 있다
+       */
+      strokes: string;
+      /** 세게 긋는 칸. strokes와 같은 자리에 「>」 */
+      accents?: string;
+    }
 );
 
 export interface PickedTab {

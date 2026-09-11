@@ -571,12 +571,18 @@ export function TabSheet({
         );
       });
 
-    if (!cols.length && strumCells) {
-      const beats = strumCells.length || 8;
-      strumCells.split("").forEach((c, i) => {
+    /* 숫자가 없는 마디는 스트로크로. 그림 악보의 스트로크 마디면 거기
+       적힌 손 방향을, 아니면 이 곡에 정해 둔 스트로크를 긋는다 */
+    const picStrum =
+      fromPic && fromPic.kind === "strum" && fromPic.strokes ? fromPic : null;
+    const cellsHere = picStrum ? picStrum.strokes : strumCells;
+    const accentsHere = picStrum ? (picStrum.accents ?? "") : strumAccents;
+    if (!cols.length && cellsHere) {
+      const beats = cellsHere.length || 8;
+      cellsHere.split("").forEach((c, i) => {
         if (c !== "D" && c !== "U") return;
         const x = p.x + ((i + 0.5) * p.w) / beats;
-        const hit = strumAccents[i] === ">";
+        const hit = accentsHere[i] === ">";
         // 빗금 — 세게 긋는 칸은 굵게
         ink.push(
           <line
