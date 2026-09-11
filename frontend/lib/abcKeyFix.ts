@@ -8,17 +8,20 @@
  * 0이 무엇을 뜻하는지도 곡마다 달라진다. 옮길 수 있는 악보는 글째 음원
  * 조로 옮겨 두면 표시가 필요 없고, 음높이 0이 늘 원곡 그대로다.
  *
- * **종이(그림) 타브가 붙은 곡은 옮기지 않는다.** 숫자가 종이에 적힌
- * 조로 박혀 있어, 멜로디만 옮기면 타브와 어긋난다 — 그런 곡은 종이의
- * 조를 표시로 남긴다.
+ * **종이악보가 붙은 곡은 옮기지 않는다** — 악보 그림(PDF 쪽)이나 내 악보
+ * (사진·PDF)가 있는 곡. 멜로디가 그 종이를 옮겨 적은 것이라, 종이와
+ * 같은 조여야 나란히 놓고 본다. 그림 타브만 있는 곡은 종이악보가 아니다
+ * (파일에서 만든 타브도 그 칸에 담긴다) — 옮긴다.
  *
- * 곡 화면에서 보이는 모습은 되도록 그대로 둔다. 타브 보표가 있거나
- * 음높이를 손으로 옮겨 둔 곡은 그만큼 음높이를 되돌려 같은 조로 보이게
- * 하고, 손대지 않은 곡은 음높이 0(원곡 조)으로 연다.
+ * 곡 화면에서 보이는 모습은 되도록 그대로 둔다. 타브 숫자(타브 보표·그림
+ * 타브)가 있거나 음높이를 손으로 옮겨 둔 곡은 그만큼 음높이를 되돌려 같은
+ * 조로 보이게 하고 — 숫자는 적힌 조로 박혀 있다 — 손대지 않은 곡은 음높이
+ * 0(원곡 조)으로 연다.
  */
 
 import { getAbc, saveAbc } from "./abcStore";
 import { abcKeyGap, abcKeyName, transposeAbc } from "./abcTranspose";
+import { getLocalSheet } from "./library";
 import { DEFAULT_SETUP, hasSetup, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import type { AnalysisResult } from "./types";
 
@@ -44,13 +47,26 @@ export function keyFixLog(): KeyFix[] {
   }
 }
 
+/** 종이악보가 붙은 곡인가 — 악보 그림 쪽이나 이 기기의 내 악보 */
+async function hasPaper(result: AnalysisResult): Promise<boolean> {
+  const pages = (result.sheet as { pages?: unknown[] } | null | undefined)?.pages;
+  if (pages?.length) return true;
+  return !!(await getLocalSheet(result.id).catch(() => null));
+}
+
 /**
  * 이 곡의 멜로디 악보가 음원과 다른 조면 음원 조로 옮긴다.
  * 옮겼으면 무엇을 옮겼는지, 아니면 null. 두 번 불러도 한 번만 옮긴다.
  */
-export function fitAbcToAudioKey(result: AnalysisResult | null): KeyFix | null {
+export async function fitAbcToAudioKey(
+  result: AnalysisResult | null,
+): Promise<KeyFix | null> {
   if (!result?.id || !result.key) return null;
-  if (result.picked_tab) return null;
+  const first = getAbc(result.id);
+  if (!first?.abc?.trim() || !abcKeyGap(first.abc, result.key)) return null;
+  if (await hasPaper(result)) return null;
+
+  // 기기를 살피는 사이 다른 곳에서 옮겼을 수 있다 — 다시 읽는다
   const entry = getAbc(result.id);
   if (!entry?.abc?.trim()) return null;
   const gap = abcKeyGap(entry.abc, result.key);
@@ -77,7 +93,8 @@ export function fitAbcToAudioKey(result: AnalysisResult | null): KeyFix | null {
         loop: null,
         transpose: 0,
       };
-  const keep = !!entry.tabScore || cur.transpose !== 0;
+  const frets = !!entry.tabScore || !!result.picked_tab;
+  const keep = frets || cur.transpose !== 0;
   const t = keep ? Math.max(-11, Math.min(11, cur.transpose - gap)) : 0;
   if (t !== cur.transpose) saveSetup(result.id, { ...cur, transpose: t });
 

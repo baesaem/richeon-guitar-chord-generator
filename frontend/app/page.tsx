@@ -345,7 +345,7 @@ export default function Home() {
       const found: KeyFix[] = [];
       for (const id of listAbc()) {
         const r = await getLocal(id).catch(() => null);
-        const f = r ? fitAbcToAudioKey(r) : null;
+        const f = r ? await fitAbcToAudioKey(r) : null;
         if (f) found.push(f);
       }
       if (!found.length) return;
@@ -856,9 +856,18 @@ export default function Home() {
    * 받자마자 맞는 자리에서 시작해야 한다.
    */
   const showSong = (r: AnalysisResult) => {
-    // 악보 파일로 붙인 멜로디가 음원과 다른 조면 먼저 음원 조로 옮긴다
-    const fix = fitAbcToAudioKey(r);
-    if (fix) addKeyFixes([fix]);
+    /* 악보 파일로 붙인 멜로디가 음원과 다른 조면 음원 조로 옮긴다. 종이악보
+       (내 악보)가 붙었는지 기기를 살펴야 해 조금 뒤에 끝난다 — 옮겼으면
+       그때 화면도 새 악보·음높이로 바꾼다 */
+    openIdRef.current = r.id;
+    void fitAbcToAudioKey(r).then((fix) => {
+      if (!fix) return;
+      addKeyFixes([fix]);
+      if (openIdRef.current === r.id) {
+        setAbcEntry(getAbc(r.id));
+        setTranspose(loadSetup(r.id).transpose);
+      }
+    });
     const setup = hasSetup(r.id)
       ? loadSetup(r.id)
       : {

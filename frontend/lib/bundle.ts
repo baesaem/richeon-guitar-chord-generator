@@ -258,7 +258,7 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
 
   // ABC 악보. 그림악보가 없는 곡은 이것이 유일한 악보다.
   // 아직 음원 조로 옮기지 않은 멜로디면 옮겨서 싣는다 — 받는 쪽도 같은 조로 연다
-  fitAbcToAudioKey(result);
+  await fitAbcToAudioKey(result);
   const abc = getAbc(result.id);
   if (abc?.abc?.trim())
     bundle.abc = {
@@ -431,8 +431,6 @@ export async function openBundle(
       if (bundle.abc.follow) setAbcFollow(bundle.result.id, true);
       if (bundle.abc.tabEdits)
         setTabEdits(bundle.result.id, bundle.abc.tabEdits);
-      // 예전에 만든 곡 파일의 멜로디가 음원과 다른 조면 여기서 옮긴다
-      if (fitAbcToAudioKey(bundle.result)) got.push("멜로디를 음원 조로");
     } catch {
       /* 자리가 모자라도 코드·가사는 들어간다 */
     }
@@ -445,6 +443,13 @@ export async function openBundle(
     } catch {
       /* 무시 */
     }
+  }
+  /* 예전에 만든 곡 파일의 멜로디가 음원과 다른 조면 여기서 옮긴다.
+     내 악보까지 푼 뒤에 본다 — 종이악보가 붙은 곡은 옮기지 않는다 */
+  try {
+    if (await fitAbcToAudioKey(bundle.result)) got.push("멜로디를 음원 조로");
+  } catch {
+    /* 못 옮겨도 곡은 열린다 */
   }
   return got;
 }
