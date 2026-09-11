@@ -1673,6 +1673,20 @@ export default function Home() {
     };
   }, [abcEntry?.tabScore, result, songWords, pickedWords, pickedMarks]);
 
+  /**
+   * 멜로디 악보의 음표를 누르면 그 자리에서부터 친다.
+   *
+   * 악보에 넘긴 시각은 싱크를 더하고 지연을 뺀 값이라, 음원 시각으로
+   * 되돌려 옮긴다. 멈춰 있었으면 곧바로 소리를 낸다 — 누른 음부터 듣고
+   * 싶어서 누르는 것이다.
+   */
+  const seekFromScore = (t: number) => {
+    const at = Math.max(0, t - sync + settings.latency);
+    playback?.seek(at);
+    setTime(at);
+    if (playback && !playback.isPlaying()) playback.play();
+  };
+
   const makeAbcTab = (withSync: boolean, withFix = false) =>
     result && tabFrame && (hasPickedTab || tabFrame.ownFrets) ? (
       <TabSheet
@@ -2760,6 +2774,7 @@ export default function Home() {
                   재생 화면과 전체보기가 다른 악보를 보여주면 헷갈린다 */}
                   {sheetTab === "melody" && melodyKind === "abc" && abcEntry && (
                     <AbcScore
+                      onSeek={seekFromScore}
                       abc={unified?.abc ?? abcEntry.abc}
                       chordNote={unified}
                       perLine={settings.abcPerLine ?? 0}
@@ -3347,6 +3362,7 @@ export default function Home() {
                       </div>
                     ) : melodyKind === "abc" && abcEntry ? (
                       <AbcScore
+                        onSeek={seekFromScore}
                         abc={unified?.abc ?? abcEntry.abc}
                         chordNote={unified}
                       perLine={settings.abcPerLine ?? 0}
@@ -3876,6 +3892,7 @@ export default function Home() {
                               /* 강사님이 붙인 ABC 악보. 음표가 빠짐없이 다 있다.
                        커서는 악보 템포가 아니라 음원 마디 격자를 따른다 */
                               <AbcScore
+                                onSeek={seekFromScore}
                                 abc={unified?.abc ?? abcEntry.abc}
                                 chordNote={unified}
                       perLine={settings.abcPerLine ?? 0}

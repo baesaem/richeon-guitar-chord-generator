@@ -75,6 +75,11 @@ interface Props {
    * 마디 번호**(0부터)다.
    */
   onEditBar?: (measure: number) => void;
+  /**
+   * 음표를 누르면 그 음표 자리의 시각(초)을 넘긴다 — 거기서부터 친다.
+   * 시각은 time과 같은 자(싱크·지연을 더한 값)다.
+   */
+  onSeek?: (t: number) => void;
   headerRight?: React.ReactNode;
   musicKey: string;
   /** 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 곁들인다 */
@@ -123,6 +128,7 @@ export function AbcScore({
   barOffset: barOffsetProp,
   onShiftBar,
   onEditBar,
+  onSeek,
   headerRight,
   musicKey,
   sourceKey,
@@ -382,6 +388,43 @@ ${src}`;
     return { ev, x };
   }, [now, sync, bars, barOffset, timings, measureCount, audioToPlay]);
 
+  // ---- 음표를 눌러 거기서부터 치기 ----
+  /* 누를 때 쓸 값은 ref로 든다. 악보를 다시 그리지 않고, 붙인 손잡이도
+     한 번만 단다 */
+  const onSeekRef = useRef(onSeek);
+  onSeekRef.current = onSeek;
+  const seekCtx = useRef<SeekContext>({ timings, bars, barOffset, audioToPlay, now });
+  seekCtx.current = { timings, bars, barOffset, audioToPlay, now };
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    let down: { t: number; x: number; y: number } | null = null;
+    const onDown = (e: PointerEvent) => {
+      down = { t: performance.now(), x: e.clientX, y: e.clientY };
+    };
+    const onClick = (e: MouseEvent) => {
+      const seek = onSeekRef.current;
+      const d = down;
+      down = null;
+      if (!seek) return;
+      /* 길게 누른 것(마디 코드 고치기)과 끈 것(스크롤)은 누름이 아니다 */
+      if (
+        d &&
+        (performance.now() - d.t > 400 ||
+          Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8)
+      )
+        return;
+      const t = noteTimeAt(host, e.clientX, e.clientY, seekCtx.current);
+      if (t !== null) seek(t);
+    };
+    host.addEventListener("pointerdown", onDown);
+    host.addEventListener("click", onClick);
+    return () => {
+      host.removeEventListener("pointerdown", onDown);
+      host.removeEventListener("click", onClick);
+    };
+  }, []);
+
   // ---- 커서 그리기 ----
   useEffect(() => {
     const host = hostRef.current;
@@ -506,7 +549,7 @@ ${src}`;
       {/* abcjs는 currentColor로 그린다 — 다크 모드의 연회색 글자색이
           상속되면 흰 종이 위 악보가 흐려진다. 종이는 늘 흰색·검정이다 */}
       <div className="min-h-0 flex-1 overflow-y-auto rounded bg-white px-2 py-1 text-black">
-        <div ref={hostRef} />
+        <div ref={hostRef} className={onSeek ? "cursor-pointer" : undefined} />
       </div>
     </div>
   );
@@ -585,6 +628,88 @@ function markMeasures(host: HTMLElement, onEdit: (m: number) => void): void {
   }
 }
 
+/** 음표를 누른 자리의 시각을 셈할 때 쓰는 값 */
+interface SeekContext {
+  timings: Timing[];
+  bars: Bar[];
+  barOffset: number;
+  audioToPlay: number[];
+  now: number;
+}
+
+/**
+ * 누른 자리에서 가장 가까운 음표를 찾아, 그 음표가 소리 나는 시각을 준다.
+ *
+ * 누른 것이 음표 요소인지는 보지 않고 **자리**로 찾는다 — 마디 고치기
+ * 판이 음표 위에 얹혀 있어 누름이 판으로 간다. 시각은 커서와 같은
+ * 셈을 거꾸로 한다: 음원 마디의 시작·끝 사이를, 그 마디 첫 음표에서
+ * 다음 마디 첫 음표까지의 자리 비율로 나눈다. 그러면 누른 뒤 커서가
+ * 정확히 그 음표에 선다. 도돌이로 여러 번 치는 음표는 지금 자리에서
+ * 가장 가까운 바퀴를 고른다.
+ */
+function noteTimeAt(
+  host: HTMLElement,
+  clientX: number,
+  clientY: number,
+  ctx: SeekContext,
+): number | null {
+  const { timings, bars, barOffset, audioToPlay, now } = ctx;
+  const svg = host.querySelector("svg");
+  const m = svg?.getScreenCTM();
+  if (!svg || !m || !timings.length) return null;
+  const pt = svg.createSVGPoint();
+  pt.x = clientX;
+  pt.y = clientY;
+  const { x, y } = pt.matrixTransform(m.inverse());
+
+  // 세로로 가장 가까운 줄 — 가사 줄을 눌러도 그 위 줄로 친다
+  const gap = (e: Timing) =>
+    y < e.top ? e.top - y : y > e.top + e.height ? y - e.top - e.height : 0;
+  let best: Timing | null = null;
+  for (const e of timings) {
+    if (!best || gap(e) < gap(best) - 0.5) best = e;
+    else if (Math.abs(gap(e) - gap(best)) <= 0.5) {
+      const cx = (t: Timing) => t.left + (t.width ?? 0) / 2;
+      if (Math.abs(cx(e) - x) < Math.abs(cx(best) - x)) best = e;
+    }
+  }
+  if (!best || gap(best) > 60) return null;
+  const sameLine = (a: Timing, b: Timing) =>
+    a.line !== undefined ? a.line === b.line : a.top === b.top;
+  const line = best;
+  const onLine = timings.filter((e) => sameLine(e, line));
+
+  // 같은 자리의 음표가 바퀴마다 하나씩 있다
+  const picks = onLine.filter((e) => Math.abs(e.left - line.left) < 0.5);
+  if (!bars.length) {
+    const times = picks.map((e) => e.milliseconds / 1000);
+    return times.reduce((a, b) => (Math.abs(b - now) < Math.abs(a - now) ? b : a));
+  }
+
+  const seen = new Set(onLine.map((e) => e.playMeasure));
+  const n = audioToPlay.length;
+  const times: number[] = [];
+  for (const e of picks) {
+    const inThis = onLine.filter((o) => o.playMeasure === e.playMeasure);
+    const left = Math.min(...inThis.map((o) => o.left));
+    audioToPlay.forEach((pm, k) => {
+      if (pm !== e.playMeasure) return;
+      const bar = bars[k + barOffset];
+      if (!bar) return;
+      const nextPm = k + 1 < n && seen.has(audioToPlay[k + 1]) ? audioToPlay[k + 1] : null;
+      const inNext = nextPm === null ? [] : onLine.filter((o) => o.playMeasure === nextPm);
+      const right = inNext.length
+        ? Math.min(...inNext.map((o) => o.left))
+        : Math.max(...inThis.map((o) => o.endX ?? o.left + (o.width ?? 0)));
+      const frac =
+        right > left ? Math.min(Math.max((e.left - left) / (right - left), 0), 1) : 0;
+      // 커서가 이 음표를 「지나온 음표」로 칠하도록 아주 조금 뒤로
+      times.push(bar.start + frac * (bar.end - bar.start) + 0.01);
+    });
+  }
+  if (!times.length) return null;
+  return times.reduce((a, b) => (Math.abs(b - now) < Math.abs(a - now) ? b : a));
+}
 
 /**
  * abcjs가 그린 코드 이름에서 **숫자만** 작게 줄인다.
