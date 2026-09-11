@@ -10,6 +10,7 @@ import { barIndexAt } from "@/lib/bars";
 import type { TabCol, TabScore } from "@/lib/msczToAbc";
 import { shiftChordLabel } from "@/lib/notation";
 import type { StrumChoice } from "@/lib/strumLibrary";
+import { shiftBarCols } from "@/lib/tabShift";
 import type { LyricLine, PickedBar } from "@/lib/types";
 import { useSmoothTime } from "@/lib/useSmoothTime";
 import { chordLabelSvg } from "@/components/ChordLabel";
@@ -127,6 +128,12 @@ interface Props {
    * (싱크를 더한 값) — 음원 시각으로 되돌리는 것은 부르는 쪽 몫이다.
    */
   onSeek?: (t: number) => void;
+  /**
+   * 타브 숫자를 몇 반음 옮겨 그릴까. 음높이만큼, 그리고 타브가 멜로디와
+   * 다른 조로 적혔으면 그 차이까지 — 타브는 멜로디를 따르고, 음높이를
+   * 옮기면 멜로디·타브·그리드가 함께 옮겨진다(강사님 원칙).
+   */
+  fretShift?: number;
 }
 
 /**
@@ -275,6 +282,7 @@ export function TabSheet({
   edits,
   onEdits,
   onSeek,
+  fretShift = 0,
 }: Props) {
   /** 지금 고치고 있는 마디와 고른 자리 */
   const [fixing, setFixing] = useState<{
@@ -299,6 +307,13 @@ export function TabSheet({
   /* 재생 중에는 매 프레임 자리를 묻는다 — 상태로만 따라가면 커서가
      마디마다 툭툭 끊겨 보인다. 다른 악보 화면과 같은 시계를 쓴다 */
   const now = useSmoothTime(time, getTime);
+  /* 옮겨 그린 숫자는 마디마다 한 번만 센다 — 재생 중에는 매 프레임 다시
+     그리므로, 옮길 값·악보·고친 자리가 바뀔 때만 새로 센다 */
+  const shiftedCols = useMemo(
+    () => new Map<number, TabCol[]>(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fretShift, score, picked, edits],
+  );
 
   const words = useMemo(
     () => spaceLyrics(score.bars.map((b) => b.lyric), lyrics),
@@ -517,7 +532,11 @@ export function TabSheet({
         : score.ownFrets
           ? bar.cols
           : [];
-    const cols = edit?.cols ?? picCols;
+    let cols = shiftedCols.get(j);
+    if (!cols) {
+      cols = shiftBarCols(edit?.cols ?? picCols, fretShift);
+      shiftedCols.set(j, cols);
+    }
     /*
      * 코드 이름은 자리를 새로 적어도 남아야 한다.
      *

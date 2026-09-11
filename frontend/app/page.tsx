@@ -39,6 +39,7 @@ import {
   type AbcEntry,
 } from "@/lib/abcStore";
 import { fitAbcToAudioKey, type KeyFix } from "@/lib/abcKeyFix";
+import { tabKeyGap } from "@/lib/tabKey";
 import { clearDirty, listDirty, markDirty } from "@/lib/dirty";
 import { ScoreAttach } from "@/components/ScoreAttach";
 import { TabAttach } from "@/components/TabAttach";
@@ -760,6 +761,14 @@ export default function Home() {
    * 음높이를 옮기지 않는다 — 강사님 원칙. 악보와 음원의 조 차이만 본다.
    */
   const pitchAuto = -keyGap;
+  /**
+   * 타브가 멜로디보다 몇 반음 높게 적혔나(「G key Version」 타브면 −5).
+   * 타브는 멜로디를 따르므로 그 차이만큼 숫자를 옮겨 그린다. 모르면 0.
+   */
+  const tabGap = useMemo(
+    () => tabKeyGap(abcEntry?.abc, result?.picked_tab, abcEntry?.tabScore?.bars)?.gap ?? 0,
+    [abcEntry?.abc, abcEntry?.tabScore, result?.picked_tab],
+  );
   const setCapoShown = (v: number) =>
     setTranspose(clampPitch(v) + keyGap);
 
@@ -1790,8 +1799,10 @@ export default function Home() {
         picked={pickedByBar}
         /* 코드는 어느 화면에서나 하나여야 한다 — 멜로디의 것을 쓴다 */
         barChords={songChords}
-        /* 프렛은 적힌 그대로, 코드 이름만 다른 화면과 같게 옮긴다 */
+        /* 코드 이름은 다른 화면과 같게, 숫자는 음높이와 타브가 적힌 조의
+           차이만큼 옮겨 새로 짚는다 — 타브도 멜로디를 따른다 */
         chordShift={abcTranspose}
+        fretShift={abcTranspose - tabGap}
         flats={flats}
         lyrics={result.lyrics ?? undefined}
         edits={tabEdits}
