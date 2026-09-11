@@ -92,9 +92,21 @@ export function abcKeyGap(abc: string, audioKey: string): number {
  * ABC 글을 semis 반음 옮긴다. 조표(K:)를 못 읽으면 null — 반쯤 옮긴
  * 악보를 내놓느니 손대지 않는다.
  */
-export function transposeAbc(abc: string, semis: number): string | null {
+export function transposeAbc(
+  abc: string,
+  semis: number,
+  opts: {
+    /**
+     * 악보가 실제로 선 조(「F」). 조표가 곡과 다르게 적힌 악보에 쓴다 —
+     * 조표 없이(K:C) 적은 F장조 멜로디를 옮기면 새 조표가 F 기준으로 선다.
+     * 음높이는 여전히 적힌 조표로 읽는다.
+     */
+    from?: string;
+  } = {},
+): string | null {
   semis = Math.round(semis);
-  if (!semis) return abc;
+  if (!semis && !opts.from) return abc;
+  let firstKey = true;
 
   let steps = 0;
   let inSig: number[] | null = null;
@@ -107,19 +119,23 @@ export function transposeAbc(abc: string, semis: number): string | null {
   const retune = (text: string): string | null => {
     const p = parseKey(text);
     if (!p) return null;
-    const pc = mod(p.key.pc + semis, 12);
-    const name = (p.key.minor ? MINOR_NAMES : MAJOR_NAMES)[pc];
+    // 새 조는 「실제 조」에서 센다. 음높이는 적힌 조표(p)로 읽는다
+    const real = firstKey && opts.from ? parseKey(opts.from) : p;
+    firstKey = false;
+    if (!real) return null;
+    const pc = mod(real.key.pc + semis, 12);
+    const name = (real.key.minor ? MINOR_NAMES : MAJOR_NAMES)[pc];
     const letter = LETTERS.indexOf(name[0]);
     // 음이름 몇 칸을 옮기나 — 반음 수에 가장 가까운 쪽(위로/아래로)
-    const d = letter - p.key.letter;
+    const d = letter - real.key.letter;
     steps = [d - 7, d, d + 7].reduce((a, b) =>
       Math.abs(b - (semis * 7) / 12) < Math.abs(a - (semis * 7) / 12) ? b : a,
     );
     inSig = signature(p.key);
-    const next: Key = { letter, pc, minor: p.key.minor };
+    const next: Key = { letter, pc, minor: real.key.minor };
     outSig = signature(next);
     names = outSig.some((a) => a < 0) ? FLAT : outSig.some((a) => a > 0) ? SHARP : PLAIN;
-    return name + (p.key.minor ? "m" : "") + p.rest;
+    return name + (real.key.minor ? "m" : "") + p.rest;
   };
 
   const chordName = (s: string): string => {
