@@ -150,6 +150,9 @@ interface Props {
   topBar?: React.ReactNode;
   /** 악보를 한 마디씩 미는 손잡이(강사님). 없으면 단추를 두지 않는다 */
   onShiftBar?: (delta: number) => void;
+  /** 음높이 손잡이(마디 오른쪽). 주면 안내줄에 낸다 — 전체보기용 */
+  pitch?: number;
+  onPitch?: (n: number) => void;
   /** 음원에서 잰 빠르기. ♩ 칸에 처음 적히는 값이다 */
   audioBpm?: number;
   /** ♩ 값으로 박을 다시 깐다. 악보를 고칠 수 있을 때만 준다 */
@@ -191,6 +194,8 @@ export function SheetScore({
   numbers = true,
   topBar,
   onShiftBar,
+  pitch,
+  onPitch,
   audioBpm,
   onSetBpm,
 }: Props) {
@@ -333,6 +338,8 @@ export function SheetScore({
           barsLabel="줄 전체"
           onShiftBar={onShiftBar}
           shift={sheet.offset}
+          pitch={pitch}
+          onPitch={onPitch}
         />
         {/* 빠르기 손잡이는 악보 종류를 가리지 않는다. 그린 악보에만
             있고 그림 악보에는 없어서, 커서가 밀려도 손댈 데가 없었다 */}

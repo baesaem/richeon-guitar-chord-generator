@@ -73,6 +73,9 @@ interface Props {
   sync?: number;
   onSync?: (sec: number) => void;
   onShiftBar?: (delta: number) => void;
+  /** 음높이 손잡이(마디 오른쪽). 주면 안내줄에 낸다 — 전체보기용 */
+  pitch?: number;
+  onPitch?: (n: number) => void;
   headerRight?: React.ReactNode;
   musicKey: string;
   /** 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 곁들인다 */
@@ -247,6 +250,8 @@ export function TabSheet({
   sync = 0,
   onSync,
   onShiftBar,
+  pitch,
+  onPitch,
   headerRight,
   musicKey,
   sourceKey,
@@ -928,7 +933,13 @@ export function TabSheet({
         playStyle={playStyle}
         right={headerRight}
       >
-        <ViewSteppers sync={sync} onSync={onSync} onShiftBar={onShiftBar} />
+        <ViewSteppers
+          sync={sync}
+          onSync={onSync}
+          onShiftBar={onShiftBar}
+          pitch={pitch}
+          onPitch={onPitch}
+        />
       </SongInfoLine>
       {/* 종이 색은 화면을 따른다 — 밤에는 어두운 바탕에 흰 숫자다 */}
       <div

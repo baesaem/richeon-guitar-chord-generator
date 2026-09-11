@@ -23,6 +23,8 @@ export function ViewSteppers({
   barsLabel,
   onShiftBar,
   shift,
+  pitch,
+  onPitch,
 }: {
   /** 코드 싱크(초). 화면이 노래보다 이르거나 늦을 때 맞춘다 */
   sync?: number;
@@ -51,6 +53,12 @@ export function ViewSteppers({
    * 한 마디가 밀려 남는다. 맞게 둔 값(예: 4.5)을 기억해 되돌릴 수도 없다.
    */
   shift?: number;
+  /**
+   * 음높이(반음, 카포 자리). 마디 손잡이 오른쪽에 둔다 — 전체보기에서
+   * 연주설정 창을 열지 않고 목에 맞춰 바로 올리고 내린다.
+   */
+  pitch?: number;
+  onPitch?: (n: number) => void;
 }) {
   const max = barsMax ?? 8;
   return (
@@ -135,6 +143,35 @@ export function ViewSteppers({
               onBars((bars ?? 1) >= max ? (barsLabel ? 0 : max) : (bars ?? 1) + 1)
             }
             title="마디를 늘립니다 — 그만큼 작게 보입니다"
+          >
+            ＋
+          </button>
+        </span>
+      )}
+
+      {onPitch && (
+        <span className="flex items-center gap-px">
+          <span className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">음높이</span>
+          <button
+            className={STEP}
+            disabled={(pitch ?? 0) <= -11}
+            onClick={() => onPitch(Math.max((pitch ?? 0) - 1, -11))}
+            title="반음 내림 — 악보 표기와 코드가 함께"
+          >
+            －
+          </button>
+          <button
+            className="w-6 text-center tabular-nums roomy:w-7"
+            onClick={() => onPitch(0)}
+            title="누르면 원래 음높이(0)로"
+          >
+            {(pitch ?? 0) > 0 ? `+${pitch}` : String(pitch ?? 0)}
+          </button>
+          <button
+            className={STEP}
+            disabled={(pitch ?? 0) >= 11}
+            onClick={() => onPitch(Math.min((pitch ?? 0) + 1, 11))}
+            title="반음 올림 (카포 자리)"
           >
             ＋
           </button>

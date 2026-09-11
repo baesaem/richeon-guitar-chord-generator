@@ -1687,7 +1687,7 @@ export default function Home() {
     if (playback && !playback.isPlaying()) playback.play();
   };
 
-  const makeAbcTab = (withSync: boolean, withFix = false) =>
+  const makeAbcTab = (withSync: boolean, withFix = false, withPitch = false) =>
     result && tabFrame && (hasPickedTab || tabFrame.ownFrets) ? (
       <TabSheet
         score={tabFrame}
@@ -1718,6 +1718,9 @@ export default function Home() {
         }
         sync={sync}
         onSync={withSync ? setSync : undefined}
+        /* 음높이 손잡이는 전체보기에서만 — 연습실은 마디(확대) 옆에 따로 있다 */
+        pitch={withPitch ? transpose : undefined}
+        onPitch={withPitch ? setTranspose : undefined}
         musicKey={result.key}
         sourceKey={sourceKey}
         timeSignature={result.time_signature}
@@ -2767,7 +2770,7 @@ export default function Home() {
                     />
                   )}
                   {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}
-                  {sheetTab === "score" && makeAbcTab(canFix, canFix)}
+                  {sheetTab === "score" && makeAbcTab(canFix, canFix, true)}
                   {sheetTab === "score" && !abcTab && noTab}
 
                   {/* ABC 악보가 붙어 있으면 어디서 보든 그것이 기준이다 —
@@ -2778,6 +2781,8 @@ export default function Home() {
                       /* 편집·전체보기는 곡을 펴 놓고 보는 창 — 진행바를
                          가운데에 두어 지나온 줄과 올 줄을 함께 본다 */
                       followAt={0.5}
+                      pitch={transpose}
+                      onPitch={setTranspose}
                       abc={unified?.abc ?? abcEntry.abc}
                       chordNote={unified}
                       perLine={settings.abcPerLine ?? 0}
@@ -2836,6 +2841,8 @@ export default function Home() {
                       /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
                    끊지 않고 곡 전체를 죽 편다. */
                       <SheetScore
+                        pitch={transpose}
+                        onPitch={setTranspose}
                         audioBpm={result.bpm}
                         onSetBpm={canFix && health ? setBeatBpm : undefined}
                         resultId={result.id}
@@ -2965,6 +2972,8 @@ export default function Home() {
 
                   {sheetTab === "grid" && (
                     <ChordSheet
+                      pitch={transpose}
+                      onPitch={setTranspose}
                       exactLabels={exactLabels}
                       bars={bars}
                       chords={shownChords}

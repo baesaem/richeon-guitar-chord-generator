@@ -39,6 +39,9 @@ interface Props {
   /** 한 줄에 놓을 칸 수. 0이면 자동(좁으면 4칸, 넓으면 8칸) */
   perRow?: number;
   onPerRow?: (n: number) => void;
+  /** 음높이 손잡이(칸 수 오른쪽). 주면 낸다 — 전체보기용 */
+  pitch?: number;
+  onPitch?: (n: number) => void;
   /**
    * 한 번에 보여줄 줄 수. 0이면 곡 전체를 늘어놓는다.
    *
@@ -101,6 +104,8 @@ export function ChordSheet({
   onSeek,
   perRow = 0,
   onPerRow,
+  pitch,
+  onPitch,
   time,
   getTime,
   visibleRows = 0,
@@ -143,13 +148,15 @@ export function ChordSheet({
     <div>
       {/* 한 줄에 놓는 칸 수만 여기서 고친다. 싱크는 멜로디에서 맞춘다 —
           그리드는 코드를 짚어 가며 치는 자리라 손잡이가 적을수록 좋다 */}
-      {onPerRow && (
+      {(onPerRow || onPitch) && (
         <div className="mb-1.5 flex justify-end text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
           <ViewSteppers
             bars={perRow}
             onBars={onPerRow}
             barsMax={8}
             barsLabel="자동"
+            pitch={pitch}
+            onPitch={onPitch}
           />
         </div>
       )}

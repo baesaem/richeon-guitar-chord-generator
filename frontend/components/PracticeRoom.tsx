@@ -417,6 +417,18 @@ export function PracticeRoom({
                   }
                 />
               )}
+              {/* 음높이(카포)는 마디 옆에 늘 둔다. 폰에서도 보인다 — 연주설정
+                  창을 열지 않고 곡을 부를 목에 맞춰 바로 올리고 내린다 */}
+              <Step
+                label="음높이"
+                value={pitch > 0 ? `+${pitch}` : String(pitch)}
+                onMinus={() => onPitch(Math.max(pitch - 1, -11))}
+                onPlus={() => onPitch(Math.min(pitch + 1, 11))}
+                onReset={() => onPitch(0)}
+                width="w-7"
+                minusTitle="반음 내림 — 악보 표기와 코드가 함께"
+                plusTitle="반음 올림 (카포 자리)"
+              />
               {/* 싱크·마디·음높이·빠르기는 한 줄에 나란히 둔다.
               따로 흘려 두면 좁은 화면에서 빠르기만 아래로 떨어져,
               같은 성격의 손잡이가 두 줄로 갈린다. 자리가 정 모자라면
@@ -433,17 +445,6 @@ export function PracticeRoom({
                   onReset={() => onSync(0)}
                   minusTitle="화면을 늦춥니다 — 커서가 소리보다 이를 때"
                   plusTitle="화면을 당깁니다 — 커서가 소리보다 늦을 때"
-                />
-                <Step
-                  show="hidden big:flex"
-                  label="음높이"
-                  value={pitch > 0 ? `+${pitch}` : String(pitch)}
-                  onMinus={() => onPitch(Math.max(pitch - 1, -11))}
-                  onPlus={() => onPitch(Math.min(pitch + 1, 11))}
-                  onReset={() => onPitch(0)}
-                  width="w-7"
-                  minusTitle="반음 내림 — 악보 표기와 코드가 함께"
-                  plusTitle="반음 올림 (카포 자리)"
                 />
                 <Step
                   show="hidden big:flex"
