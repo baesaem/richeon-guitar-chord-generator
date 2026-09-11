@@ -80,6 +80,12 @@ interface Props {
    * 시각은 time과 같은 자(싱크·지연을 더한 값)다.
    */
   onSeek?: (t: number) => void;
+  /**
+   * 진행바를 화면의 어느 높이에 붙여 둘지(0 위 … 1 아래). 연습실은 위쪽
+   * (0.28) — 앞으로 칠 줄이 더 보인다. 편집은 가운데(0.5)에 두어 앞뒤를
+   * 함께 보며 고친다.
+   */
+  followAt?: number;
   headerRight?: React.ReactNode;
   musicKey: string;
   /** 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 곁들인다 */
@@ -129,6 +135,7 @@ export function AbcScore({
   onShiftBar,
   onEditBar,
   onSeek,
+  followAt = 0.28,
   headerRight,
   musicKey,
   sourceKey,
@@ -462,19 +469,33 @@ ${src}`;
       playedRef.current = ev;
     }
 
-    // 커서가 창 아래로 흘러내리지 않게 위쪽에 붙여 둔다
-    const box = host.parentElement;
-    if (box) {
-      const rel =
-        cur.getBoundingClientRect().top - box.getBoundingClientRect().top;
-      const h = box.clientHeight;
-      if (h > 0 && (rel < h * 0.1 || rel > h * 0.45))
-        box.scrollTo({
-          top: Math.max(0, box.scrollTop + rel - h * 0.28),
+    /* 커서가 창 밖으로 흘러내리지 않게 정한 높이(followAt)에 붙여 둔다.
+       스크롤은 실제로 스크롤되는 가장 가까운 바깥 칸에서 한다 — 편집
+       화면은 악보 상자가 늘어나 페이지가 스크롤되어, 상자만 보다가는
+       진행바가 화면 밖으로 나갔다 */
+    let box: HTMLElement | null = host.parentElement;
+    while (
+      box &&
+      !(
+        box.scrollHeight > box.clientHeight + 1 &&
+        /(auto|scroll)/.test(getComputedStyle(box).overflowY)
+      )
+    )
+      box = box.parentElement;
+    const page = !box;
+    const top = page ? 0 : (box as HTMLElement).getBoundingClientRect().top;
+    const h = page ? window.innerHeight : (box as HTMLElement).clientHeight;
+    const rel = cur.getBoundingClientRect().top - top;
+    if (h > 0 && (rel < h * (followAt - 0.18) || rel > h * (followAt + 0.17))) {
+      const by = rel - h * followAt;
+      if (page) window.scrollBy({ top: by, behavior: "smooth" });
+      else
+        (box as HTMLElement).scrollTo({
+          top: Math.max(0, (box as HTMLElement).scrollTop + by),
           behavior: "smooth",
         });
     }
-  }, [at]);
+  }, [at, followAt]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

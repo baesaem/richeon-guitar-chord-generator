@@ -2775,6 +2775,9 @@ export default function Home() {
                   {sheetTab === "melody" && melodyKind === "abc" && abcEntry && (
                     <AbcScore
                       onSeek={seekFromScore}
+                      /* 편집·전체보기는 곡을 펴 놓고 보는 창 — 진행바를
+                         가운데에 두어 지나온 줄과 올 줄을 함께 본다 */
+                      followAt={0.5}
                       abc={unified?.abc ?? abcEntry.abc}
                       chordNote={unified}
                       perLine={settings.abcPerLine ?? 0}

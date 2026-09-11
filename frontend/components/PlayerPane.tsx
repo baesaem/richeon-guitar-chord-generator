@@ -86,6 +86,12 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
 
   // 마지막으로 YouTube가 알려 준 시각과 그때의 시계. 사이를 이어 붙인다
   const tickRef = useRef({ at: -1, wall: 0 });
+  /**
+   * 방금 옮긴 자리. 유튜브는 seekTo 뒤 한동안 옛 시각을 준다 — 멈춰
+   * 있으면 더 오래. 그동안 진행바가 제자리에 있어 「누른 곳으로 안 간다」로
+   * 보였다. 유튜브가 그 근처를 알려 줄 때까지(길어야 1.5초) 이 값을 쓴다.
+   */
+  const seekRef = useRef<{ t: number; wall: number } | null>(null);
 
   const publish = () => {
     onReady({
@@ -106,6 +112,13 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
           if (typeof raw !== "number") return 0;
 
           const now = performance.now();
+          const sk = seekRef.current;
+          if (sk) {
+            const passed = (now - sk.wall) / 1000;
+            const want = sk.t + (playingRef.current ? passed * (yt.getPlaybackRate?.() ?? 1) : 0);
+            if (Math.abs(raw - want) > 0.5 && passed < 1.5) return want;
+            seekRef.current = null;
+          }
           if (raw !== tickRef.current.at) {
             tickRef.current = { at: raw, wall: now };
             return raw;
@@ -119,6 +132,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
       seek: (t) => {
         const keepPaused = !wantPlayRef.current;
         if (ytRef.current?.seekTo) {
+          seekRef.current = { t, wall: performance.now() };
           ytRef.current.seekTo(t, true);
           /* 자리를 옮겼다고 저절로 치기 시작하면 안 된다. 한 번 멈추고,
              유튜브가 뒤늦게 켜는 일이 있어 조금 뒤에 한 번 더 본다 */
