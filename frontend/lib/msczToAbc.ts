@@ -599,6 +599,12 @@ export function msczToTab(
   data: Uint8Array,
   fileName: string,
   staff: number,
+  /**
+   * 음높이로 줄·프렛을 매길 때만 옮기는 반음 수. -12면 한 옥타브 낮춘다.
+   * 「나는 반딧불」 기타 파트는 피아노처럼 높게 적혀(C5·D5·E5 뭉치)
+   * 12~17프렛 숫자뿐이었다 — 한 옥타브 내리면 개방 코드 자리로 온다
+   */
+  shift = 0,
 ): TabScore {
   const xml = loadMscx(data, fileName);
   const blocks = staffBlocksOf(xml);
@@ -623,7 +629,21 @@ export function msczToTab(
     if (written.length)
       return written.map((n) => ({ string: n.string as number, fret: n.fret as number }));
     if (!notes.length) return [];
-    const got = assignFrets(notes.map((n) => n.midi), tuning, hand);
+    // 옮기다 가장 굵은 줄보다 낮아진 음은 한 옥타브씩 올려 짚을 수 있게 한다
+    const lowest = Math.min(...tuning);
+    const pitches = notes.map((n) => {
+      let p = n.midi + shift;
+      while (p < lowest) p += 12;
+      return p;
+    });
+    let got = assignFrets(pitches, tuning, hand);
+    /* 낮춘 화음의 아랫음이 둘 다 6번 줄에서만 나면 짚을 수가 없다 —
+       가장 낮은 음부터 덜어 낸다. 베이스는 베이스 파트가 친다 */
+    const rest = [...new Set(pitches)].sort((a, b) => a - b);
+    while (!got && rest.length > 1) {
+      rest.shift();
+      got = assignFrets(rest, tuning, hand);
+    }
     if (!got) return [];
     const fretted = got.filter((p) => p.fret > 0).map((p) => p.fret);
     if (fretted.length) hand = (Math.min(...fretted) + Math.max(...fretted)) / 2;
