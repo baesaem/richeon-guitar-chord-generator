@@ -161,7 +161,7 @@ export function ViewSteppers({
             className={STEP}
             disabled={(pitch ?? 0) <= PITCH_MIN}
             onClick={() => onPitch(Math.max((pitch ?? 0) - 1, PITCH_MIN))}
-            title="반음 내림 — 악보 표기와 코드가 함께"
+            title="반음 낮게 — 그 모양에 카포를 끼우면 원곡"
           >
             －
           </button>
@@ -170,7 +170,7 @@ export function ViewSteppers({
             onClick={() => onPitch(pitchAuto ?? 0)}
             title={
               pitchAuto
-                ? "누르면 자동 값으로 — 악보와 음원의 조 차이로 정한 카포"
+                ? "누르면 자동 값으로 — 붙인 악보와 음원의 조 차이"
                 : "누르면 원래 음높이(0)로"
             }
           >
@@ -180,7 +180,7 @@ export function ViewSteppers({
             className={STEP}
             disabled={(pitch ?? 0) >= PITCH_MAX}
             onClick={() => onPitch(Math.min((pitch ?? 0) + 1, PITCH_MAX))}
-            title="반음 올림 (카포 자리)"
+            title="반음 높게"
           >
             ＋
           </button>

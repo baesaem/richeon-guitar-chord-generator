@@ -742,16 +742,13 @@ export default function Home() {
     return g > 6 ? g - 12 : g;
   }, [unified, scoreShift]);
 
-  // 음높이 +n = 카포 n프렛. 화면은 악보 조(음원 + keyGap)에서 사람이 준
-  // 음높이만큼 내려 적는다 — 카포가 그만큼 소리를 올려 준다.
+  // 속 셈(transpose, 곡에 저장되는 값): +n = 화면을 n반음 내려 적는다.
+  // 화면은 악보 조(음원 + keyGap)에서 그만큼 내려 적는다.
   const noteShift = keyGap - transpose;
   /**
-   * 음높이 손잡이에 보이는 값 — 지금 화면 코드로 음원과 같이 치려면 필요한
-   * 카포(음수면 그만큼 줄을 내려 조율). 음원은 건드리지 않는다.
-   *
-   * 악보와 음원의 조를 견주어 **저절로 정해진다**: 원키 B♭·악보 G는 +3
-   * (카포 3), 원키 F♯·악보 G는 −1(반음 내려 조율). 사람이 더 옮긴 만큼
-   * (transpose, 곡에 저장되는 값)이 여기에 더해진다.
+   * 속 셈의 카포 자리 — 지금 화면 코드로 음원과 같이 치려면 필요한 카포
+   * (음수면 그만큼 높게 보이는 것). 손잡이에는 부호를 뒤집은 pitchShown이
+   * 보인다. 음원은 건드리지 않는다.
    */
   const capoShown = transpose - keyGap;
   /**
@@ -769,8 +766,16 @@ export default function Home() {
     () => tabKeyGap(abcEntry?.abc, result?.picked_tab, abcEntry?.tabScore?.bars)?.gap ?? 0,
     [abcEntry?.abc, abcEntry?.tabScore, result?.picked_tab],
   );
-  const setCapoShown = (v: number) =>
-    setTranspose(clampPitch(v) + keyGap);
+  /**
+   * 화면에 보이는 음높이 — 강사님 방식: 음원보다 몇 반음 높은 키로 보이나.
+   *
+   * 음원 F#에서 +3이면 A로 보인다. 붙인 악보가 음원보다 낮으면 −다(혜화동
+   * 종이 G·음원 A#은 −3 — 그 모양에 카포 3을 끼우면 원곡과 같은 소리).
+   * 속 셈(capoShown, 카포 자리)과 부호만 다르다.
+   */
+  const pitchShown = -capoShown;
+  const setPitchShown = (v: number) => setTranspose(keyGap - clampPitch(v));
+  const pitchAutoShown = -pitchAuto;
 
   /**
    * 악보에 **적힌** 조. 원키(음원이 찾은 키)와 나란히 보인다.
@@ -879,7 +884,7 @@ export default function Home() {
       addKeyFixes([fix]);
       if (openIdRef.current === r.id) {
         setAbcEntry(getAbc(r.id));
-        setTranspose(loadSetup(r.id).transpose);
+        setTranspose(hasSetup(r.id) ? loadSetup(r.id).transpose : (r.setup?.transpose ?? 0));
       }
     });
     const setup = hasSetup(r.id)
@@ -887,14 +892,8 @@ export default function Home() {
       : {
           ...DEFAULT_SETUP,
           ...((r.setup ?? {}) as Partial<typeof DEFAULT_SETUP>),
-          /*
-           * 음높이는 늘 원곡 그대로 시작한다.
-           *
-           * 카포는 손과 목소리에 따라 저마다 다르다 — 미리 잡아 두면
-           * 악보와 코드가 이미 옮겨진 채로 열려, 원곡과 맞춰 보려는
-           * 사람이 도로 되돌려야 한다. 필요한 사람이 제 손으로 올린다.
-           */
-          transpose: 0,
+          /* 음높이도 강사님이 정한 기준값으로 연다 — 수강생도 강사님이 정한
+             키로 보고, 바꾸고 싶으면 제 손으로 옮긴다(강사님 원칙) */
         };
     setResult(r);
     // 다른 곡의 되돌리기가 이 곡에 적용되면 안 된다
@@ -1568,8 +1567,9 @@ export default function Home() {
   // "지금 무슨 설정으로 보고 있는지"를 늘 눈에 두게 한다.
   const playNotes = useMemo(() => {
     const out: string[] = [];
-    if (capoShown > 0) out.push(`카포 ${capoShown}프렛`);
-    else if (capoShown < 0) out.push(`줄 ${-capoShown}반음 내림`);
+    // 원곡보다 낮게 보이면 그 모양에 카포를 끼워 원곡과 맞춘다
+    if (pitchShown < 0) out.push(`카포 ${-pitchShown}프렛`);
+    else if (pitchShown > 0) out.push(`원곡보다 ${pitchShown}반음 높게`);
     if (rate !== 1) out.push(`빠르기 ${rate}×`);
     if (loop) out.push("구간 반복");
     if (settings.chordVocab === "basic") out.push("코드 기본");
@@ -1579,7 +1579,7 @@ export default function Home() {
     if (stem === "inst") out.push("반주만");
     if (stem === "vocals") out.push("보컬만");
     return out;
-  }, [capoShown, rate, loop, settings.chordVocab, stem, sync, lyricSync]);
+  }, [pitchShown, rate, loop, settings.chordVocab, stem, sync, lyricSync]);
 
   /** 이 곡을 치는 방식. 악보 상자 안내줄 맨 앞에 굵게 적는다 */
   const playStyle = arp > 0 ? `아르페지오 ${arp}` : "스트로크";
@@ -1821,9 +1821,9 @@ export default function Home() {
         /* 마디를 누르면 거기서부터 친다 — 멜로디 악보와 같은 손짓 */
         onSeek={seekFromScore}
         /* 음높이 손잡이는 전체보기에서만 — 연습실은 마디(확대) 옆에 따로 있다 */
-        pitch={withPitch ? capoShown : undefined}
-        onPitch={withPitch ? setCapoShown : undefined}
-        pitchAuto={withPitch ? pitchAuto : undefined}
+        pitch={withPitch ? pitchShown : undefined}
+        onPitch={withPitch ? setPitchShown : undefined}
+        pitchAuto={withPitch ? pitchAutoShown : undefined}
         musicKey={result.key}
         sourceKey={sourceKey}
         timeSignature={result.time_signature}
@@ -2615,14 +2615,14 @@ export default function Home() {
                       duration={result.duration}
                       songKey={result.key}
                       time={time}
-                      transpose={capoShown}
+                      transpose={pitchShown}
                       rate={rate}
                       loop={loop}
                       sync={sync}
                       lyricSync={lyricSync}
                       onSync={setSync}
                       onLyricSync={setLyricSync}
-                      onTranspose={setCapoShown}
+                      onTranspose={setPitchShown}
                       onRate={(r) => {
                         setRate(r);
                         playback?.setRate(r);
@@ -2886,9 +2886,9 @@ export default function Home() {
                       /* 편집·전체보기는 곡을 펴 놓고 보는 창 — 진행바를
                          가운데에 두어 지나온 줄과 올 줄을 함께 본다 */
                       followAt={0.5}
-                      pitch={capoShown}
-                      onPitch={setCapoShown}
-                      pitchAuto={pitchAuto}
+                      pitch={pitchShown}
+                      onPitch={setPitchShown}
+                      pitchAuto={pitchAutoShown}
                       abc={unified?.abc ?? abcEntry.abc}
                       chordNote={unified}
                       perLine={settings.abcPerLine ?? 0}
@@ -2947,9 +2947,9 @@ export default function Home() {
                       /* 재생 화면과 같은 방식 — 인쇄된 악보 그대로. 다만 줄을
                    끊지 않고 곡 전체를 죽 편다. */
                       <SheetScore
-                        pitch={capoShown}
-                        onPitch={setCapoShown}
-                        pitchAuto={pitchAuto}
+                        pitch={pitchShown}
+                        onPitch={setPitchShown}
+                        pitchAuto={pitchAutoShown}
                         audioBpm={result.bpm}
                         onSetBpm={canFix && health ? setBeatBpm : undefined}
                         resultId={result.id}
@@ -3079,9 +3079,9 @@ export default function Home() {
 
                   {sheetTab === "grid" && (
                     <ChordSheet
-                      pitch={capoShown}
-                      onPitch={setCapoShown}
-                      pitchAuto={pitchAuto}
+                      pitch={pitchShown}
+                      onPitch={setPitchShown}
+                      pitchAuto={pitchAutoShown}
                       exactLabels={exactLabels}
                       bars={bars}
                       chords={shownChords}
@@ -3610,14 +3610,14 @@ export default function Home() {
                       duration={result.duration}
                       songKey={result.key}
                       time={time}
-                      transpose={capoShown}
+                      transpose={pitchShown}
                       rate={rate}
                       loop={loop}
                       sync={sync}
                       lyricSync={lyricSync}
                       onSync={setSync}
                       onLyricSync={setLyricSync}
-                      onTranspose={setCapoShown}
+                      onTranspose={setPitchShown}
                       onRate={(r) => {
                         setRate(r);
                         playback?.setRate(r);
@@ -3708,9 +3708,9 @@ export default function Home() {
                       ))}
                     </span>
                   }
-                  pitch={capoShown}
-                  onPitch={setCapoShown}
-                  pitchAuto={pitchAuto}
+                  pitch={pitchShown}
+                  onPitch={setPitchShown}
+                  pitchAuto={pitchAutoShown}
                   rate={rate}
                   onRate={(r) => {
                     setRate(r);
@@ -3856,14 +3856,14 @@ export default function Home() {
                             duration={result.duration}
                             songKey={result.key}
                             time={time}
-                            transpose={capoShown}
+                            transpose={pitchShown}
                             rate={rate}
                             loop={loop}
                             sync={sync}
                             lyricSync={lyricSync}
                             onSync={setSync}
                             onLyricSync={setLyricSync}
-                            onTranspose={setCapoShown}
+                            onTranspose={setPitchShown}
                             onRate={(r) => {
                               setRate(r);
                               playback?.setRate(r);

@@ -61,10 +61,10 @@ export interface SongSetup {
 /**
  * 음높이 손잡이의 폭(반음). 연주설정·연습실·전체보기가 모두 이 값을 쓴다.
  *
- * 내리는 쪽은 일곱 반음, 올리는 쪽은 열두 반음(카포 12프렛 = 한 옥타브)
- * 까지다 — 강사님이 정한 폭.
+ * 음높이는 「음원보다 몇 반음 높은 키로 보이나」다(강사님 방식). 낮은 쪽
+ * −12는 카포 12프렛(한 옥타브)까지 쓰려고, 높은 쪽은 한 옥타브까지.
  */
-export const PITCH_MIN = -7;
+export const PITCH_MIN = -12;
 export const PITCH_MAX = 12;
 export const clampPitch = (n: number) => Math.max(PITCH_MIN, Math.min(PITCH_MAX, n));
 

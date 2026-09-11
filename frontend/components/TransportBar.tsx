@@ -125,9 +125,9 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
 
   const sectionTitle = "mb-1 mt-0 text-xs font-semibold text-[var(--accent)]";
 
-  // 음높이 +n = 카포 n프렛. 카포가 소리를 올려주는 만큼 화면 코드는
-  // 내린 모양으로 표기된다(표기 변환은 page.tsx의 noteShift가 담당).
-  const capo = transpose > 0 ? transpose : 0;
+  // 음높이는 「음원보다 몇 반음 높은 키로 보이나」(강사님 방식). −n이면 화면이
+  // 원곡보다 n반음 낮으니, 그 모양에 카포 n을 끼우면 원곡과 같은 소리다.
+  const capo = transpose < 0 ? -transpose : 0;
 
   /* 원래 조와 지금 조. 조를 모르는 곡(분석 전)에는 이 칸을 내지 않는다 */
   const [keyRoot = "", keyMode = ""] = (props.songKey ?? "").split(" ");
@@ -139,9 +139,11 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
   const relMajor = (pc: number) => keyName((pc + 3) % 12, "major");
   const withRel = (pc: number) =>
     minor ? `${keyName(pc, mode)} (${relMajor(pc)})` : keyName(pc, mode);
-  /* 음원의 키. 음높이는 카포 자리라 소리는 음원 그대로다 — 「원곡 + 음높이」
-     로 셈한 키는 울리는 키도, 잡는 모양의 키도 아니어서 적지 않는다 */
+  /* 음원의 키와 지금 화면의 키. 화면 키 = 음원 + 음높이(강사님 방식) —
+     음원 F#에서 +3이면 A */
   const origKey = tonic === null ? "" : withRel(tonic);
+  const nowKey =
+    tonic === null || transpose % 12 === 0 ? "" : withRel((((tonic + transpose) % 12) + 12) % 12);
   // 기본값에서 벗어난 설정이 있으면 버튼에 점을 찍어 알린다
   const arp = props.arp ?? 0;
   const tweaked =
@@ -260,6 +262,7 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
             <>
               <div className={sectionTitle}>
                 키 설정{origKey && ` · 음원 ${origKey}`}
+                {nowKey && ` → 지금 ${nowKey}`}
               </div>
               <p className="mb-1 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 부를 조를 고르면 음높이가 따라 옮겨집니다.
@@ -277,8 +280,8 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                         by === 0
                           ? "원곡 그대로"
                           : by > 0
-                            ? `${by}반음 올림 (카포 ${by}프렛)`
-                            : `${-by}반음 내림`
+                            ? `원곡보다 ${by}반음 높게`
+                            : `원곡보다 ${-by}반음 낮게 (카포 ${-by}프렛이면 원곡)`
                       }
                     >
                       <span className="block leading-tight">{keyName(to, mode)}</span>
@@ -314,10 +317,10 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
               </div>
               <div className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
                 {transpose === 0
-                  ? "원래 조"
+                  ? "원래 조(음원 키)"
                   : transpose > 0
-                    ? `카포 ${transpose}프렛`
-                    : "표기만 내려감"}
+                    ? `원곡보다 ${transpose}반음 높게`
+                    : `카포 ${-transpose}프렛이면 원곡`}
               </div>
             </div>
             <button
@@ -331,11 +334,12 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           <div className="mb-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">카포 위치</div>
           {/* 카포는 음높이 폭의 끝(12프렛)까지 — 한 줄에 7개씩 두 줄 */}
           <div className="mb-2 grid grid-cols-7 gap-1">
-            {Array.from({ length: HIGH + 1 }, (_, fret) => fret).map((fret) => (
+            {Array.from({ length: -LOW + 1 }, (_, fret) => fret).map((fret) => (
               <button
                 key={fret}
                 className={pill(capo === fret && (fret === 0 ? transpose === 0 : true))}
-                onClick={() => props.onTranspose(fret)}
+                /* 카포 n = 화면을 n반음 낮은 모양으로 — 끼우면 원곡과 같은 소리 */
+                onClick={() => props.onTranspose(-fret)}
               >
                 {fret === 0 ? "없음" : fret}
               </button>

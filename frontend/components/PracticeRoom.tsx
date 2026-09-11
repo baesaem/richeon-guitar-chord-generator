@@ -434,8 +434,8 @@ export function PracticeRoom({
                 /* 값을 누르면 자동(악보와 음원의 조 차이)으로 */
                 onReset={() => onPitch(pitchAuto ?? 0)}
                 width="w-7"
-                minusTitle="반음 내림 — 악보 표기와 코드가 함께"
-                plusTitle="반음 올림 (카포 자리)"
+                minusTitle="반음 낮게 — 그 모양에 카포를 끼우면 원곡"
+                plusTitle="반음 높게"
               />
               {/* 싱크·마디·음높이·빠르기는 한 줄에 나란히 둔다.
               따로 흘려 두면 좁은 화면에서 빠르기만 아래로 떨어져,
