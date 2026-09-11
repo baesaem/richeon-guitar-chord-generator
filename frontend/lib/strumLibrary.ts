@@ -37,6 +37,11 @@ export interface StrumPattern {
    * 읽힌다. 둘씩 묶으면 박이 어디서 시작하는지 알 수 없다.
    */
   per?: number;
+  /**
+   * 나중에 더한 패턴. 목록에서 고를 수는 있지만 자동 추천에는 넣지 않는다 —
+   * 넣으면 이미 자동 추천을 따르던 곡의 패턴이 저절로 바뀐다.
+   */
+  extra?: boolean;
 }
 
 export const PATTERNS: StrumPattern[] = [
@@ -119,7 +124,58 @@ export const PATTERNS: StrumPattern[] = [
     hint: "박 사이만 올려 긋습니다. 가볍게 흔들리는 느낌이 납니다.",
     accents: ".>...>..",
   },
+  // ---- 더한 패턴(목록에서 직접 고른다) ----
+  {
+    name: "팝 8비트",
+    cells: "D.DUDUDU",
+    bpm: [90, 150],
+    hint: "고고에서 뒤 두 박을 쉬지 않고 채워 꽉 찬 느낌. 가요·팝 반주에 두루 씁니다.",
+    accents: "..>...>.",
+    extra: true,
+  },
+  {
+    name: "록 발라드",
+    cells: "D.D.DUDU",
+    bpm: [70, 120],
+    hint: "앞 두 박은 크게 한 번씩, 뒤 두 박은 8분으로 채웁니다. 록 발라드·가요 후렴에 맞습니다.",
+    accents: "..>...>.",
+    extra: true,
+  },
+  {
+    name: "느린 발라드",
+    cells: "D...D.DU",
+    bpm: [50, 85],
+    hint: "첫 박을 길게 울리고 3·4박을 짧게 채웁니다. 아주 느린 발라드·포크에 씁니다.",
+    accents: ">.......",
+    extra: true,
+  },
+  {
+    name: "3·3·2 당김",
+    cells: "D..D..D.",
+    bpm: [80, 140],
+    hint: "1박·2박 반·4박에 긋는 당김 리듬(트레실로). 라틴·팝 발라드 후렴에 힘을 줍니다.",
+    accents: ">..>..>.",
+    extra: true,
+  },
+  {
+    name: "록 다운스트로크",
+    cells: "DDDDDDDD",
+    bpm: [100, 180],
+    hint: "여덟 칸을 모두 내려긋습니다. 힘 있는 록·펑크 반주 — 손목 힘을 빼고 짧게 끊습니다.",
+    accents: "..>...>.",
+    extra: true,
+  },
 ];
+
+/** 목록에서의 번호(1부터). 고르기 창과 추천 줄이 같은 번호로 부른다 */
+export function strumNo(name: string): number {
+  return PATTERNS.findIndex((p) => p.name === name) + 1;
+}
+
+/** 번호를 원문자로(①~⑳). 그 너머는 「21.」처럼 적는다 */
+export function circled(n: number): string {
+  return n >= 1 && n <= 20 ? String.fromCodePoint(0x245f + n) : `${n}.`;
+}
 
 /** 화면 표기로 바꾼다: "D.DUD.DU" → "↓·↓↑ ↓·↓↑" */
 export function render(cells: string, per = 2): string {
@@ -175,8 +231,8 @@ export function suggestStrum(
   timeSignature: string,
 ): StrumChoice | null {
   const threeFour = timeSignature.startsWith("3");
-  const pool = PATTERNS.filter((p) =>
-    threeFour ? p.name === "왈츠" : p.name !== "왈츠",
+  const pool = PATTERNS.filter(
+    (p) => !p.extra && (threeFour ? p.name === "왈츠" : p.name !== "왈츠"),
   );
   if (pool.length === 0) return null;
 

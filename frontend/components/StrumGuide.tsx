@@ -1,7 +1,7 @@
 "use client";
 
 import { StrumCells } from "@/components/StrumCells";
-import { PATTERNS } from "@/lib/strumLibrary";
+import { PATTERNS, circled } from "@/lib/strumLibrary";
 
 /**
  * 스트로크 — 기본 이론, 표준 패턴, 연습 방법.
@@ -66,12 +66,16 @@ export function StrumGuide() {
         악센트입니다.
       </p>
       <ul className="mb-3 space-y-1">
-        {PATTERNS.map((p) => (
+        {/* 번호는 연주설정의 고르기 창과 같다 — 「5번으로 쳐요」로 통한다 */}
+        {PATTERNS.map((p, i) => (
           <li
             key={p.name}
             className="rounded border border-[var(--panel-line)] px-2.5 py-1.5"
           >
             <div className="flex items-baseline gap-2">
+              <span className="w-4 shrink-0 text-center text-sm text-[var(--accent)]">
+                {circled(i + 1)}
+              </span>
               <StrumCells pattern={p} className="text-sm" />
               <span className="text-xs font-medium">{p.name}</span>
               <span className="ml-auto text-[10px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">

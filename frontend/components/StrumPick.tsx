@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { Popup } from "@/components/Popup";
 import { StrumCells } from "@/components/StrumCells";
-import { PATTERNS, type StrumChoice } from "@/lib/strumLibrary";
+import { PATTERNS, circled, strumNo, type StrumChoice } from "@/lib/strumLibrary";
 
 /**
  * 스트로크 패턴 고르기 창. 아르페지오 고르기와 같은 방식 —
@@ -36,7 +36,7 @@ export function StrumPickModal({
           className="font-semibold text-[var(--accent)] underline"
           onClick={() => setName("")}
         >
-          이 곡 추천: {rec.pattern.name}
+          이 곡 추천: {circled(strumNo(rec.pattern.name))} {rec.pattern.name}
         </button>{" "}
         — {rec.why}. 직접 고르지 않으면 추천을 따릅니다.{" "}
         <b className="text-[var(--accent)]">색이 든 화살표</b>가 크게 긋는
@@ -44,7 +44,7 @@ export function StrumPickModal({
       </p>
 
       <ul className="space-y-1">
-        {PATTERNS.map((p) => {
+        {PATTERNS.map((p, i) => {
           const active = name === p.name || (!name && p.name === rec.pattern.name);
           return (
             <li key={p.name}>
@@ -58,6 +58,9 @@ export function StrumPickModal({
                 onClick={() => setName(p.name)}
               >
                 <div className="flex items-baseline gap-2">
+                  <span className="w-4 shrink-0 text-center text-sm text-[var(--accent)]">
+                    {circled(i + 1)}
+                  </span>
                   <StrumCells pattern={p} className="text-sm" />
                   <span className="text-xs font-medium">{p.name}</span>
                   {p.name === rec.pattern.name && (
