@@ -13,23 +13,13 @@
  * 같은 조여야 나란히 놓고 본다. 그림 타브만 있는 곡은 종이악보가 아니다
  * (파일에서 만든 타브도 그 칸에 담긴다) — 옮긴다.
  *
- * 곡 화면에서 보이는 모습은 되도록 그대로 둔다. 타브 숫자(타브 보표·그림
- * 타브)가 있거나 음높이를 손으로 옮겨 둔 곡은 그만큼 음높이를 되돌려 같은
- * 조로 보이게 하고 — 숫자는 적힌 조로 박혀 있다 — 손대지 않은 곡은 음높이
- * 0(원곡 조)으로 연다.
+ * 음높이는 건드리지 않는다 — 음높이 0은 늘 음원의 키다. 타브 숫자는 타브
+ * 화면이 멜로디 조와 음높이에 맞춰 옮겨 그린다.
  */
 
 import { getAbc, saveAbc } from "./abcStore";
 import { abcKeyGap, abcKeyName, transposeAbc } from "./abcTranspose";
 import { getLocalSheet } from "./library";
-import {
-  DEFAULT_SETUP,
-  clampPitch,
-  hasSetup,
-  loadSetup,
-  saveSetup,
-  type SongSetup,
-} from "./perSong";
 import type { AnalysisResult } from "./types";
 
 export interface KeyFix {
@@ -89,21 +79,9 @@ export async function fitAbcToAudioKey(
   }
   saveAbc(result.id, next, entry.barOffset ?? 0);
 
-  /* 음높이. 화면 조 = 악보 조 − 음높이이므로, 악보를 −gap 옮긴 만큼
-     음높이도 −gap 옮기면 보이는 것이 그대로다 */
-  const had = hasSetup(result.id);
-  const cur: SongSetup = had
-    ? loadSetup(result.id)
-    : {
-        ...DEFAULT_SETUP,
-        ...((result.setup ?? {}) as Partial<SongSetup>),
-        loop: null,
-        transpose: 0,
-      };
-  const frets = !!entry.tabScore || !!result.picked_tab;
-  const keep = frets || cur.transpose !== 0;
-  const t = keep ? clampPitch(cur.transpose - gap) : 0;
-  if (t !== cur.transpose) saveSetup(result.id, { ...cur, transpose: t });
+  /* 음높이는 건드리지 않는다. 음높이 0은 늘 음원의 키다(강사님 원칙) —
+     멜로디가 음원 조가 되었으니 자동값은 0이고, 타브는 멜로디를 따라
+     옮겨 그려진다(tabShift) */
 
   const fix: KeyFix = {
     id: result.id,
