@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from sse_starlette.sse import EventSourceResponse
 
-from .analysis.decode import encode_mp3, ffmpeg_available
+from .analysis.decode import _run as _ffmpeg, encode_mp3, ffmpeg_available
 from .analysis.pipeline import PIPELINE_VERSION, resolve_device
 from .analysis.separate import instrumental_path, separate, vocals_path
 from .config import settings
@@ -628,6 +628,70 @@ async def get_vocals(result_id: str) -> FileResponse:
 async def make_vocals(result_id: str) -> dict:
     _guard_id(result_id)
     return await _make_stem(result_id, "vocals")
+
+
+# ---- 원음 높이 옮기기 ----
+# 악보가 음원과 다른 조로 적혀 있으면 악보 코드를 그대로 쳐서는 소리가 맞지
+# 않는다. 음원을 악보 조로 옮겨 틀면 카포·조율 없이 악보대로 친다. 빠르기는
+# 그대로 두고 높이만 바꾼다(rubberband). 한 번 만든 것은 곡 파일 곁에 두고
+# 다시 쓴다 — 음원을 다시 받으면 _purge_derived가 함께 지운다.
+_PITCH_TRACKS = ("full", "instrumental", "vocals")
+_pitch_locks: dict[str, asyncio.Lock] = {}
+
+
+def _pitched_mp3(result_id: str, track: str, semi: int) -> Path:
+    return settings.audio_dir / f"{result_id}.{track}.pitch{semi:+d}.mp3"
+
+
+async def _make_pitched(result_id: str, track: str, semi: int) -> Path:
+    if track not in _PITCH_TRACKS:
+        raise HTTPException(400, "트랙은 full·instrumental·vocals 가운데 하나입니다")
+    if semi == 0 or not -6 <= semi <= 6:
+        raise HTTPException(400, "반음은 -6~+6 사이(0 제외)입니다")
+    out = _pitched_mp3(result_id, track, semi)
+    if out.exists():
+        return out
+    lock = _pitch_locks.setdefault(out.name, asyncio.Lock())
+    async with lock:
+        if out.exists():
+            return out
+        if track == "full":
+            src = _source_audio(result_id)
+        else:
+            wav, mp3 = _STEM_WAVS[track](result_id), _stem_mp3(result_id, track)
+            src = wav if wav.exists() else mp3 if mp3.exists() else None
+        if src is None:
+            raise HTTPException(404, "옮길 음원이 없습니다")
+        tmp = out.with_suffix(".partial.mp3")
+        code, _, err = await _ffmpeg(
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-i", str(src), "-vn",
+            "-af", f"rubberband=pitch={2 ** (semi / 12):.6f}:pitchq=quality:formant=preserved",
+            "-b:a", "160k", str(tmp),
+        )
+        if code != 0:
+            tmp.unlink(missing_ok=True)
+            raise HTTPException(
+                500, f"음 높이를 옮기지 못했습니다: {err.decode('utf-8', 'replace')[:200]}"
+            )
+        tmp.replace(out)
+    return out
+
+
+@app.post("/api/audio/{result_id}/pitched")
+async def make_pitched(result_id: str, track: str = "full", semi: int = 0) -> dict:
+    """원음(또는 반주·보컬)을 semi반음 옮긴 트랙을 만들어 둔다. 4분 곡이 수십 초."""
+    _guard_id(result_id)
+    await _make_pitched(result_id, track, semi)
+    return {"ready": True}
+
+
+@app.get("/api/audio/{result_id}/pitched")
+async def get_pitched(result_id: str, track: str = "full", semi: int = 0) -> FileResponse:
+    """옮긴 트랙. 없으면 만들고 낸다."""
+    _guard_id(result_id)
+    path = await _make_pitched(result_id, track, semi)
+    return FileResponse(path, filename=path.name)
 
 
 @app.get("/api/results/{result_id}")

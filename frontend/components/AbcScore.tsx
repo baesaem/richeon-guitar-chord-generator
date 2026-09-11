@@ -556,22 +556,9 @@ ${src}`;
             마디 수로 나누는 길은 곡 끝이 페이드로 잦아들면 마디를 짧게
             잡아 커서가 갈수록 앞선다 — 그럴 때는 귀로 잰 ♩값이 낫다. */}
         <BeatBpm bpm={audioBpm} onSet={onSetBpm} />
-        {/* 화면 코드는 악보에 적힌 그대로다. 음원과 조가 다르면 그대로
-            쳐서는 소리가 맞지 않으니, 몇 프렛에 카포를 끼우는지 적어 준다 */}
-        {/* 열에 여덟이 맞을 때만 적는다. 반쯤 맞은 조는 믿을 수 없어 코드도
-            고치지 않는데, 글자만 「카포 5프렛」이라 떠 있으면 사람이 따라 끼운다 */}
-        {!!chordNote?.shift &&
-          chordNote.matched > 0 &&
-          chordNote.matched >= chordNote.total * 0.8 && (
-          <span
-            className="text-[11px] font-semibold text-[var(--accent)]"
-            title="화면 코드는 악보에 적힌 그대로입니다. 카포를 끼우면 음원과 같은 소리가 납니다"
-          >
-            {chordNote.shift < 0
-              ? `카포 ${-chordNote.shift}프렛`
-              : `음원보다 ${chordNote.shift}반음 높은 악보`}
-          </span>
-        )}
+        {/* 카포는 음높이 손잡이와 안내줄(연주설정 요약)이 알려 준다 —
+            원음 높이를 옮기면 필요한 카포가 달라져, 악보 조만 보고 적던
+            「카포 n프렛」은 틀린 말이 되었다 */}
       </div>
       {/* 타브만 보일 때 오선의 음표·기둥·이음줄을 가린다 */}
       {/* abcjs는 currentColor로 그린다 — 다크 모드의 연회색 글자색이

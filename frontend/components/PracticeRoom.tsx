@@ -155,6 +155,17 @@ interface Props {
    * 전체보기 옆에 둔다. 악보 머리줄에 두었더니 폰에서는 코드·가사가 작아
    * 확대하려는 사람이 손잡이를 찾지 못했다. value가 0이면 zeroLabel을 적는다.
    */
+  /**
+   * 원음 높이(반음). 음높이 오른쪽에 둔다 — 음원을 악보 조로 옮겨 틀면
+   * 카포 없이 악보대로 친다. auto면 악보 조에 맞춘 값이다. 서버가 있을 때만.
+   */
+  tone?: {
+    value: number;
+    auto: boolean;
+    busy: boolean;
+    error?: string | null;
+    onChange: (v: number | null) => void;
+  };
   zoom?: {
     value: number;
     max: number;
@@ -206,6 +217,7 @@ export function PracticeRoom({
   onSync,
   onFullView,
   zoom,
+  tone,
   videoCompact,
   onVideoCompact,
   viewTabs,
@@ -429,6 +441,28 @@ export function PracticeRoom({
                 minusTitle="반음 내림 — 악보 표기와 코드가 함께"
                 plusTitle="반음 올림 (카포 자리)"
               />
+              {/* 원음 높이. 음원 자체를 옮긴다 — 가운데 값을 누르면 자동(악보 조) */}
+              {tone && (
+                <Step
+                  label="원음"
+                  value={
+                    tone.busy
+                      ? "…"
+                      : `${tone.value > 0 ? "+" : ""}${tone.value}${tone.auto ? " 자동" : ""}`
+                  }
+                  width="w-14"
+                  onMinus={() => tone.onChange(Math.max(tone.value - 1, -6))}
+                  onPlus={() => tone.onChange(Math.min(tone.value + 1, 6))}
+                  onReset={() => tone.onChange(null)}
+                  minusTitle="원음을 반음 내립니다 — 빠르기는 그대로"
+                  plusTitle="원음을 반음 올립니다 — 빠르기는 그대로"
+                />
+              )}
+              {tone?.error && (
+                <span className="shrink-0 text-[10px] text-red-600" title={tone.error}>
+                  원음 실패
+                </span>
+              )}
               {/* 싱크·마디·음높이·빠르기는 한 줄에 나란히 둔다.
               따로 흘려 두면 좁은 화면에서 빠르기만 아래로 떨어져,
               같은 성격의 손잡이가 두 줄로 갈린다. 자리가 정 모자라면
