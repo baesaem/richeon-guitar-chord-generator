@@ -59,6 +59,17 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
      보이고, 멈추면 사진이 겉치레를 가린다. 지우는 것이 아니라 가리는
      것이라 유튜브 규칙에도 어긋나지 않는다. */
   const [ytPlaying, setYtPlaying] = useState(false);
+  /**
+   * 유튜브가 이 앱 안에서 재생을 막았는가(퍼가기 금지 영상).
+   *
+   * 올린 사람이 「다른 사이트에서 재생」을 꺼 둔 영상은 유튜브 창이 오류
+   * (101·150)만 내고 소리가 나지 않는다 — 「우리 사랑 기억하겠네/허만성」이
+   * 그랬다. 분석할 때 서버가 받아 둔 음원이 있으니 그것을 튼다. 영상은
+   * 못 보지만 소리·코드·가사는 그대로 따라간다.
+   */
+  const [ytBlocked, setYtBlocked] = useState(false);
+  useEffect(() => setYtBlocked(false), [result.id]);
+  const useYouTube = isYouTube && !ytBlocked;
   // 반주. 기기에 받아 둔 것이 있으면 그것을, 없으면 서버 것을 쓴다.
   // 공유 폴더에서 곡을 받은 수강생은 서버 없이도 보컬을 끌 수 있다.
   const [localInst, setLocalInst] = useState<string | null>(null);
@@ -82,7 +93,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
     localInst ??
     `${apiBase()}/api/audio/${result.id}/${stem === "vocals" ? "vocals" : "instrumental"}`;
   // 영상과 반주를 함께 몰아야 하는 상태
-  const dual = isYouTube && stem !== "off";
+  const dual = useYouTube && stem !== "off";
 
   // 마지막으로 YouTube가 알려 준 시각과 그때의 시계. 사이를 이어 붙인다
   const tickRef = useRef({ at: -1, wall: 0 });
@@ -171,7 +182,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
   // 서버가 꺼져 있어도 소리가 나고, 있어도 네트워크를 안 탄다.
   const [localSrc, setLocalSrc] = useState<string | null>(null);
   useEffect(() => {
-    if (isYouTube) return;
+    if (useYouTube) return;
 
     let objectUrl: string | null = null;
     getLocalAudio(result.id)
@@ -188,7 +199,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [result.id, isYouTube]);
+  }, [result.id, useYouTube]);
 
   // 트랙을 골랐으면 그 트랙을 쓴다(기기에 받아 둔 것 → 서버 순)
   const audioSrc = stem !== "off" ? instUrl : localSrc;
@@ -196,7 +207,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
   // 영상 소리와 반주를 맞춘다. 영상은 화면만 쓰고 소리는 반주가 낸다.
   useEffect(() => {
     const yt = ytRef.current;
-    if (!isYouTube || !yt) return;
+    if (!useYouTube || !yt) return;
 
     if (!dual) {
       yt.unMute?.();
@@ -226,9 +237,9 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
       inst.pause();
       yt.unMute?.();
     };
-  }, [dual, isYouTube]);
+  }, [dual, useYouTube]);
 
-  if (isYouTube) {
+  if (useYouTube) {
     return (
       <>
         <div
@@ -258,6 +269,13 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
             onReady={(e) => {
               ytRef.current = e.target;
               publish();
+            }}
+            onError={(e) => {
+              // 100 없는 영상 · 101/150 퍼가기 금지 — 서버 음원으로 바꿔 튼다
+              if ([100, 101, 150].includes(e.data)) {
+                ytRef.current = null;
+                setYtBlocked(true);
+              }
             }}
             onStateChange={(e) => {
               playingRef.current = e.data === 1;
@@ -299,17 +317,43 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
   }
 
   if (!audioSrc) return null;
-  return (
+  const audio = (
     <audio
       ref={audioRef}
       className="w-full"
       src={audioSrc}
-      onLoadedMetadata={publish}
+      onLoadedMetadata={() => {
+        publish();
+        // 유튜브에서 막혀 갈아 탄 경우, 누른 재생을 이어 준다
+        if (ytBlocked && wantPlayRef.current) audioRef.current?.play().catch(() => {});
+      }}
       onPlay={() => {
         playingRef.current = true;
         wantPlayRef.current = true;
       }}
       onPause={() => (playingRef.current = false)}
     />
+  );
+  if (!isYouTube) return audio;
+  // 유튜브에서 막힌 곡: 영상 자리에 장면 사진과 까닭을 적고 소리만 낸다
+  return (
+    <div
+      className={[
+        "relative shrink-0 overflow-hidden bg-black",
+        compact ? "h-14 w-full" : "mx-auto aspect-video w-[85%] md:w-full",
+      ].join(" ")}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`https://i.ytimg.com/vi/${result.id}/hqdefault.jpg`}
+        alt=""
+        className="h-full w-full object-cover opacity-60"
+        draggable={false}
+      />
+      <span className="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-center text-[11px] text-white">
+        이 영상은 유튜브에서 다른 곳 재생을 막아 두어 소리만 재생합니다
+      </span>
+      {audio}
+    </div>
   );
 }
