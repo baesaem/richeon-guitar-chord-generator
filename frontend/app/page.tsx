@@ -181,6 +181,8 @@ export default function Home() {
   const [strumName, setStrumName] = useState("");
   /** 악보에 코드를 얹을지(곡마다). 멜로디만 그려진 악보에 쓴다 */
   const [autoChords, setAutoChords] = useState(false);
+  // 음높이를 옮길 때 멜로디도 옮길까(연주설정 「멜로디 키」). 기본은 고정
+  const [melodyFollow, setMelodyFollow] = useState(false);
   // 가사 보기: 켜면 코드 박스와 곡 전체 코드 자리를 가사가 대신 쓴다
   const [showLyrics, setShowLyrics] = useState(false);
   // 곡 전체 악보 모달
@@ -797,6 +799,11 @@ export default function Home() {
   /* ABC 악보에 적힌 코드는 이미 악보 조(Em)다. 화면도 악보 조로 적으므로
      여기서 옮길 것은 사용자가 손으로 준 음높이뿐이다 */
   const abcTranspose = -transpose;
+  /* 멜로디 악보만 따로 — 「고정」(기본)이면 음높이를 옮겨도 멜로디는 악보
+     원안(악보가 없으면 음원) 키 그대로, 「변경」이면 함께 옮긴다.
+     타브·코드악보는 늘 음높이를 따른다 */
+  const melodyAbcShift = melodyFollow ? abcTranspose : 0;
+  const melodyNoteShift = melodyFollow ? noteShift : 0;
 
   /**
    * 코드 이름을 **악보에 적힌 그대로** 쓸까.
@@ -906,6 +913,7 @@ export default function Home() {
     setArp(setup.arp);
     setStrumName(setup.strum);
     setAutoChords(setup.autoChords);
+    setMelodyFollow(setup.melodyFollow);
     addRecent(r.id, r.title || r.id);
   };
 
@@ -1550,6 +1558,7 @@ export default function Home() {
       arp,
       strum: strumName,
       autoChords,
+      melodyFollow,
     });
   }, [
     result?.id,
@@ -1561,6 +1570,7 @@ export default function Home() {
     arp,
     strumName,
     autoChords,
+    melodyFollow,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 연주설정에서 기본값과 달라진 것만 모은다. 악보 안내줄에 적어
@@ -1951,9 +1961,9 @@ export default function Home() {
     /* 악보와 음원의 조가 다르면 화면 코드는 음원 조로 옮겨 적힌다.
        그림이 Em인데 화면이 Gm이면 「안 바뀌었다」로 보이므로 까닭을 적는다 */
     const why =
-      abcTranspose === 0
+      melodyAbcShift === 0
         ? ""
-        : ` (화면 코드는 음원 조에 맞춰 ${abcTranspose > 0 ? "+" : ""}${abcTranspose}반음 옮겨 적습니다 — 연주설정▸음높이)`;
+        : ` (화면 코드는 음높이에 맞춰 ${melodyAbcShift > 0 ? "+" : ""}${melodyAbcShift}반음 옮겨 적습니다 — 연주설정▸멜로디 키)`;
     setToast(
       moved === 0
         ? `그림의 코드가 악보와 같아 바뀐 마디가 없습니다${why}`
@@ -2632,6 +2642,8 @@ export default function Home() {
                       onArp={setArp}
                       autoChords={autoChords}
                       onAutoChords={setAutoChords}
+                      melodyFollow={melodyFollow}
+                      onMelodyFollow={setMelodyFollow}
                       timeSignature={result.time_signature}
                       bpm={result.bpm}
                       strumName={strumName}
@@ -2900,7 +2912,7 @@ export default function Home() {
                           ? () => playback.getTime() + sync - settings.latency
                           : undefined
                       }
-                      transpose={abcTranspose}
+                      transpose={melodyAbcShift}
                       sync={sync}
                       onSync={canFix ? setSync : undefined}
                       barOffset={abcEntry.barOffset}
@@ -2925,7 +2937,7 @@ export default function Home() {
                           : undefined
                       }
                       musicKey={result.key}
-                      sourceKey={sourceKey}
+                      sourceKey={melodyFollow ? sourceKey : undefined}
                       timeSignature={result.time_signature}
                       playNotes={playNotes}
                       strum={shownStrum}
@@ -3066,7 +3078,7 @@ export default function Home() {
                         playStyle={playStyle}
                         currentBar={barIdx}
                         flats={flats}
-                        transpose={noteShift}
+                        transpose={melodyNoteShift}
                         timeSignature={result.time_signature}
                         musicKey={result.key}
                         onSeek={(t) => {
@@ -3493,7 +3505,7 @@ export default function Home() {
                             ? () => playback.getTime() + sync - settings.latency
                             : undefined
                         }
-                        transpose={abcTranspose}
+                        transpose={melodyAbcShift}
                         sync={sync}
                         barOffset={abcEntry.barOffset}
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
@@ -3502,7 +3514,7 @@ export default function Home() {
                       playedBars={abcPlayedBars}
                       audioBars={audioBarCount}
                         musicKey={result.key}
-                        sourceKey={sourceKey}
+                        sourceKey={melodyFollow ? sourceKey : undefined}
                         timeSignature={result.time_signature}
                         playNotes={playNotes}
                         strum={shownStrum}
@@ -3574,7 +3586,7 @@ export default function Home() {
                         strum={shownStrum}
                         onPickStrum={() => setShowStrums(true)}
                         playStyle={playStyle}
-                        transpose={noteShift}
+                        transpose={melodyNoteShift}
                         flats={flats}
                         musicKey={result.key}
                         timeSignature={result.time_signature}
@@ -3627,6 +3639,8 @@ export default function Home() {
                       onArp={setArp}
                       autoChords={autoChords}
                       onAutoChords={setAutoChords}
+                      melodyFollow={melodyFollow}
+                      onMelodyFollow={setMelodyFollow}
                       timeSignature={result.time_signature}
                       bpm={result.bpm}
                       strumName={strumName}
@@ -3873,6 +3887,8 @@ export default function Home() {
                             onArp={setArp}
                             autoChords={autoChords}
                             onAutoChords={setAutoChords}
+                            melodyFollow={melodyFollow}
+                            onMelodyFollow={setMelodyFollow}
                             timeSignature={result.time_signature}
                             bpm={result.bpm}
                             strumName={strumName}
@@ -4028,7 +4044,7 @@ export default function Home() {
                                         settings.latency
                                     : undefined
                                 }
-                                transpose={abcTranspose}
+                                transpose={melodyAbcShift}
                                 sync={sync}
                                 onSync={setSync}
                                 barOffset={abcEntry.barOffset}
@@ -4137,7 +4153,7 @@ export default function Home() {
                                 playStyle={playStyle}
                                 currentBar={barIdx}
                                 flats={flats}
-                                transpose={noteShift}
+                                transpose={melodyNoteShift}
                                 timeSignature={result.time_signature}
                                 musicKey={result.key}
                                 onSeek={(t) => playback?.seek(t)}

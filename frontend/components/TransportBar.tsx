@@ -35,6 +35,9 @@ interface Props {
   /** 악보에 코드를 얹을지(곡마다). 멜로디만 그려진 악보에 쓴다 */
   autoChords?: boolean;
   onAutoChords?: (on: boolean) => void;
+  /** 음높이를 옮길 때 멜로디도 옮길까. false = 고정(기본, 악보 원안·음원 키) */
+  melodyFollow?: boolean;
+  onMelodyFollow?: (on: boolean) => void;
   /** 이 곡의 원래 조("G minor" 꼴). 키 설정이 여기서 얼마나 옮길지 센다 */
   songKey?: string;
   /** 아르페지오 패턴 추천에 쓴다 */
@@ -351,6 +354,36 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           >
             초기화
           </button>
+
+          {/* ---- 멜로디 키: 음높이를 따라 멜로디를 옮길까 ----
+              음높이 바로 아래 — 음높이를 옮기며 멜로디가 따라올지 함께 정한다 */}
+          {props.onMelodyFollow && (
+            <>
+              <div className="my-2.5 h-px bg-[var(--chip)]" />
+              <div className={sectionTitle}>멜로디 키</div>
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    [false, "고정"],
+                    [true, "변경"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={label}
+                    onClick={() => props.onMelodyFollow?.(value)}
+                    className={["flex-1", pill(!!props.melodyFollow === value)].join(" ")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+                고정은 음높이를 옮겨도 멜로디를 악보 원안의 키(악보가 없으면
+                음원 키) 그대로 둡니다. 변경은 멜로디도 음높이를 따라 옮겨
+                적습니다. 타브·코드악보는 늘 음높이를 따릅니다.
+              </p>
+            </>
+          )}
 
           {/* ---- 빠르기 ---- */}
           <div className="my-2.5 h-px bg-[var(--chip)]" />

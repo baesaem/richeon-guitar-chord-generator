@@ -56,6 +56,14 @@ export interface SongSetup {
    * 강사님이 켜 준다. 켠 값은 곡 파일에 실려 수강생에게도 간다.
    */
   autoChords: boolean;
+  /**
+   * 음높이를 옮길 때 멜로디 악보도 옮겨 적을지(강사님: 고정/변경).
+   *
+   * 기본은 고정 — 멜로디는 붙인 악보 원안의 키(악보가 없으면 음원 키)
+   * 그대로 둔다. 켜면(변경) 음높이를 따라 멜로디도 함께 옮겨 적는다.
+   * 타브·코드악보는 늘 음높이를 따른다.
+   */
+  melodyFollow: boolean;
 }
 
 /**
@@ -77,6 +85,7 @@ export const DEFAULT_SETUP: SongSetup = {
   arp: 0,
   strum: "",
   autoChords: false,
+  melodyFollow: false,
 };
 
 function readAll(): Record<string, SongSetup> {
@@ -116,7 +125,8 @@ export function saveSetup(songId: string, setup: SongSetup): void {
       setup.lyricSync === 0 &&
       setup.arp === 0 &&
       setup.strum === "" &&
-      !setup.autoChords;
+      !setup.autoChords &&
+      !setup.melodyFollow;
     if (untouched) delete all[songId];
     else all[songId] = setup;
     localStorage.setItem(KEY, JSON.stringify(all));
