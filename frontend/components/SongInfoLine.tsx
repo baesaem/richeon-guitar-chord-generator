@@ -61,7 +61,7 @@ export function SongInfoLine({
           {sourceKey ? "원키 " : ""}
           {spellKey(musicKey) || "조성 미상"}
           {sourceKey && (
-            <span className="text-[var(--accent)]"> (악보 {sourceKey})</span>
+            <span className="text-[var(--accent)]"> (종이 악보 {sourceKey})</span>
           )}{" "}
           · {timeSignature}
         </span>

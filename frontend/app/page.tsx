@@ -722,15 +722,22 @@ export default function Home() {
   const setCapoShown = (v: number) =>
     setTranspose(Math.max(-11, Math.min(11, v)) + keyGap);
 
-  /** 악보에 **적힌** 조. 원키(음원이 찾은 키)와 나란히 보인다 */
+  /**
+   * 악보에 **적힌** 조. 원키(음원이 찾은 키)와 나란히 보인다.
+   *
+   * 화면이 종이 악보와 같은 조로 적혀 있으면(사람이 옮기지 않았으면)
+   * 내지 않는다 — 음높이로 화면을 딴 조로 옮겼을 때에만 「종이는 이
+   * 조」라고 알려 줄 값이 있다. 늘 내면 화면이 C인데 「악보 G」라고 적혀
+   * 무엇이 G인지 헷갈린다.
+   */
   const sourceKey = useMemo(() => {
-    if (!result || !scoreShift) return undefined;
+    if (!result || !scoreShift || transpose % 12 === 0) return undefined;
     const [tonic, mode = ""] = result.key.split(" ");
     const root = transposeRoot(tonic, -scoreShift);
     if (!root) return undefined;
     const full = `${root} ${mode}`.trim();
     return spell(root, prefersFlats(full)) + (/min/i.test(mode) ? "m" : "");
-  }, [result, scoreShift]);
+  }, [result, scoreShift, transpose]);
 
   /* ABC 악보에 적힌 코드는 이미 악보 조(Em)다. 화면도 악보 조로 적으므로
      여기서 옮길 것은 사용자가 손으로 준 음높이뿐이다 */
