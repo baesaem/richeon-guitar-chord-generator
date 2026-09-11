@@ -89,6 +89,42 @@ export function abcKeyGap(abc: string, audioKey: string): number {
 }
 
 /**
+ * 코드 이름만 semis 반음 옮긴다 — 음표·조표는 그대로(「멜로디 키 고정」).
+ *
+ * 음표는 음원 높이대로 두고, 치는 코드만 음높이를 따라 옮겨 적을 때 쓴다.
+ * ♯·♭ 표기는 옮겨 간 조의 조표를 따른다. 머리 줄(가사 w: 등)은 건드리지
+ * 않는다.
+ */
+export function transposeAbcChords(abc: string, semis: number): string {
+  semis = Math.round(semis);
+  if (!semis) return abc;
+  const k = abc.match(/^K:(.*)$/m);
+  const p = k ? parseKey(k[1]) : null;
+  let names = PLAIN;
+  if (p) {
+    const pc = mod(p.key.pc + semis, 12);
+    const name = (p.key.minor ? MINOR_NAMES : MAJOR_NAMES)[pc];
+    const sig = signature({ letter: LETTERS.indexOf(name[0]), pc, minor: p.key.minor });
+    names = sig.some((a) => a < 0) ? FLAT : sig.some((a) => a > 0) ? SHARP : PLAIN;
+  }
+  const one = (r: string, a: string) => names[mod(NAT[LETTERS.indexOf(r)] + alterOf(a) + semis, 12)];
+  const chord = (s: string): string => {
+    if (/^[\^_<>@]/.test(s)) return s;
+    const m = s.match(/^([A-G])([#b]?)([^/]*)(?:\/([A-G])([#b]?))?$/);
+    if (!m) return s;
+    return one(m[1], m[2]) + m[3] + (m[4] ? "/" + one(m[4], m[5] ?? "") : "");
+  };
+  return abc
+    .split("\n")
+    .map((line) =>
+      /^[A-Za-z]:/.test(line) || /^\s*%/.test(line)
+        ? line
+        : line.replace(/"([^"]*)"/g, (_, s: string) => `"${chord(s)}"`),
+    )
+    .join("\n");
+}
+
+/**
  * ABC 글을 semis 반음 옮긴다. 조표(K:)를 못 읽으면 null — 반쯤 옮긴
  * 악보를 내놓느니 손대지 않는다.
  */

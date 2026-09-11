@@ -21,6 +21,7 @@ import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
 import { abcOrders } from "@/lib/abcOrder";
 import { reflowAbc } from "@/lib/abcReflow";
+import { transposeAbcChords } from "@/lib/abcTranspose";
 import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
 import { EDIT_HOLD_MS } from "@/lib/editChords";
@@ -60,6 +61,11 @@ interface Props {
   getTime?: () => number;
   /** 음높이(반음). 카포와 같은 값 — 악보 표기가 함께 옮겨진다 */
   transpose?: number;
+  /**
+   * 코드 이름만 옮길 반음. 없으면 transpose와 같다(음표와 함께).
+   * 「멜로디 키 고정」이면 음표는 그대로(transpose 0) 코드만 음높이를 따른다.
+   */
+  chordShift?: number;
   /** 악보를 음원 위에서 미는 보정(초) */
   sync?: number;
   onSync?: (sec: number) => void;
@@ -133,6 +139,7 @@ export function AbcScore({
   time,
   getTime,
   transpose = 0,
+  chordShift,
   sync = 0,
   onSync,
   barOffset: barOffsetProp,
@@ -186,7 +193,11 @@ export function AbcScore({
       /* 한 줄 N마디는 줄을 여기서 직접 끊어 정확히 맞춘다. 줄 구조가 특이한
          악보만 abcjs 줄바꿈(wrap)으로 대신한다 — 그쪽은 빽빽한 마디를 한
          줄에 덜 넣는다 */
-      const flowed = perLine > 0 ? reflowAbc(abc, perLine) : null;
+      /* 코드만 따로 옮길 때는 코드 이름을 먼저 옮겨 두고, 음표는 abcjs가
+         transpose만큼 옮긴다(abcjs는 코드도 함께 옮기므로 그 차이만) */
+      const extra = chordShift === undefined ? 0 : chordShift - transpose;
+      const base = extra ? transposeAbcChords(abc, extra) : abc;
+      const flowed = perLine > 0 ? reflowAbc(base, perLine) : null;
       // barNumbers는 abcjs가 받는 값인데 타입 정의에 빠져 있다
       const params = {
         responsive: "resize",
@@ -223,7 +234,7 @@ export function AbcScore({
          악보에 우리 취향을 섞지 않기 위해서다. */
       /* 성부가 하나뿐인 악보는 성부 이름(「멜로디」)을 줄마다 적지 않는다 —
          가를 것이 없는 이름표가 줄 앞자리만 차지했다(「혜화동」) */
-      const body = flowed ?? abc;
+      const body = flowed ?? base;
       const voices = new Set(
         [...body.matchAll(/^V:\s*(\S+)/gm)].map((m) => m[1]),
       );
@@ -267,7 +278,7 @@ ${src}`;
     return () => {
       cancelled = true;
     };
-  }, [abc, transpose, perLine]);
+  }, [abc, transpose, chordShift, perLine]);
 
   /**
    * 음원 마디 차례 → abcjs가 세는 마디 번호.

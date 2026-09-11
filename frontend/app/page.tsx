@@ -799,9 +799,9 @@ export default function Home() {
   /* ABC 악보에 적힌 코드는 이미 악보 조(Em)다. 화면도 악보 조로 적으므로
      여기서 옮길 것은 사용자가 손으로 준 음높이뿐이다 */
   const abcTranspose = -transpose;
-  /* 멜로디 악보만 따로 — 「고정」(기본)이면 음높이를 옮겨도 멜로디는 악보
-     원안(악보가 없으면 음원) 키 그대로, 「변경」이면 함께 옮긴다.
-     타브·코드악보는 늘 음높이를 따른다 */
+  /* 멜로디 음표만 따로 — 「고정」(기본)이면 음높이를 옮겨도 음표는 음원
+     (악보 원안) 높이 그대로 두고 코드만 옮긴다. 「변경」이면 음표도 함께.
+     코드·타브·코드악보는 늘 음높이를 따른다 */
   const melodyAbcShift = melodyFollow ? abcTranspose : 0;
   const melodyNoteShift = melodyFollow ? noteShift : 0;
 
@@ -1961,9 +1961,9 @@ export default function Home() {
     /* 악보와 음원의 조가 다르면 화면 코드는 음원 조로 옮겨 적힌다.
        그림이 Em인데 화면이 Gm이면 「안 바뀌었다」로 보이므로 까닭을 적는다 */
     const why =
-      melodyAbcShift === 0
+      abcTranspose === 0
         ? ""
-        : ` (화면 코드는 음높이에 맞춰 ${melodyAbcShift > 0 ? "+" : ""}${melodyAbcShift}반음 옮겨 적습니다 — 연주설정▸멜로디 키)`;
+        : ` (화면 코드는 음높이에 맞춰 ${abcTranspose > 0 ? "+" : ""}${abcTranspose}반음 옮겨 적습니다 — 연주설정▸음높이)`;
     setToast(
       moved === 0
         ? `그림의 코드가 악보와 같아 바뀐 마디가 없습니다${why}`
@@ -2913,6 +2913,7 @@ export default function Home() {
                           : undefined
                       }
                       transpose={melodyAbcShift}
+                      chordShift={abcTranspose}
                       sync={sync}
                       onSync={canFix ? setSync : undefined}
                       barOffset={abcEntry.barOffset}
@@ -3079,6 +3080,7 @@ export default function Home() {
                         currentBar={barIdx}
                         flats={flats}
                         transpose={melodyNoteShift}
+                        chordShift={noteShift}
                         timeSignature={result.time_signature}
                         musicKey={result.key}
                         onSeek={(t) => {
@@ -3506,6 +3508,7 @@ export default function Home() {
                             : undefined
                         }
                         transpose={melodyAbcShift}
+                        chordShift={abcTranspose}
                         sync={sync}
                         barOffset={abcEntry.barOffset}
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
@@ -3587,6 +3590,7 @@ export default function Home() {
                         onPickStrum={() => setShowStrums(true)}
                         playStyle={playStyle}
                         transpose={melodyNoteShift}
+                        chordShift={noteShift}
                         flats={flats}
                         musicKey={result.key}
                         timeSignature={result.time_signature}
@@ -4045,6 +4049,7 @@ export default function Home() {
                                     : undefined
                                 }
                                 transpose={melodyAbcShift}
+                                chordShift={abcTranspose}
                                 sync={sync}
                                 onSync={setSync}
                                 barOffset={abcEntry.barOffset}
@@ -4154,6 +4159,7 @@ export default function Home() {
                                 currentBar={barIdx}
                                 flats={flats}
                                 transpose={melodyNoteShift}
+                                chordShift={noteShift}
                                 timeSignature={result.time_signature}
                                 musicKey={result.key}
                                 onSeek={(t) => playback?.seek(t)}

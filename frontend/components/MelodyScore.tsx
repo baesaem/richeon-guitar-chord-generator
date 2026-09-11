@@ -108,7 +108,13 @@ interface Props {
   headerRight?: React.ReactNode;
   currentBar: number;
   flats: boolean;
+  /** 음표를 옮길 반음 */
   transpose: number;
+  /**
+   * 코드 이름을 옮길 반음. 없으면 transpose와 같다.
+   * 「멜로디 키 고정」이면 음표는 음원 높이 그대로(transpose 0), 코드만 이 값.
+   */
+  chordShift?: number;
   timeSignature: string;
   musicKey: string;
   follow: boolean;
@@ -155,6 +161,7 @@ export function MelodyScore({
   currentBar,
   flats,
   transpose,
+  chordShift,
   timeSignature,
   musicKey,
   follow,
@@ -175,6 +182,8 @@ export function MelodyScore({
   // 되풀이하는 곡은 악보 한 벌을 여러 번 쓴다. 지금이 몇 바퀴째인지.
   const pass = usingScore ? passAt(align!, time ?? 0) : 0;
 
+  // 코드 이름은 chordShift를 따른다(없으면 음표와 같이 transpose)
+  const cShift = chordShift ?? transpose;
   const view = useMemo(
     () =>
       usingScore
@@ -182,14 +191,14 @@ export function MelodyScore({
             score!,
             align!,
             pass,
-            transpose,
+            cShift,
             flats,
             // 악보에 코드가 없을 때 대신 얹을 것. 곡마다 켜 준 때에만
             // 넘긴다 — 인쇄된 코드가 있는 악보에 겹쳐 적으면 안 된다.
             autoChords ? chords : undefined,
           )
-        : viewFromMelody(bars, chords, melody, lyrics, transpose, flats),
-    [usingScore, score, align, pass, bars, chords, melody, lyrics, transpose, flats, autoChords],
+        : viewFromMelody(bars, chords, melody, lyrics, cShift, flats),
+    [usingScore, score, align, pass, bars, chords, melody, lyrics, cShift, flats, autoChords],
   );
 
   // 지금 마디. 시각을 알면 그것으로 찾는다 — 악보를 쓰면 마디 번호가

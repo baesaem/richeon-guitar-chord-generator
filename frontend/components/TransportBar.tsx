@@ -378,9 +378,9 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
                 ))}
               </div>
               <p className="mt-1 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-                고정은 음높이를 옮겨도 멜로디를 악보 원안의 키(악보가 없으면
-                음원 키) 그대로 둡니다. 변경은 멜로디도 음높이를 따라 옮겨
-                적습니다. 타브·코드악보는 늘 음높이를 따릅니다.
+                고정은 음높이를 옮겨도 음표는 음원 높이 그대로 두고 코드만
+                옮깁니다. 변경은 음표도 음높이를 따라 옮겨 적습니다.
+                타브·코드악보는 늘 음높이를 따릅니다.
               </p>
             </>
           )}
