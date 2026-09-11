@@ -12,6 +12,7 @@ import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { instKey, stemKey } from "./sharedFiles";
 import { getAbc, saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
 import { fitAbcToAudioKey } from "./abcKeyFix";
+import { tabAutoTranspose } from "./tabKey";
 import { getTabEdits, setTabEdits, type TabBarEdit } from "./tabEdits";
 import type { TabScore } from "./msczToAbc";
 import { loadSheets, saveSheets } from "./sheetCache";
@@ -450,6 +451,21 @@ export async function openBundle(
     if (await fitAbcToAudioKey(bundle.result)) got.push("멜로디를 음원 조로");
   } catch {
     /* 못 옮겨도 곡은 열린다 */
+  }
+  /* 강사님이 음높이를 정해 보내지 않았으면, 타브가 적힌 조에 맞춘다
+     (「G key Version」 타브면 카포 5) — 받자마자 타브와 화면이 맞게 */
+  try {
+    const raw = bundle.result.setup as { transpose?: number } | null | undefined;
+    if (!raw || raw.transpose === undefined) {
+      const abc = getAbc(bundle.result.id);
+      const auto = tabAutoTranspose(abc?.abc, bundle.result.picked_tab, abc?.tabScore?.bars);
+      if (auto) {
+        saveSetup(bundle.result.id, { ...loadSetup(bundle.result.id), transpose: auto });
+        got.push(`음높이를 타브에 맞춤(${auto > 0 ? "+" : ""}${auto})`);
+      }
+    }
+  } catch {
+    /* 못 맞춰도 곡은 열린다 */
   }
   return got;
 }

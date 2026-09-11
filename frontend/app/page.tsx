@@ -39,6 +39,7 @@ import {
   type AbcEntry,
 } from "@/lib/abcStore";
 import { fitAbcToAudioKey, type KeyFix } from "@/lib/abcKeyFix";
+import { tabAutoTranspose } from "@/lib/tabKey";
 import { clearDirty, listDirty, markDirty } from "@/lib/dirty";
 import { ScoreAttach } from "@/components/ScoreAttach";
 import { TabAttach } from "@/components/TabAttach";
@@ -753,8 +754,16 @@ export default function Home() {
    * (transpose, 곡에 저장되는 값)이 여기에 더해진다.
    */
   const capoShown = transpose - keyGap;
+  /**
+   * 타브에 맞춘 음높이(저장값). 타브가 멜로디와 다른 조로 적혔으면 그
+   * 차이만큼 — 「G key Version」 타브는 화면이 G로 보여야 숫자와 이름이 맞는다.
+   */
+  const tabAuto = useMemo(
+    () => tabAutoTranspose(abcEntry?.abc, result?.picked_tab, abcEntry?.tabScore?.bars),
+    [abcEntry?.abc, abcEntry?.tabScore, result?.picked_tab],
+  );
   /** 자동 값 — 사람이 옮기지 않았을 때의 음높이. 값을 누르면 이리로 돌아간다 */
-  const pitchAuto = -keyGap;
+  const pitchAuto = tabAuto - keyGap;
   const setCapoShown = (v: number) =>
     setTranspose(clampPitch(v) + keyGap);
 
@@ -880,7 +889,14 @@ export default function Home() {
            * 악보와 코드가 이미 옮겨진 채로 열려, 원곡과 맞춰 보려는
            * 사람이 도로 되돌려야 한다. 필요한 사람이 제 손으로 올린다.
            */
-          transpose: 0,
+          /* 다만 타브가 멜로디와 다른 조로 적혀 있으면(「G key Version」)
+             타브의 조로 연다 — 숫자는 적힌 조로 박혀 있어, 그래야 타브와
+             코드 이름이 맞고 카포 자리가 곧 음높이가 된다 */
+          transpose: tabAutoTranspose(
+            getAbc(r.id)?.abc,
+            r.picked_tab,
+            getAbc(r.id)?.tabScore?.bars,
+          ),
         };
     setResult(r);
     // 다른 곡의 되돌리기가 이 곡에 적용되면 안 된다
