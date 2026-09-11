@@ -1,5 +1,7 @@
 "use client";
 
+import { PITCH_MAX, PITCH_MIN } from "@/lib/perSong";
+
 /**
  * 악보 위에 놓는 두 가지 조절 — 싱크와 마디 수.
  *
@@ -157,8 +159,8 @@ export function ViewSteppers({
           <span className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">음높이</span>
           <button
             className={STEP}
-            disabled={(pitch ?? 0) <= -11}
-            onClick={() => onPitch(Math.max((pitch ?? 0) - 1, -11))}
+            disabled={(pitch ?? 0) <= PITCH_MIN}
+            onClick={() => onPitch(Math.max((pitch ?? 0) - 1, PITCH_MIN))}
             title="반음 내림 — 악보 표기와 코드가 함께"
           >
             －
@@ -176,8 +178,8 @@ export function ViewSteppers({
           </button>
           <button
             className={STEP}
-            disabled={(pitch ?? 0) >= 11}
-            onClick={() => onPitch(Math.min((pitch ?? 0) + 1, 11))}
+            disabled={(pitch ?? 0) >= PITCH_MAX}
+            onClick={() => onPitch(Math.min((pitch ?? 0) + 1, PITCH_MAX))}
             title="반음 올림 (카포 자리)"
           >
             ＋

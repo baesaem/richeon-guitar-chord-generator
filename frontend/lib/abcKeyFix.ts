@@ -22,7 +22,14 @@
 import { getAbc, saveAbc } from "./abcStore";
 import { abcKeyGap, abcKeyName, transposeAbc } from "./abcTranspose";
 import { getLocalSheet } from "./library";
-import { DEFAULT_SETUP, hasSetup, loadSetup, saveSetup, type SongSetup } from "./perSong";
+import {
+  DEFAULT_SETUP,
+  clampPitch,
+  hasSetup,
+  loadSetup,
+  saveSetup,
+  type SongSetup,
+} from "./perSong";
 import type { AnalysisResult } from "./types";
 
 export interface KeyFix {
@@ -95,7 +102,7 @@ export async function fitAbcToAudioKey(
       };
   const frets = !!entry.tabScore || !!result.picked_tab;
   const keep = frets || cur.transpose !== 0;
-  const t = keep ? Math.max(-11, Math.min(11, cur.transpose - gap)) : 0;
+  const t = keep ? clampPitch(cur.transpose - gap) : 0;
   if (t !== cur.transpose) saveSetup(result.id, { ...cur, transpose: t });
 
   const fix: KeyFix = {

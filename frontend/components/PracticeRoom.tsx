@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import { Popup } from "@/components/Popup";
 
 import { useSmoothTime } from "@/lib/useSmoothTime";
+import { PITCH_MAX, PITCH_MIN } from "@/lib/perSong";
 
 /** AI 앱과 같은 단계 목록 */
 const RATES = [0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
@@ -428,8 +429,8 @@ export function PracticeRoom({
               <Step
                 label="음높이"
                 value={pitch > 0 ? `+${pitch}` : String(pitch)}
-                onMinus={() => onPitch(Math.max(pitch - 1, -11))}
-                onPlus={() => onPitch(Math.min(pitch + 1, 11))}
+                onMinus={() => onPitch(Math.max(pitch - 1, PITCH_MIN))}
+                onPlus={() => onPitch(Math.min(pitch + 1, PITCH_MAX))}
                 /* 값을 누르면 자동(악보와 음원의 조 차이)으로 */
                 onReset={() => onPitch(pitchAuto ?? 0)}
                 width="w-7"

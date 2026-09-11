@@ -109,7 +109,7 @@ import {
   type NewLessons,
 } from "@/lib/lessonShare";
 import { findNewSongs, markSongsSeen, type NewSongs } from "@/lib/songAlert";
-import { DEFAULT_SETUP, hasSetup, loadSetup, saveSetup } from "@/lib/perSong";
+import { DEFAULT_SETUP, clampPitch, hasSetup, loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent, listRecent } from "@/lib/recent";
 import { patchSettings, useSettings } from "@/lib/settings";
 import { useBigScreen, useWideScreen } from "@/lib/useMedia";
@@ -756,7 +756,7 @@ export default function Home() {
   /** 자동 값 — 사람이 옮기지 않았을 때의 음높이. 값을 누르면 이리로 돌아간다 */
   const pitchAuto = -keyGap;
   const setCapoShown = (v: number) =>
-    setTranspose(Math.max(-11, Math.min(11, v)) + keyGap);
+    setTranspose(clampPitch(v) + keyGap);
 
   /**
    * 악보에 **적힌** 조. 원키(음원이 찾은 키)와 나란히 보인다.

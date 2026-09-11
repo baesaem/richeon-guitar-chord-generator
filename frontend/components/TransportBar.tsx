@@ -7,6 +7,7 @@ import { Popup } from "@/components/Popup";
 import { StrumPickModal } from "@/components/StrumPick";
 import { prefersFlats, spell, transposeRoot } from "@/lib/notation";
 import { useSettings } from "@/lib/settings";
+import { PITCH_MAX, PITCH_MIN } from "@/lib/perSong";
 import type { StemChoice } from "@/lib/sharedFiles";
 import type { StrumChoice } from "@/lib/strumLibrary";
 
@@ -55,13 +56,11 @@ interface Props {
 const RATES = [0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
 
 /**
- * 음높이를 옮길 수 있는 폭.
- *
- * 내리는 쪽은 다섯 반음까지, 올리는 쪽은 일곱 프렛까지다 — 그 너머는
- * 기타로 짚을 자리가 없거나(카포 8프렛), 노래가 아예 다른 음역이 된다.
+ * 음높이를 옮길 수 있는 폭 — −7~+12(카포 12프렛 = 한 옥타브).
+ * 연습실·전체보기의 음높이 손잡이와 같은 값을 쓴다(perSong).
  */
-const LOW = -5;
-const HIGH = 7;
+const LOW = PITCH_MIN;
+const HIGH = PITCH_MAX;
 
 function clock(t: number): string {
   if (!Number.isFinite(t) || t < 0) t = 0;

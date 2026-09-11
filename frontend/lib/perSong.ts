@@ -58,6 +58,16 @@ export interface SongSetup {
   autoChords: boolean;
 }
 
+/**
+ * 음높이 손잡이의 폭(반음). 연주설정·연습실·전체보기가 모두 이 값을 쓴다.
+ *
+ * 내리는 쪽은 일곱 반음, 올리는 쪽은 열두 반음(카포 12프렛 = 한 옥타브)
+ * 까지다 — 강사님이 정한 폭.
+ */
+export const PITCH_MIN = -7;
+export const PITCH_MAX = 12;
+export const clampPitch = (n: number) => Math.max(PITCH_MIN, Math.min(PITCH_MAX, n));
+
 export const DEFAULT_SETUP: SongSetup = {
   transpose: 0,
   rate: 1,
