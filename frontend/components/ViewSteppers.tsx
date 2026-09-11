@@ -25,6 +25,7 @@ export function ViewSteppers({
   shift,
   pitch,
   onPitch,
+  pitchAuto,
 }: {
   /** 코드 싱크(초). 화면이 노래보다 이르거나 늦을 때 맞춘다 */
   sync?: number;
@@ -59,6 +60,8 @@ export function ViewSteppers({
    */
   pitch?: number;
   onPitch?: (n: number) => void;
+  /** 음높이 자동 값(조 차이로 정한 카포). 같으면 「자동」, 값을 누르면 이리로 */
+  pitchAuto?: number;
 }) {
   const max = barsMax ?? 8;
   return (
@@ -162,8 +165,12 @@ export function ViewSteppers({
           </button>
           <button
             className="w-6 text-center tabular-nums roomy:w-7"
-            onClick={() => onPitch(0)}
-            title="누르면 원래 음높이(0)로"
+            onClick={() => onPitch(pitchAuto ?? 0)}
+            title={
+              pitchAuto
+                ? "누르면 자동 값으로 — 악보와 음원의 조 차이로 정한 카포"
+                : "누르면 원래 음높이(0)로"
+            }
           >
             {(pitch ?? 0) > 0 ? `+${pitch}` : String(pitch ?? 0)}
           </button>

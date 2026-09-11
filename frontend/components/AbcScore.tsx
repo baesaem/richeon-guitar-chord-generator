@@ -89,6 +89,7 @@ interface Props {
   /** 음높이 손잡이(마디 오른쪽). 주면 안내줄에 낸다 — 전체보기용 */
   pitch?: number;
   onPitch?: (n: number) => void;
+  pitchAuto?: number;
   headerRight?: React.ReactNode;
   musicKey: string;
   /** 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 곁들인다 */
@@ -141,6 +142,7 @@ export function AbcScore({
   followAt = 0.28,
   pitch,
   onPitch,
+  pitchAuto,
   headerRight,
   musicKey,
   sourceKey,
@@ -527,6 +529,7 @@ ${src}`;
           barsLabel="악보대로"
           pitch={pitch}
           onPitch={onPitch}
+          pitchAuto={pitchAuto}
         />
         {/* 악보에 마디 수를 맞추는 손잡이.
             한 마디만 달라도 알려 준다 — 그 한 마디가 곡 전체에 걸쳐

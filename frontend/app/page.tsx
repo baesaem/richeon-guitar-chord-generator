@@ -80,7 +80,6 @@ import {
   listResults,
   moveSheetImage,
   makeInstrumental,
-  makePitched,
   makeVocals,
   watchJob,
   fixBeats,
@@ -230,15 +229,6 @@ export default function Home() {
   const [stem, setStem] = useState<StemChoice>("off");
   const [vocalBusy, setVocalBusy] = useState(false);
   const [vocalError, setVocalError] = useState<string | null>(null);
-  /**
-   * 원음 높이(반음) — 사람이 고른 값. null이면 자동(악보 조에 맞춘다).
-   * 서버가 옮겨 둔 트랙이 준비되어야 실제로 소리가 바뀐다.
-   */
-  const [srcPitchPick, setSrcPitchPick] = useState<number | null>(null);
-  const [srcPitchReady, setSrcPitchReady] = useState("");
-  const [srcPitchBusy, setSrcPitchBusy] = useState(false);
-  const [srcPitchErr, setSrcPitchErr] = useState<string | null>(null);
-
   const [backendDown, setBackendDown] = useState(false);
   /**
    * 올라온 새 강좌. 앱을 열 때 한 번 살펴 띠로 알린다 — 수강생이
@@ -715,50 +705,22 @@ export default function Home() {
     return g > 6 ? g - 12 : g;
   }, [unified, scoreShift]);
 
-  /**
-   * 원음 높이. 자동이면 악보 조에 맞춘다(keyGap) — 그러면 카포 없이 악보
-   * 그대로 친다. 서버가 옮긴 트랙을 만들어 둔 뒤에야 소리가 바뀐다.
-   */
-  const srcPitchWant = Math.max(
-    -6,
-    Math.min(6, srcPitchPick ?? (health ? keyGap : 0)),
-  );
-  const pitchTrack =
-    stem === "off" ? "full" : stem === "vocals" ? "vocals" : "instrumental";
-  const srcPitchKey =
-    result && srcPitchWant ? `${result.id}|${pitchTrack}|${srcPitchWant}` : "";
-  const srcPitch =
-    srcPitchKey && srcPitchKey === srcPitchReady ? srcPitchWant : 0;
-  useEffect(() => {
-    if (!srcPitchKey || srcPitchKey === srcPitchReady || !result) return;
-    let dead = false;
-    setSrcPitchBusy(true);
-    setSrcPitchErr(null);
-    makePitched(result.id, pitchTrack, srcPitchWant)
-      .then(() => {
-        if (!dead) setSrcPitchReady(srcPitchKey);
-      })
-      .catch((e) => {
-        if (!dead) setSrcPitchErr(`원음을 옮기지 못했습니다: ${(e as Error).message}`);
-      })
-      .finally(() => {
-        if (!dead) setSrcPitchBusy(false);
-      });
-    return () => {
-      dead = true;
-    };
-  }, [srcPitchKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // 음높이 +n = 카포 n프렛. 화면은 악보 조(음원 + keyGap)에서 사람이 준
   // 음높이만큼 내려 적는다 — 카포가 그만큼 소리를 올려 준다.
   const noteShift = keyGap - transpose;
   /**
-   * 지금 소리에 맞춰 치려면 필요한 카포(음수면 그만큼 줄을 내려 조율).
-   * 음높이 손잡이는 이 값을 보이고 고친다 — 원음을 악보 조로 옮기면 0이다.
+   * 음높이 손잡이에 보이는 값 — 지금 화면 코드로 음원과 같이 치려면 필요한
+   * 카포(음수면 그만큼 줄을 내려 조율). 음원은 건드리지 않는다.
+   *
+   * 악보와 음원의 조를 견주어 **저절로 정해진다**: 원키 B♭·악보 G는 +3
+   * (카포 3), 원키 F♯·악보 G는 −1(반음 내려 조율). 사람이 더 옮긴 만큼
+   * (transpose, 곡에 저장되는 값)이 여기에 더해진다.
    */
-  const capoShown = transpose + srcPitch - keyGap;
+  const capoShown = transpose - keyGap;
+  /** 자동 값 — 사람이 옮기지 않았을 때의 음높이. 값을 누르면 이리로 돌아간다 */
+  const pitchAuto = -keyGap;
   const setCapoShown = (v: number) =>
-    setTranspose(Math.max(-11, Math.min(11, v)) - srcPitch + keyGap);
+    setTranspose(Math.max(-11, Math.min(11, v)) + keyGap);
 
   /** 악보에 **적힌** 조. 원키(음원이 찾은 키)와 나란히 보인다 */
   const sourceKey = useMemo(() => {
@@ -869,8 +831,6 @@ export default function Home() {
     // 다른 곡의 되돌리기가 이 곡에 적용되면 안 된다
     setUndo([]);
     setTranspose(setup.transpose);
-    // 원음 높이는 곡마다 자동(악보 조)에서 시작한다
-    setSrcPitchPick(null);
     setRate(setup.rate);
     setLoop(setup.loop);
     setSync(setup.sync);
@@ -1541,7 +1501,6 @@ export default function Home() {
     const out: string[] = [];
     if (capoShown > 0) out.push(`카포 ${capoShown}프렛`);
     else if (capoShown < 0) out.push(`줄 ${-capoShown}반음 내림`);
-    if (srcPitch) out.push(`원음 ${srcPitch > 0 ? "+" : ""}${srcPitch}반음`);
     if (rate !== 1) out.push(`빠르기 ${rate}×`);
     if (loop) out.push("구간 반복");
     if (settings.chordVocab === "basic") out.push("코드 기본");
@@ -1551,7 +1510,7 @@ export default function Home() {
     if (stem === "inst") out.push("반주만");
     if (stem === "vocals") out.push("보컬만");
     return out;
-  }, [capoShown, srcPitch, rate, loop, settings.chordVocab, stem, sync, lyricSync]);
+  }, [capoShown, rate, loop, settings.chordVocab, stem, sync, lyricSync]);
 
   /** 이 곡을 치는 방식. 악보 상자 안내줄 맨 앞에 굵게 적는다 */
   const playStyle = arp > 0 ? `아르페지오 ${arp}` : "스트로크";
@@ -1791,6 +1750,7 @@ export default function Home() {
         /* 음높이 손잡이는 전체보기에서만 — 연습실은 마디(확대) 옆에 따로 있다 */
         pitch={withPitch ? capoShown : undefined}
         onPitch={withPitch ? setCapoShown : undefined}
+        pitchAuto={withPitch ? pitchAuto : undefined}
         musicKey={result.key}
         sourceKey={sourceKey}
         timeSignature={result.time_signature}
@@ -2571,40 +2531,6 @@ export default function Home() {
                       되돌리기 {undo.length}
                     </button>
                   )}
-                  {/* 원음 높이 — 음원을 악보 조로 옮겨 튼다. 가운데 값을 누르면 자동 */}
-                  {health && (
-                    <span
-                      className="flex shrink-0 items-center gap-px text-[11px]"
-                      title={
-                        srcPitchErr ??
-                        "원음 높이 — 빠르기는 그대로 두고 높이만 옮깁니다. 값을 누르면 자동(악보 조)"
-                      }
-                    >
-                      <span className="text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-                        원음
-                      </span>
-                      <button
-                        className="rounded bg-[var(--chip)] px-1 font-bold"
-                        onClick={() => setSrcPitchPick(Math.max(srcPitchWant - 1, -6))}
-                      >
-                        －
-                      </button>
-                      <button
-                        className={`min-w-10 text-center tabular-nums ${srcPitchErr ? "text-red-600" : ""}`}
-                        onClick={() => setSrcPitchPick(null)}
-                      >
-                        {srcPitchBusy
-                          ? "…"
-                          : `${srcPitchWant > 0 ? "+" : ""}${srcPitchWant}${srcPitchPick === null ? " 자동" : ""}`}
-                      </button>
-                      <button
-                        className="rounded bg-[var(--chip)] px-1 font-bold"
-                        onClick={() => setSrcPitchPick(Math.min(srcPitchWant + 1, 6))}
-                      >
-                        ＋
-                      </button>
-                    </span>
-                  )}
                   {/* 연주설정 — 악보를 보며 카포·빠르기를 맞추는 자리다.
                   가사·내 악보에는 맞출 것이 없으니 내지 않는다. */}
                   {(sheetTab === "score" ||
@@ -2887,6 +2813,7 @@ export default function Home() {
                       followAt={0.5}
                       pitch={capoShown}
                       onPitch={setCapoShown}
+                      pitchAuto={pitchAuto}
                       abc={unified?.abc ?? abcEntry.abc}
                       chordNote={unified}
                       perLine={settings.abcPerLine ?? 0}
@@ -2947,6 +2874,7 @@ export default function Home() {
                       <SheetScore
                         pitch={capoShown}
                         onPitch={setCapoShown}
+                        pitchAuto={pitchAuto}
                         audioBpm={result.bpm}
                         onSetBpm={canFix && health ? setBeatBpm : undefined}
                         resultId={result.id}
@@ -3078,6 +3006,7 @@ export default function Home() {
                     <ChordSheet
                       pitch={capoShown}
                       onPitch={setCapoShown}
+                      pitchAuto={pitchAuto}
                       exactLabels={exactLabels}
                       bars={bars}
                       chords={shownChords}
@@ -3327,7 +3256,6 @@ export default function Home() {
                       result={result}
                       onReady={attachPlayback}
                       stem={stem}
-                      audioPitch={srcPitch}
                     />
                   }
                   score={
@@ -3707,17 +3635,7 @@ export default function Home() {
                   }
                   pitch={capoShown}
                   onPitch={setCapoShown}
-                  tone={
-                    health
-                      ? {
-                          value: srcPitchWant,
-                          auto: srcPitchPick === null,
-                          busy: srcPitchBusy,
-                          error: srcPitchErr,
-                          onChange: setSrcPitchPick,
-                        }
-                      : undefined
-                  }
+                  pitchAuto={pitchAuto}
                   rate={rate}
                   onRate={(r) => {
                     setRate(r);
@@ -3799,7 +3717,6 @@ export default function Home() {
                           onReady={attachPlayback}
                           compact={settings.videoCompact}
                           stem={stem}
-                          audioPitch={srcPitch}
                         />
                       </section>
 

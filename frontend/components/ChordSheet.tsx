@@ -42,6 +42,7 @@ interface Props {
   /** 음높이 손잡이(칸 수 오른쪽). 주면 낸다 — 전체보기용 */
   pitch?: number;
   onPitch?: (n: number) => void;
+  pitchAuto?: number;
   /**
    * 한 번에 보여줄 줄 수. 0이면 곡 전체를 늘어놓는다.
    *
@@ -106,6 +107,7 @@ export function ChordSheet({
   onPerRow,
   pitch,
   onPitch,
+  pitchAuto,
   time,
   getTime,
   visibleRows = 0,
@@ -157,6 +159,7 @@ export function ChordSheet({
             barsLabel="자동"
             pitch={pitch}
             onPitch={onPitch}
+            pitchAuto={pitchAuto}
           />
         </div>
       )}

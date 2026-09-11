@@ -76,6 +76,7 @@ interface Props {
   /** 음높이 손잡이(마디 오른쪽). 주면 안내줄에 낸다 — 전체보기용 */
   pitch?: number;
   onPitch?: (n: number) => void;
+  pitchAuto?: number;
   headerRight?: React.ReactNode;
   musicKey: string;
   /** 악보에 적힌 조(원키). 카포로 옮겨 적힌 악보에서 곁들인다 */
@@ -252,6 +253,7 @@ export function TabSheet({
   onShiftBar,
   pitch,
   onPitch,
+  pitchAuto,
   headerRight,
   musicKey,
   sourceKey,
@@ -939,6 +941,7 @@ export function TabSheet({
           onShiftBar={onShiftBar}
           pitch={pitch}
           onPitch={onPitch}
+          pitchAuto={pitchAuto}
         />
       </SongInfoLine>
       {/* 종이 색은 화면을 따른다 — 밤에는 어두운 바탕에 흰 숫자다 */}

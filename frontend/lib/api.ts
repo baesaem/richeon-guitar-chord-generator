@@ -133,18 +133,6 @@ export const makeVocals = (id: string) =>
   fetch(`${apiBase()}/api/audio/${id}/vocals`, { method: "POST" }).then(
     json<{ ready: boolean; cached: boolean }>,
   );
-
-/** 원음 높이를 옮긴 트랙. 빠르기는 그대로, 높이만 semi반음(−6~+6) */
-export type PitchTrack = "full" | "instrumental" | "vocals";
-export const pitchedAudioUrl = (id: string, track: PitchTrack, semi: number) =>
-  `${apiBase()}/api/audio/${id}/pitched?track=${track}&semi=${semi}`;
-
-/** 옮긴 트랙을 서버에 만들어 둔다. 처음 한 번은 곡마다 수십 초 걸린다 */
-export const makePitched = (id: string, track: PitchTrack, semi: number) =>
-  fetch(pitchedAudioUrl(id, track, semi), { method: "POST" }).then(
-    json<{ ready: boolean }>,
-  );
-
 /** 곡 이름 바꾸기. YouTube 제목은 대괄호 범벅이라 다듬게 둔다 */
 export const renameResult = (id: string, title: string) =>
   fetch(`${apiBase()}/api/results/${id}/title`, {

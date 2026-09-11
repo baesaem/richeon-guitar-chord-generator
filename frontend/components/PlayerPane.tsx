@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import YouTube, { type YouTubePlayer } from "react-youtube";
 
-import { apiBase, pitchedAudioUrl } from "@/lib/api";
+import { apiBase } from "@/lib/api";
 import { getLocalAudio } from "@/lib/library";
 import { stemKey, type StemChoice } from "@/lib/sharedFiles";
 import type { AnalysisResult } from "@/lib/types";
@@ -31,23 +31,12 @@ interface Props {
   /** 보컬을 뺀 반주로 듣는다 */
   /** 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만 */
   stem?: StemChoice;
-  /**
-   * 원음 높이(반음). 0이 아니면 서버가 옮겨 둔 트랙을 튼다 — 유튜브 곡은
-   * 영상 소리를 끄고 그 트랙을 영상에 맞춰 튼다(반주 트랙과 같은 길).
-   */
-  audioPitch?: number;
 }
 
 /** 영상 소리와 반주가 이만큼 벌어지면 맞춘다(초). */
 const SYNC_TOLERANCE = 0.3;
 
-export function PlayerPane({
-  result,
-  onReady,
-  compact = false,
-  stem = "off",
-  audioPitch = 0,
-}: Props) {
+export function PlayerPane({ result, onReady, compact = false, stem = "off" }: Props) {
   const ytRef = useRef<YouTubePlayer | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // YouTube 곡에서 영상 대신 소리를 내는 반주 트랙
@@ -63,8 +52,6 @@ export function PlayerPane({
    */
   const wantPlayRef = useRef(false);
   const rateRef = useRef(1);
-  // 업로드 곡에서 트랙을 갈아 끼울 때(원음 높이·반주) 듣던 자리를 잇는다
-  const lastRef = useRef({ t: 0, play: false, src: "" });
 
   const isYouTube = result.source === "youtube";
   /* 유튜브의 겉치레(제목·채널·나중에 볼 것·공유)는 멈춰 있을 때 나온다.
@@ -94,15 +81,8 @@ export function PlayerPane({
   const instUrl =
     localInst ??
     `${apiBase()}/api/audio/${result.id}/${stem === "vocals" ? "vocals" : "instrumental"}`;
-  // 원음 높이를 옮겼으면 서버가 옮겨 둔 트랙을 쓴다(듣는 트랙 그대로)
-  const pitchTrack =
-    stem === "off" ? "full" : stem === "vocals" ? "vocals" : "instrumental";
-  const pitchedUrl = audioPitch
-    ? pitchedAudioUrl(result.id, pitchTrack, audioPitch)
-    : null;
-  // 영상과 반주(또는 옮긴 원음)를 함께 몰아야 하는 상태
-  const dual = isYouTube && (stem !== "off" || !!pitchedUrl);
-  const instSrc = pitchedUrl ?? instUrl;
+  // 영상과 반주를 함께 몰아야 하는 상태
+  const dual = isYouTube && stem !== "off";
 
   // 마지막으로 YouTube가 알려 준 시각과 그때의 시계. 사이를 이어 붙인다
   const tickRef = useRef({ at: -1, wall: 0 });
@@ -211,7 +191,7 @@ export function PlayerPane({
   }, [result.id, isYouTube]);
 
   // 트랙을 골랐으면 그 트랙을 쓴다(기기에 받아 둔 것 → 서버 순)
-  const audioSrc = pitchedUrl ?? (stem !== "off" ? instUrl : localSrc);
+  const audioSrc = stem !== "off" ? instUrl : localSrc;
 
   // 영상 소리와 반주를 맞춘다. 영상은 화면만 쓰고 소리는 반주가 낸다.
   useEffect(() => {
@@ -313,7 +293,7 @@ export function PlayerPane({
             </button>
           )}
         </div>
-        {dual && <audio ref={instRef} src={instSrc} preload="auto" />}
+        {dual && <audio ref={instRef} src={instUrl} preload="auto" />}
       </>
     );
   }
@@ -324,23 +304,7 @@ export function PlayerPane({
       ref={audioRef}
       className="w-full"
       src={audioSrc}
-      onLoadedMetadata={(e) => {
-        const a = e.currentTarget;
-        const last = lastRef.current;
-        if (last.src && last.src !== audioSrc && last.t > 0) {
-          a.currentTime = last.t;
-          if (last.play) a.play().catch(() => {});
-        }
-        lastRef.current = { ...last, src: audioSrc };
-        publish();
-      }}
-      onTimeUpdate={(e) => {
-        lastRef.current = {
-          t: e.currentTarget.currentTime,
-          play: !e.currentTarget.paused,
-          src: lastRef.current.src,
-        };
-      }}
+      onLoadedMetadata={publish}
       onPlay={() => {
         playingRef.current = true;
         wantPlayRef.current = true;
