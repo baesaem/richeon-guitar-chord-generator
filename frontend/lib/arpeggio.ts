@@ -24,6 +24,8 @@ export interface ArpPattern {
   note?: string;
   /** 유인물 밖에서 가져온 표준 패턴 */
   extra?: boolean;
+  /** 베이스가 6번줄이면 i·m·a를 한 줄씩 내려 4·3·2번줄 — 1번줄을 쓰지 않는다 */
+  lowOnSixth?: boolean;
 }
 
 const one = (fs: string) => fs.split(" ").map((f) => [f]);
@@ -102,8 +104,9 @@ export const ARP_PATTERNS: ArpPattern[] = [
     no: 14, chords: ["G"],
     seq: [["p"], ["i"], ["m"], ["a"], [], [], [], []],
     songs: "가족사진 (김진호)",
-    note: "p·i·m·a 네 번을 8분음표로 뜯고, 3·4박은 줄을 누른 채 길게 울립니다. 빈 칸은 울리는 자리입니다 — 「가족사진」 노래 부분 반주가 이 모양이고, 전주와 1절 뒤 간주에서는 a 다음 3박에 m을 한 번 더 이어 뜯어 다섯 번이 고르게 갑니다.",
+    note: "p·i·m·a 네 번을 8분음표로 뜯고, 3·4박은 줄을 누른 채 길게 울립니다. 빈 칸은 울리는 자리입니다. 베이스가 6번줄인 코드(G·F 등)는 1번줄을 쓰지 않고 6·4·3·2번줄로 뜯습니다 — 「가족사진」은 가사가 있는 마디가 이 모양이고, 가사가 없는 마디는 a 다음 3박에 m을 한 번 더 이어 뜯어 다섯 번이 고르게 갑니다.",
     extra: true,
+    lowOnSixth: true,
   },
   {
     no: 15, chords: ["G"],
@@ -140,13 +143,18 @@ export function suggestArp(
 }
 
 /** 손가락이 뜯는 줄 번호(1~6). 뮤트 줄이면 null — 그 음은 없다. */
-export function arpString(finger: string, v: Voicing): number | null {
+export function arpString(
+  finger: string,
+  v: Voicing,
+  lowOnSixth = false,
+): number | null {
   if (finger === "p") {
     // frets[0]이 6번줄. 소리 나는 가장 낮은 줄이 근음이다
     for (let s = 0; s < 6; s++) if (v.frets[s] >= 0) return 6 - s;
     return null;
   }
-  const map: Record<string, number> = { i: 3, m: 2, a: 1 };
+  const low = lowOnSixth && v.frets[0] >= 0;
+  const map: Record<string, number> = low ? { i: 4, m: 3, a: 2 } : { i: 3, m: 2, a: 1 };
   const str = map[finger];
   if (!str || v.frets[6 - str] < 0) return null;
   return str;

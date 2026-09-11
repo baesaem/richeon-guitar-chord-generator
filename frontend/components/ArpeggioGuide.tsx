@@ -36,7 +36,15 @@ const BASS_RULE = [
  * 여섯 줄(맨 위가 1번줄) 위에 프렛 숫자를 동그라미로 얹는다. 숫자에 배경을
  * 깔지 않고 칩으로 얹는 건 테마(밝게/어둡게)마다 바탕색이 달라서다.
  */
-export function ArpPatternTab({ chords, seq }: { chords: string[]; seq: string[][] }) {
+export function ArpPatternTab({
+  chords,
+  seq,
+  lowOnSixth,
+}: {
+  chords: string[];
+  seq: string[][];
+  lowOnSixth?: boolean;
+}) {
   const two = chords.length === 2;
   const LBL = 18; // 줄 번호 자리
   const COL = 36; // 8분음표 한 칸
@@ -92,7 +100,7 @@ export function ArpPatternTab({ chords, seq }: { chords: string[]; seq: string[]
         <g key={k}>
           {fs.map((f) => {
             const voicing = exampleVoicing(chordAt(k));
-            const str = voicing ? arpString(f, voicing) : null;
+            const str = voicing ? arpString(f, voicing, lowOnSixth) : null;
             if (!voicing || str === null) return null;
             const fret = voicing.frets[6 - str];
             return (
@@ -209,7 +217,7 @@ export function ArpeggioGuide() {
                 </span>
               )}
             </div>
-            <ArpPatternTab chords={p.chords} seq={p.seq} />
+            <ArpPatternTab chords={p.chords} seq={p.seq} lowOnSixth={p.lowOnSixth} />
             {p.note && (
               <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{p.note}</p>
             )}

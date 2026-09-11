@@ -77,7 +77,7 @@ export function ArpPickModal({
               </span>
             )}
           </div>
-          <ArpPatternTab chords={p.chords} seq={p.seq} />
+          <ArpPatternTab chords={p.chords} seq={p.seq} lowOnSixth={p.lowOnSixth} />
           {p.note && (
             <p className="text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">{p.note}</p>
           )}
