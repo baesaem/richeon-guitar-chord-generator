@@ -138,8 +138,13 @@ interface Measure {
  * 뮤즈스코어의 이름은 우리와 다르다. To Coda 자리가 label="coda"이고,
  * 코다 본문이 label="codab"이다. ABC에서는 둘 다 !coda!로 적는다 —
  * 코다 표가 둘이면 앞의 것이 빠져나가는 자리, 뒤의 것이 코다 본문이다.
+ *
+ * 되돌이(D.S.)에 「이어 칠 자리」(continueAt)가 비어 있어도 코다 표가 둘
+ * 이상이면 al Coda로 읽는다. 「우리 사랑 기억 하겠네」 악보는 D.S.를
+ * playUntil=end로만 적어 두고 코다 표 둘을 찍어 두었다 — 끝까지 치면
+ * 85마디, 코다로 건너뛰면 69마디이고 음원은 72마디(전주가 한 마디 김)다.
  */
-function marksToAbc(content: string): string {
+function marksToAbc(content: string, codaJump = false): string {
   let out = "";
   for (const m of content.matchAll(/<Marker>([\s\S]*?)<\/Marker>/g)) {
     const label = (m[1].match(/<label>([^<]*)/) ?? [])[1]?.trim();
@@ -151,12 +156,17 @@ function marksToAbc(content: string): string {
     const to = (j[1].match(/<jumpTo>([^<]*)/) ?? [])[1]?.trim() ?? "";
     const cont = (j[1].match(/<continueAt>([^<]*)/) ?? [])[1]?.trim() ?? "";
     const ds = to === "segno" ? "D.S." : "D.C.";
-    out += cont ? `!${ds}alcoda!` : `!${ds}alfine!`;
+    out += cont || codaJump ? `!${ds}alcoda!` : `!${ds}alfine!`;
   }
   return out;
 }
 
 function parseStaff(body: string): Measure[] {
+  // 코다 표가 둘 이상이면 되돌이는 코다로 건너뛰는 것이다(marksToAbc 참고)
+  const codaJump = (body.match(/<label>codab?<\/label>/g) ?? []).length >= 2;
+  // 앞의 코다 표가 마디 머리(codab)에 찍혔는가 — 아래에서 쓴다
+  const firstCodaAtStart =
+    codaJump && (body.match(/<label>(codab?)<\/label>/) ?? [])[1] === "codab";
   const measures: Measure[] = [];
   for (const mm of body.matchAll(/<Measure([^>]*)>([\s\S]*?)<\/Measure>/g)) {
     const content = mm[2];
@@ -241,8 +251,21 @@ function parseStaff(body: string): Measure[] {
       startRepeat: /<startRepeat/.test(content),
       endRepeat: /<endRepeat/.test(content),
       volta: (content.match(/<Volta[\s\S]*?<endings>(\d+)/) ?? [])[1] ?? null,
-      marks: marksToAbc(content),
+      marks: marksToAbc(content, codaJump),
     });
+  }
+  /*
+   * 코다 표가 둘 다 마디 머리(codab)에 찍힌 악보는, 앞의 것이 「그 마디에
+   * 들어가기 전에」 코다로 건너뛰는 자리다. ABC의 !coda!는 「이 마디를
+   * 치고 건너뛴다」로 읽히므로 바로 앞 마디로 옮겨 적는다. 「우리 사랑
+   * 기억 하겠네」는 29마디 머리의 ⊕에서 뛰어야 음원(가사 자리)과 맞았다.
+   */
+  if (firstCodaAtStart) {
+    const at = measures.findIndex((m) => m.marks.includes("!coda!"));
+    if (at > 0) {
+      measures[at].marks = measures[at].marks.replace("!coda!", "");
+      measures[at - 1].marks += "!coda!";
+    }
   }
   return measures;
 }
