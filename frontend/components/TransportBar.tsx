@@ -330,8 +330,9 @@ export function PlaySettings(props: Omit<Props, "playing" | "onSeek" | "onToggle
           </div>
 
           <div className="mb-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">카포 위치</div>
-          <div className="mb-2 grid grid-cols-4 gap-1">
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((fret) => (
+          {/* 카포는 음높이 폭의 끝(12프렛)까지 — 한 줄에 7개씩 두 줄 */}
+          <div className="mb-2 grid grid-cols-7 gap-1">
+            {Array.from({ length: HIGH + 1 }, (_, fret) => fret).map((fret) => (
               <button
                 key={fret}
                 className={pill(capo === fret && (fret === 0 ? transpose === 0 : true))}
