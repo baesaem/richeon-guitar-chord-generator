@@ -187,7 +187,9 @@ function parseStaff(body: string): Measure[] {
       const tag = e[1];
       const inner = e[2];
       if (tag === "KeySig") {
-        keysig = +(inner.match(/<accidental>(-?\d+)/) ?? [0, 0])[1];
+        // 뮤즈스코어 3은 <accidental>, 4는 <concertKey>에 조표(♯ 수)를 적는다 —
+        // 4 악보(「가족사진」 사장조)가 다장조로 읽혔다
+        keysig = +(inner.match(/<(?:accidental|concertKey)>(-?\d+)/) ?? [0, 0])[1];
       } else if (tag === "Harmony") {
         pendingHarmony = {
           root: (inner.match(/<root>(-?\d+)/) ?? [])[1],
@@ -404,7 +406,9 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
   const bpm = tempoM ? Math.round(+tempoM[1] * 60) : 0;
   const sigN = (xml.match(/<sigN>(\d+)/) ?? [0, 4])[1];
   const sigD = (xml.match(/<sigD>(\d+)/) ?? [0, 4])[1];
-  const firstKey = +((xml.match(/<KeySig>[\s\S]*?<accidental>(-?\d+)/) ?? [0, 0])[1]);
+  const firstKey = +(
+    (xml.match(/<KeySig>[\s\S]*?<(?:accidental|concertKey)>(-?\d+)/) ?? [0, 0])[1]
+  );
 
   const staff1 = parseStaff(staffBlocks[staff][2]);
   // 타브 보표면 적는 음높이를 한 옥타브 올린다(윗글 참고)
