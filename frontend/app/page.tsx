@@ -235,6 +235,18 @@ export default function Home() {
   const [roomView, setRoomView] = useState<"abc" | "tab" | "wave" | "grid">(
     "abc",
   );
+  /**
+   * 전체보기를 연다 — 연습실에서 지금 보던 화면으로(강사님).
+   *
+   * 타브를 치다가 전체보기를 누르면 타브가, 멜로디를 보다가 누르면 멜로디가
+   * 펴져야 한다. 마지막에 본 탭이 남아 있으면 딴 악보가 열려 도로 골라야
+   * 했다. 파형은 전체보기에 없으니 코드를 보는 그리드로 연다.
+   */
+  const openFullView = () => {
+    setEditMode(false);
+    setSheetTab(roomView === "abc" ? "melody" : roomView === "tab" ? "score" : "grid");
+    setShowSheet(true);
+  };
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   // 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만
   const [stem, setStem] = useState<StemChoice>("off");
@@ -3691,10 +3703,7 @@ export default function Home() {
                             }
                           : undefined
                   }
-                  onFullView={() => {
-                    setEditMode(false);
-                    setShowSheet(true);
-                  }}
+                  onFullView={openFullView}
                   videoCompact={settings.videoCompact}
                   onVideoCompact={(v) =>
                     setSettings({ ...settings, videoCompact: v })
@@ -3975,10 +3984,7 @@ export default function Home() {
                                 right={
                                   <button
                                     className="flex shrink-0 items-center gap-1 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] roomy:px-3 roomy:py-1.5 roomy:text-[15px]"
-                                    onClick={() => {
-                                      setEditMode(false);
-                                      setShowSheet(true);
-                                    }}
+                                    onClick={openFullView}
                                   >
                                     <svg
                                       viewBox="0 0 24 24"

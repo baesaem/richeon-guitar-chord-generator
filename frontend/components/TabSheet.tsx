@@ -261,9 +261,9 @@ function offsets(units: number[]): number[] {
  * 높이 — 화살표는 그 위, 코드 이름 아래에 선다(줄 아래는 가사 자리).
  */
 function strokeArrow(key: string, x: number, y0: number, down: boolean, accent: boolean) {
-  // 1번줄에서 띄운다 — 닿으면 아래 화살표의 머리가 줄과 섞여 막대로 보였다
-  const top = y0 - 20;
-  const bottom = y0 - 5;
+  // 1번줄에서 넉넉히 띄운다 — 붙어 있으면 아래 화살표의 머리가 줄과 섞였다
+  const top = y0 - 25;
+  const bottom = y0 - 10;
   const w = accent ? 3.2 : 2.4;
   // 머리가 작으면 아래 화살표가 막대로 보인다 — 칸 폭(16분 약 14px)에 맞춰 넉넉히
   const head = accent ? 5.4 : 4.6;
@@ -627,8 +627,8 @@ export function TabSheet({
           <text
             key={`sc${j}.${i}`}
             x={p.x + ((i + 0.5) * p.w) / picNames.length}
-            // 스트록 화살표 위로 — 화살표가 1번줄 위 20px까지 선다
-            y={y0 - 24}
+            // 스트록 화살표 위로 — 화살표가 1번줄 위 25px까지 선다
+            y={y0 - 29}
             fontSize={13}
             fontWeight={700}
             textAnchor="middle"
@@ -683,7 +683,7 @@ export function TabSheet({
             key={`c${j}.${k}`}
             x={x}
             /* 스트록 화살표가 서는 칸은 코드 이름을 그 위로 올린다 */
-            y={col.stroke ? y0 - 24 : y0 - 20}
+            y={col.stroke ? y0 - 29 : y0 - 20}
             fontSize={13}
             fontWeight={700}
             textAnchor="middle"
