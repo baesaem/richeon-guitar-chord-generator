@@ -253,6 +253,39 @@ function offsets(units: number[]): number[] {
   return out;
 }
 
+/**
+ * 스트록 화살표(↓ 아래·↑ 위).
+ *
+ * 글자 화살표는 작고 가늘어 잘 안 보였다(강사님) — 선과 삼각형으로 길고
+ * 굵게 그린다. 세게 긋는 칸(강세)은 더 굵게, 강조색으로. y0은 1번줄의
+ * 높이 — 화살표는 그 위, 코드 이름 아래에 선다(줄 아래는 가사 자리).
+ */
+function strokeArrow(key: string, x: number, y0: number, down: boolean, accent: boolean) {
+  // 1번줄에서 띄운다 — 닿으면 아래 화살표의 머리가 줄과 섞여 막대로 보였다
+  const top = y0 - 20;
+  const bottom = y0 - 5;
+  const w = accent ? 3.2 : 2.4;
+  // 머리가 작으면 아래 화살표가 막대로 보인다 — 칸 폭(16분 약 14px)에 맞춰 넉넉히
+  const head = accent ? 5.4 : 4.6;
+  const color = accent ? "var(--accent)" : "var(--tab-ink)";
+  const tip = down ? bottom : top;
+  const base = down ? bottom - head * 1.4 : top + head * 1.4;
+  return (
+    <g key={key}>
+      <line
+        x1={x}
+        x2={x}
+        y1={down ? top : base}
+        y2={down ? base : bottom}
+        stroke={color}
+        strokeWidth={w}
+        strokeLinecap="round"
+      />
+      <polygon points={`${x - head},${base} ${x + head},${base} ${x},${tip}`} fill={color} />
+    </g>
+  );
+}
+
 export function TabSheet({
   score,
   bars,
@@ -594,7 +627,8 @@ export function TabSheet({
           <text
             key={`sc${j}.${i}`}
             x={p.x + ((i + 0.5) * p.w) / picNames.length}
-            y={y0 - 20}
+            // 스트록 화살표 위로 — 화살표가 1번줄 위 20px까지 선다
+            y={y0 - 24}
             fontSize={13}
             fontWeight={700}
             textAnchor="middle"
@@ -629,20 +663,8 @@ export function TabSheet({
             strokeWidth={hit ? 2.4 : 1.4}
           />,
         );
-        // 손 방향은 줄 위에 — 아래는 가사 자리다
-        marks.push(
-          <text
-            key={`sd${j}.${i}`}
-            x={x}
-            y={y0 - 5}
-            fontSize={11}
-            fontWeight={hit ? 700 : 400}
-            textAnchor="middle"
-            fill="var(--tab-dim)"
-          >
-            {c === "D" ? "↓" : "↑"}
-          </text>,
-        );
+        // 손 방향은 줄 위에 — 아래는 가사 자리다. 타브 스트록 칸과 같은 화살표
+        marks.push(strokeArrow(`sd${j}.${i}`, x, y0, c === "D", hit));
       });
     }
 
@@ -660,7 +682,8 @@ export function TabSheet({
           <text
             key={`c${j}.${k}`}
             x={x}
-            y={y0 - 20}
+            /* 스트록 화살표가 서는 칸은 코드 이름을 그 위로 올린다 */
+            y={col.stroke ? y0 - 24 : y0 - 20}
             fontSize={13}
             fontWeight={700}
             textAnchor="middle"
@@ -669,6 +692,11 @@ export function TabSheet({
             {chordLabelSvg(shiftChordLabel(chord, chordShift, flats))}
           </text>,
         );
+      /* 스트록 칸: 손 방향(↓ 아래·↑ 위)을 줄 위에 적는다 — 줄 아래는 가사
+         자리다. 숫자만 쌓여 있으면 아래로 긋는지 위로 긋는지 알 수 없다.
+         세게 긋는 칸은 > 기호 대신 크고 굵은 강조색 화살표로(강사님) */
+      if (col.stroke)
+        marks.push(strokeArrow(`st${j}.${k}`, x, y0, col.stroke === "D", !!col.accent));
       for (const f of col.frets) {
         const y = y0 + f.string * GAP;
         ink.push(

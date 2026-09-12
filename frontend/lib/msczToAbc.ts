@@ -503,6 +503,13 @@ export interface TabCol {
   frets: { string: number; fret: number }[];
   /** 이 자리에 붙은 코드 이름. 없으면 빈 값 */
   chord?: string;
+  /**
+   * 스트록 방향(D = 아래로, U = 위로). 코드 전체를 긋는 칸에만 적는다 —
+   * 숫자만으로는 아래로 긋는지 위로 긋는지 알 수 없다(강사님).
+   */
+  stroke?: "D" | "U";
+  /** 세게 긋는 칸(강세 >) */
+  accent?: boolean;
 }
 
 export interface TabBar {
