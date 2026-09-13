@@ -113,7 +113,7 @@ import { findNewSongs, markSongsSeen, type NewSongs } from "@/lib/songAlert";
 import { DEFAULT_SETUP, clampPitch, hasSetup, loadSetup, saveSetup } from "@/lib/perSong";
 import { addRecent, listRecent } from "@/lib/recent";
 import { patchSettings, useSettings } from "@/lib/settings";
-import { useBigScreen, useWideScreen } from "@/lib/useMedia";
+import { useBigScreen, useMediaQuery, useWideScreen } from "@/lib/useMedia";
 import { PATTERNS, suggestStrum } from "@/lib/strumLibrary";
 import { tidyChords } from "@/lib/tidy";
 import {
@@ -2253,6 +2253,56 @@ export default function Home() {
     const t = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  /**
+   * 눕힌 폰(낮은 가로 화면)의 연습실은 최대 화면으로(강사님).
+   *
+   * 브라우저는 누르지 않은 채 전체화면이 되는 것을 막는다 — 그래서 가로로
+   * 눕힌 뒤 **처음 누르는 순간**(재생이든 무엇이든) 주소창까지 걷는다.
+   * 세로로 세우면 스스로 켰던 것만 푼다. 사람이 뒤로 가기로 풀었으면 다시
+   * 세웠다 눕힐 때까지 켜지 않는다. 아이폰 사파리는 전체화면이 없어 그대로다.
+   */
+  const shortLandscape = useMediaQuery("(orientation: landscape) and (max-height: 500px)");
+  const inRoom = tab === "player" || showSheet;
+  const autoFsRef = useRef<"idle" | "armed" | "on" | "declined">("idle");
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!root.requestFullscreen) return;
+    if (!(shortLandscape && inRoom)) {
+      /* 우리가 켠 최대 화면만 푼다(TV 화면은 둔다). 푸는 것은 정말 세웠거나
+         연습실을 떠났을 때만 — 큰 폰은 최대 화면이 되며 높이가 500을 넘어
+         「낮은 가로」가 풀리는데, 그때 풀면 켜자마자 꺼진다 */
+      const upright = window.matchMedia("(orientation: portrait)").matches;
+      if (!upright && inRoom && autoFsRef.current === "on") return;
+      if (autoFsRef.current === "on" && document.fullscreenElement && !tvMode)
+        document.exitFullscreen().catch(() => {});
+      autoFsRef.current = "idle";
+      return;
+    }
+    if (document.fullscreenElement || autoFsRef.current !== "idle") return;
+    autoFsRef.current = "armed";
+    // 안내는 한 박자 뒤에 — 이펙트 안에서 곧바로 상태를 바꾸지 않는다
+    Promise.resolve().then(() => setToast("화면을 한 번 누르면 최대 화면으로 바뀝니다"));
+    const go = () => {
+      if (autoFsRef.current !== "armed" || document.fullscreenElement) return;
+      root
+        .requestFullscreen()
+        .then(() => {
+          autoFsRef.current = "on";
+        })
+        .catch(() => {});
+    };
+    document.addEventListener("pointerup", go, true);
+    return () => document.removeEventListener("pointerup", go, true);
+  }, [shortLandscape, inRoom, tvMode]);
+  // 최대 화면을 사람이 풀면(뒤로 가기) 세울 때까지 다시 켜지 않는다
+  useEffect(() => {
+    const onChange = () => {
+      if (!document.fullscreenElement && autoFsRef.current === "on") autoFsRef.current = "declined";
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
   /**
    * 악보 만들기 창과의 대화.
    *
