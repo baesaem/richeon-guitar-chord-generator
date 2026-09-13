@@ -248,14 +248,22 @@ export default function Home() {
     setShowSheet(true);
   };
   /**
-   * TV로 보기 → 「TV 화면으로」. TV에 연결한 뒤 누른다.
+   * TV 화면 — TV에 연결한 뒤 「TV 화면으로」를 누르면 켠다(강사님).
    *
-   * 보던 악보를 전체보기로 펴고 화면을 가득 채운다. 폰 화면이 그대로 TV에
-   * 가므로 가로로 눕히면 TV를 채운다 — 되는 기기(안드로이드 크롬)는 가로로
-   * 돌려 준다. 아이폰 사파리는 전체화면이 없어 펼치기만 한다.
+   * 폰 화면이 그대로 TV에 가므로, 세로 폰 배치면 TV 가운데 좁게만 나온다.
+   * 켜 있는 동안은 **가로 배치**(html.tv — globals.css의 short·md가 켜진다:
+   * 위아래 띠를 걷고 영상 옆에 악보)로 그리고, 화면을 가득 채워 가로로
+   * 돌린다. 아이폰 사파리는 전체화면·가로 고정이 없어 배치만 바꾼다(폰을
+   * 눕힌다).
    */
+  const [tvMode, setTvMode] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("tv", tvMode);
+    return () => root.classList.remove("tv");
+  }, [tvMode]);
   const openTvMode = () => {
-    openFullView();
+    setTvMode(true);
     const root = document.documentElement;
     if (!root.requestFullscreen || document.fullscreenElement) return;
     root
@@ -267,6 +275,16 @@ export default function Home() {
         o.lock?.("landscape").catch(() => {});
       })
       .catch(() => {});
+  };
+  const closeTvMode = () => {
+    setTvMode(false);
+    const o = screen.orientation as ScreenOrientation & { unlock?: () => void };
+    try {
+      o.unlock?.();
+    } catch {
+      // 가로 고정이 없던 기기
+    }
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   };
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   // 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만
@@ -2432,8 +2450,12 @@ export default function Home() {
 
       {/* 본문은 화면 폭을 그대로 쓴다. 폰에서만 너무 넓어지지 않게 모은다 */}
       <div className="mx-auto flex h-full min-w-0 w-full max-w-2xl flex-col sm:max-w-none md:mx-0 md:border-l md:border-[var(--panel-line)] md:">
-        {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바. */}
-        <header className="shrink-0 bg-[var(--bar-bg)]">
+        {/* 어느 탭에 있든 앱 이름은 항상 보인다. 테마 강조색이 물드는 타이틀바.
+            다만 눕힌 폰(낮은 가로 화면)의 연습실·전체보기에서는 걷는다 — 높이가
+            모자라 악보 자리가 없어진다(강사님). 다른 탭은 그대로 둔다 */}
+        <header
+          className={`${tab === "player" || showSheet ? "short:hidden " : ""}shrink-0 bg-[var(--bar-bg)]`}
+        >
           <div className="flex items-center gap-2.5 px-3 py-2 roomy:gap-3 roomy:px-5 roomy:py-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)] roomy:hidden">
               <Image
@@ -3726,6 +3748,8 @@ export default function Home() {
                   }
                   onFullView={openFullView}
                   onTvMode={openTvMode}
+                  tvOn={tvMode}
+                  onTvOff={closeTvMode}
                   videoCompact={settings.videoCompact}
                   onVideoCompact={(v) =>
                     setSettings({ ...settings, videoCompact: v })
@@ -4570,6 +4594,7 @@ export default function Home() {
           tab={showSheet ? "player" : tab}
           onChange={goTab}
           adminMode={settings.adminMode}
+          hideWhenShort={tab === "player" || showSheet}
         />
       </div>
     </div>

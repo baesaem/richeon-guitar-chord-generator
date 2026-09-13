@@ -15,6 +15,20 @@
    좁아 어느 쪽도 보이지 않는다. 가로로 눕혔을 때만 넓은 화면이다. */
 @custom-variant roomy (@media (min-width: 768px) and (min-height: 600px) and (orientation: landscape));
 
+/* 낮은 가로 화면 — 폰을 눕혔을 때(높이 500 이하), 그리고 TV 화면(html.tv).
+   세로로 쌓으면 앱 이름·곡 줄·영상·단추·아래 메뉴만으로 높이가 다 차서 악보
+   자리가 없었다(강사님 사진). 연습실은 위아래 띠를 걷고(short:hidden) 두
+   기둥(md)으로 영상 옆에 악보를 둔다. 사이드바(roomy)는 켜지 않는다 —
+   낮은 화면에서 폭까지 뺏는다. */
+@custom-variant short {
+  @media (orientation: landscape) and (max-height: 500px) {
+    @slot;
+  }
+  &:where(.tv, .tv *) {
+    @slot;
+  }
+}
+
 /* 큰 기기인가 — 세워 둔 태블릿까지 넣는다.
    배치는 한 기둥이어도(세운 태블릿) 코드 그림과 이름은 크게 보여야
    한다. 폰을 눕힌 화면(844×390)은 높이가 모자라 여기 들지 않는다. */
@@ -22,7 +36,18 @@
 
 /* md도 같은 뜻으로 쓴다 — 두 기둥 배치가 모두 md:로 적혀 있어,
    여기서 함께 고쳐야 세운 태블릿이 한 기둥으로 선다 */
-@custom-variant md (@media (min-width: 768px) and (min-height: 600px) and (orientation: landscape));
+@custom-variant md {
+  @media (min-width: 768px) and (min-height: 600px) and (orientation: landscape) {
+    @slot;
+  }
+  /* 눕힌 폰·TV 화면도 두 기둥으로 — 위의 short와 같은 조건 */
+  @media (orientation: landscape) and (max-height: 500px) {
+    @slot;
+  }
+  &:where(.tv, .tv *) {
+    @slot;
+  }
+}
 
 :root {
   --background: #ffffff;

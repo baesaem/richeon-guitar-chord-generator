@@ -83,7 +83,16 @@ function deviceKind(): Kind {
 
 const DIM = "text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]";
 
-export function TvCast({ onTvMode }: { onTvMode?: () => void }) {
+export function TvCast({
+  onTvMode,
+  tvOn = false,
+  onTvOff,
+}: {
+  onTvMode?: () => void;
+  /** 지금 TV 화면(태블릿 가로 배치, 화면 가득)인가 — 단추가 「끄기」가 된다 */
+  tvOn?: boolean;
+  onTvOff?: () => void;
+}) {
   // 창을 열 때 기기를 알아본다 — 그리기 전(정적 내보내기)에는 navigator가 없다
   const [kind, setKind] = useState<Kind | null>(null);
   const guide = kind ? GUIDES[kind] : null;
@@ -92,11 +101,18 @@ export function TvCast({ onTvMode }: { onTvMode?: () => void }) {
   return (
     <>
       <button
-        onClick={() => setKind(deviceKind())}
-        className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
-        title="같은 와이파이의 TV에 이 화면을 띄웁니다"
+        onClick={() => (tvOn && onTvOff ? onTvOff() : setKind(deviceKind()))}
+        className={[
+          "shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold",
+          tvOn ? "bg-[var(--pick)] text-[var(--pick-ink)]" : "bg-[var(--chip)] text-[var(--foreground)]",
+        ].join(" ")}
+        title={
+          tvOn
+            ? "TV 화면을 끄고 원래 화면으로 돌아갑니다"
+            : "같은 와이파이의 TV에 이 화면을 띄웁니다"
+        }
       >
-        TV로 보기
+        {tvOn ? "TV 화면 끄기" : "TV로 보기"}
       </button>
       {kind && guide && (
         <Popup title="TV로 보기" onClose={() => setKind(null)}>
@@ -123,8 +139,9 @@ export function TvCast({ onTvMode }: { onTvMode?: () => void }) {
             </button>
           )}
           <p className={`mb-3 text-[11px] leading-snug ${DIM}`}>
-            TV에 연결한 뒤 누르세요 — 보던 악보를 크게 펼치고 화면을 가득 채웁니다.
-            {phone ? " 폰을 가로로 돌리면 TV를 가득 채웁니다." : ""}
+            TV에 연결한 뒤 누르세요 — 태블릿 가로 화면(영상·악보 나란히)으로 바꾸고
+            TV를 가득 채웁니다.
+            {phone ? " 폰은 가로로 돌려 두세요." : ""}
           </p>
           <details className="text-[12px]">
             <summary className={`cursor-pointer ${DIM}`}>다른 기기로 연결할 때</summary>

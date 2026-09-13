@@ -151,8 +151,11 @@ interface Props {
    * 가사·내 악보까지 함께 볼 때는 악보만 있는 화면이 낫다.
    */
   onFullView?: () => void;
-  /** TV로 보기 창에서 「TV 화면으로」를 누르면 — 보던 악보를 크게, 화면 가득 */
+  /** TV로 보기 창에서 「TV 화면으로」를 누르면 — 태블릿 가로 배치, 화면 가득 */
   onTvMode?: () => void;
+  /** 지금 TV 화면인가. 켜져 있으면 단추가 「TV 화면 끄기」가 된다 */
+  tvOn?: boolean;
+  onTvOff?: () => void;
   /**
    * 악보 한 줄에 놓는 마디 수 — 「마디(확대)」. 줄이면 그만큼 크게 보인다.
    *
@@ -215,6 +218,8 @@ export function PracticeRoom({
   onSync,
   onFullView,
   onTvMode,
+  tvOn,
+  onTvOff,
   zoom,
   pitchAuto,
   videoCompact,
@@ -411,7 +416,7 @@ export function PracticeRoom({
               )}
               {/* TV로 보기 — 같은 와이파이의 TV에 띄우는 길을 알려 주고, 연결되면
                   보던 악보를 크게 펼친다 */}
-              <TvCast onTvMode={onTvMode} />
+              <TvCast onTvMode={onTvMode} tvOn={tvOn} onTvOff={onTvOff} />
               {/* 한 줄 마디 수. 줄이면 그만큼 크게 보인다 — 폰에서 코드·가사를
                   크게 보려고 쓴다. 숫자는 적힌 대로 움직인다(－를 누르면 줄어듦) */}
               {zoom && (

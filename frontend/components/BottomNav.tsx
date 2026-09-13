@@ -120,10 +120,20 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 /** 화면 맨 아래 탭 막대. 폰에서 엄지로 누르는 자리라 세로 여백을 넉넉히 둔다.
  *  테마 강조색이 활성 탭에 물든다. 넓은 화면에서는 왼쪽 사이드바가
  *  대신하므로 숨는다(md 이상). */
-export function BottomNav({ tab, onChange, adminMode }: Props) {
+export function BottomNav({
+  tab,
+  onChange,
+  adminMode,
+  hideWhenShort = false,
+}: Props & {
+  /** 눕힌 폰(낮은 가로 화면)에서 걷을까 — 연습실은 악보 자리가 먼저다 */
+  hideWhenShort?: boolean;
+}) {
   const items = navItemsFor(adminMode);
   return (
-    <nav className="shrink-0 bg-[var(--bar-bg)] shadow-[0_-4px_16px_rgba(0,0,0,0.07)] roomy:hidden">
+    <nav
+      className={`${hideWhenShort ? "short:hidden " : ""}shrink-0 bg-[var(--bar-bg)] shadow-[0_-4px_16px_rgba(0,0,0,0.07)] roomy:hidden`}
+    >
       {/* 강조색 헤어라인 */}
       <div className="h-px bg-gradient-to-r from-transparent via-[color-mix(in_srgb,var(--accent)_45%,transparent)] to-transparent" />
       <div className="flex">
