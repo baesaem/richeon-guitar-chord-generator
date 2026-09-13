@@ -70,17 +70,34 @@ const GUIDES: Record<Kind, Guide> = {
 };
 
 /**
- * LG TV에 연결할 때 막히는 곳(강사님).
+ * TV 회사별로 연결할 때 막히는 곳(강사님).
  *
- * LG TV는 구글 캐스트를 받지 못해 폰·PC의 화면 미러링으로만 붙는다 —
- * 안드로이드는 Smart View(미라캐스트), 아이폰은 AirPlay, 윈도우는 ⊞ + K.
+ * 삼성·LG TV는 대부분 구글 캐스트를 받지 못해 폰·PC의 화면 미러링으로만
+ * 붙는다 — 안드로이드는 Smart View(미라캐스트), 아이폰은 AirPlay, 윈도우는
+ * ⊞ + K. TV 메뉴 이름은 연식마다 조금 달라 「비슷한 이름」으로 적는다.
  */
-const LG_TIPS = [
-  "처음 연결하면 TV 화면에 「연결 허용」이 뜹니다 — 리모컨으로 「허용」을 누릅니다",
-  "목록에 TV가 안 보이면 리모컨 홈 버튼 → 「Screen Share」 앱을 먼저 켜 둡니다(오래된 LG TV)",
-  "안드로이드(갤럭시)는 Smart View 목록에 LG TV가 뜹니다. 아이폰·아이패드는 AirPlay가 되는 LG TV(대개 2019년 이후 제품)에 연결됩니다",
-  "LG TV는 크롬캐스트(구글 캐스트)를 받지 못합니다 — PC는 크롬 「탭 전송」 대신 키보드 ⊞(윈도우) + K 로 연결합니다",
-  "폰(PC)과 TV가 같은 와이파이에 있어야 합니다",
+const TV_TIPS: { brand: string; tips: string[] }[] = [
+  {
+    brand: "삼성 TV",
+    tips: [
+      "갤럭시는 빠른 설정 → 「Smart View」 목록에서 삼성 TV를 고릅니다",
+      "처음 연결하면 TV 화면에 「허용」을 묻는 창이 뜹니다 — 리모컨으로 「허용」을 누릅니다",
+      "아이폰·아이패드는 「화면 미러링」으로 연결합니다(AirPlay가 되는 삼성 TV, 대개 2018년 이후 제품). TV에 뜬 숫자를 폰에 넣습니다",
+      "목록에 TV가 안 보이면 TV 설정의 「외부 기기 관리자 → 기기 연결 관리자」에서 이 폰이 막혀 있지 않은지, 아이폰이면 「Apple AirPlay 설정」이 켜져 있는지 봅니다(메뉴 이름은 TV 연식마다 조금 다릅니다)",
+      "PC는 키보드 ⊞(윈도우) + K 로 연결합니다 — 삼성 TV는 대부분 크롬캐스트(구글 캐스트)를 받지 못합니다",
+      "폰(PC)과 TV가 같은 와이파이에 있어야 합니다",
+    ],
+  },
+  {
+    brand: "LG TV",
+    tips: [
+      "처음 연결하면 TV 화면에 「연결 허용」이 뜹니다 — 리모컨으로 「허용」을 누릅니다",
+      "목록에 TV가 안 보이면 리모컨 홈 버튼 → 「Screen Share」 앱을 먼저 켜 둡니다(오래된 LG TV)",
+      "안드로이드(갤럭시)는 Smart View 목록에 LG TV가 뜹니다. 아이폰·아이패드는 AirPlay가 되는 LG TV(대개 2019년 이후 제품)에 연결됩니다",
+      "LG TV는 크롬캐스트(구글 캐스트)를 받지 못합니다 — PC는 크롬 「탭 전송」 대신 키보드 ⊞(윈도우) + K 로 연결합니다",
+      "폰(PC)과 TV가 같은 와이파이에 있어야 합니다",
+    ],
+  },
 ];
 
 /** 누른 기기가 무엇인가. 아이패드는 맥처럼 자신을 밝히므로 터치로 가린다 */
@@ -141,18 +158,22 @@ export function TvCast({
             ))}
           </ol>
           <p className={`mb-3 text-[11px] ${DIM}`}>연결되는 TV: {guide.tv}</p>
-          {/* LG TV 도움말 — 교실 TV가 LG일 때 막히는 곳. 펼쳐 둔 채로 연다 */}
-          <details
-            open
-            className="mb-3 rounded-lg border border-[var(--panel-line)] bg-[var(--panel)] px-2.5 py-1.5 text-[12px]"
-          >
-            <summary className="cursor-pointer font-semibold">LG TV에 연결할 때</summary>
-            <ul className="mt-1 list-disc space-y-1 pl-4 leading-snug">
-              {LG_TIPS.map((t) => (
-                <li key={t}>{t}</li>
-              ))}
-            </ul>
-          </details>
+          {/* TV 회사별 도움말 — 삼성·LG. 창이 길어지지 않게 접어 두고, 누르면 편다 */}
+          <div className="mb-3 space-y-1.5">
+            {TV_TIPS.map(({ brand, tips }) => (
+              <details
+                key={brand}
+                className="rounded-lg border border-[var(--panel-line)] bg-[var(--panel)] px-2.5 py-1.5 text-[12px]"
+              >
+                <summary className="cursor-pointer font-semibold">{brand}에 연결할 때</summary>
+                <ul className="mt-1 list-disc space-y-1 pl-4 leading-snug">
+                  {tips.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </div>
           {onTvMode && (
             <button
               className="mb-1 w-full rounded bg-[var(--pick)] py-2.5 text-sm font-semibold text-[var(--pick-ink)]"
