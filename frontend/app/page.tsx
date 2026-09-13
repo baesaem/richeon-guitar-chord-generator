@@ -247,6 +247,27 @@ export default function Home() {
     setSheetTab(roomView === "abc" ? "melody" : roomView === "tab" ? "score" : "grid");
     setShowSheet(true);
   };
+  /**
+   * TV로 보기 → 「TV 화면으로」. TV에 연결한 뒤 누른다.
+   *
+   * 보던 악보를 전체보기로 펴고 화면을 가득 채운다. 폰 화면이 그대로 TV에
+   * 가므로 가로로 눕히면 TV를 채운다 — 되는 기기(안드로이드 크롬)는 가로로
+   * 돌려 준다. 아이폰 사파리는 전체화면이 없어 펼치기만 한다.
+   */
+  const openTvMode = () => {
+    openFullView();
+    const root = document.documentElement;
+    if (!root.requestFullscreen || document.fullscreenElement) return;
+    root
+      .requestFullscreen()
+      .then(() => {
+        const o = screen.orientation as ScreenOrientation & {
+          lock?: (to: string) => Promise<void>;
+        };
+        o.lock?.("landscape").catch(() => {});
+      })
+      .catch(() => {});
+  };
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   // 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만
   const [stem, setStem] = useState<StemChoice>("off");
@@ -3704,6 +3725,7 @@ export default function Home() {
                           : undefined
                   }
                   onFullView={openFullView}
+                  onTvMode={openTvMode}
                   videoCompact={settings.videoCompact}
                   onVideoCompact={(v) =>
                     setSettings({ ...settings, videoCompact: v })
