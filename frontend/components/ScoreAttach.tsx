@@ -10,6 +10,7 @@ import {
   fitSheetImage,
   fixBeats,
   moveSheetImage,
+  putResult,
   putSongSetup,
   readSheetImage,
   putSheetImage,
@@ -155,6 +156,8 @@ export function ScoreAttach({
     setBusy(true);
     setError(null);
     try {
+      // 기기에만 있는 곡은 서버가 모른다 — 기기 사본을 먼저 보낸다
+      await putResult(result);
       onResult(await fixBeats(result.id, mode));
     } catch (e) {
       setError(e instanceof Error ? e.message : "고치지 못했습니다");

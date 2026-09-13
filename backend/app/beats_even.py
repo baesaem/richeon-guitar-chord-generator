@@ -160,6 +160,11 @@ def at_bpm(
 
     첫 박은 그대로 두고(소리가 나기 시작하는 자리다) 거기서부터 고르게
     깐다. 곡이 끝날 때까지 채운다.
+
+    **첫 박이 마디의 몇째 박이었는지도 그대로 둔다.** 못갖춘마디로
+    시작하는 곡(「회상」은 넷째 박, 「밤이 깊었네」는 셋째 박)을 첫 박부터
+    넷씩 새로 세면 마디선이 한두 박 비껴나, 악보 커서와 코드가 통째로
+    밀렸다. 빠르기만 바꾸고 마디의 자리는 건드리지 않는다.
     """
     times = [float(b["t"]) for b in beats]
     if len(times) < 2 or not 20 < bpm < 400:
@@ -168,7 +173,14 @@ def at_bpm(
     last = end if end and end > t0 else times[-1]
     unit = 60.0 / bpm
     n = max(per_bar * 2, int(round((last - t0) / unit)) + 1)
-    return _renumber([t0 + unit * i for i in range(n)], beats, per_bar)
+    laid = _renumber([t0 + unit * i for i in range(n)], beats, per_bar)
+    try:
+        beat1 = int(beats[0].get("beat") or 1)
+    except (TypeError, ValueError):
+        beat1 = 1
+    # 첫 마디 첫 박까지 앞에 놓인 박 수(넷째 박으로 시작하면 1)
+    lead = (per_bar - beat1 + 1) % per_bar if 1 <= beat1 <= per_bar else 0
+    return rephase(laid, lead, per_bar) if lead else laid
 
 
 def fit(

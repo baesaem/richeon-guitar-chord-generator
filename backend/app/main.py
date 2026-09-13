@@ -1181,7 +1181,13 @@ async def fix_beats(result_id: str, body: dict) -> AnalysisResult:
             bpm = 0.0
         if not 20 < bpm < 400:
             raise HTTPException(400, "빠르기를 20~400 사이로 적어 주세요")
-        rows = beats_even.at_bpm(rows, bpm, end=beats_even.last_sound(result_id))
+        try:
+            per_bar = int(str(result.time_signature or "4/4").split("/")[0]) or 4
+        except ValueError:
+            per_bar = 4
+        rows = beats_even.at_bpm(
+            rows, bpm, per_bar, end=beats_even.last_sound(result_id)
+        )
     elif mode == "fit":
         # 악보의 펼친 마디 수에 맞춰 고르게 다시 깐다. 정수 배율로 돌아오지
         # 않는 그릇된 박(실제의 2.26배 따위)은 이 길밖에 없다.

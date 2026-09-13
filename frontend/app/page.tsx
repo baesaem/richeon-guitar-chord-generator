@@ -734,20 +734,36 @@ export default function Home() {
   const fitBarsToScore = async (n: number) => {
     if (!result) return;
     try {
+      await putResult(result);
       adoptResult(await fixBeats(result.id, "fit", n));
       setToast(`악보 ${n}마디에 맞춰 박을 고르게 다시 깔았습니다`);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      setToast(`마디를 맞추지 못했습니다 — ${msg}`);
     }
   };
   /** 빠르기를 손으로 정해 박을 다시 깐다 */
   const setBeatBpm = async (bpm: number) => {
-    if (!result || !(bpm > 20 && bpm < 400)) return;
+    if (!result) return;
+    if (!(bpm > 20 && bpm < 400)) {
+      setToast("빠르기를 20~400 사이로 적어 주세요");
+      return;
+    }
     try {
+      /* 박은 서버가 다시 깐다. 그런데 기기에만 있는 곡(「하얀 나비」)은
+         서버가 「분석 결과가 없습니다」만 돌려주었고, 그 안내는 홈에만
+         떠서 연습실에서는 아무리 눌러도 아무 일이 없는 것처럼 보였다.
+         기기 사본이 원본이니 먼저 통째로 보내, 서버가 같은 곡을 들고
+         고치게 한다 — 서버에 있던 곡도 기기에서 고친 것을 잃지 않는다 */
+      await putResult(result);
       adoptResult(await fixBeats(result.id, "bpm", undefined, bpm));
-      setToast(`♩=${Math.round(bpm)}로 박을 다시 깔았습니다`);
+      setToast(`♩=${Math.round(bpm * 10) / 10}로 박을 다시 깔았습니다`);
     } catch (e) {
-      setError((e as Error).message);
+      // 연습실에서도 보이게 알림으로 띄운다(오류 칸은 홈에만 있다)
+      const msg = (e as Error).message;
+      setError(msg);
+      setToast(`빠르기를 맞추지 못했습니다 — ${msg}`);
     }
   };
 
