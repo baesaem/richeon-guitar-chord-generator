@@ -30,7 +30,7 @@ const GUIDES: Record<Kind, Guide> = {
       "「Smart View」(삼성) 또는 「화면 전송」을 누릅니다",
       "목록에서 TV를 고르고 「지금 시작」을 누릅니다",
     ],
-    tv: "삼성 TV, 크롬캐스트·구글 TV, 화면 미러링이 되는 TV",
+    tv: "삼성·LG TV(Smart View 목록에 뜹니다), 크롬캐스트·구글 TV",
   },
   ios: {
     name: "아이폰·아이패드",
@@ -48,7 +48,7 @@ const GUIDES: Record<Kind, Guide> = {
       "「소스」에서 「탭 전송」을 고르고 TV를 누릅니다",
       "TV가 목록에 없으면 키보드 ⊞(윈도우) + K 로 무선 디스플레이에 연결합니다",
     ],
-    tv: "크롬캐스트·구글 TV, 미라캐스트(무선 디스플레이)가 되는 TV",
+    tv: "LG·삼성 TV(⊞ + K 무선 디스플레이), 크롬캐스트·구글 TV(탭 전송)",
   },
   mac: {
     name: "맥",
@@ -68,6 +68,20 @@ const GUIDES: Record<Kind, Guide> = {
     tv: "화면 미러링을 받는 TV",
   },
 };
+
+/**
+ * LG TV에 연결할 때 막히는 곳(강사님).
+ *
+ * LG TV는 구글 캐스트를 받지 못해 폰·PC의 화면 미러링으로만 붙는다 —
+ * 안드로이드는 Smart View(미라캐스트), 아이폰은 AirPlay, 윈도우는 ⊞ + K.
+ */
+const LG_TIPS = [
+  "처음 연결하면 TV 화면에 「연결 허용」이 뜹니다 — 리모컨으로 「허용」을 누릅니다",
+  "목록에 TV가 안 보이면 리모컨 홈 버튼 → 「Screen Share」 앱을 먼저 켜 둡니다(오래된 LG TV)",
+  "안드로이드(갤럭시)는 Smart View 목록에 LG TV가 뜹니다. 아이폰·아이패드는 AirPlay가 되는 LG TV(대개 2019년 이후 제품)에 연결됩니다",
+  "LG TV는 크롬캐스트(구글 캐스트)를 받지 못합니다 — PC는 크롬 「탭 전송」 대신 키보드 ⊞(윈도우) + K 로 연결합니다",
+  "폰(PC)과 TV가 같은 와이파이에 있어야 합니다",
+];
 
 /** 누른 기기가 무엇인가. 아이패드는 맥처럼 자신을 밝히므로 터치로 가린다 */
 function deviceKind(): Kind {
@@ -127,6 +141,18 @@ export function TvCast({
             ))}
           </ol>
           <p className={`mb-3 text-[11px] ${DIM}`}>연결되는 TV: {guide.tv}</p>
+          {/* LG TV 도움말 — 교실 TV가 LG일 때 막히는 곳. 펼쳐 둔 채로 연다 */}
+          <details
+            open
+            className="mb-3 rounded-lg border border-[var(--panel-line)] bg-[var(--panel)] px-2.5 py-1.5 text-[12px]"
+          >
+            <summary className="cursor-pointer font-semibold">LG TV에 연결할 때</summary>
+            <ul className="mt-1 list-disc space-y-1 pl-4 leading-snug">
+              {LG_TIPS.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </details>
           {onTvMode && (
             <button
               className="mb-1 w-full rounded bg-[var(--pick)] py-2.5 text-sm font-semibold text-[var(--pick-ink)]"
