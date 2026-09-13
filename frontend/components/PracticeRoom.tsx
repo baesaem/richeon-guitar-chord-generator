@@ -389,8 +389,10 @@ export function PracticeRoom({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 short:gap-x-2 short:gap-y-1">
               {/* 무엇을 볼지가 먼저다 — 화면을 고른 다음 소리를 고른다 */}
               {viewTabs}
-              {/* 이름표 없이 단추만 — 「원곡·보컬·반주」가 곧 무엇인지 말한다 */}
-              <span className="flex shrink-0 items-center gap-1 text-[11px]">
+              {/* 이름표 없이 단추만 — 「원곡·보컬·반주」가 곧 무엇인지 말한다.
+                  가로 화면(TV 포함)에서는 감춘다 — 연주설정의 「음원 분리」에서
+                  고른다(강사님) */}
+              <span className="flex shrink-0 items-center gap-1 text-[11px] short:hidden">
                 {srcBtn("off", "원곡", "영상의 원래 소리")}
                 {srcBtn("vocals", "보컬", "노래만 — 반주를 지운 트랙")}
                 {srcBtn(
