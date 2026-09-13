@@ -204,6 +204,13 @@ interface Props {
   songId?: string;
   /** 목록에서 고른 곡을 연다 */
   onPickSong?: (id: string) => void;
+  /**
+   * 노래방(강사님) — 켜면 곡 줄을 맨 위에, 영상을 그 아래 가득, 맨 아래 검은
+   * 띠에 가사·코드(karaoke)를 둔다. 같은 재생기를 옮겨 놓을 뿐이다.
+   */
+  karaokeOn?: boolean;
+  onKaraoke?: (on: boolean) => void;
+  karaoke?: React.ReactNode;
 }
 
 export function PracticeRoom({
@@ -241,6 +248,9 @@ export function PracticeRoom({
   songs,
   songId,
   onPickSong,
+  karaokeOn = false,
+  onKaraoke,
+  karaoke,
 }: Props) {
   /** 「다른 음원」 창이 열려 있는가 */
   const [picking, setPicking] = useState(false);
@@ -313,8 +323,15 @@ export function PracticeRoom({
           </ul>
         </Popup>
       )}
-      {/* 곡 이름 줄 — 목록으로 돌아가기, 곡 옮기기, 연주설정 */}
-      <div className="flex shrink-0 items-center gap-2 px-1">
+      {/* 곡 이름 줄 — 목록으로 돌아가기, 곡 옮기기, 연주설정.
+          노래방에서는 화면 맨 위에 붙인다(강사님) — 곡을 넘기고 고르는 줄이 같다 */}
+      <div
+        className={
+          karaokeOn
+            ? "fixed inset-x-0 top-0 z-40 flex h-11 items-center gap-2 bg-black px-2 text-white"
+            : "flex shrink-0 items-center gap-2 px-1"
+        }
+      >
         {/* 홈 단추는 두지 않는다 — 아래 메뉴의 홈이 늘 그 자리에 있고,
             폰의 뒤로 가기로도 나간다. 좁은 제목줄은 곡 이름 몫이다. */}
         {/* 이전·다음 곡 — 목록 순서대로 옮겨 다닌다 */}
@@ -351,7 +368,30 @@ export function PracticeRoom({
         {/* 연주설정 — 설정줄이 아니라 이 자리다. 곡 이름 옆이라
             어느 화면을 보든 같은 자리에서 열린다 */}
         {playSettings}
+        {/* 노래방: 원음·반주 고르기와 닫기 */}
+        {karaokeOn && (
+          <>
+            <span className="flex shrink-0 items-center gap-1">
+              {srcBtn("off", "원음", "노래가 들어간 원래 소리")}
+              {srcBtn("inst", "반주", "노래를 지운 반주만 — 따라 부를 때")}
+            </span>
+            <button
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm"
+              title="노래방 닫기"
+              aria-label="노래방 닫기"
+              onClick={() => onKaraoke?.(false)}
+            >
+              ✕
+            </button>
+          </>
+        )}
       </div>
+      {/* 노래방 가사 띠 — 영상 아래 검은 띠(영상 위는 가리지 않는다) */}
+      {karaokeOn && karaoke && (
+        <div className="fixed inset-x-0 bottom-0 z-40 h-[40dvh] bg-black text-white short:h-[38dvh]">
+          {karaoke}
+        </div>
+      )}
 
       {/* 좁은 화면: 영상→설정→악보를 세로로.
           넓은 화면: 예전 홈 재생 화면처럼 두 기둥 — 왼쪽은 악보(눈이 오래
@@ -366,12 +406,18 @@ export function PracticeRoom({
           {/* 감춰도 화면에서 떼어내지는 않는다 — 떼면 소리가 끊긴다.
             높이만 0으로 줄여 악보에 자리를 넘긴다 */}
           <section
-            className={[
-              "mx-auto w-full max-w-[min(640px,68vh)] shrink-0 overflow-hidden md:max-w-none",
-              videoCompact
-                ? "h-0 border-0"
-                : "rounded-xl border border-[var(--panel-line)]",
-            ].join(" ")}
+            className={
+              karaokeOn
+                ? /* 노래방: 곡 줄과 가사 띠 사이를 영상이 가득 채운다. 같은 재생기를
+                     옮겨 놓을 뿐이라(다시 부르지 않는다) 소리·커서가 끊기지 않는다 */
+                  "fixed inset-x-0 top-11 bottom-[40dvh] z-40 bg-black short:bottom-[38dvh] [&>div]:aspect-auto! [&>div]:h-full! [&>div]:w-full! [&>div]:max-w-none!"
+                : [
+                    "mx-auto w-full max-w-[min(640px,68vh)] shrink-0 overflow-hidden md:max-w-none",
+                    videoCompact
+                      ? "h-0 border-0"
+                      : "rounded-xl border border-[var(--panel-line)]",
+                  ].join(" ")
+            }
           >
             {video}
           </section>
@@ -430,6 +476,16 @@ export function PracticeRoom({
               {/* TV로 보기 — 같은 와이파이의 TV에 띄우는 길을 알려 주고, 연결되면
                   보던 악보를 크게 펼친다 */}
               <TvCast onTvMode={onTvMode} tvOn={tvOn} onTvOff={onTvOff} />
+              {/* 노래방 — 영상을 크게, 아래 띠에 가사·코드(강사님) */}
+              {onKaraoke && (
+                <button
+                  onClick={() => onKaraoke(true)}
+                  className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                  title="영상을 크게 띄우고 아래에 가사와 코드를 보이며 따라 부릅니다"
+                >
+                  노래방
+                </button>
+              )}
               {/* 한 줄 마디 수. 줄이면 그만큼 크게 보인다 — 폰에서 코드·가사를
                   크게 보려고 쓴다. 숫자는 적힌 대로 움직인다(－를 누르면 줄어듦) */}
               {zoom && (

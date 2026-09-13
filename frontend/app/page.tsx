@@ -15,6 +15,7 @@ import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
+import { KaraokeBand } from "@/components/KaraokeBand";
 import { applyBarChords } from "@/lib/abcChordSwap";
 import {
   getTabEdits,
@@ -257,6 +258,8 @@ export default function Home() {
    * 눕힌다).
    */
   const [tvMode, setTvMode] = useState(false);
+  /** 노래방 화면(연습실 「노래방」) — 영상을 크게, 아래 띠에 가사·코드 */
+  const [karaoke, setKaraoke] = useState(false);
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("tv", tvMode);
@@ -3802,6 +3805,26 @@ export default function Home() {
                   onTvMode={openTvMode}
                   tvOn={tvMode}
                   onTvOff={closeTvMode}
+                  karaokeOn={karaoke}
+                  onKaraoke={setKaraoke}
+                  karaoke={
+                    karaoke ? (
+                      <KaraokeBand
+                        lines={result.lyrics ?? []}
+                        /* 다른 화면과 같은 코드(악보를 따르면 악보 코드)를, 음높이·표기까지 맞춰 */
+                        chords={(shown ?? result).chords
+                          .map((c) => ({
+                            start: c.start,
+                            end: c.end,
+                            label: c.root ? chordText(c, noteShift, flats, exactLabels) : "",
+                          }))
+                          .filter((c) => c.label)}
+                        getTime={() => (playback ? playback.getTime() : time) - settings.latency}
+                        lyricSync={lyricSync}
+                        sync={sync}
+                      />
+                    ) : undefined
+                  }
                   videoCompact={settings.videoCompact}
                   onVideoCompact={(v) =>
                     setSettings({ ...settings, videoCompact: v })
