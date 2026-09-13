@@ -287,7 +287,8 @@ export function PracticeRoom({
     "flex shrink-0 items-center justify-center rounded-full bg-[var(--pick)] text-[var(--pick-ink)]";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-1.5 p-2">
+    /* 가로 화면(short)은 여백을 줄여 악보 자리를 넓힌다 */
+    <div className="flex h-full min-h-0 flex-col gap-1.5 p-2 short:gap-1 short:p-1">
       {picking && songs && onPickSong && (
         <Popup title="음원 목록" onClose={() => setPicking(false)}>
           <ul className="space-y-1">
@@ -355,9 +356,11 @@ export function PracticeRoom({
       {/* 좁은 화면: 영상→설정→악보를 세로로.
           넓은 화면: 예전 홈 재생 화면처럼 두 기둥 — 왼쪽은 악보(눈이 오래
           머무는 쪽이 넓다), 오른쪽은 영상과 그 아래 가사. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:flex-row">
-        {/* 오른쪽 기둥 — 영상 + 가사 (폰에서는 맨 위 영상만) */}
-        <div className="flex shrink-0 flex-col gap-1.5 md:order-2 md:min-h-0 md:w-[44%] roomy:w-[48%]">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:flex-row short:gap-1">
+        {/* 오른쪽 기둥 — 영상 + 가사 (폰에서는 맨 위 영상만).
+            가로 화면(short)은 34%로 줄여 왼쪽 악보에 폭을 준다 — md보다 앞에
+            정의된 변형이라 !로 이긴다 */}
+        <div className="flex shrink-0 flex-col gap-1.5 md:order-2 md:min-h-0 md:w-[44%] roomy:w-[48%] short:w-[34%]! short:gap-1">
           {/* 폰: 폭 640px·화면높이 68% 중 작은 쪽으로 제한해 악보 자리를
             남긴다. 넓은 화면: 기둥 폭이 곧 제한이라 가득 채운다 */}
           {/* 감춰도 화면에서 떼어내지는 않는다 — 떼면 소리가 끊긴다.
@@ -382,8 +385,8 @@ export function PracticeRoom({
         {/* 왼쪽 기둥 — 설정과 악보 */}
         <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:order-1 md:min-w-0">
           {/* 설정 상자 — AI 앱과 같은 배치 */}
-          <section className="shrink-0 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-2.5 py-2">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <section className="shrink-0 rounded-xl border border-[var(--panel-line)] bg-[var(--panel)] px-2.5 py-2 short:px-1.5 short:py-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 short:gap-x-2 short:gap-y-1">
               {/* 무엇을 볼지가 먼저다 — 화면을 고른 다음 소리를 고른다 */}
               {viewTabs}
               {/* 이름표 없이 단추만 — 「원곡·보컬·반주」가 곧 무엇인지 말한다 */}
@@ -406,7 +409,9 @@ export function PracticeRoom({
                       ? "영상을 다시 보입니다"
                       : "영상을 감춰 악보를 넓게 봅니다"
                   }
-                  className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                  /* 가로 화면(TV 포함)에서는 감춘다 — 영상은 옆 기둥이라 감출 까닭이
+                     없고, 단추 줄이 짧아야 악보 자리가 넓다(강사님) */
+                  className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] short:hidden"
                 >
                   {videoCompact ? "영상 보기" : "영상 감추기"}
                 </button>
@@ -427,6 +432,8 @@ export function PracticeRoom({
                   크게 보려고 쓴다. 숫자는 적힌 대로 움직인다(－를 누르면 줄어듦) */}
               {zoom && (
                 <Step
+                  /* 가로 화면에서는 감춘다(강사님) — 연주설정·전체보기에서 맞춘다 */
+                  show="flex short:hidden"
                   label="마디(확대)"
                   value={zoom.value ? String(zoom.value) : zoom.zeroLabel}
                   width="w-14"
@@ -445,6 +452,8 @@ export function PracticeRoom({
               {/* 음높이(카포)는 마디 옆에 늘 둔다. 폰에서도 보인다 — 연주설정
                   창을 열지 않고 곡을 부를 목에 맞춰 바로 올리고 내린다 */}
               <Step
+                /* 가로 화면에서는 감춘다(강사님) — 연주설정에서 맞춘다 */
+                show="flex short:hidden"
                 label="음높이"
                 value={pitch > 0 ? `+${pitch}` : String(pitch)}
                 onMinus={() => onPitch(Math.max(pitch - 1, PITCH_MIN))}
