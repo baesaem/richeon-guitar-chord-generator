@@ -3395,6 +3395,8 @@ export default function Home() {
                 /* 연습실 — AI 악보앱과 같은 짜임. 악보 칸만 스크롤한다 */
                 <PracticeRoom
                   title={result.title || result.id}
+                  /* 유튜브 곡은 가로 화면에서 영상 위로 재생·탐색 */
+                  videoControls={result.source === "youtube"}
                   video={
                     <PlayerPane
                       result={result}

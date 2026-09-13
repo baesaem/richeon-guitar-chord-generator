@@ -135,6 +135,11 @@ interface Props {
   time: number;
   duration: number;
   onSeek: (t: number) => void;
+  /**
+   * 영상 위에서 재생·탐색을 할 수 있는 곡인가(유튜브 곡). 그러면 가로
+   * 화면(TV 포함)에서 아래 재생 줄을 감춘다 — 영상 옆에 악보 자리를 넓힌다.
+   */
+  videoControls?: boolean;
 
   /** 음원: off=원곡(영상 소리), vocals=보컬만, inst=반주만 */
   stem: StemChoice;
@@ -211,6 +216,7 @@ export function PracticeRoom({
   time,
   duration,
   onSeek,
+  videoControls = false,
   stem,
   onStem,
   vocalBusy,
@@ -482,8 +488,10 @@ export function PracticeRoom({
               </span>
             </div>
 
-            {/* 트랜스포트 — ⏮ ▶ ⏹ ⏭ + 탐색. AI 앱과 같은 줄 */}
-            <div className="mt-2 flex items-center gap-2">
+            {/* 트랜스포트 — ⏮ ▶ ⏹ ⏭ + 탐색. AI 앱과 같은 줄.
+                가로 화면(TV 포함)에서 영상이 있는 곡은 감춘다 — 재생·멈춤·탐색은
+                영상 위에서 한다(누르기·두 번 누르기·아래 진행 막대, 강사님) */}
+            <div className={`${videoControls ? "short:hidden " : ""}mt-2 flex items-center gap-2`}>
               <button
                 className={`${circle} h-8 w-8 text-[10px]`}
                 title={loopA !== null ? "반복 시작(A)으로" : "처음으로"}

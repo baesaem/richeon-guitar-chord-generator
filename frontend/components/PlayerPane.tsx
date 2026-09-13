@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import YouTube, { type YouTubePlayer } from "react-youtube";
 
 import { apiBase } from "@/lib/api";
@@ -104,8 +104,13 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
    */
   const seekRef = useRef<{ t: number; wall: number } | null>(null);
 
+  /* 내보낸 재생 제어. 영상 위 조작(VideoTouch)도 같은 것을 쓴다 — 따로
+     몰면 반주 트랙·악보 커서와 어긋난다 */
+  const pbRef = useRef<Playback | null>(null);
+  const getPb = useCallback(() => pbRef.current, []);
+
   const publish = () => {
-    onReady({
+    const pb: Playback = {
       /**
        * 지금 재생 위치.
        *
@@ -175,7 +180,9 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
         else if (audioRef.current) audioRef.current.playbackRate = rate;
         if (instRef.current) instRef.current.playbackRate = rate;
       },
-    });
+    };
+    pbRef.current = pb;
+    onReady(pb);
   };
 
   // 업로드 곡: 공유받아 기기에 저장된 음원이 있으면 그것으로 재생한다.
@@ -310,6 +317,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
               </span>
             </button>
           )}
+          <VideoTouch pb={getPb} duration={result.duration} />
         </div>
         {dual && <audio ref={instRef} src={instUrl} preload="auto" />}
       </>
@@ -350,10 +358,121 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
         className="h-full w-full object-cover opacity-60"
         draggable={false}
       />
-      <span className="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-center text-[11px] text-white">
+      {/* 가로 화면에서는 이 자리에 진행 막대가 선다 — 겹치지 않게 감춘다 */}
+      <span className="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-center text-[11px] text-white short:hidden">
         이 영상은 유튜브에서 다른 곳 재생을 막아 두어 소리만 재생합니다
       </span>
+      {/* 영상은 없어도 같은 자리에서 재생·탐색 — 가로 화면에서는 아래 재생 줄이 없다 */}
+      <VideoTouch pb={getPb} duration={result.duration} />
       {audio}
     </div>
+  );
+}
+
+function clock(t: number): string {
+  if (!Number.isFinite(t) || t < 0) t = 0;
+  return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+}
+
+/**
+ * 영상 위 조작(강사님).
+ *
+ * 한 번 누르면 재생·멈춤, 왼쪽·오른쪽 반을 두 번 누르면 5초 뒤·앞 — 유튜브
+ * 앱과 같은 손짓이다. 가로 화면(TV 포함)에서는 연습실 왼쪽의 재생 줄을 감추므로
+ * 영상 아래에 얇은 진행 막대도 둔다. 재생 제어는 연습실과 같은 것(pb)을 써서
+ * 반주 트랙·악보 커서가 함께 따라온다.
+ */
+function VideoTouch({ pb, duration }: { pb: () => Playback | null; duration: number }) {
+  const [now, setNow] = useState(0);
+  const [flash, setFlash] = useState<{ text: string; side: "l" | "r" | "c"; key: number } | null>(
+    null,
+  );
+  // 앞 번 누른 때 — 두 번 누르기를 가린다. 한 번이면 잠깐 기다렸다 재생·멈춤
+  const tapRef = useRef<{ at: number; side: "l" | "r"; timer: number } | null>(null);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const p = pb();
+      if (p) setNow(p.getTime());
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [pb]);
+
+  const show = (text: string, side: "l" | "r" | "c") => {
+    const key = performance.now();
+    setFlash({ text, side, key });
+    window.setTimeout(() => setFlash((f) => (f?.key === key ? null : f)), 650);
+  };
+
+  const onTap = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const side: "l" | "r" = e.clientX - r.left < r.width / 2 ? "l" : "r";
+    const t = performance.now();
+    const last = tapRef.current;
+    if (last && t - last.at < 300 && last.side === side) {
+      window.clearTimeout(last.timer);
+      tapRef.current = null;
+      const p = pb();
+      if (!p) return;
+      const to = p.getTime() + (side === "l" ? -5 : 5);
+      p.seek(Math.min(Math.max(to, 0), Math.max(duration - 0.5, 0)));
+      show(side === "l" ? "◀◀ 5초" : "5초 ▶▶", side);
+      return;
+    }
+    if (last) window.clearTimeout(last.timer);
+    const timer = window.setTimeout(() => {
+      tapRef.current = null;
+      const p = pb();
+      if (!p) return;
+      if (p.isPlaying()) {
+        p.pause();
+        show("❚❚", "c");
+      } else {
+        p.play();
+        show("▶", "c");
+      }
+    }, 280);
+    tapRef.current = { at: t, side, timer };
+  };
+
+  return (
+    <>
+      <div
+        className="absolute inset-0 z-20 cursor-pointer"
+        role="button"
+        aria-label="누르면 재생·멈춤, 왼쪽·오른쪽을 두 번 누르면 5초 뒤·앞"
+        title="누르면 재생·멈춤 · 왼쪽·오른쪽을 두 번 누르면 5초 뒤·앞"
+        onPointerUp={onTap}
+      />
+      {flash && (
+        <div
+          className={[
+            "pointer-events-none absolute top-1/2 z-30 -translate-y-1/2 rounded-full bg-black/60 px-3 py-1.5 text-sm font-bold text-white",
+            flash.side === "l" ? "left-4" : flash.side === "r" ? "right-4" : "left-1/2 -translate-x-1/2",
+          ].join(" ")}
+        >
+          {flash.text}
+        </div>
+      )}
+      {/* 가로 화면(TV 포함)에서만 — 세로 화면은 연습실 아래 재생 줄이 탐색을 맡는다 */}
+      <div className="absolute inset-x-0 bottom-0 z-30 hidden items-center gap-1.5 bg-gradient-to-t from-black/75 to-transparent px-2 pb-1 pt-4 text-[10px] tabular-nums text-white short:flex">
+        <span>{clock(now)}</span>
+        <input
+          type="range"
+          className="seekbar min-w-0 flex-1"
+          aria-label="재생 위치"
+          min={0}
+          max={Math.max(duration, 1)}
+          step={0.1}
+          value={Math.min(now, duration)}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            pb()?.seek(v);
+            setNow(v);
+          }}
+        />
+        <span>{clock(duration)}</span>
+      </div>
+    </>
   );
 }
