@@ -14,13 +14,16 @@ export interface KaraokeChord {
 /**
  * 노래방 가사 띠(강사님).
  *
- * 영상 아래 검은 띠에 지금 부를 줄(부르는 만큼 색이 차오른다)과 다음 줄을
- * 크게 적고, 글자 위에는 그 자리의 코드를 얹는다. 왼쪽에는 지금 코드를 크게,
- * 다음 코드를 작게 — 기타를 치며 부른다. 영상 위는 가리지 않는다(유튜브 규정).
+ * 가사가 물 흐르듯 오른쪽에서 왼쪽으로 흘러간다 — 파형에 가사가 붙은 것처럼,
+ * 시간 줄 위에 글자를 제 시각 자리에 놓고 줄째 민다. 가운데보다 조금 왼쪽에
+ * 선 진행 막대를 지나간 글자는 색이 바뀐다. 코드는 따로 두지 않고 가사 위,
+ * 그 코드가 시작하는 자리에 적는다. 영상 위는 가리지 않는다(유튜브 규정).
  *
- * 시각은 두 갈래다 — 가사는 가사 싱크, 코드는 코드 싱크를 따른다(다른 화면과
- * 같은 셈). 코드를 가사 줄 위에 놓을 때는 둘의 차이만큼 옮겨 맞춘다. 가사에는
- * 줄 단위 시각만 있어, 줄 안에서는 시간에 비례해 색이 차오른다.
+ * 가사에는 줄 단위 시각만 있어, 줄 안의 글자는 그 줄의 시간에 고르게 편다.
+ * 가사는 가사 싱크, 코드는 코드 싱크를 따른다(다른 화면과 같은 셈).
+ *
+ * 매 화면(프레임)마다 다시 그리지 않는다 — 글자는 한 번 깔아 두고 띠만
+ * 옮긴다(transform). 곡 하나에 글자가 수백 개라 다시 그리면 버벅인다.
  */
 export function KaraokeBand({
   lines,
@@ -36,141 +39,150 @@ export function KaraokeBand({
   lyricSync: number;
   sync: number;
 }) {
-  // 시각은 매 화면(프레임)마다 읽는다. 읽는 함수는 ref로 들어 고리가 다시 서지 않게
-  const getRef = useRef(getTime);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
   useEffect(() => {
-    getRef.current = getTime;
-  });
-  const [t, setT] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      setT(getRef.current());
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const el = rootRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) =>
+      setSize({ w: e.contentRect.width, h: e.contentRect.height }),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
+
+  // 띠 높이에 맞춘 글자 크기와 흐르는 빠르기(초당 픽셀). 띠에는 코드 줄과 가사
+  // 줄 둘뿐이다. 너무 크면 좁은 세로 화면에 글자가 두세 개밖에 안 보여 앞을
+  // 읽을 수 없다 — 40px로 묶고, 앞쪽이 세로 약 3초·가로 약 7초 보이게
+  const font = Math.round(Math.min(Math.max(size.h * 0.3, 18), 40));
+  const chordFont = Math.round(font * 0.62);
+  const pps = font * 3.0;
+  const playX = Math.round(size.w * 0.28);
+  const chordRow = Math.round(chordFont * 1.5);
+  const blockH = chordRow + Math.round(font * 1.3);
+  const top = Math.max(Math.round((size.h - blockH) / 2), 0);
+  const shift = lyricSync - sync; // 코드 시각 + shift = 가사 시각
 
   const sorted = useMemo(
     () => lines.filter((l) => l.text.trim()).sort((a, b) => a.t - b.t),
     [lines],
   );
-  const lt = t + lyricSync; // 가사 시각
-  const ct = t + sync; // 코드 시각
-  const shift = lyricSync - sync; // 코드 시각 + shift = 가사 시각
 
-  // 지금 줄 — 시작이 지난 마지막 줄
-  let i = -1;
-  for (let k = 0; k < sorted.length; k++) {
-    if (sorted[k].t <= lt) i = k;
-    else break;
-  }
-  const cur = i >= 0 ? sorted[i] : null;
-  const next = sorted[i + 1] ?? null;
-  /* 줄이 끝나고 다음 줄까지 틈이 있으면(전주·간주) 다음 줄을 기다리게 보인다 */
-  const waiting = !cur || (lt > cur.end + 0.3 && !!next);
-  const top = waiting ? next : cur;
-  const below = waiting ? (next ? (sorted[i + 2] ?? null) : null) : next;
-  const progress =
-    top && !waiting ? Math.min(Math.max((lt - top.t) / Math.max(top.end - top.t, 0.1), 0), 1) : 0;
-  const remain = waiting && top ? top.t - lt : 0;
+  /** 띠에 깔 글자와 코드 — 시각(가사 시각) × pps 자리에. 한 번만 만든다 */
+  const items = useMemo(() => {
+    if (!pps) return { text: [] as React.ReactNode[], marks: [] as React.ReactNode[] };
+    const text: React.ReactNode[] = [];
+    sorted.forEach((line, li) => {
+      const chars = [...line.text];
+      const n = Math.max(chars.length, 1);
+      // 글자가 겹치지 않을 만큼은 벌린다(빽빽한 줄은 제 시간보다 조금 길어진다)
+      const step = Math.max((line.end - line.t) / n, (font * 1.04) / pps);
+      chars.forEach((ch, k) => {
+        if (ch === " ") return;
+        text.push(
+          <span
+            key={`${li}.${k}`}
+            className="absolute whitespace-pre"
+            style={{ left: (line.t + k * step) * pps, top: chordRow }}
+          >
+            {ch}
+          </span>,
+        );
+      });
+    });
+    const marks: React.ReactNode[] = [];
+    let last = "";
+    chords.forEach((c, i) => {
+      if (c.label === last) return;
+      last = c.label;
+      marks.push(
+        <span
+          key={`c${i}`}
+          className="absolute whitespace-nowrap font-bold"
+          style={{ left: (c.start + shift) * pps, top: 0, fontSize: chordFont }}
+        >
+          {c.label}
+        </span>,
+      );
+    });
+    return { text, marks };
+  }, [sorted, chords, pps, font, chordFont, chordRow, shift]);
 
-  // 지금 코드와 다음 코드
-  const curChord = chords.find((c) => c.start <= ct && ct < c.end)?.label ?? null;
-  const nextChord = chords.find((c) => c.start > ct && c.label !== curChord)?.label ?? null;
+  // 띠 옮기기 — 상태를 바꾸지 않고 두 겹(그대로·지나간 색)을 함께 민다
+  const getRef = useRef(getTime);
+  const lsRef = useRef(lyricSync);
+  useEffect(() => {
+    getRef.current = getTime;
+    lsRef.current = lyricSync;
+  });
+  const plainRef = useRef<HTMLDivElement>(null);
+  const sungRef = useRef<HTMLDivElement>(null);
+  // 전주·간주처럼 다음 가사가 아직 화면 밖이면 「가사까지 n초」를 띄운다
+  const waitRef = useRef<HTMLSpanElement>(null);
+  const spansRef = useRef<{ t: number; end: number }[]>([]);
+  useEffect(() => {
+    spansRef.current = sorted.map((l) => ({ t: l.t, end: l.end }));
+  }, [sorted]);
+  useEffect(() => {
+    let raf = 0;
+    const ahead = pps ? (size.w - playX) / pps : 0; // 화면에 보이는 앞쪽 초
+    const tick = () => {
+      const lt = getRef.current() + lsRef.current;
+      const tr = `translate3d(${playX - lt * pps}px,0,0)`;
+      if (plainRef.current) plainRef.current.style.transform = tr;
+      if (sungRef.current) sungRef.current.style.transform = tr;
+      const w = waitRef.current;
+      if (w) {
+        const spans = spansRef.current;
+        // 지금 부르는 줄이 있으면(시작했고 아직 안 끝남) 띄우지 않는다
+        const singing = spans.some((s) => s.t <= lt && lt < s.end + 0.3);
+        const next = spans.find((s) => s.t > lt);
+        const gap = next === undefined ? 0 : next.t - lt;
+        // 틈(전주·간주)이고, 다음 줄이 아직 화면 오른쪽 밖일 때만
+        const text = !singing && gap > ahead && gap > 2 ? `♪ 가사까지 ${Math.ceil(gap)}초` : "";
+        if (w.textContent !== text) w.textContent = text;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playX, pps, size.w]);
 
-  /** 가사 줄 위에 얹을 코드 — 줄 안에서의 자리(0~1)는 시간 비율로 */
-  const chordsFor = (line: LyricLine) => {
-    const a = line.t - shift;
-    const b = line.end - shift;
-    const out: { label: string; at: number }[] = [];
-    for (const c of chords) {
-      if (c.end <= a || c.start >= b) continue;
-      if (out.length && out[out.length - 1].label === c.label) continue;
-      out.push({ label: c.label, at: Math.min(Math.max((c.start - a) / Math.max(b - a, 0.1), 0), 0.92) });
-    }
-    return out;
-  };
-
-  return (
-    <div className="flex h-full w-full items-stretch gap-3 px-3 py-2">
-      {/* 지금 코드 — 크게. 치는 손이 먼저 보는 자리 */}
-      <div className="flex w-[18%] min-w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-white/5">
-        <div className="text-[clamp(26px,min(8vw,11vh),64px)] font-black leading-none text-amber-300">
-          {curChord ?? "—"}
-        </div>
-        {nextChord && (
-          <div className="mt-1 text-[clamp(11px,min(3vw,4vh),18px)] text-white/60">다음 {nextChord}</div>
-        )}
-      </div>
-
-      {/* 가사 — 지금 줄(색이 차오른다)과 다음 줄 */}
-      <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-[1.5vh] overflow-hidden text-center">
-        {!sorted.length ? (
-          <p className="text-[clamp(13px,min(3.6vw,5vh),22px)] text-white/60">
-            가사가 없는 곡입니다 — 왼쪽 코드를 보며 부르세요
-          </p>
-        ) : top ? (
-          <Line line={top} chords={chordsFor(top)} progress={progress} big />
-        ) : (
-          <p className="text-[clamp(13px,min(3.6vw,5vh),22px)] text-white/50">♪ 끝</p>
-        )}
-        {/* 첫 줄이 들어오기 전 네 칸 — 전주·간주에서 들어갈 때를 센다 */}
-        {waiting && remain > 0 && remain <= 4 && (
-          <div className="text-[clamp(12px,min(3vw,4.5vh),20px)] tracking-[0.4em] text-amber-300">
-            {"●".repeat(Math.max(4 - Math.ceil(remain), 0))}
-            {"○".repeat(Math.min(Math.ceil(remain), 4))}
-          </div>
-        )}
-        {below && <Line line={below} chords={chordsFor(below)} progress={0} />}
+  const layer = (ref: React.RefObject<HTMLDivElement | null>, sung: boolean) => (
+    <div ref={ref} className="absolute left-0 will-change-transform" style={{ top, height: blockH }}>
+      <div className={sung ? "text-amber-300/40" : "text-amber-300"}>{items.marks}</div>
+      <div
+        className={["font-bold leading-none", sung ? "text-sky-300" : "text-white"].join(" ")}
+        style={{ fontSize: font }}
+      >
+        {items.text}
       </div>
     </div>
   );
-}
 
-/** 가사 한 줄 — 위에 코드, 아래 글자. 부른 만큼 글자 위에 색을 덮는다 */
-function Line({
-  line,
-  chords,
-  progress,
-  big = false,
-}: {
-  line: LyricLine;
-  chords: { label: string; at: number }[];
-  progress: number;
-  big?: boolean;
-}) {
   return (
-    <div className={big ? "max-w-full" : "max-w-full opacity-55"}>
-      <div className="relative inline-block max-w-full">
-        {/* 코드 줄 — 글자 폭 위에 시간 비율로 놓는다 */}
-        <div className="relative h-[1.3em] text-[clamp(11px,min(3.2vw,4.8vh),24px)] font-bold text-amber-300">
-          {chords.map((c, k) => (
-            <span key={k} className="absolute whitespace-nowrap" style={{ left: `${c.at * 100}%` }}>
-              {c.label}
-            </span>
-          ))}
-        </div>
-        <div
-          className={[
-            "relative whitespace-nowrap font-bold leading-tight",
-            big
-              ? "text-[clamp(18px,min(5.5vw,8vh),44px)]"
-              : "text-[clamp(14px,min(4vw,6vh),32px)]",
-          ].join(" ")}
-        >
-          <span className="text-white">{line.text}</span>
-          {progress > 0 && (
-            <span
-              className="absolute inset-y-0 left-0 overflow-hidden whitespace-nowrap text-sky-300"
-              style={{ width: `${progress * 100}%` }}
-            >
-              {line.text}
-            </span>
-          )}
-        </div>
+    <div ref={rootRef} className="relative h-full w-full overflow-hidden">
+      {/* 흘러가는 가사·코드(아직 부르지 않은 색) */}
+      {layer(plainRef, false)}
+      {/* 진행 막대를 지난 쪽만 잘라 보이는 같은 띠 — 부른 글자는 하늘색 */}
+      <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: playX }}>
+        {layer(sungRef, true)}
       </div>
+      {/* 진행 막대 — 지금 부르는 자리 */}
+      <div
+        className="pointer-events-none absolute inset-y-[8%] w-[3px] rounded-full bg-amber-400"
+        style={{ left: playX - 1 }}
+      />
+      {/* 다음 가사까지 남은 초 — 전주·간주에서 언제 들어갈지 */}
+      <span
+        ref={waitRef}
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[clamp(12px,3.5vh,20px)] font-semibold text-amber-300/80"
+      />
+      {!sorted.length && (
+        <p className="absolute inset-x-0 bottom-2 text-center text-[12px] text-white/50">
+          가사가 없는 곡입니다 — 코드만 흘러갑니다
+        </p>
+      )}
     </div>
   );
 }

@@ -2032,6 +2032,23 @@ export default function Home() {
   /* 가사 칸. 넓은 화면에서는 오른쪽 기둥에, 파형 화면에서는 파형 아래에
      같은 것이 놓인다 — 두 벌로 적어 두면 한쪽만 고치게 된다.
      보기만 한다. 찾기·바꾸기·지우기는 편집 → 가사로 옮겼다 */
+  /* 노래방 띠에 얹을 코드 — 다른 화면과 같은 것(악보를 따르면 악보 코드)을
+     음높이·표기까지 맞춰. 띠는 글자를 한 번 깔아 두므로 곡·음높이가 바뀔
+     때만 새로 만든다(재생 중 매번 만들면 띠가 버벅인다) */
+  const karaokeChords = useMemo(
+    () =>
+      result
+        ? (shown ?? result).chords
+            .map((c) => ({
+              start: c.start,
+              end: c.end,
+              label: c.root ? chordText(c, noteShift, flats, exactLabels) : "",
+            }))
+            .filter((c) => c.label)
+        : [],
+    [result, shown, noteShift, flats, exactLabels],
+  );
+
   const lyricsPane = result ? (
     <LyricsPane
       result={result}
@@ -3812,13 +3829,7 @@ export default function Home() {
                       <KaraokeBand
                         lines={result.lyrics ?? []}
                         /* 다른 화면과 같은 코드(악보를 따르면 악보 코드)를, 음높이·표기까지 맞춰 */
-                        chords={(shown ?? result).chords
-                          .map((c) => ({
-                            start: c.start,
-                            end: c.end,
-                            label: c.root ? chordText(c, noteShift, flats, exactLabels) : "",
-                          }))
-                          .filter((c) => c.label)}
+                        chords={karaokeChords}
                         getTime={() => (playback ? playback.getTime() : time) - settings.latency}
                         lyricSync={lyricSync}
                         sync={sync}

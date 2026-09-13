@@ -367,7 +367,12 @@ export function PracticeRoom({
         )}
         {/* 연주설정 — 설정줄이 아니라 이 자리다. 곡 이름 옆이라
             어느 화면을 보든 같은 자리에서 열린다 */}
-        {playSettings}
+        {/* 연주설정 단추를 옆 「목록」과 같은 크기로 — 폰·태블릿·PC, 연습실·노래방
+            모두(강사님). 넓은 화면에서 커지고 폰에서도 한 치수 커서 어울리지
+            않았다. 다른 자리(전체보기 등)의 연주설정 단추는 그대로다 */}
+        <span className="contents [&>button]:gap-1! [&>button]:rounded! [&>button]:px-2! [&>button]:py-1! [&>button]:text-[11px]! [&>button]:font-semibold! [&>button_svg]:h-3! [&>button_svg]:w-3!">
+          {playSettings}
+        </span>
         {/* 노래방: 원음·반주 고르기와 닫기 */}
         {karaokeOn && (
           <>
@@ -386,9 +391,10 @@ export function PracticeRoom({
           </>
         )}
       </div>
-      {/* 노래방 가사 띠 — 영상 아래 검은 띠(영상 위는 가리지 않는다) */}
+      {/* 노래방 가사 띠 — 영상 아래 검은 띠(영상 위는 가리지 않는다).
+          가사가 한 줄로 흐르므로 낮게 — 그만큼 영상을 크게(강사님) */}
       {karaokeOn && karaoke && (
-        <div className="fixed inset-x-0 bottom-0 z-40 h-[40dvh] bg-black text-white short:h-[38dvh]">
+        <div className="fixed inset-x-0 bottom-0 z-40 h-[22dvh] bg-black text-white short:h-[24dvh]">
           {karaoke}
         </div>
       )}
@@ -410,7 +416,7 @@ export function PracticeRoom({
               karaokeOn
                 ? /* 노래방: 곡 줄과 가사 띠 사이를 영상이 가득 채운다. 같은 재생기를
                      옮겨 놓을 뿐이라(다시 부르지 않는다) 소리·커서가 끊기지 않는다 */
-                  "fixed inset-x-0 top-11 bottom-[40dvh] z-40 bg-black short:bottom-[38dvh] [&>div]:aspect-auto! [&>div]:h-full! [&>div]:w-full! [&>div]:max-w-none!"
+                  "fixed inset-x-0 top-11 bottom-[22dvh] z-40 bg-black short:bottom-[24dvh] [&>div]:aspect-auto! [&>div]:h-full! [&>div]:w-full! [&>div]:max-w-none!"
                 : [
                     "mx-auto w-full max-w-[min(640px,68vh)] shrink-0 overflow-hidden md:max-w-none",
                     videoCompact

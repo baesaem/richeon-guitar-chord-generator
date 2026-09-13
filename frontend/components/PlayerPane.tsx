@@ -275,6 +275,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
             }}
             onReady={(e) => {
               ytRef.current = e.target;
+              noCaptions(e.target);
               publish();
             }}
             onError={(e) => {
@@ -286,6 +287,8 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
             }}
             onStateChange={(e) => {
               playingRef.current = e.data === 1;
+              // 유튜브는 재생을 시작하며 자막을 다시 불러온다 — 그때마다 끈다
+              if (e.data === 1) noCaptions(e.target);
               // 유튜브 창을 직접 눌러 켰을 때도 사람의 뜻으로 친다
               if (e.data === 1) wantPlayRef.current = true;
               // 재생·버퍼링 동안만 영상을 드러낸다
@@ -367,6 +370,21 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
       {audio}
     </div>
   );
+}
+
+/**
+ * 유튜브 자막을 끈다(강사님) — 가사·코드는 우리 화면이 보이고, 영상 위 자막은
+ * 악보·노래방 띠와 겹쳐 눈만 어지럽다. 자막 모듈을 내려 두는 것이 유튜브
+ * 재생기에서 자막을 끄는 길이다(타입 정의에 없어 조심스럽게 부른다).
+ */
+function noCaptions(player: unknown) {
+  const p = player as { unloadModule?: (name: string) => void } | null;
+  try {
+    p?.unloadModule?.("captions");
+    p?.unloadModule?.("cc");
+  } catch {
+    // 모듈이 없는 영상 — 끌 자막도 없다
+  }
 }
 
 function clock(t: number): string {
