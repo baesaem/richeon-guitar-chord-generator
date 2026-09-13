@@ -74,6 +74,14 @@ function useHold(fn: () => void) {
 }
 
 /** AI 앱의 스텝퍼(－ 값 ＋). 값을 누르면 초기화, 길게 누르면 이어서 바뀐다 */
+/**
+ * 곡 줄의 연주설정 단추를 옆 「목록」과 같은 크기로 — 폰·태블릿·PC, 연습실·노래방
+ * 모두(강사님). 넓은 화면에서 커지고 폰에서도 한 치수 커서 어울리지 않았다.
+ * 다른 자리(전체보기 등)의 연주설정 단추는 그대로다.
+ */
+const SETTINGS_BTN =
+  "contents [&>button]:gap-1! [&>button]:rounded! [&>button]:px-2! [&>button]:py-1! [&>button]:text-[11px]! [&>button]:font-semibold! [&>button_svg]:h-3! [&>button_svg]:w-3!";
+
 function Step({
   label,
   value,
@@ -328,8 +336,9 @@ export function PracticeRoom({
       <div
         className={
           karaokeOn
-            ? /* 노래방: 화면 가득한 영상의 맨 위에 겹친다 — 아래로 옅어지는 그늘 */
-              "fixed inset-x-0 top-0 z-[41] flex h-11 items-center gap-2 bg-gradient-to-b from-black/80 to-black/0 px-2 text-white"
+            ? /* 노래방: 화면 가득한 영상의 맨 위에 겹친다 — 아래로 옅어지는 그늘.
+                 두 줄이다(첫 줄 곡 이름·목록, 둘째 줄 나머지 단추) */
+              "fixed inset-x-0 top-0 z-[41] flex flex-wrap items-center gap-x-2 gap-y-1.5 bg-gradient-to-b from-black/85 via-black/55 to-black/0 px-2 pb-3 pt-1.5 text-white"
             : "flex shrink-0 items-center gap-2 px-1"
         }
       >
@@ -366,28 +375,22 @@ export function PracticeRoom({
             목록
           </button>
         )}
-        {/* 노래방: 목록 오른쪽에 TV로 보기(강사님) — 노래방 화면 그대로 TV에.
-            높이는 옆 「목록」과 맞춘다 */}
-        {karaokeOn && (
-          <span className="contents [&>button]:py-1!">
-            <TvCast onTvMode={onTvMode} tvOn={tvOn} onTvOff={onTvOff} />
-          </span>
-        )}
         {/* 연주설정 — 설정줄이 아니라 이 자리다. 곡 이름 옆이라
-            어느 화면을 보든 같은 자리에서 열린다 */}
-        {/* 연주설정 단추를 옆 「목록」과 같은 크기로 — 폰·태블릿·PC, 연습실·노래방
-            모두(강사님). 넓은 화면에서 커지고 폰에서도 한 치수 커서 어울리지
-            않았다. 다른 자리(전체보기 등)의 연주설정 단추는 그대로다 */}
-        <span className="contents [&>button]:gap-1! [&>button]:rounded! [&>button]:px-2! [&>button]:py-1! [&>button]:text-[11px]! [&>button]:font-semibold! [&>button_svg]:h-3! [&>button_svg]:w-3!">
-          {playSettings}
-        </span>
-        {/* 노래방: 원음·반주 고르기와 닫기 */}
+            어느 화면을 보든 같은 자리에서 열린다. 노래방에서는 아래 둘째 줄로 */}
+        {!karaokeOn && <span className={SETTINGS_BTN}>{playSettings}</span>}
+        {/* 노래방: 목록을 뺀 단추는 둘째 줄로(강사님) — 첫 줄은 곡 이름 몫이다.
+            TV로 보기 · 연주설정 · 원음·반주 … 닫기(오른쪽 끝). 높이는 「목록」과 같게 */}
         {karaokeOn && (
-          <>
+          <div className="flex w-full basis-full items-center gap-2">
+            <span className="contents [&>button]:py-1!">
+              <TvCast onTvMode={onTvMode} tvOn={tvOn} onTvOff={onTvOff} />
+            </span>
+            <span className={SETTINGS_BTN}>{playSettings}</span>
             <span className="flex shrink-0 items-center gap-1">
               {srcBtn("off", "원음", "노래가 들어간 원래 소리")}
               {srcBtn("inst", "반주", "노래를 지운 반주만 — 따라 부를 때")}
             </span>
+            <span className="flex-1" />
             <button
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm"
               title="노래방 닫기"
@@ -396,7 +399,7 @@ export function PracticeRoom({
             >
               ✕
             </button>
-          </>
+          </div>
         )}
       </div>
       {/* 노래방 가사 띠 — 화면 가득한 영상의 아래쪽에 겹쳐 흐른다(강사님).
