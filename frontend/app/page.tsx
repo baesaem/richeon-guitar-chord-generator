@@ -16,6 +16,7 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
 import { KaraokeBand } from "@/components/KaraokeBand";
+import { syllablesFromAbc, type KaraokeSyl } from "@/lib/karaokeSyllables";
 import { applyBarChords } from "@/lib/abcChordSwap";
 import {
   getTabEdits,
@@ -2049,6 +2050,31 @@ export default function Home() {
     [result, shown, noteShift, flats, exactLabels],
   );
 
+  /* 노래방 가사를 음원에 맞춘 음절(강사님: 「가사는 음원을 따르게」). 멜로디 악보가
+     붙은 곡만 — 음표마다 붙은 음절을 음원 마디 시각에 옮긴다. 없으면 줄 시각대로 */
+  const [karaokeSyls, setKaraokeSyls] = useState<KaraokeSyl[] | null>(null);
+  const karaokeAbc = unified?.abc ?? abcEntry?.abc ?? null;
+  const karaokeBarOffset = abcEntry?.barOffset ?? 0;
+  useEffect(() => {
+    let alive = true;
+    const done = (s: KaraokeSyl[] | null) => {
+      if (alive) setKaraokeSyls(s && s.length ? s : null);
+    };
+    if (!karaoke || !karaokeAbc || !bars.length) {
+      // 곧바로 상태를 바꾸지 않는다(이펙트 규칙) — 한 박자 뒤에 비운다
+      Promise.resolve().then(() => done(null));
+      return () => {
+        alive = false;
+      };
+    }
+    syllablesFromAbc(karaokeAbc, bars, scoreBarNumbers, karaokeBarOffset)
+      .then(done)
+      .catch(() => done(null));
+    return () => {
+      alive = false;
+    };
+  }, [karaoke, karaokeAbc, bars, scoreBarNumbers, karaokeBarOffset]);
+
   const lyricsPane = result ? (
     <LyricsPane
       result={result}
@@ -3830,6 +3856,9 @@ export default function Home() {
                         lines={result.lyrics ?? []}
                         /* 다른 화면과 같은 코드(악보를 따르면 악보 코드)를, 음높이·표기까지 맞춰 */
                         chords={karaokeChords}
+                        peaks={result.peaks}
+                        peaksPerSecond={result.peaks_per_second}
+                        syllables={karaokeSyls}
                         getTime={() => (playback ? playback.getTime() : time) - settings.latency}
                         lyricSync={lyricSync}
                         sync={sync}

@@ -328,7 +328,8 @@ export function PracticeRoom({
       <div
         className={
           karaokeOn
-            ? "fixed inset-x-0 top-0 z-40 flex h-11 items-center gap-2 bg-black px-2 text-white"
+            ? /* 노래방: 화면 가득한 영상의 맨 위에 겹친다 — 아래로 옅어지는 그늘 */
+              "fixed inset-x-0 top-0 z-[41] flex h-11 items-center gap-2 bg-gradient-to-b from-black/80 to-black/0 px-2 text-white"
             : "flex shrink-0 items-center gap-2 px-1"
         }
       >
@@ -391,10 +392,11 @@ export function PracticeRoom({
           </>
         )}
       </div>
-      {/* 노래방 가사 띠 — 영상 아래 검은 띠(영상 위는 가리지 않는다).
-          가사가 한 줄로 흐르므로 낮게 — 그만큼 영상을 크게(강사님) */}
+      {/* 노래방 가사 띠 — 화면 가득한 영상의 아래쪽에 겹쳐 흐른다(강사님).
+          누르는 것은 영상으로 흘려보낸다(누르면 재생·멈춤). 가로 화면에서는
+          영상 아래 진행 막대가 보이게 그만큼 띄운다 */}
       {karaokeOn && karaoke && (
-        <div className="fixed inset-x-0 bottom-0 z-40 h-[22dvh] bg-black text-white short:h-[24dvh]">
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[41] h-[32dvh] bg-gradient-to-t from-black/85 via-black/45 to-black/0 text-white short:bottom-7 short:h-[36dvh]">
           {karaoke}
         </div>
       )}
@@ -416,7 +418,7 @@ export function PracticeRoom({
               karaokeOn
                 ? /* 노래방: 곡 줄과 가사 띠 사이를 영상이 가득 채운다. 같은 재생기를
                      옮겨 놓을 뿐이라(다시 부르지 않는다) 소리·커서가 끊기지 않는다 */
-                  "fixed inset-x-0 top-11 bottom-[22dvh] z-40 bg-black short:bottom-[24dvh] [&>div]:aspect-auto! [&>div]:h-full! [&>div]:w-full! [&>div]:max-w-none!"
+                  "fixed inset-0 z-40 bg-black [&>div]:aspect-auto! [&>div]:h-full! [&>div]:w-full! [&>div]:max-w-none!"
                 : [
                     "mx-auto w-full max-w-[min(640px,68vh)] shrink-0 overflow-hidden md:max-w-none",
                     videoCompact
