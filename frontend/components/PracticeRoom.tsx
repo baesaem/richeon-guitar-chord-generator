@@ -366,6 +366,13 @@ export function PracticeRoom({
             목록
           </button>
         )}
+        {/* 노래방: 목록 오른쪽에 TV로 보기(강사님) — 노래방 화면 그대로 TV에.
+            높이는 옆 「목록」과 맞춘다 */}
+        {karaokeOn && (
+          <span className="contents [&>button]:py-1!">
+            <TvCast onTvMode={onTvMode} tvOn={tvOn} onTvOff={onTvOff} />
+          </span>
+        )}
         {/* 연주설정 — 설정줄이 아니라 이 자리다. 곡 이름 옆이라
             어느 화면을 보든 같은 자리에서 열린다 */}
         {/* 연주설정 단추를 옆 「목록」과 같은 크기로 — 폰·태블릿·PC, 연습실·노래방
