@@ -17,6 +17,7 @@ import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
 import { KaraokeBand } from "@/components/KaraokeBand";
 import { syllablesFromAbc, type KaraokeSyl } from "@/lib/karaokeSyllables";
+import { syllablesFromWords } from "@/lib/karaokeWords";
 import { applyBarChords } from "@/lib/abcChordSwap";
 import {
   getTabEdits,
@@ -90,6 +91,7 @@ import {
   fixBeats,
   readPictureChords,
   readSheetChords,
+  getWords,
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, getLocalAudio, listLocal, saveLocal } from "@/lib/library";
@@ -2071,25 +2073,41 @@ export default function Home() {
   const [karaokeSyls, setKaraokeSyls] = useState<KaraokeSyl[] | null>(null);
   const karaokeAbc = unified?.abc ?? abcEntry?.abc ?? null;
   const karaokeBarOffset = abcEntry?.barOffset ?? 0;
+  const karaokeId = result?.id ?? null;
+  const karaokeLyrics = result?.lyrics;
+  const karaokeOnline = !!health;
   useEffect(() => {
     let alive = true;
     const done = (s: KaraokeSyl[] | null) => {
       if (alive) setKaraokeSyls(s && s.length ? s : null);
     };
-    if (!karaoke || !karaokeAbc || !bars.length) {
+    if (karaoke && karaokeAbc && bars.length) {
+      syllablesFromAbc(karaokeAbc, bars, scoreBarNumbers, karaokeBarOffset)
+        .then(done)
+        .catch(() => done(null));
+    } else if (karaoke && karaokeId && karaokeOnline && karaokeLyrics?.length) {
+      /* 악보가 없는 곡(「사람이 꽃보다 아름다워」) — 서버가 보컬을 받아 적은
+         단어 시각에 가사 글자를 짝지어 놓는다. 받아 적은 것이 없으면 줄 시각대로 */
+      getWords(karaokeId)
+        .then((r) => done(syllablesFromWords(karaokeLyrics, r.words)))
+        .catch(() => done(null));
+    } else {
       // 곧바로 상태를 바꾸지 않는다(이펙트 규칙) — 한 박자 뒤에 비운다
       Promise.resolve().then(() => done(null));
-      return () => {
-        alive = false;
-      };
     }
-    syllablesFromAbc(karaokeAbc, bars, scoreBarNumbers, karaokeBarOffset)
-      .then(done)
-      .catch(() => done(null));
     return () => {
       alive = false;
     };
-  }, [karaoke, karaokeAbc, bars, scoreBarNumbers, karaokeBarOffset]);
+  }, [
+    karaoke,
+    karaokeAbc,
+    bars,
+    scoreBarNumbers,
+    karaokeBarOffset,
+    karaokeId,
+    karaokeLyrics,
+    karaokeOnline,
+  ]);
 
   const lyricsPane = result ? (
     <LyricsPane

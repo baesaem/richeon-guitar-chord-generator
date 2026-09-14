@@ -368,7 +368,12 @@ export function PracticeRoom({
             곧바로 집어 간다. 곡이 스무 개면 열아홉 번 누를 수는 없다 */}
         {songs && songs.length > 1 && onPickSong && (
           <button
-            className="shrink-0 rounded bg-[var(--chip)] px-2 py-1 text-[11px] font-semibold"
+            className={
+              karaokeOn
+                ? /* 노래방: 영상 위에서 곧잘 찾도록 크게(강사님) */
+                  "shrink-0 rounded-md bg-[var(--chip)] px-4 py-1.5 text-sm font-bold"
+                : "shrink-0 rounded bg-[var(--chip)] px-2 py-1 text-[11px] font-semibold"
+            }
             title="등록된 음원 가운데서 고릅니다"
             onClick={() => setPicking(true)}
           >

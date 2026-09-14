@@ -761,6 +761,32 @@ async def song_phrases(result_id: str, lines: int = 0) -> dict:
     return {"starts": [round(t, 2) for t in starts]}
 
 
+@app.get("/api/results/{result_id}/words")
+async def song_words(result_id: str) -> dict:
+    """보컬을 받아 적은 단어와 부른 시각 — 받아 적어 둔 것만 준다.
+
+    악보 없는 곡의 노래방이 가사 글자를 부르는 순간에 놓는 데 쓴다. 받아
+    적기는 GPU로도 수십 초 걸리니 여기서 새로 돌리지 않는다.
+    """
+    _guard_id(result_id)
+
+    from .analysis.asr import _cache_path
+
+    path = _cache_path(result_id)
+    try:
+        rows = json.loads(path.read_text("utf-8")) if path.exists() else []
+    except Exception:
+        rows = []
+    words = [
+        {"text": str(w.get("text", "")), "start": float(w["start"]), "end": float(w["end"])}
+        for w in rows
+        if isinstance(w, dict) and "start" in w and "end" in w
+    ]
+    if not words:
+        raise HTTPException(404, "받아 적은 가사가 없습니다")
+    return {"words": words}
+
+
 @app.post("/api/results/{result_id}/lyrics/align")
 async def align_pasted_lyrics(result_id: str, texts: list[str]) -> AnalysisResult:
     """붙여넣은 가사에 시각을 붙인다.

@@ -602,6 +602,15 @@ export const songPhrases = (id: string, lines = 0) =>
   );
 
 /**
+ * 서버가 보컬을 받아 적은 단어와 부른 시각. 악보 없는 곡의 노래방이 가사를
+ * 음원에 맞추는 데 쓴다. 받아 적어 둔 곡만 있다(없으면 404).
+ */
+export const getWords = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/words`).then(
+    json<{ words: { text: string; start: number; end: number }[] }>,
+  );
+
+/**
  * 붙어 있는 가사를 AI로 다듬는다.
  *
  * 자동 자막에서 온 가사는 토막나 있고 글자가 틀린다. 없는 가사를
