@@ -544,7 +544,7 @@ export function ScoreAttach({
           onClick={() => pick.current?.click()}
           title={
             online
-              ? "악보 파일을 붙여 음표·가사·코드·마디를 통째로 바꿉니다"
+              ? "악보 파일(.mscz·MusicXML)이나 종이 악보(PDF·사진)를 붙여 음표·가사·코드·마디를 통째로 바꿉니다. PDF는 코드 읽기와 음표 읽기로 2분쯤 걸립니다"
               : "분석 서버에 연결되어야 붙일 수 있습니다"
           }
         >
@@ -607,7 +607,9 @@ export function ScoreAttach({
       <input
         ref={pick}
         type="file"
-        accept=".mscz,.mscx,.musicxml,.mxl,.xml"
+        /* 종이 악보(PDF·사진)도 받는다 — 코드는 AI가, 음표는 서버 OMR이 읽어 합친다
+           (scoreAtRegister). 이미 등록한 곡도 다시 등록하지 않고 붙일 수 있게 */
+        accept=".mscz,.mscx,.musicxml,.mxl,.xml,.pdf,application/pdf,image/*"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
