@@ -23,6 +23,17 @@ export function listRecent(): RecentEntry[] {
   }
 }
 
+/** 최근 재생에서 뺀다 — 곡을 지울 때 */
+export function removeRecent(id: string): void {
+  try {
+    const rows = listRecent();
+    if (!rows.some((r) => r.id === id)) return;
+    localStorage.setItem(KEY, JSON.stringify(rows.filter((r) => r.id !== id)));
+  } catch {
+    // 못 지우면 홈에 한동안 남을 뿐이다
+  }
+}
+
 /** 곡을 열 때 호출. 같은 곡은 맨 앞으로 끌어올린다. */
 export function addRecent(id: string, title: string): void {
   try {

@@ -242,6 +242,24 @@ export async function removeSheetPages(id: string, count: number): Promise<void>
   }
 }
 
+/**
+ * 이 곡의 악보(내 악보·쪽 그림)를 모두 지운다 — 판마다 이름이 달라
+ * (id__판__p0 …) 쪽 수만으로는 다 못 찾는다. 곡을 지울 때 쓴다.
+ */
+export async function removeSheetsOf(id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(SHEET_STORE, "readwrite");
+  const store = tx.objectStore(SHEET_STORE);
+  const keys = (await requestAsPromise(store.getAllKeys())) as IDBValidKey[];
+  const mine = keys.filter((k) => String(k) === id || String(k).startsWith(`${id}__`));
+  if (!mine.length) {
+    db.close();
+    return;
+  }
+  await Promise.all(mine.map((k) => requestAsPromise(store.delete(k))));
+  db.close();
+}
+
 export async function removeLocalSheet(id: string): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(SHEET_STORE, "readwrite");

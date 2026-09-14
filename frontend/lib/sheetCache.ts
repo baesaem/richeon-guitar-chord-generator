@@ -33,6 +33,18 @@ export function loadSheets(id: string): CachedSheets | null {
   return read()[id] ?? null;
 }
 
+/** 이 곡의 찾은 악보를 지운다 — 곡을 지울 때 */
+export function removeSheets(id: string): void {
+  try {
+    const store = read();
+    if (!(id in store)) return;
+    delete store[id];
+    localStorage.setItem(KEY, JSON.stringify(store));
+  } catch {
+    // 못 지우면 자리만 차지할 뿐이다
+  }
+}
+
 export function saveSheets(id: string, query: string, items: SheetHit[]): void {
   try {
     const store = read();

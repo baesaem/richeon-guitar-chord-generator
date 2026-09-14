@@ -28,6 +28,15 @@ export function getVocalTiming(id: string): VocalTiming | null {
   }
 }
 
+/** 지운다 — 곡을 지울 때 */
+export function removeVocalTiming(id: string): void {
+  try {
+    localStorage.removeItem(key(id));
+  } catch {
+    // 못 지우면 자리만 차지할 뿐이다
+  }
+}
+
 export function saveVocalTiming(id: string, v: VocalTiming): void {
   try {
     localStorage.setItem(key(id), JSON.stringify(v));

@@ -110,6 +110,18 @@ export function loadSetup(songId: string): SongSetup {
   return saved ? { ...DEFAULT_SETUP, ...saved } : { ...DEFAULT_SETUP };
 }
 
+/** 이 곡의 설정을 지운다 — 곡을 지울 때 */
+export function removeSetup(songId: string): void {
+  try {
+    const all = readAll();
+    if (!(songId in all)) return;
+    delete all[songId];
+    localStorage.setItem(KEY, JSON.stringify(all));
+  } catch {
+    // 못 지우면 자리만 차지할 뿐이다
+  }
+}
+
 /**
  * 이 곡의 설정을 저장한다. 기본값 그대로면 지운다 —
  * 손대지 않은 곡까지 목록에 쌓아 둘 이유가 없다.

@@ -319,15 +319,36 @@ async def rename_result(result_id: str, body: dict) -> AnalysisResult:
 
 
 @app.delete("/api/results/{result_id}")
-async def delete_result(result_id: str) -> dict:
-    """분석 결과만 지운다. 원본·디코딩 오디오는 남아 재분석이 빠르다."""
+async def delete_result(result_id: str, full: bool = False) -> dict:
+    """분석 결과를 지운다.
+
+    full이면 이 곡의 흔적을 서버에서 모두 지운다(강사님: 「삭제하면 모든 흔적까지
+    (서버 포함)」) — 분석 결과, 받아 적은 가사, 보컬 구간, 붙인 악보·쪽 그림,
+    음원·분리 트랙 캐시까지. 예전에는 분석 결과만 지워, 같은 곡을 다시 등록하면
+    남은 악보·받아쓰기가 새 곡에 도로 붙었다. 다시 등록하면 음원을 새로 받는다.
+    """
     _guard_id(result_id)
 
     path = result_path(result_id)
-    if not path.exists():
-        raise HTTPException(404, "분석 결과가 없습니다")
-    path.unlink()
-    return {"deleted": result_id}
+    if not full:
+        if not path.exists():
+            raise HTTPException(404, "분석 결과가 없습니다")
+        path.unlink()
+        return {"deleted": result_id}
+
+    sheets = _sheet_dir()
+    targets = [path]
+    targets += list(settings.audio_dir.glob(f"{result_id}.*"))
+    targets += list(sheets.glob(f"{result_id}.*")) + list(sheets.glob(f"{result_id}__*"))
+    removed = 0
+    for p in targets:
+        try:
+            if p.exists():
+                p.unlink()
+                removed += 1
+        except OSError:
+            pass  # 쓰는 중인 파일은 남는다 — 다음에 지우면 된다
+    return {"deleted": result_id, "files": removed}
 
 
 # ---- 설정 (화면에서 바꾸는 값) ----

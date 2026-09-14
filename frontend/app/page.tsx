@@ -22,6 +22,7 @@ import { syllablesFromAbc, type KaraokeSyl } from "@/lib/karaokeSyllables";
 import { syllablesFromWords } from "@/lib/karaokeWords";
 import { fitToVocal } from "@/lib/karaokeVocal";
 import { getVocalTiming } from "@/lib/vocalStore";
+import { unmarkRemoved } from "@/lib/removed";
 import { applyBarChords } from "@/lib/abcChordSwap";
 import {
   getTabEdits,
@@ -1118,6 +1119,8 @@ export default function Home() {
           getResult(s.result_id)
             .then((r) => {
               showSong(r);
+              // 지웠던 곡을 다시 등록한 것이면 「지운 곡」 표식을 걷는다 — 새 곡이다
+              unmarkRemoved(r.id);
               // 노래방 곡으로 등록한 것은 음원목록 「노래방」 폴더에 넣고 노래방으로 연다
               const forKaraoke = pendingKaraoke.current;
               pendingKaraoke.current = false;

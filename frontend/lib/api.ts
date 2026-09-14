@@ -620,6 +620,15 @@ export const getVocal = (id: string) =>
   );
 
 /**
+ * 이 곡의 흔적을 서버에서 모두 지운다 — 분석 결과·받아쓴 가사·보컬 구간·악보·
+ * 음원 캐시까지(강사님: 「삭제하면 모든 흔적까지(서버 포함)」).
+ */
+export const purgeResult = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}?full=true`, { method: "DELETE" }).then(
+    json<{ deleted: string; files?: number }>,
+  );
+
+/**
  * 붙어 있는 가사를 AI로 다듬는다.
  *
  * 자동 자막에서 온 가사는 토막나 있고 글자가 틀린다. 없는 가사를
