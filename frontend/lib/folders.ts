@@ -7,6 +7,9 @@
  * (결과 본문은 IndexedDB, 분류는 여기 — 서로 독립이라 한쪽이 깨져도 다른 쪽은 산다).
  */
 
+import { KARAOKE_SONGS } from "./karaokeList";
+import { getSettings } from "./settings";
+
 const KEY = "chordgen.folders";
 
 /**
@@ -64,7 +67,8 @@ const EXTRA_KEY = "chordgen.karaokeExtra";
  * 없는 음원에 노래방 목록에도 표시 가능을 추가」). 곡은 폴더 하나에만 들어가서,
  * 반 곡을 노래방에도 두려면 따로 적어 둔다.
  */
-export function karaokeExtras(): string[] {
+/** 이 기기에 적어 둔 🎤(강사님이 누른 것, 수강생은 받은 곡 파일에서 온 것) */
+function localExtras(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(EXTRA_KEY) || "[]") as unknown;
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
@@ -73,18 +77,29 @@ export function karaokeExtras(): string[] {
   }
 }
 
-/** 노래방 목록에도 보이게(on) · 빼기 */
+/**
+ * 노래방 목록에도 보이는 곡.
+ *
+ * 수강생 기기는 앱에 담긴 강사님 목록(KARAOKE_SONGS)을 더한다 — 곡을 다시 받지
+ * 않아도 앱 배포만으로 따라간다. 강사님 기기는 자기 표시가 원본이다.
+ */
+export function karaokeExtras(): string[] {
+  const local = localExtras();
+  if (getSettings().adminMode) return local;
+  return [...new Set([...local, ...KARAOKE_SONGS])];
+}
+
+/** 노래방 목록에도 보이게(on) · 빼기. 이 기기의 표시만 고친다 */
 export function setKaraokeExtra(id: string, on: boolean): string[] {
-  const set = new Set(karaokeExtras());
+  const set = new Set(localExtras());
   if (on) set.add(id);
   else set.delete(id);
-  const list = [...set];
   try {
-    localStorage.setItem(EXTRA_KEY, JSON.stringify(list));
+    localStorage.setItem(EXTRA_KEY, JSON.stringify([...set]));
   } catch {
     // 저장이 막혀도 이번 세션 동작에는 지장 없다
   }
-  return list;
+  return karaokeExtras();
 }
 
 /**
