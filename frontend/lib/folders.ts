@@ -111,18 +111,26 @@ export function teacherKaraokeSongs(): string[] {
 }
 
 /**
+ * 강사님이 정한 노래방 곡(수강생 기기에서). 드라이브에서 받아 둔 것이 있으면
+ * 그것(가장 새것), 아직 못 받았으면 앱에 담긴 목록. 강사님 기기에서는 빈 목록 —
+ * 자기 표시가 원본이다.
+ */
+export function teacherKaraokePicks(): string[] {
+  if (getSettings().adminMode) return [];
+  return remoteKaraoke()?.songs ?? [...KARAOKE_SONGS];
+}
+
+/**
  * 노래방 목록에도 보이는 곡.
  *
- * 수강생 기기는 강사님 목록을 따른다 — 드라이브에서 받아 둔 것이 있으면 그것이
- * 원본(가장 새것, 🎤를 뺀 것도 따라간다). 아직 못 받았으면 앱에 담긴 목록과 곡
- * 파일로 온 표시. 강사님 기기는 자기 표시가 원본이다.
+ * 수강생 기기는 강사님 목록에 **자기가 🎤로 더한 곡**을 얹는다(강사님: 「수강생이
+ * 필요하면 노래방 목록에 포함할 수 있게」). 강사님 목록의 곡은 수강생이 빼지 못하고,
+ * 더한 곡은 그 기기에만 남는다. 강사님 기기는 자기 표시가 원본이다.
  */
 export function karaokeExtras(): string[] {
   const local = localExtras();
   if (getSettings().adminMode) return local;
-  const remote = remoteKaraoke();
-  if (remote) return remote.songs;
-  return [...new Set([...local, ...KARAOKE_SONGS])];
+  return [...new Set([...teacherKaraokePicks(), ...local])];
 }
 
 /** 노래방 목록에도 보이게(on) · 빼기. 이 기기의 표시만 고친다 */

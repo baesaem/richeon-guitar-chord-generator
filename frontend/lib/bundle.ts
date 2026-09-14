@@ -31,6 +31,7 @@ import {
   karaokeExtras,
   setKaraokeExtra,
 } from "./folders";
+import { getSettings } from "./settings";
 
 /**
  * 곡 꾸러미 — 한 곡에 딸린 모든 것을 한 파일에.
@@ -127,7 +128,10 @@ export function applyBundleMarks(bundle: SongBundle): void {
   if (typeof bundle.karaoke !== "boolean") return;
   const id = bundle.result.id;
   if (folderAssignments()[id] === KARAOKE_FOLDER) return;
-  if (karaokeExtras().includes(id) !== bundle.karaoke) setKaraokeExtra(id, bundle.karaoke);
+  const on = karaokeExtras().includes(id);
+  if (bundle.karaoke && !on) setKaraokeExtra(id, true);
+  // 수강생이 스스로 🎤로 더한 곡은 곡 파일의 표시가 꺼져 있어도 지우지 않는다
+  else if (!bundle.karaoke && on && getSettings().adminMode) setKaraokeExtra(id, false);
 }
 
 /**
