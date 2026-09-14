@@ -20,7 +20,7 @@ import {
   hasDriveKey,
   listSharedDirect,
 } from "@/lib/driveDirect";
-import { bundleAdds, isBundle, openBundle } from "@/lib/bundle";
+import { applyBundleMarks, bundleAdds, isBundle, openBundle } from "@/lib/bundle";
 import { KARAOKE_SHARE, SONG_SHARES } from "@/lib/classes";
 import { fileToShareFolder } from "@/lib/folders";
 
@@ -353,6 +353,8 @@ export function ImportTab({
           file.modified,
         );
         if (klass) fileToShareFolder(klass.id, results.map((r) => r.id), !adminMode);
+        // 곡은 같아도 강사님 🎤만 바뀌어 다시 올린 곡일 수 있다
+        if (isBundle(data)) applyBundleMarks(data);
         await refreshFetched();
         setSharedNotice("이미 받은 것과 같습니다. 그대로 두었습니다.");
         return;
@@ -406,6 +408,7 @@ export function ImportTab({
             results.map((r) => r.id),
           );
           if (klass) fileToShareFolder(klass.id, results.map((r) => r.id), !adminMode);
+          if (isBundle(data)) applyBundleMarks(data);
           same += 1;
           continue;
         }

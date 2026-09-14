@@ -17,6 +17,12 @@ import type { TabScore } from "./msczToAbc";
 import { loadSheets, saveSheets } from "./sheetCache";
 import { getSheetPage, saveSheetPage, sheetRev } from "./library";
 import type { AnalysisResult } from "./types";
+import {
+  KARAOKE_FOLDER,
+  folderAssignments,
+  karaokeExtras,
+  setKaraokeExtra,
+} from "./folders";
 
 /**
  * 곡 꾸러미 — 한 곡에 딸린 모든 것을 한 파일에.
@@ -60,6 +66,13 @@ export interface SongBundle {
    */
   sheetPages?: string[];
   /**
+   * 강사님의 🎤 — 노래방 목록에도 보이는 곡(노래방 폴더 곡 포함).
+   *
+   * 수강생은 🎤를 고르지 못하고(단추가 없다) 받은 대로 따른다(강사님: 「관리자
+   * 🎤 표시도 수강생에게 그대로」). 이 칸이 없는 옛 곡 파일은 건드리지 않는다.
+   */
+  karaoke?: boolean;
+  /**
    * ABC 악보와 그 마디 밀기, 타브 보표, 악보 따르기.
    *
    * 악보 파일(.mscz)이나 AI 채보로 만든 악보는 강사님 기기에만 있었다 —
@@ -86,6 +99,20 @@ export function isBundle(data: unknown): data is SongBundle {
     (data as { kind?: string }).kind === KIND &&
     !!(data as { result?: unknown }).result
   );
+}
+
+/**
+ * 곡 파일에 실린 강사님 표시(🎤)를 이 기기에 따른다.
+ *
+ * 곡을 다시 받지 않고 「이미 같은 곡」으로 넘기는 길에서도 불러야 한다 —
+ * 코드·가사가 같아도 🎤만 바뀌어 다시 올린 곡일 수 있다. 노래방 폴더에 든
+ * 곡은 이미 노래방 목록에 보이므로 건드리지 않는다.
+ */
+export function applyBundleMarks(bundle: SongBundle): void {
+  if (typeof bundle.karaoke !== "boolean") return;
+  const id = bundle.result.id;
+  if (folderAssignments()[id] === KARAOKE_FOLDER) return;
+  if (karaokeExtras().includes(id) !== bundle.karaoke) setKaraokeExtra(id, bundle.karaoke);
 }
 
 async function fromDataUrl(dataUrl: string): Promise<Blob> {
@@ -280,6 +307,11 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
   const base = baselineOf(result);
   if (base) bundle.setup = base;
 
+  // 강사님 🎤(노래방 목록에도) — 노래방 폴더 곡도 함께. 수강생은 받은 대로 따른다
+  bundle.karaoke =
+    karaokeExtras().includes(result.id) ||
+    folderAssignments()[result.id] === KARAOKE_FOLDER;
+
   // 음원·반주도 담는다 — 파일 하나로 곡이 통째로 옮겨지도록.
   // 못 구하면 빠질 뿐, 내보내기가 실패하지는 않는다.
   const audio = await findAudio(result.id);
@@ -346,6 +378,7 @@ export async function openBundle(
 
   await saveLocal(bundle.result);
   got.push("코드");
+  applyBundleMarks(bundle);
   if (bundle.result.lyrics?.length) got.push("가사");
 
   if (bundle.audio) {
