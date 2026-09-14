@@ -1583,8 +1583,9 @@ export default function Home() {
   const openSaved = async (id: string): Promise<boolean> => {
     setError(null);
     resetPlayback();
-    // 재생은 언제나 연습실에서 — 홈은 대시보드다
-    setTab("player");
+    // 재생은 연습실에서 — 홈은 대시보드다. 노래방에서 고른 곡(목록·◀ ▶)은
+    // 노래방에서 그대로 부른다(강사님)
+    setTab((t) => (t === "karaoke" ? "karaoke" : "player"));
     try {
       /* 기기 것을 먼저 연다 — 기기가 원본이다.
          예전에는 서버 것을 먼저 열었다. 그래서 가사를 붙이고 기기에만
