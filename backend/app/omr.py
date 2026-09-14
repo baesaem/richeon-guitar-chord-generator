@@ -104,11 +104,29 @@ async def recognize(source: Path, sheet: dict | None = None) -> dict:
                         extra["text"] = embed_text(root, bars, text)
                 except Exception as exc:  # 글자 꺼내기는 덤이다 — 실패해도 음표는 준다
                     extra["text"] = {"error": str(exc)}
+        drop_orphan_endings(root)
         stats = repair_durations(root)
         xml = ET.tostring(root, encoding="unicode")
         return {"xml": xml, **stats, **extra}
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def drop_orphan_endings(root: ET.Element) -> int:
+    """도돌이표가 하나도 없는데 1·2번 괄호가 있으면 OMR이 지어낸 것이다 — 지운다.
+
+    되돌아갈 곳이 없는 괄호는 뜻이 없다. 「동해의꿈」(도돌이 없이 117마디)을 OMR이
+    읽자 괄호가 13곳 생겨, 서버가 「2번 괄호」 마디를 건너뛰어 108마디로 폈다
+    (앱의 musicxmlToAbc도 같은 규칙으로 무시한다). 지운 수를 돌려준다.
+    """
+    if root.find(".//repeat") is not None:
+        return 0
+    n = 0
+    for bl in root.iter("barline"):
+        for e in bl.findall("ending"):
+            bl.remove(e)
+            n += 1
+    return n
 
 
 def _read_mxl(path: Path) -> ET.Element:
