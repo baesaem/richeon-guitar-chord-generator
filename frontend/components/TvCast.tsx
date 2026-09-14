@@ -161,6 +161,18 @@ export function TvCast({
             이 {phone ? "폰과" : "기기와"} TV가 <b>같은 와이파이</b>에 있어야 합니다. 화면이
             그대로 TV에 가므로 재생·정지·곡 넘기기는 여기서 하면 됩니다.
           </p>
+          {/* 안드로이드: 화면 전송(Smart View) 목록을 바로 연다(강사님: 「미러링을 자동으로
+              켤 수 없나」). 웹은 미러링을 스스로 켜지 못한다 — 대신 안드로이드의 공식
+              설정 화면(CAST_SETTINGS)으로 곧장 보내, 빠른 설정을 내려 찾는 걸음을 뺀다.
+              거기서 TV만 누르면 된다. 크롬만 intent: 주소를 연다 */}
+          {kind === "android" && (
+            <a
+              className="mb-2 block w-full rounded bg-[var(--accent)] py-2.5 text-center text-sm font-semibold text-white"
+              href="intent:#Intent;action=android.settings.CAST_SETTINGS;end"
+            >
+              화면 전송(Smart View) 목록 열기
+            </a>
+          )}
           <div className="mb-1 text-[13px] font-semibold text-[var(--accent)]">{guide.name}</div>
           <ol className="mb-1 list-decimal space-y-1 pl-5 text-[13px] leading-snug">
             {guide.steps.map((s) => (
