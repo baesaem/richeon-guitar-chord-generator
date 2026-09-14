@@ -107,6 +107,11 @@ interface NoteEv {
   lyric: string | null;
   lyric2: string | null;
   /**
+   * 절마다의 가사(0 = 1절). 1·2절만 옮기다 3·4절이 통째로 빠졌다 —
+   * 「잊혀지는 것」 악보는 4절까지 적혀 있다(강사님: 「PDF 악보와 다르다」)
+   */
+  verses?: (string | null)[];
+  /**
    * 셋잇단 따위의 길이 비율(2/3 같은 것). 없으면 1.
    *
    * units는 그대로 둔다 — ABC로 옮길 때 쓰는 값이라, 여기서 줄이면
@@ -237,11 +242,14 @@ function parseStaff(body: string): Measure[] {
             let text = (lm[1].match(/<text>([^<]*)/) ?? [])[1] ?? "";
             const syl = (lm[1].match(/<syllabic>([^<]*)/) ?? [])[1];
             if (syl === "begin" || syl === "middle") text += "-";
-            if (verse <= 1) lyrics[verse] = text;
+            lyrics[verse] = text;
           }
+          const verses: (string | null)[] = [];
+          for (const [k, v] of Object.entries(lyrics)) verses[+k] = v;
           events.push({
             type: "note", units, notes, tuplet,
             lyric: lyrics[0] ?? null, lyric2: lyrics[1] ?? null,
+            verses,
             harmony: pendingHarmony,
           });
         }
@@ -286,7 +294,9 @@ function measureToAbc(
   state: { sig: number; keyChange: string | null },
   up = 0,
   keepKey = false,
-): { music: string; syls: string[]; syls2: string[] } {
+  /** 몇 절까지 가사 줄을 만들까 — 곡 전체에서 가장 많은 절 수 */
+  nVerses = 2,
+): { music: string; syls: string[]; syls2: string[]; verses: string[][] } {
   /*
    * keepKey면 곡 가운데서 조표가 바뀌어도 처음 조표를 그대로 쓴다.
    *
@@ -304,6 +314,7 @@ function measureToAbc(
   const toks: string[] = [];
   const syls: string[] = [];
   const syls2: string[] = [];
+  const verses: string[][] = Array.from({ length: nVerses }, () => []);
   for (const ev of meas.events) {
     let t = "";
     if (ev.harmony?.root) t += `"${chordName(ev.harmony)}" `;
@@ -318,10 +329,11 @@ function measureToAbc(
       t += bodyTok + lenStr(ev.units) + (ev.notes.some((n) => n.tie) ? "-" : "");
       syls.push(ev.lyric ? ev.lyric : "*");
       syls2.push(ev.lyric2 ? ev.lyric2 : "*");
+      for (let v = 0; v < nVerses; v++) verses[v].push(ev.verses?.[v] || "*");
     }
     toks.push(t);
   }
-  return { music: toks.join(" "), syls, syls2 };
+  return { music: toks.join(" "), syls, syls2, verses };
 }
 
 /** .mscz(또는 .mscx) 바이트 → 악보 XML 글 */
@@ -347,6 +359,26 @@ function staffBlocksOf(xml: string): RegExpMatchArray[] {
   return [
     ...body.matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>\s*(?=<Staff id="|<\/Score>)/g),
   ].filter((m) => m[2].includes("<Measure"));
+}
+
+/**
+ * 이 보표가 기타 음자리표(높은음자리표 아래 8, G8vb)인가 — 소리보다 한 옥타브
+ * 높여 적는 보표. Part 정의부의 보표 defaultClef, 없으면 악기의 clef가 말해 준다.
+ *
+ * 뮤즈스코어는 소리 나는 음높이를 저장해서, 그대로 옮기면 종이 악보(PDF)보다 한
+ * 옥타브 낮게 오선 아래로 처진다(「잊혀지는 것」 멜로디 보표).
+ */
+function isOctaveClefStaff(xml: string, staffId: string): boolean {
+  for (const part of xml.matchAll(/<Part[ >][\s\S]*?<\/Part>/g)) {
+    const st = [...part[0].matchAll(/<Staff id="(\d+)">([\s\S]*?)<\/Staff>/g)].find(
+      (s) => s[1] === staffId,
+    );
+    if (!st) continue;
+    const own = (st[2].match(/<defaultClef>([^<]+)/) ?? [])[1];
+    if (own) return own === "G8vb";
+    return /<clef[^>]*>G8vb<\/clef>/.test(part[0]);
+  }
+  return false;
 }
 
 /** 이 보표가 타브인가. Part 정의부의 StaffType group="tablature"가 말해 준다 */
@@ -424,8 +456,12 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
   );
 
   const staff1 = parseStaff(staffBlocks[staff][2]);
-  // 타브 보표면 적는 음높이를 한 옥타브 올린다(윗글 참고)
-  const up = isTabStaff(xml, staffBlocks[staff][1]) ? 12 : 0;
+  /* 타브 보표, 그리고 기타 음자리표(G8vb) 보표는 적는 음높이를 한 옥타브 올린다
+     (윗글 참고) — 종이 악보(PDF)와 같은 자리에 선다. 조표를 하나로 묶는 것은
+     타브만의 사정이라 멜로디 보표에는 하지 않는다 */
+  const tab = isTabStaff(xml, staffBlocks[staff][1]);
+  const guitarClef = !tab && isOctaveClefStaff(xml, staffBlocks[staff][1]);
+  const up = tab || guitarClef ? 12 : 0;
   /*
    * 되돌이·1·2번 괄호·세뇨·코다는 악보 전체의 일이라, 뮤즈스코어는
    * **첫 보표에만** 적어 둔다. 기타 보표를 골랐다고 그것을 잃으면 41마디
@@ -459,12 +495,16 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
     });
   }
   const st = { sig: firstKey, keyChange: null as string | null };
+  // 곡 전체에서 가장 많은 절 수 — 절마다 가사 줄(w:)을 하나씩
+  const nVerses = Math.max(
+    1,
+    ...staff1.flatMap((m) => m.events.map((e) => e.verses?.length ?? 0)),
+  );
   const PER_LINE = 4;
   const lines: string[] = [];
   for (let i = 0; i < staff1.length; i += PER_LINE) {
     const chunk: string[] = [];
-    const sylsAll: string[] = [];
-    const syls2All: string[] = [];
+    const versesAll: string[][] = Array.from({ length: nVerses }, () => []);
     for (let j = i; j < Math.min(i + PER_LINE, staff1.length); j++) {
       const meas = staff1[j];
       const pre =
@@ -484,16 +524,20 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
         !!meas.volta && !meas.endRepeat && !next?.endRepeat && !next?.volta;
       const bar = meas.endRepeat ? " :|" : closesVolta ? " ||" : " |";
       st.keyChange = null;
-      const r = measureToAbc(meas, st, up, up !== 0);
+      const r = measureToAbc(meas, st, up, tab, nVerses);
       chunk.push(
         pre + (st.keyChange ? `[K:${st.keyChange}] ` : "") + r.music + bar,
       );
-      sylsAll.push(...r.syls);
-      syls2All.push(...r.syls2);
+      r.verses.forEach((vs, v) => versesAll[v].push(...vs));
     }
     let block = chunk.join("");
-    if (sylsAll.some((s) => s !== "*")) block += "\nw: " + sylsAll.join(" ");
-    if (syls2All.some((s) => s !== "*")) block += "\nw: " + syls2All.join(" ");
+    /* 가사가 있는 마지막 절까지 줄을 만든다. 가운데 절이 비어도 빈 줄(*)로 자리를
+       지킨다 — 줄을 빼면 3절이 2절 자리로 올라와 절 차례가 어긋난다 */
+    let last = -1;
+    versesAll.forEach((vs, v) => {
+      if (vs.some((s) => s !== "*")) last = v;
+    });
+    for (let v = 0; v <= last; v++) block += "\nw: " + versesAll[v].join(" ");
     lines.push(block);
   }
 
