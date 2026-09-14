@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Copyright } from "@/components/Copyright";
 import { folderAssignments, listFolders } from "@/lib/folders";
+import { folderChip } from "@/lib/folderChip";
 import { listLocal } from "@/lib/library";
 import { spellKey } from "@/lib/notation";
 import type { ResultSummary } from "@/lib/types";
@@ -60,12 +61,7 @@ export function EditTab({ onPick }: { onPick: (id: string) => void }) {
             <button
               key={f.id}
               onClick={() => setCurrent(f.id)}
-              className={[
-                "rounded-full px-2.5 py-1 text-xs",
-                current === f.id
-                  ? "bg-[var(--pick)] text-[var(--pick-ink)]"
-                  : "bg-[var(--panel)]",
-              ].join(" ")}
+              className={folderChip(current === f.id)}
             >
               {f.label}
             </button>
