@@ -21,6 +21,7 @@ import { msczParts, type MsczPart } from "@/lib/msczToAbc";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { Popup } from "@/components/Popup";
 import { AskConfirm } from "@/components/Ask";
+import { melodyIndex } from "@/components/ScorePick";
 
 /**
  * 정식 악보 붙이기 — 강사님 화면에만 나온다.
@@ -617,23 +618,33 @@ export function ScoreAttach({
       {askPart && (
         <Popup title="어느 보표를 쓸까요" width="max-w-xs" onClose={() => setAskPart(null)}>
           <p className="mb-2 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-            혼성 악보입니다. 멜로디·가사·코드를 읽을 보표를 고르세요. 타브는
-            멜로디가 아닙니다.
+            혼성 악보입니다. 멜로디·가사·코드를 읽을 보표를 고르세요. 멜로디는
+            보통 가사가 붙은 보표이고, 타브는 멜로디가 아닙니다.
           </p>
           <div className="space-y-1.5">
-            {askPart.parts.map((p) => (
-              <button
-                key={p.index}
-                className="w-full rounded bg-[var(--accent)] py-2.5 text-sm font-medium text-white"
-                onClick={() => {
-                  const f = askPart.file;
-                  setAskPart(null);
-                  void attach(f, p.index);
-                }}
-              >
-                {p.name}
-              </button>
-            ))}
+            {/* 가사가 가장 많은 보표를 권한다 — 이름만으로는 모를 때가 많다
+                (「잊혀지는 것」은 세 보표가 모두 「어쿠스틱 기타」였다) */}
+            {askPart.parts.map((p) => {
+              const best = p.index === melodyIndex(askPart.parts);
+              return (
+                <button
+                  key={p.index}
+                  className={
+                    best
+                      ? "w-full rounded bg-[var(--accent)] px-2 py-2.5 text-sm font-semibold text-white"
+                      : "w-full rounded border border-[color-mix(in_srgb,var(--foreground)_35%,transparent)] bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] px-2 py-2.5 text-sm text-[var(--foreground)]"
+                  }
+                  onClick={() => {
+                    const f = askPart.file;
+                    setAskPart(null);
+                    void attach(f, p.index);
+                  }}
+                >
+                  {p.name}
+                  {best ? " (추천)" : ""}
+                </button>
+              );
+            })}
           </div>
         </Popup>
       )}

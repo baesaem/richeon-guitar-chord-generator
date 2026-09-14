@@ -6,6 +6,17 @@ import { msczParts, type MsczPart } from "@/lib/msczToAbc";
 import { SCORE_ACCEPT } from "@/lib/scoreAtRegister";
 
 /**
+ * 멜로디일 보표 — 가사가 가장 많이 붙은 보표(타브 빼고). 가사가 어디에도 없으면
+ * 타브가 아닌 첫 보표. 이름으로는 모를 때가 많다(세 보표가 모두 「어쿠스틱 기타」).
+ */
+export function melodyIndex(list: MsczPart[]): number {
+  const notTab = list.filter((p) => !/타브/.test(p.name));
+  const sung = [...notTab].sort((a, b) => b.lyrics - a.lyrics)[0];
+  if (sung && sung.lyrics > 0) return sung.index;
+  return notTab[0]?.index ?? 0;
+}
+
+/**
  * 분석과 함께 넣을 악보 고르기 — 음원등록과 음원교체가 같이 쓴다.
  *
  * 음원만 듣고 딴 코드는 틀리는 데가 많다. 악보를 함께 넣으면 분석이
@@ -36,9 +47,7 @@ export function ScorePick({
     try {
       const list = msczParts(new Uint8Array(await f.arrayBuffer()), f.name);
       setParts(list);
-      // 타브가 아닌 첫 보표를 기본으로 — 타브는 멜로디가 아니다
-      const first = list.findIndex((p) => !/타브/.test(p.name));
-      onPick(f, first >= 0 ? first : 0);
+      onPick(f, melodyIndex(list));
     } catch {
       setParts([]);
       onPick(f, 0);
@@ -98,6 +107,15 @@ export function ScorePick({
           </select>
         </label>
       )}
+      {/* 가사 없는 보표를 골랐는데 가사 붙은 보표가 따로 있으면 — 반주를 멜로디로 붙이기 쉽다 */}
+      {parts.length > 1 &&
+        !parts.find((p) => p.index === staff)?.lyrics &&
+        parts.some((p) => p.lyrics > 0) && (
+          <p className="mt-1 text-[11px] leading-snug text-amber-600">
+            이 보표에는 가사가 없습니다 — 멜로디는 보통 가사가 붙은 「
+            {parts.find((p) => p.index === melodyIndex(parts))?.name}」입니다.
+          </p>
+        )}
     </>
   );
 }

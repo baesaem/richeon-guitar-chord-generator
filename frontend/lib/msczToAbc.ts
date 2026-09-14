@@ -361,8 +361,10 @@ function isTabStaff(xml: string, staffId: string): boolean {
 export interface MsczPart {
   /** 보표 차례(0부터). msczToAbc·서버에 넘기는 값 */
   index: number;
-  /** 사람이 읽는 이름 — 「노래」「기타」「Guitar (Tab)」 같은 것 */
+  /** 사람이 읽는 이름 — 「1번 · 노래 — 가사 120개(멜로디)」「2번 · 기타 (타브)」 같은 것 */
   name: string;
+  /** 가사가 붙은 음 수. 멜로디는 대개 가사가 붙은 보표다 */
+  lyrics: number;
 }
 
 /**
@@ -391,7 +393,18 @@ export function msczParts(data: Uint8Array, fileName: string): MsczPart[] {
       names.set(st[1], (staffs.length > 1 ? `${name} ${k + 1}` : name) + tab);
     });
   }
-  return blocks.map((b, i) => ({ index: i, name: names.get(b[1]) || `${i + 1}번 보표` }));
+  /* 이름만으로는 어느 것이 멜로디인지 모를 때가 많다 — 「잊혀지는 것」은 세 보표가
+     모두 「어쿠스틱 기타」라, 「어쿠스틱 기타」와 「어쿠스틱 기타 1」 중 반주 보표를
+     골라 기타 아르페지오가 멜로디 악보로 붙었다. 차례 번호와 가사 수를 함께 적는다 */
+  return blocks.map((b, i) => {
+    const lyrics = (b[2].match(/<Lyrics>/g) ?? []).length;
+    const base = names.get(b[1]) || "보표";
+    return {
+      index: i,
+      name: `${i + 1}번 · ${base}${lyrics ? ` — 가사 ${lyrics}개(멜로디)` : ""}`,
+      lyrics,
+    };
+  });
 }
 
 /** .mscz(또는 .mscx) 바이트 → ABC. 실패하면 이유를 담아 던진다. staff는 혼성 악보에서 쓸 보표(0부터) */
