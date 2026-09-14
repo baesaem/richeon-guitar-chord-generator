@@ -44,6 +44,7 @@ import {
   saveAbc,
   setAbcFollow,
   setAbcOffset,
+  setAbcOwnFrets,
   type AbcEntry,
 } from "@/lib/abcStore";
 import { fitAbcToAudioKey, type KeyFix } from "@/lib/abcKeyFix";
@@ -3188,6 +3189,14 @@ export default function Home() {
                          숫자는 악보가 없어도 넣는다(틀을 그림에서 세운다).
                          코드는 적어 넣을 악보가 있어야 한다 */
                       onFillTab={fillTabFromPicture}
+                      /* 악보 파일의 타브 보표 숫자를 쓸지 — 곡마다 고른다 */
+                      scoreTab={
+                        abcEntry?.tabScore ? !!abcEntry.tabScore.ownFrets : null
+                      }
+                      onScoreTab={(on) => {
+                        setAbcOwnFrets(result.id, on);
+                        setAbcEntry(getAbc(result.id));
+                      }}
                     />
                   )}
                   {/* 전체보기는 보기만 한다 — 싱크는 편집에서 맞춘다 */}

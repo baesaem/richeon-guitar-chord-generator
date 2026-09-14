@@ -1,7 +1,7 @@
 "use client";
 
 import { abcOrders } from "./abcOrder";
-import { saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
+import { getAbc, saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
 import { fixBeats, putScore, putSheetImage, readSheetChords } from "./api";
 import { msczParts, msczToAbc, msczToTab } from "./msczToAbc";
 import type { AnalysisResult } from "./types";
@@ -199,7 +199,13 @@ export async function attachScoreAfterAnalysis(
         parts.find((p) => p.index !== staff && /기타|guitar/i.test(p.name)) ??
         (parts.length > 1 ? parts[parts.length - 1] : null);
       if (tabPart && tabPart.index !== staff) {
-        setAbcTabScore(cur.id, msczToTab(bytes, file.name, tabPart.index));
+        /* 「악보의 타브 쓰기」는 강사님이 이 곡에 고른 것이다. 고친 악보를
+           다시 붙였다고 저절로 꺼지면 타브 화면이 「제공하지 않습니다」로 돌아간다 */
+        const own = !!getAbc(cur.id)?.tabScore?.ownFrets;
+        setAbcTabScore(cur.id, {
+          ...msczToTab(bytes, file.name, tabPart.index),
+          ...(own ? { ownFrets: true } : {}),
+        });
         notes.push(`타브는 「${tabPart.name}」에서 가져옵니다`);
       } else {
         setAbcTabScore(cur.id, null);

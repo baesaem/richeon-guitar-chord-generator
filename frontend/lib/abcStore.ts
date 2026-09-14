@@ -104,6 +104,18 @@ export function setAbcFollow(songId: string, follow: boolean): void {
   write(store);
 }
 
+/**
+ * 타브 화면에 악보 파일의 타브 숫자를 쓸 것인지 — 곡마다 강사님이 고른다
+ * (TabScore.ownFrets). 악보 파일에 타브 보표가 없으면 아무것도 안 한다.
+ */
+export function setAbcOwnFrets(songId: string, on: boolean): void {
+  const store = read();
+  const cur = store[songId];
+  if (!cur?.tabScore) return;
+  store[songId] = { ...cur, tabScore: { ...cur.tabScore, ownFrets: on } };
+  write(store);
+}
+
 export function setAbcOffset(songId: string, barOffset: number): void {
   const store = read();
   const cur = store[songId];

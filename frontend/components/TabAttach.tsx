@@ -21,6 +21,8 @@ export function TabAttach({
   onResult,
   online,
   onFillTab,
+  scoreTab = null,
+  onScoreTab,
 }: {
   result: AnalysisResult;
   onResult: (r: AnalysisResult) => void;
@@ -32,6 +34,15 @@ export function TabAttach({
    * 「안 읽혔다」로 보인다. 갓 읽은 것을 함께 넘긴다(상태는 아직 옛 것이다).
    */
   onFillTab?: (picked?: PickedTab) => void;
+  /**
+   * 악보 파일에 기타 타브 보표가 있을 때, 그 숫자를 타브 화면에 쓰는가.
+   * 타브 보표가 없으면 null — 단추를 내지 않는다.
+   *
+   * 옮겨 적은 사람이 달라 종이 악보와 어긋날 수 있어 저절로 켜지 않는다.
+   * 「잊혀지는 것」처럼 악보 파일의 타브가 종이와 같은 곡은 여기서 켠다.
+   */
+  scoreTab?: boolean | null;
+  onScoreTab?: (on: boolean) => void;
 }) {
   const pick = useRef<HTMLInputElement | null>(null);
   const pickAi = useRef<HTMLInputElement | null>(null);
@@ -137,6 +148,25 @@ export function TabAttach({
       >
         AI로 그림 읽기 (숫자·코드·가사)
       </button>
+      {scoreTab !== null && onScoreTab && (
+        <button
+          className={[
+            "rounded px-2 py-0.5 font-semibold",
+            scoreTab
+              ? "bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] text-[var(--accent)]"
+              : "bg-[var(--chip)] text-[var(--foreground)]",
+          ].join(" ")}
+          aria-pressed={scoreTab}
+          onClick={() => onScoreTab(!scoreTab)}
+          title={
+            scoreTab
+              ? "타브 화면이 악보 파일(기타 타브 보표)의 숫자를 씁니다. 누르면 끕니다"
+              : "악보 파일에 기타 타브 보표가 있습니다. 누르면 그 숫자를 타브 화면에 씁니다 — 옮겨 적은 사람이 달라 종이 악보와 다를 수 있어 곡마다 고릅니다. 그림에서 읽은 숫자가 있으면 그것이 먼저입니다"
+          }
+        >
+          {scoreTab ? "악보의 타브 쓰는 중 ✓" : "악보의 타브 쓰기"}
+        </button>
+      )}
       {tab && (
         <>
           <button
