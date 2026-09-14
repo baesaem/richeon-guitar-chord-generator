@@ -17,4 +17,10 @@ export const KARAOKE_SONGS: readonly string[] = [
   "54vt4Nalaa8", // 백아 - 첫사랑 [가사/Lyrics]
   "K2S3bpz4fgY", // 우리 사랑 기억 하겠네 - 허만성
   "7_mNEE3Y96A", // [응답하라 1988 Part 4] 박보람 - 혜화동 (혹은 쌍문동)
+  "MezvFK_r-MI", // 나는 반딧불 - 황가람
+  "dGKuGqCoGKw", // 조정석 - 밤이 깊었네 (슬기로운 의사생활 OST)
+  "hqaOggcUDEY", // 강산에 - 할아버지와 수박 (콘서트7080)
+  "bVqCdWiWO9c", // 이문세 - 광화문 연가
+  "bn_cjNCReQo", // 이장희 - 그건 너
+  "0bG8lTKuRGU", // 산울림 - 회상 (1982)
 ];
