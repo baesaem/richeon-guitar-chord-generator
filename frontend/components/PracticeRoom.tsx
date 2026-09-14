@@ -371,7 +371,7 @@ export function PracticeRoom({
             className={
               karaokeOn
                 ? /* 노래방: 영상 위에서 곧잘 찾도록 크게(강사님) */
-                  "shrink-0 rounded-md bg-[var(--chip)] px-4 py-1.5 text-sm font-bold"
+                  "shrink-0 rounded-md bg-[var(--chip)] px-7 py-1.5 text-sm font-bold"
                 : "shrink-0 rounded bg-[var(--chip)] px-2 py-1 text-[11px] font-semibold"
             }
             title="등록된 음원 가운데서 고릅니다"
