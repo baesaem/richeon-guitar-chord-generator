@@ -11,21 +11,43 @@ export type AbcMeasure = {
   volta: number | null;
   startRepeat: boolean;
   endRepeat: boolean;
+  /** 이 마디가 든 줄 아래 가사 줄(w:)이 몇 절까지 있나. 가사가 없으면 0 */
+  verses: number;
 };
 
-/** 본문을 마디로 쪼갠다. 가사·주석 줄은 연주와 무관하므로 뺀다 */
+/**
+ * 본문을 마디로 쪼갠다. 가사·주석 줄은 연주와 무관하므로 뺀다 — 다만
+ * 가사 줄(w:)이 몇 절까지 있는지는 마디마다 적어 둔다. 되돌이 뒤에
+ * 도돌이를 다시 부르는지 가리는 데 쓴다(abcOrders).
+ */
 export function abcMeasures(abc: string): AbcMeasure[] {
   const lines = abc.split("\n");
   let i = 0;
   for (; i < lines.length; i++) if (/^K:/.test(lines[i])) { i++; break; }
-  const body = lines
-    .slice(i)
-    .filter((l) => l.trim() && !/^(w:|W:|%)/.test(l))
-    .join(" ");
+  // 음표 줄마다: 본문에서의 자리, 그 아래 가사 줄 중 글자가 든 마지막 절
+  const rows: { text: string; at: number; seen: number; verses: number }[] = [];
+  let at = 0;
+  for (const l of lines.slice(i)) {
+    if (!l.trim() || /^(W:|%)/.test(l)) continue;
+    if (/^w:/.test(l)) {
+      const row = rows[rows.length - 1];
+      if (!row) continue;
+      row.seen++;
+      // 「*」「_」「-」뿐인 줄은 그 절을 부르지 않는 자리다
+      if (/[^\s*_\-|~]/.test(l.slice(2))) row.verses = row.seen;
+      continue;
+    }
+    rows.push({ text: l, at, seen: 0, verses: 0 });
+    at += l.length + 1;
+  }
+  const body = rows.map((r) => r.text).join(" ");
 
   const out: AbcMeasure[] = [];
   let buf = "";
   let startRepeat = false;
+  let row = -1;
+  let rowVerses = 0; // 지금 읽는 줄의 절 수
+  let bufVerses = 0; // 지금 모으는 마디가 걸친 줄들의 절 수
   const close = (bar: string) => {
     let text = buf.trim();
     buf = "";
@@ -39,10 +61,17 @@ export function abcMeasures(abc: string): AbcMeasure[] {
       text = v[1] + text.slice(v[0].length);
     }
     if (/[A-Ga-gz]/.test(text))
-      out.push({ text, volta, startRepeat, endRepeat: /^:/.test(bar) });
+      out.push({ text, volta, startRepeat, endRepeat: /^:/.test(bar), verses: bufVerses });
     startRepeat = /:$/.test(bar);
+    bufVerses = rowVerses;
   };
   for (let k = 0; k < body.length; ) {
+    // 줄이 바뀌면 그 줄의 절 수를 잡는다. 앞 줄에서 이어진 마디면 둘 중 큰 것
+    while (row + 1 < rows.length && k >= rows[row + 1].at) {
+      row++;
+      rowVerses = rows[row].verses;
+      bufVerses = buf.trim() ? Math.max(bufVerses, rowVerses) : rowVerses;
+    }
     const c = body[k];
     // 따옴표 글자·장식기호·[K: 같은 줄 안 지시는 통째로 건너뛴다
     if (c === '"' || c === "!") {
@@ -103,6 +132,26 @@ export function abcOrders(abc: string): AbcOrders | null {
   }
   const fine = txt.findIndex((t) => /!fine!|"[^"]*[Ff]ine[^"]*"/.test(t));
   const jump = txt.findIndex((t) => JUMP_RE.test(t));
+  /*
+   * 되돌아간 뒤에도 도돌이를 다시 부르는가.
+   *
+   * 보통은 되돌이(D.S.·D.C.) 뒤에는 도돌이표를 건너뛴다. 그런데 되돌아가
+   * 닿는 도돌이 구간에 가사가 3절 이상 적혀 있으면, 두 바퀴로는 다 부를 수
+   * 없다 — 되돌아가서 한 번 더 돌며 3·4절을 부른다는 뜻이다. 「잊혀지는 것」
+   * (김광석)이 그렇다. 건너뛰면 113마디로 펴져, 129마디인 음원에 박자를
+   * 억지로 깔아 ♩136 곡이 ♩113으로 느리게 갔다.
+   */
+  const repeatAfterJump = (() => {
+    if (jump < 0) return false;
+    const target = /D\.\s*C\./i.test(txt[jump]) ? 0 : segno >= 0 ? segno : 0;
+    const end = ms.findIndex((m, k) => k >= target && k < jump && m.endRepeat);
+    if (end < 0) return false;
+    let start = target;
+    for (let k = end; k >= target; k--) if (ms[k].startRepeat) { start = k; break; }
+    let verses = 0;
+    for (let k = start; k <= end; k++) verses = Math.max(verses, ms[k].verses);
+    return verses > 2;
+  })();
 
   const walk = (useJump: boolean) => {
     const order: number[] = [];
@@ -154,7 +203,9 @@ export function abcOrders(abc: string): AbcOrders | null {
         jumped = true;
         alFine = /alfine|al\s*fine/i.test(txt[i]) || (coda < 0 && fine >= 0);
         i = /D\.\s*C\./i.test(txt[i]) ? 0 : segno >= 0 ? segno : 0;
-        continue; // 되돌아온 뒤에는 도돌이표를 다시 잡지 않는다
+        // 되돌아온 뒤에는 도돌이표를 다시 잡지 않는다 — 3절 이상이면 다시 돈다
+        if (repeatAfterJump) doneEnd.clear();
+        continue;
       }
       if (useJump && jumped && !alFine && i === toCoda && coda >= 0) { i = coda; continue; }
       if (useJump && jumped && alFine && i === fine) break;

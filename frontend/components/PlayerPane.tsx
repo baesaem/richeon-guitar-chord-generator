@@ -33,8 +33,27 @@ interface Props {
   stem?: StemChoice;
 }
 
-/** 영상 소리와 반주가 이만큼 벌어지면 맞춘다(초). */
-const SYNC_TOLERANCE = 0.3;
+/**
+ * 영상과 반주 트랙 맞추기(초).
+ *
+ * 예전에는 0.3초만 벌어져도 반주의 자리를 옮겼다(currentTime). 자리를
+ * 옮기면 소리가 끊겼다 이어져 「지직」 하고 튄다. 이제는 조금 벌어지면
+ * 반주 빠르기를 몇 %만 바꿔 슬며시 따라붙게 하고, 크게 벌어졌을 때만
+ * (끊김·버퍼링 뒤) 자리를 옮긴다.
+ */
+const SYNC_JUMP = 1.0;
+/** 이만큼은 그냥 둔다 — 유튜브 시각이 계단식이라 늘 조금 흔들린다 */
+const SYNC_DEADBAND = 0.06;
+/** 따라붙을 때 빠르기를 바꾸는 한도(±4%) */
+const SYNC_MAX_NUDGE = 0.04;
+/**
+ * 앱이 직접 트는 음원의 음량(1 = 그대로).
+ *
+ * 유튜브에서 받은 원본은 한계(1.0)를 넘는 샘플이 많다 — 「잊혀지는 것」은
+ * 3만6천 개, 최대 1.12. 유튜브 창은 음량을 낮춰(음량 평준화) 틀어 깨끗하게
+ * 들리지만, 그대로 틀면 넘친 자리가 잘려 지직거린다. 약 2dB 낮춰 튼다.
+ */
+const HEADROOM = 0.8;
 
 export function PlayerPane({ result, onReady, compact = false, stem = "off" }: Props) {
   const ytRef = useRef<YouTubePlayer | null>(null);
@@ -232,9 +251,23 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
 
     // 두 재생기는 서로 조금씩 밀린다. 주기적으로 영상 시각에 반주를 맞춘다.
     const timer = setInterval(() => {
-      const t = yt.getCurrentTime?.();
+      // 계단식 유튜브 시각을 시계로 이어 붙인 값 — 흔들림이 적다
+      const t = pbRef.current?.getTime() ?? yt.getCurrentTime?.();
       if (typeof t !== "number") return;
-      if (Math.abs(inst.currentTime - t) > SYNC_TOLERANCE) inst.currentTime = t;
+      const diff = inst.currentTime - t;
+      const rate = rateRef.current;
+      if (Math.abs(diff) > SYNC_JUMP) {
+        inst.currentTime = t;
+        inst.playbackRate = rate;
+      } else if (playingRef.current) {
+        // 앞서 있으면 조금 느리게, 뒤처지면 조금 빠르게 — 몇 초 안에 붙는다
+        const nudge =
+          Math.abs(diff) < SYNC_DEADBAND
+            ? 0
+            : Math.max(-SYNC_MAX_NUDGE, Math.min(SYNC_MAX_NUDGE, -diff * 0.5));
+        const want = rate * (1 + nudge);
+        if (Math.abs(inst.playbackRate - want) > 0.001) inst.playbackRate = want;
+      }
       if (playingRef.current && inst.paused) inst.play().catch(() => {});
       if (!playingRef.current && !inst.paused) inst.pause();
     }, 500);
@@ -242,6 +275,7 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
     return () => {
       clearInterval(timer);
       inst.pause();
+      inst.playbackRate = rateRef.current;
       yt.unMute?.();
     };
   }, [dual, useYouTube]);
@@ -322,7 +356,16 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
           )}
           <VideoTouch pb={getPb} duration={result.duration} />
         </div>
-        {dual && <audio ref={instRef} src={instUrl} preload="auto" />}
+        {dual && (
+          <audio
+            ref={instRef}
+            src={instUrl}
+            preload="auto"
+            onLoadedMetadata={(e) => {
+              e.currentTarget.volume = HEADROOM;
+            }}
+          />
+        )}
       </>
     );
   }
@@ -333,7 +376,8 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
       ref={audioRef}
       className="w-full"
       src={audioSrc}
-      onLoadedMetadata={() => {
+      onLoadedMetadata={(e) => {
+        e.currentTarget.volume = HEADROOM;
         publish();
         // 유튜브에서 막혀 갈아 탄 경우, 누른 재생을 이어 준다
         if (ytBlocked && wantPlayRef.current) audioRef.current?.play().catch(() => {});
