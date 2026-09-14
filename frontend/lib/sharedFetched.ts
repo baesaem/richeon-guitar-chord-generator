@@ -70,6 +70,11 @@ export function uploadedAtOf(resultId: string): number | undefined {
   return undefined;
 }
 
+/** 이 드라이브 파일을 받아 기기에 담은 곡(결과 id)들. 받은 적 없으면 빈 목록 */
+export function fetchedResultIds(driveId: string): string[] {
+  return read()[driveId]?.ids ?? [];
+}
+
 /** 받을 때 적어 둔 드라이브 「고친 시각」. 받은 적 없으면 undefined */
 export function fetchedVersion(driveId: string): string | undefined {
   return read()[driveId]?.ver;

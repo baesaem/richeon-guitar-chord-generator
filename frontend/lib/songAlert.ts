@@ -14,8 +14,10 @@
 import { SONG_SHARES, type GuitarClass } from "./classes";
 import { listShared } from "./api";
 import { hasDriveKey, listSharedDirect } from "./driveDirect";
-import { attemptedDriveIds, fetchedVersion } from "./sharedFetched";
+import { attemptedDriveIds, fetchedResultIds, fetchedVersion } from "./sharedFetched";
 import { isRmlName } from "./sharedFiles";
+import { fileToShareFolder } from "./folders";
+import { getSettings } from "./settings";
 
 const SEEN_KEY = "chordgen.songAlertSeen";
 
@@ -60,6 +62,8 @@ export async function findNewSongs(online: boolean): Promise<NewSongs[]> {
   const seen = seenMap();
   const mine = attemptedDriveIds();
   const out: NewSongs[] = [];
+  // 수강생 기기는 받아 둔 곡의 폴더를 강사님이 올린 드라이브 폴더에 맞춘다
+  const sync = !getSettings().adminMode;
 
   // 반 폴더와 노래방 폴더 — 노래방에 새 곡이 올라와도 같이 알린다(강사님)
   for (const klass of SONG_SHARES) {
@@ -70,6 +74,12 @@ export async function findNewSongs(online: boolean): Promise<NewSongs[]> {
 
     // 곡(.rml)만 센다. 음원 파일은 곡에 딸려 오는 것이라 따로 세지 않는다.
     const songs = list.filter((f) => isRmlName(f.name));
+
+    /* 수강생 기기: 이미 받아 둔 곡을 강사님이 올린 폴더(초급반·중급반·노래방)에
+       담는다 — 앱을 열 때마다 강사님 음원등록을 따라간다. 예전에 받은 곡도 */
+    if (sync)
+      for (const f of songs)
+        fileToShareFolder(klass.id, fetchedResultIds(f.id), true);
     const ids = songs
       .filter((f) => !mine.has(f.id) && !(f.id in seen))
       .map((f) => f.id);

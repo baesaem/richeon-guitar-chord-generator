@@ -22,7 +22,7 @@ import {
 } from "@/lib/driveDirect";
 import { bundleAdds, isBundle, openBundle } from "@/lib/bundle";
 import { KARAOKE_SHARE, SONG_SHARES } from "@/lib/classes";
-import { assignFolder, folderAssignments, shareFolder } from "@/lib/folders";
+import { fileToShareFolder } from "@/lib/folders";
 
 /** 노래방 목록의 「+ 노래방 곡 등록」으로 들어올 때의 카드 — 유튜브 창을 노래방 곡으로 연다 */
 const KARAOKE_YT = "karaoke-youtube";
@@ -276,13 +276,8 @@ export function ImportTab({
       file.modified,
     );
     /* 받은 드라이브 폴더에 짝인 음원목록 폴더에 담는다(초급반·중급반·노래방).
-       노래방은 늘, 반 곡은 아직 폴더가 없는 곡만 — 손으로 나눠 둔 것은 그대로 */
-    const target = klass ? shareFolder(klass.id) : null;
-    if (target) {
-      const now = folderAssignments();
-      for (const r of results)
-        if (klass?.id === KARAOKE_SHARE.id || !now[r.id]) assignFolder(r.id, target);
-    }
+       수강생은 늘 강사님이 올린 폴더를 따르고, 강사님 기기는 폴더 없는 곡만 */
+    if (klass) fileToShareFolder(klass.id, results.map((r) => r.id), !adminMode);
 
     // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
     // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다. 반주(.inst)가 있으면
@@ -357,6 +352,7 @@ export function ImportTab({
           results.map((r) => r.id),
           file.modified,
         );
+        if (klass) fileToShareFolder(klass.id, results.map((r) => r.id), !adminMode);
         await refreshFetched();
         setSharedNotice("이미 받은 것과 같습니다. 그대로 두었습니다.");
         return;
@@ -409,6 +405,7 @@ export function ImportTab({
             file.id,
             results.map((r) => r.id),
           );
+          if (klass) fileToShareFolder(klass.id, results.map((r) => r.id), !adminMode);
           same += 1;
           continue;
         }
