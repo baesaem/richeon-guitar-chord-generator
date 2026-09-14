@@ -25,6 +25,12 @@ const isChar = (ch: string) => /[\p{L}\p{N}]/u.test(ch);
 
 /** 짝이 없는 글자 사이의 간격(초) — 줄 머리·끝을 채울 때만 쓴다 */
 const STEP = 0.3;
+/**
+ * 줄 시간 안에 고르게 펼 때 한 글자에 줄 최대 시간(초). 줄의 끝 시각이 다음 줄
+ * 앞까지 늘어나 간주를 덮는 일이 잦다(「할아버지와 수박」 한 줄이 108~132초) —
+ * 그대로 펴면 글자가 간주 중에 흐른다
+ */
+const MAX_PER_CHAR = 1.0;
 
 export function syllablesFromWords(
   lines: ReadonlyArray<LyricLine>,
@@ -121,8 +127,11 @@ export function syllablesFromWords(
     if (!idx.length) return;
     const anchors = idx.filter((k) => t[k] !== null);
     if (anchors.length < Math.max(2, idx.length * 0.3)) {
-      // 받아 적은 것이 거의 없는 줄 — 줄 시간 안에 고르게
-      const span = Math.max(line.end - line.t, idx.length * STEP);
+      // 받아 적은 것이 거의 없는 줄 — 줄 시간 안에 고르게(한 글자 1초까지만)
+      const span = Math.max(
+        Math.min(line.end - line.t, idx.length * MAX_PER_CHAR),
+        idx.length * STEP,
+      );
       idx.forEach((k, q) => (out[k] = line.t + (span * q) / idx.length));
       return;
     }
@@ -145,5 +154,10 @@ export function syllablesFromWords(
   // 뒤 글자가 앞 글자보다 앞서지 않게
   for (let k = 1; k < n; k++) out[k] = Math.max(out[k], out[k - 1] + 0.05);
 
-  return lyr.map((c, k) => ({ t: +out[k].toFixed(3), text: c.ch, space: c.space }));
+  return lyr.map((c, k) => ({
+    t: +out[k].toFixed(3),
+    text: c.ch,
+    space: c.space,
+    line: c.line,
+  }));
 }

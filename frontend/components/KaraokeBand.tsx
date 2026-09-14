@@ -107,8 +107,13 @@ export function KaraokeBand({
       sorted.forEach((line, li) => {
         const chars = [...line.text];
         const n = Math.max(chars.length, 1);
+        /* 한 글자에 1초까지만 준다 — 줄의 끝 시각이 다음 줄 앞까지 늘어나 간주를
+           덮는 곡이 있다(「할아버지와 수박」 한 줄이 108~132초). 그대로 펴면
+           서버 없는 기기(수강생)에서 글자가 간주 중에 흘렀다 */
+        const letters = Math.max(chars.filter((c) => c !== " ").length, 1);
+        const span = Math.min(line.end - line.t, letters * 1.0);
         // 글자가 겹치지 않을 만큼은 벌린다(빽빽한 줄은 제 시간보다 조금 길어진다)
-        const step = Math.max((line.end - line.t) / n, (font * 1.04) / pps);
+        const step = Math.max(span / n, (font * 1.04) / pps);
         chars.forEach((ch, k) => {
           if (ch === " ") return;
           text.push(

@@ -17,6 +17,8 @@ export interface KaraokeSyl {
   text: string;
   /** 뒤에 띄어 쓴다(단어가 끝남) */
   space: boolean;
+  /** 몇째 가사 줄인가(받아쓰기로 놓은 곡). 보컬에 맞출 때 줄마다 소절을 나눈다 */
+  line?: number;
 }
 
 interface AbcLyric {

@@ -56,10 +56,15 @@ export function fitToVocal(syls: KaraokeSyl[], v: VocalMap): KaraokeSyl[] {
   const segs = v.segments;
   if (!syls.length || !segs?.length) return syls;
 
+  /* 쉬는 곳과 가사 줄에서 소절을 나눈다. 쉼 없이 되풀이하는 줄(「할아버지와 수박」
+     끝의 「코가 찡하도록」 세 번)을 한 소절로 보면, 부르지 않는 가운데 되풀이까지
+     「대부분 부르는 구간 안」으로 셈해져 간주 중에 흘렀다 */
   const phrases: KaraokeSyl[][] = [];
   for (const s of [...syls].sort((a, b) => a.t - b.t)) {
     const cur = phrases[phrases.length - 1];
-    if (cur && s.t - cur[cur.length - 1].t <= PHRASE_GAP) cur.push(s);
+    const prev = cur?.[cur.length - 1];
+    const sameLine = prev?.line === undefined || s.line === undefined || prev.line === s.line;
+    if (prev && sameLine && s.t - prev.t <= PHRASE_GAP) cur.push(s);
     else phrases.push([s]);
   }
 

@@ -1,6 +1,14 @@
 "use client";
 
-import { apiBase, makeInstrumental, makeVocals, type SheetHit } from "./api";
+import {
+  apiBase,
+  getVocal,
+  getWords,
+  makeInstrumental,
+  makeVocals,
+  type SheetHit,
+} from "./api";
+import { getVocalTiming, saveVocalTiming, type VocalTiming } from "./vocalStore";
 import {
   getLocalAudio,
   getLocalSheet,
@@ -73,6 +81,13 @@ export interface SongBundle {
    */
   karaoke?: boolean;
   /**
+   * 노래방 가사 시각의 재료 — 보컬이 부르는 구간과 받아 적은 단어 시각(몇 KB).
+   *
+   * 분석 서버가 보컬 트랙에서 잰다. 수강생 기기에는 서버가 없어, 이것이 없으면
+   * 가사를 보컬에 맞추지 못해 간주 중에 가사가 흘렀다(「할아버지와 수박」).
+   */
+  vocal?: VocalTiming;
+  /**
    * ABC 악보와 그 마디 밀기, 타브 보표, 악보 따르기.
    *
    * 악보 파일(.mscz)이나 AI 채보로 만든 악보는 강사님 기기에만 있었다 —
@@ -113,6 +128,24 @@ export function applyBundleMarks(bundle: SongBundle): void {
   const id = bundle.result.id;
   if (folderAssignments()[id] === KARAOKE_FOLDER) return;
   if (karaokeExtras().includes(id) !== bundle.karaoke) setKaraokeExtra(id, bundle.karaoke);
+}
+
+/**
+ * 분석 서버에서 노래방 가사 시각의 재료를 받아 기기에도 적어 둔다(강사님 기기).
+ * 보컬 트랙이 없거나 서버에 닿지 못하면 null — 곡 파일에서 빠질 뿐이다.
+ */
+async function fetchVocalTiming(id: string): Promise<VocalTiming | null> {
+  try {
+    const v = await getVocal(id);
+    const words = await getWords(id)
+      .then((r) => r.words)
+      .catch(() => undefined);
+    const timing: VocalTiming = { segments: v.segments, ...(words?.length ? { words } : {}) };
+    saveVocalTiming(id, timing);
+    return timing;
+  } catch {
+    return null;
+  }
 }
 
 async function fromDataUrl(dataUrl: string): Promise<Blob> {
@@ -344,6 +377,10 @@ export async function makeBundle(
     karaokeExtras().includes(result.id) ||
     folderAssignments()[result.id] === KARAOKE_FOLDER;
 
+  // 노래방 가사 시각의 재료 — 서버 없는 수강생 기기도 가사를 보컬에 맞추게
+  const timing = getVocalTiming(result.id) ?? (await fetchVocalTiming(result.id));
+  if (timing) bundle.vocal = timing;
+
   // 음원·반주도 담는다 — 파일 하나로 곡이 통째로 옮겨지도록.
   // 못 구하면 빠질 뿐, 내보내기가 실패하지는 않는다. 드라이브에 올릴 때는 빼고
   // 따로 올린다(songTrackFiles) — 음원이 그대로면 수강생이 다시 받지 않게.
@@ -371,6 +408,9 @@ export async function makeBundle(
 export async function bundleAdds(bundle: SongBundle): Promise<string[]> {
   const id = bundle.result.id;
   const adds: string[] = [];
+
+  // 노래방 가사 시각의 재료 — 코드·가사가 같아도 이것이 새로 왔으면 받는다
+  if (bundle.vocal?.segments?.length && !getVocalTiming(id)) adds.push("노래방 가사 시각");
 
   if (bundle.abc?.abc?.trim()) {
     const mine = getAbc(id);
@@ -412,6 +452,7 @@ export async function openBundle(
   await saveLocal(bundle.result);
   got.push("코드");
   applyBundleMarks(bundle);
+  if (bundle.vocal?.segments?.length) saveVocalTiming(bundle.result.id, bundle.vocal);
   if (bundle.result.lyrics?.length) got.push("가사");
 
   if (bundle.audio) {

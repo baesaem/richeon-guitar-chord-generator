@@ -21,6 +21,7 @@ import { KARAOKE_FOLDER, assignFolder } from "@/lib/folders";
 import { syllablesFromAbc, type KaraokeSyl } from "@/lib/karaokeSyllables";
 import { syllablesFromWords } from "@/lib/karaokeWords";
 import { fitToVocal } from "@/lib/karaokeVocal";
+import { getVocalTiming } from "@/lib/vocalStore";
 import { applyBarChords } from "@/lib/abcChordSwap";
 import {
   getTabEdits,
@@ -2149,8 +2150,14 @@ export default function Home() {
     /* 놓은 글자를 보컬이 실제로 부르는 구간에 소절째 맞춘다(강사님: 「음원의 보컬을
        참고해 가사를 표시」) — 악보와 음원이 어긋난 대목에서 간주 중에 가사가 흐르지
        않게. 서버가 없거나 보컬 트랙이 없으면 놓은 그대로 */
+    /* 곡 파일로 받아 기기에 적어 둔 재료(보컬 구간·받아쓴 단어)가 있으면 그것으로 —
+       서버 없는 수강생 기기도 강사님 기기와 똑같이 맞춘다. 없으면 서버에서 */
+    const timing = karaokeId ? getVocalTiming(karaokeId) : null;
     const fit = async (s: KaraokeSyl[] | null) => {
-      if (!s?.length || !karaokeId || !karaokeOnline) return s;
+      if (!s?.length || !karaokeId) return s;
+      if (timing?.segments?.length)
+        return fitToVocal(s, { onsets: [], segments: timing.segments });
+      if (!karaokeOnline) return s;
       try {
         return fitToVocal(s, await getVocal(karaokeId));
       } catch {
@@ -2162,11 +2169,19 @@ export default function Home() {
         .then(fit)
         .then(done)
         .catch(() => done(null));
-    } else if (karaoke && karaokeId && karaokeOnline && karaokeLyrics?.length) {
+    } else if (
+      karaoke &&
+      karaokeId &&
+      karaokeLyrics?.length &&
+      (timing?.words?.length || karaokeOnline)
+    ) {
       /* 악보가 없는 곡(「사람이 꽃보다 아름다워」) — 서버가 보컬을 받아 적은
          단어 시각에 가사 글자를 짝지어 놓는다. 받아 적은 것이 없으면 줄 시각대로 */
-      getWords(karaokeId)
-        .then((r) => fit(syllablesFromWords(karaokeLyrics, r.words)))
+      const words = timing?.words?.length
+        ? Promise.resolve(timing.words)
+        : getWords(karaokeId).then((r) => r.words);
+      words
+        .then((w) => fit(syllablesFromWords(karaokeLyrics, w)))
         .then(done)
         .catch(() => done(null));
     } else {
