@@ -77,15 +77,51 @@ function localExtras(): string[] {
   }
 }
 
+const REMOTE_KEY = "chordgen.karaokeRemote";
+
+/** 드라이브에서 받아 둔 강사님 노래방 목록(수강생 기기). 받은 적 없으면 null */
+export function remoteKaraoke(): { songs: string[]; ver?: string } | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(REMOTE_KEY) || "null") as {
+      songs?: unknown;
+      ver?: string;
+    } | null;
+    if (!v || !Array.isArray(v.songs)) return null;
+    return { songs: v.songs.filter((x): x is string => typeof x === "string"), ver: v.ver };
+  } catch {
+    return null;
+  }
+}
+
+/** 드라이브에서 받은 강사님 노래방 목록을 적어 둔다(ver는 드라이브의 고친 시각) */
+export function saveRemoteKaraoke(songs: string[], ver?: string): void {
+  try {
+    localStorage.setItem(REMOTE_KEY, JSON.stringify({ songs, ver, at: Date.now() }));
+  } catch {
+    // 저장이 막혀도 이번 세션 동작에는 지장 없다
+  }
+}
+
+/** 강사님 기기의 노래방 목록 — 노래방 폴더 곡과 🎤. 드라이브에 올리는 것이 이것이다 */
+export function teacherKaraokeSongs(): string[] {
+  const inFolder = Object.entries(read().assignment)
+    .filter(([, f]) => f === KARAOKE_FOLDER)
+    .map(([id]) => id);
+  return [...new Set([...inFolder, ...localExtras()])].sort();
+}
+
 /**
  * 노래방 목록에도 보이는 곡.
  *
- * 수강생 기기는 앱에 담긴 강사님 목록(KARAOKE_SONGS)을 더한다 — 곡을 다시 받지
- * 않아도 앱 배포만으로 따라간다. 강사님 기기는 자기 표시가 원본이다.
+ * 수강생 기기는 강사님 목록을 따른다 — 드라이브에서 받아 둔 것이 있으면 그것이
+ * 원본(가장 새것, 🎤를 뺀 것도 따라간다). 아직 못 받았으면 앱에 담긴 목록과 곡
+ * 파일로 온 표시. 강사님 기기는 자기 표시가 원본이다.
  */
 export function karaokeExtras(): string[] {
   const local = localExtras();
   if (getSettings().adminMode) return local;
+  const remote = remoteKaraoke();
+  if (remote) return remote.songs;
   return [...new Set([...local, ...KARAOKE_SONGS])];
 }
 

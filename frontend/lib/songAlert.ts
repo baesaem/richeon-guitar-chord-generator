@@ -18,6 +18,8 @@ import { attemptedDriveIds, fetchedResultIds, fetchedVersion } from "./sharedFet
 import { isRmlName } from "./sharedFiles";
 import { fileToShareFolder } from "./folders";
 import { getSettings } from "./settings";
+import { KARAOKE_SHARE } from "./classes";
+import { pullKaraokeList } from "./karaokeRemote";
 
 const SEEN_KEY = "chordgen.songAlertSeen";
 
@@ -80,6 +82,11 @@ export async function findNewSongs(online: boolean): Promise<NewSongs[]> {
     if (sync)
       for (const f of songs)
         fileToShareFolder(klass.id, fetchedResultIds(f.id), true);
+
+    /* 수강생 기기: 노래방 폴더의 목록 파일(강사님 🎤)을 바뀌었을 때만 받아 둔다.
+       1KB 남짓이라 금방이고, 못 받으면 전에 받은 목록을 그대로 쓴다 */
+    if (sync && klass.id === KARAOKE_SHARE.id)
+      await pullKaraokeList(list, online).catch(() => false);
     const ids = songs
       .filter((f) => !mine.has(f.id) && !(f.id in seen))
       .map((f) => f.id);
