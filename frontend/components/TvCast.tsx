@@ -169,27 +169,36 @@ export function TvCast({
               갤럭시에는 「Google Cast」로 뜬다)에 삼성 TV가 「무선 디스플레이」로 잡혀
               연결됐다. TV가 꺼져 있으면 「근처 기기 없음」이 뜬다. 삼성 Smart View 앱을
               패키지로 여는 것은 플레이스토어 「항목 없음」으로 빠져 걷었다 */}
-          {kind === "android" && (
-            <div className="mb-2 space-y-1">
-              <a
-                className="block w-full rounded bg-[var(--accent)] py-2.5 text-center text-sm font-semibold text-white"
-                href="intent:#Intent;action=android.settings.CAST_SETTINGS;end"
-              >
-                화면 전송 목록 열기 (TV 고르기)
-              </a>
-              <p className={`text-[11px] leading-snug ${DIM}`}>
-                갤럭시에서는 「Google Cast」 화면으로 열립니다 — 거기서 TV를 누르세요.
-                TV가 켜져 있고 같은 와이파이여야 목록에 뜹니다. 안 열리면 아래 순서대로.
-              </p>
-            </div>
-          )}
           <div className="mb-1 text-[13px] font-semibold text-[var(--accent)]">{guide.name}</div>
           <ol className="mb-1 list-decimal space-y-1 pl-5 text-[13px] leading-snug">
             {guide.steps.map((s) => (
               <li key={s}>{s}</li>
             ))}
           </ol>
-          <p className={`mb-3 text-[11px] ${DIM}`}>연결되는 TV: {guide.tv}</p>
+          <p className={`mb-2 text-[11px] ${DIM}`}>연결되는 TV: {guide.tv}</p>
+          {/* 갤럭시에서 시험한 결과(강사님): 빠른 설정의 Smart View는 지연이 없고, 안드로이드
+              설정의 「캐스트」 화면(CAST_SETTINGS — 갤럭시에는 「Google Cast」로 뜬다)으로
+              붙이면 삼성 TV가 잡히긴 하나 화면이 늦는다. Smart View 자체는 앱이 열 수
+              없다(삼성이 진입점을 내놓지 않음) — 그래서 지연 없는 길을 위에 적고, 단추는
+              Smart View가 안 보일 때의 대체 길로 둔다 */}
+          {kind === "android" && (
+            <details className="mb-3 text-[12px]">
+              <summary className={`cursor-pointer ${DIM}`}>
+                Smart View가 안 보일 때 — 설정에서 TV 고르기(화면이 조금 늦습니다)
+              </summary>
+              <a
+                className="mt-1.5 block w-full rounded bg-[var(--chip)] py-2 text-center text-[13px] font-semibold text-[var(--foreground)]"
+                href="intent:#Intent;action=android.settings.CAST_SETTINGS;end"
+              >
+                화면 전송 설정 열기
+              </a>
+              <p className={`mt-1 text-[11px] leading-snug ${DIM}`}>
+                갤럭시에서는 「Google Cast」 화면으로 열리고 TV가 「무선 디스플레이」로 뜹니다.
+                이 길은 Smart View보다 화면이 늦으니, 노래를 따라 부를 때는 Smart View를
+                쓰세요. TV가 켜져 있고 같은 와이파이여야 목록에 뜹니다.
+              </p>
+            </details>
+          )}
           {/* TV 회사별 도움말 — 삼성·LG. 창이 길어지지 않게 접어 두고, 누르면 편다 */}
           <div className="mb-3 space-y-1.5">
             {TV_TIPS.map(({ brand, tips }) => (
