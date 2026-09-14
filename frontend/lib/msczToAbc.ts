@@ -296,6 +296,8 @@ function measureToAbc(
   keepKey = false,
   /** 몇 절까지 가사 줄을 만들까 — 곡 전체에서 가장 많은 절 수 */
   nVerses = 2,
+  /** 한 박의 길이(16분음표 수) — 이 안의 짧은 음표를 들보로 묶는다 */
+  beat = 4,
 ): { music: string; syls: string[]; syls2: string[]; verses: string[][] } {
   /*
    * keepKey면 곡 가운데서 조표가 바뀌어도 처음 조표를 그대로 쓴다.
@@ -315,9 +317,12 @@ function measureToAbc(
   const syls: string[] = [];
   const syls2: string[] = [];
   const verses: string[][] = Array.from({ length: nVerses }, () => []);
+  let pos = 0; // 마디 머리부터 16분음표 몇 개째인가
+  let prev: { start: number; dur: number; note: boolean } | null = null;
   for (const ev of meas.events) {
     let t = "";
-    if (ev.harmony?.root) t += `"${chordName(ev.harmony)}" `;
+    // 코드 이름은 음표에 바로 붙인다 — 띄우면 그 자리에서 들보가 끊긴다
+    if (ev.harmony?.root) t += `"${chordName(ev.harmony)}"`;
     if (ev.type === "rest") {
       t += "z" + lenStr(ev.units);
     } else {
@@ -331,7 +336,25 @@ function measureToAbc(
       syls2.push(ev.lyric2 ? ev.lyric2 : "*");
       for (let v = 0; v < nVerses; v++) verses[v].push(ev.verses?.[v] || "*");
     }
-    toks.push(t);
+    /* 한 박 안의 짧은 음표는 붙여 적어 들보로 묶는다 — 종이 악보(PDF)처럼.
+       띄어 적으면 abcjs가 8분음표마다 꼬리를 따로 달아, 같은 악보인데 전혀
+       다르게 보였다(강사님: 「PDF 악보와 음표 표시가 다르다」). 박 머리·쉼표·
+       한 박 이상 긴 음에서는 끊는다 */
+    const start = pos;
+    const dur = ev.units * (ev.tuplet ?? 1);
+    const note = ev.type === "note";
+    const join =
+      !!prev &&
+      prev.note &&
+      note &&
+      dur < beat &&
+      prev.dur < beat &&
+      start % beat !== 0 &&
+      Math.floor(prev.start / beat) === Math.floor(start / beat);
+    if (join) toks[toks.length - 1] += t;
+    else toks.push(t);
+    prev = { start, dur, note };
+    pos += dur;
   }
   return { music: toks.join(" "), syls, syls2, verses };
 }
@@ -500,6 +523,8 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
     1,
     ...staff1.flatMap((m) => m.events.map((e) => e.verses?.length ?? 0)),
   );
+  // 한 박(16분음표 수): x/4는 4분음표, 6/8·9/8·12/8은 점4분음표, x/2는 2분음표
+  const beat = +sigD === 8 && +sigN % 3 === 0 ? 6 : +sigD === 2 ? 8 : 16 / (+sigD || 4);
   const PER_LINE = 4;
   const lines: string[] = [];
   for (let i = 0; i < staff1.length; i += PER_LINE) {
@@ -524,7 +549,7 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
         !!meas.volta && !meas.endRepeat && !next?.endRepeat && !next?.volta;
       const bar = meas.endRepeat ? " :|" : closesVolta ? " ||" : " |";
       st.keyChange = null;
-      const r = measureToAbc(meas, st, up, tab, nVerses);
+      const r = measureToAbc(meas, st, up, tab, nVerses, beat);
       chunk.push(
         pre + (st.keyChange ? `[K:${st.keyChange}] ` : "") + r.music + bar,
       );

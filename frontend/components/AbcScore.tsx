@@ -517,6 +517,10 @@ ${src}`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* 안내줄·싱크·마디·음높이 줄과 ♩ 줄은 악보를 내려도 위에 붙어 있다(강사님:
+          「표시한 선까지 스크롤 고정」). 편집 창은 악보 칸째 통으로 스크롤해서, 이
+          줄들이 악보와 함께 위로 사라졌다 — 그 칸의 맨 위에 붙인다 */}
+      <div className="sticky top-0 z-10 bg-[var(--background)]">
       <SongInfoLine
         musicKey={musicKey}
         sourceKey={sourceKey}
@@ -573,6 +577,7 @@ ${src}`;
         {/* 카포는 음높이 손잡이와 안내줄(연주설정 요약)이 알려 준다 —
             원음 높이를 옮기면 필요한 카포가 달라져, 악보 조만 보고 적던
             「카포 n프렛」은 틀린 말이 되었다 */}
+      </div>
       </div>
       {/* 타브만 보일 때 오선의 음표·기둥·이음줄을 가린다 */}
       {/* abcjs는 currentColor로 그린다 — 다크 모드의 연회색 글자색이
