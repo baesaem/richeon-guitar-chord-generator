@@ -245,7 +245,39 @@ export function baselineOf(result: AnalysisResult): SongSetup | null {
   return { ...DEFAULT_SETUP, ...raw, loop: null };
 }
 
-export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
+/**
+ * 드라이브에 곡 파일과 따로 올릴 음원 파일들 — 원곡·반주·보컬.
+ *
+ * 음원까지 곡 파일(.rml) 하나에 담으면 곡당 10~20MB라, 가사·악보만 고쳐 다시
+ * 올려도 수강생이 음원까지 다시 받았다(강사님: 「음원이 안 바뀌었으면 설정
+ * 데이터만 받게」). 음원은 따로 올리고, 받는 쪽은 바뀌었을 때만 받는다.
+ * 이름은 공유 규약대로 결과 id를 넣는다 — 「리천 노래명(출처).{id}.mp3」,
+ * 「….{id}.inst.mp3」(반주), 「….{id}.vocals.mp3」(보컬).
+ */
+export async function songTrackFiles(
+  result: AnalysisResult,
+): Promise<{ name: string; blob: Blob }[]> {
+  // 곡 파일 이름에서 .rml만 뗀다 — 「리천 노래명(출처).{id}」
+  const base = bundleFileName({ kind: KIND, version: 1, result }).replace(/\.rml$/, "");
+  const out: { name: string; blob: Blob }[] = [];
+  const audio = await findAudio(result.id);
+  if (!audio) return out;
+  out.push({ name: `${base}.${audio.ext}`, blob: audio.blob });
+  const inst = await findStem(result.id, "instrumental");
+  if (inst) out.push({ name: `${base}.inst.mp3`, blob: inst });
+  const vocals = await findStem(result.id, "vocals");
+  if (vocals) out.push({ name: `${base}.vocals.mp3`, blob: vocals });
+  return out;
+}
+
+/**
+ * 곡 파일을 만든다. audio가 false면 음원·반주·보컬을 싣지 않는다 — 드라이브에
+ * 올릴 때(음원은 songTrackFiles로 따로). 파일 하나로 내려받을 때는 통째로 싣는다.
+ */
+export async function makeBundle(
+  result: AnalysisResult,
+  opts: { audio?: boolean } = {},
+): Promise<SongBundle> {
   const bundle: SongBundle = { kind: KIND, version: 1, result };
 
   const sheets = loadSheets(result.id);
@@ -313,8 +345,9 @@ export async function makeBundle(result: AnalysisResult): Promise<SongBundle> {
     folderAssignments()[result.id] === KARAOKE_FOLDER;
 
   // 음원·반주도 담는다 — 파일 하나로 곡이 통째로 옮겨지도록.
-  // 못 구하면 빠질 뿐, 내보내기가 실패하지는 않는다.
-  const audio = await findAudio(result.id);
+  // 못 구하면 빠질 뿐, 내보내기가 실패하지는 않는다. 드라이브에 올릴 때는 빼고
+  // 따로 올린다(songTrackFiles) — 음원이 그대로면 수강생이 다시 받지 않게.
+  const audio = opts.audio === false ? null : await findAudio(result.id);
   if (audio) {
     bundle.audio = { dataUrl: await toDataUrl(audio.blob), ext: audio.ext };
     const inst = await findStem(result.id, "instrumental");

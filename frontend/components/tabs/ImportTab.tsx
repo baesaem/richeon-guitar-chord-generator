@@ -27,6 +27,7 @@ import { fileToShareFolder } from "@/lib/folders";
 /** 노래방 목록의 「+ 노래방 곡 등록」으로 들어올 때의 카드 — 유튜브 창을 노래방 곡으로 연다 */
 const KARAOKE_YT = "karaoke-youtube";
 import {
+  getLocalAudio,
   localIds,
   parseResultsText,
   saveLocal,
@@ -42,6 +43,8 @@ import {
   isRmlName,
   rmlBaseOf,
   songTitleOf,
+  stemKey,
+  vocalsIdFromName,
 } from "@/lib/sharedFiles";
 import { changedSongs, alreadySame, type SongChange } from "@/lib/songDiff";
 import {
@@ -283,19 +286,31 @@ export function ImportTab({
     // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다. 반주(.inst)가 있으면
     // 그것도 담는다 — 수강생도 서버 없이 보컬을 끌 수 있게.
     let withAudio = bundleAudio ? 1 : 0;
+    /* 음원 파일은 바뀌었을 때만 받는다(강사님: 「음원이 안 바뀌었으면 설정 데이터만」).
+       기기에 있고 드라이브의 고친 시각이 받을 때와 같으면 건너뛴다 — 가사·악보만 고쳐
+       다시 올린 곡은 가벼운 곡 파일만 받는다. 서버 길은 고친 시각이 없어, 기기에
+       있으면 그대로 둔다 */
+    const take = async (f: SharedFile, key: string, id: string) => {
+      const have = await getLocalAudio(key).catch(() => null);
+      const same = !!have && (f.modified ? fetchedVersion(f.id) === f.modified : true);
+      if (!same) await saveLocalAudio(key, await fileBlob(f.id));
+      markFetched(f.id, [id], f.modified);
+    };
     for (const audioFile of files ?? []) {
       const audioId = audioIdFromName(audioFile.name);
       if (audioId && results.some((r) => r.id === audioId)) {
-        await saveLocalAudio(audioId, await fileBlob(audioFile.id));
-        markFetched(audioFile.id, [audioId], audioFile.modified);
+        await take(audioFile, audioId, audioId);
         withAudio += 1;
         continue;
       }
       const instId = instIdFromName(audioFile.name);
       if (instId && wantInst && results.some((r) => r.id === instId)) {
-        await saveLocalAudio(instKey(instId), await fileBlob(audioFile.id));
-        markFetched(audioFile.id, [instId], audioFile.modified);
+        await take(audioFile, instKey(instId), instId);
+        continue;
       }
+      const vocId = vocalsIdFromName(audioFile.name);
+      if (vocId && wantVocals && results.some((r) => r.id === vocId))
+        await take(audioFile, stemKey(vocId, "vocals"), vocId);
     }
     return { results, withAudio, brought };
   };

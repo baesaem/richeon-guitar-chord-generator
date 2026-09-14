@@ -22,6 +22,15 @@ export function instIdFromName(name: string): string | null {
   return m ? m[1] : null;
 }
 
+// 보컬만 남긴 트랙은 id 뒤에 .vocals가 붙는다(곡 파일에서 음원을 떼어 따로 올린 뒤부터)
+const VOCALS_RE = /\.([A-Za-z0-9_-]{11}|[0-9a-f]{16})\.vocals\.(mp3|m4a|wav|ogg)$/i;
+
+/** 보컬 트랙 파일명에서 결과 id를 뽑는다. 보컬 트랙이 아니면 null. */
+export function vocalsIdFromName(name: string): string | null {
+  const m = name.match(VOCALS_RE);
+  return m ? m[1] : null;
+}
+
 /** 어떤 트랙을 들을지. off = 전체(원곡 그대로) */
 export type StemChoice = "off" | "inst" | "vocals";
 
