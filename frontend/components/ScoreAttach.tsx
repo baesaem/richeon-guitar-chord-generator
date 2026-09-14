@@ -167,6 +167,39 @@ export function ScoreAttach({
   };
 
   /**
+   * 마디선을 한 박 앞(-1)·뒤(+1)로 옮긴다 — 박의 시각은 그대로, 마디·박 번호만.
+   *
+   * 못갖춘마디로 시작하는 곡은 첫 박이 넷째 박이다. 박 찾기가 그 박을 1마디
+   * 첫 박으로 세면, 악보 커서와 코드가 곡 내내 한 마디 늦는다(「하얀 나비」).
+   * 앞 박들은 1마디(못갖춘마디)가 되고 그 뒤를 넷씩 다시 센다. 기기에 적고
+   * 서버가 있으면 서버에도 보낸다.
+   */
+  const shiftDownbeat = async (dir: -1 | 1) => {
+    const per = parseInt(String(result.time_signature || "4/4"), 10) || 4;
+    const beats = [...result.beats].sort((a, b) => a.t - b.t);
+    if (beats.length < per * 2) return;
+    // 지금 첫 마디 첫 박 앞에 몇 박이 있는가(못갖춘마디의 박 수)
+    const first = beats.findIndex((b) => b.beat === 1);
+    const lead = (((first < 0 ? 0 : first) + dir) % per + per) % per;
+    const next: AnalysisResult = {
+      ...result,
+      beats: beats.map((b, i) => {
+        if (i < lead) return { ...b, bar: 1, beat: per - lead + i + 1 };
+        const j = i - lead;
+        return { ...b, bar: (lead ? 2 : 1) + Math.floor(j / per), beat: (j % per) + 1 };
+      }),
+    };
+    setBusy(true);
+    setError(null);
+    try {
+      if (online) await putResult(next).catch(() => {});
+      onResult(next);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
    * 지금 맞춘 연주설정을 이 곡의 기준값으로 적어 둔다.
    *
    * 싱크는 기기 사정이 아니라 악보와 음원이 어긋난 정도다 — 강사님이
@@ -452,6 +485,27 @@ export function ScoreAttach({
           >
             마디 ÷3
           </button>
+          {/* 마디선을 한 박씩 — 못갖춘마디(여린내기)로 시작하는 곡을 첫 박부터
+              넷씩 세면 악보 커서가 한 마디 늦는다(「하얀 나비」). 박 시각은 그대로 */}
+          <span className="flex items-center gap-0.5">
+            마디선
+            <button
+              className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
+              disabled={busy}
+              onClick={() => void shiftDownbeat(-1)}
+              title="마디선을 한 박 앞으로 — 마디 첫 박이 한 박 일찍 옵니다"
+            >
+              ◀ 한 박
+            </button>
+            <button
+              className="rounded bg-[var(--chip)] px-1.5 py-0.5 disabled:opacity-40"
+              disabled={busy}
+              onClick={() => void shiftDownbeat(1)}
+              title="마디선을 한 박 뒤로 — 첫 박이 못갖춘마디(여린내기)인데 1마디 첫 박으로 세어져 악보 커서가 한 마디 늦을 때"
+            >
+              한 박 ▶
+            </button>
+          </span>
         </span>
       )}
 

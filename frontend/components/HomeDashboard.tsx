@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
-import { CLASSES } from "@/lib/classes";
+import { CLASSES, SONG_SHARES } from "@/lib/classes";
 import { listFolders } from "@/lib/folders";
 import { listLocal } from "@/lib/library";
 import { labelFor, spellKey } from "@/lib/notation";
@@ -178,7 +178,8 @@ export function HomeDashboard({
         </div>
         {fetchTab === "song" ? (
           <div className="grid grid-cols-3 gap-2">
-            {CLASSES.map((c) =>
+            {/* 반 폴더와 노래방 폴더 — 「노래방 받기」도 같은 길이다 */}
+            {SONG_SHARES.map((c) =>
               quick(
                 // 타일에는 반 이름만. 받은 곡은 음원목록에서 관리하므로
                 // 누르면 음원목록으로 간다

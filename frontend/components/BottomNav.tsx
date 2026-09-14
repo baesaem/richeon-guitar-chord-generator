@@ -8,6 +8,8 @@ export type Tab =
   | "import"
   | "lesson"
   | "edit"
+  /** 노래방 — 연습실의 노래방 보기를 떼어 따로 둔 메뉴(강사님) */
+  | "karaoke"
   | "chords"
   | "settings";
 
@@ -92,6 +94,18 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
       <>
         <path d="M4 20h4L20 8l-4-4L4 16z" />
         <path d="M14.5 5.5 18.5 9.5" />
+      </>
+    ),
+  },
+  {
+    id: "karaoke",
+    label: "노래방",
+    icon: (
+      <>
+        {/* 마이크 — 영상을 크게 띄우고 가사를 따라 부르는 자리 */}
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+        <path d="M12 17.5V21M9 21h6" />
       </>
     ),
   },

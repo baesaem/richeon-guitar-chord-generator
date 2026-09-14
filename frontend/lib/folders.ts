@@ -9,6 +9,12 @@
 
 const KEY = "chordgen.folders";
 
+/**
+ * 노래방 폴더 — 늘 있다(강사님: 「음원목록에 노래방 폴더 자동생성」).
+ * 드라이브의 노래방 공유 폴더와 짝이라, 지워도 다시 생긴다.
+ */
+export const KARAOKE_FOLDER = "노래방";
+
 interface FolderData {
   folders: string[];
   /** songId → 폴더 이름 */
@@ -16,16 +22,18 @@ interface FolderData {
 }
 
 function read(): FolderData {
+  let data: FolderData = { folders: [], assignment: {} };
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const data = JSON.parse(raw) as FolderData;
-      if (Array.isArray(data.folders) && data.assignment) return data;
+      const got = JSON.parse(raw) as FolderData;
+      if (Array.isArray(got.folders) && got.assignment) data = got;
     }
   } catch {
     // 깨진 저장값은 초기화로 간다
   }
-  return { folders: [], assignment: {} };
+  if (!data.folders.includes(KARAOKE_FOLDER)) data.folders.push(KARAOKE_FOLDER);
+  return data;
 }
 
 function write(data: FolderData): void {

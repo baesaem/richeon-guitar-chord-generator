@@ -16,6 +16,8 @@ import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
 import { KaraokeBand } from "@/components/KaraokeBand";
+import { TvCast } from "@/components/TvCast";
+import { KARAOKE_FOLDER, assignFolder } from "@/lib/folders";
 import { syllablesFromAbc, type KaraokeSyl } from "@/lib/karaokeSyllables";
 import { syllablesFromWords } from "@/lib/karaokeWords";
 import { applyBarChords } from "@/lib/abcChordSwap";
@@ -261,8 +263,11 @@ export default function Home() {
    * 눕힌다).
    */
   const [tvMode, setTvMode] = useState(false);
-  /** 노래방 화면(연습실 「노래방」) — 영상을 크게, 아래 띠에 가사·코드 */
-  const [karaoke, setKaraoke] = useState(false);
+  /** 노래방 화면 — 아래 메뉴의 「노래방」(강사님: 연습실에서 떼어 따로 둔다).
+      연습실과 같은 재생기를 노래방 짜임으로 보인다 — 영상을 크게, 아래 띠에 가사·코드 */
+  const karaoke = tab === "karaoke";
+  /** 지금 등록하는 곡을 노래방 곡으로(음원목록 「노래방」 폴더에) */
+  const pendingKaraoke = useRef(false);
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("tv", tvMode);
@@ -1062,7 +1067,14 @@ export default function Home() {
           getResult(s.result_id)
             .then((r) => {
               showSong(r);
-              setTab("player");
+              // 노래방 곡으로 등록한 것은 음원목록 「노래방」 폴더에 넣고 노래방으로 연다
+              const forKaraoke = pendingKaraoke.current;
+              pendingKaraoke.current = false;
+              if (forKaraoke) {
+                assignFolder(r.id, KARAOKE_FOLDER);
+                setToast(`노래방 폴더에 등록했습니다 — ${r.title || r.id}`);
+              }
+              setTab(forKaraoke ? "karaoke" : "player");
               // 서버(PC)가 꺼져도 열 수 있도록 기기에도 저장해 둔다
               if (settings.autoSave) saveLocal(r).catch(() => {});
               // 악보를 먼저 만들어 두고 음원을 등록한 경우 — 이제야
@@ -2239,7 +2251,7 @@ export default function Home() {
   const [songList, setSongList] = useState<ResultSummary[]>([]);
   useEffect(() => {
     // 곡을 옮겨 다니는 자리 — 연습실의 이전·다음 곡과 전체보기의 곡 고르기
-    if (!showSheet && tab !== "player") return;
+    if (!showSheet && tab !== "player" && tab !== "karaoke") return;
     let alive = true;
     (async () => {
       // 기기에 담아 둔 곡이 먼저. 서버가 붙어 있으면(강사님 PC) 서버에만
@@ -2275,18 +2287,21 @@ export default function Home() {
     if (next === "edit" && !settings.adminMode) next = "home";
     // 악보 만들기 창은 음원등록 뷰 안에 있다 — 다른 메뉴로 가면 접는다
     if (next !== "import") setAbcAttach(false);
-    if (next !== "player") {
+    if (next !== "player" && next !== "karaoke") {
       setTab(next);
       return;
     }
-    // 연습실: 곡이 있으면 그대로, 없으면 마지막에 치던 곡을 열어 준다.
+    // 연습실·노래방: 곡이 있으면 그대로, 없으면 마지막에 치던 곡을 열어 준다.
     if (result) {
-      setTab("player");
+      setTab(next);
       return;
     }
     const last = listRecent()[0];
-    if (last && (await openSaved(last.id))) return;
-    setTab("player"); // 곡이 하나도 없으면 안내 화면이 뜬다
+    if (last && (await openSaved(last.id))) {
+      setTab(next);
+      return;
+    }
+    setTab(next); // 곡이 하나도 없으면 안내 화면이 뜬다
   };
 
   // 태블릿·PC 폭인가. 넓으면 악보를 더 많은 줄 보인다 —
@@ -2343,7 +2358,7 @@ export default function Home() {
    * 세웠다 눕힐 때까지 켜지 않는다. 아이폰 사파리는 전체화면이 없어 그대로다.
    */
   const shortLandscape = useMediaQuery("(orientation: landscape) and (max-height: 500px)");
-  const inRoom = tab === "player" || showSheet;
+  const inRoom = tab === "player" || tab === "karaoke" || showSheet;
   const autoFsRef = useRef<"idle" | "armed" | "on" | "declined">("idle");
   useEffect(() => {
     const root = document.documentElement;
@@ -2562,6 +2577,7 @@ export default function Home() {
     import: "음원등록",
     lesson: "강의실",
     edit: "편집",
+    karaoke: "노래방",
     chords: "기타 기초",
     settings: "설정",
   };
@@ -2584,7 +2600,7 @@ export default function Home() {
             다만 눕힌 폰(낮은 가로 화면)의 연습실·전체보기에서는 걷는다 — 높이가
             모자라 악보 자리가 없어진다(강사님). 다른 탭은 그대로 둔다 */}
         <header
-          className={`${tab === "player" || showSheet ? "short:hidden " : ""}shrink-0 bg-[var(--bar-bg)]`}
+          className={`${tab === "player" || tab === "karaoke" || showSheet ? "short:hidden " : ""}shrink-0 bg-[var(--bar-bg)]`}
         >
           <div className="flex items-center gap-2.5 px-3 py-2 roomy:gap-3 roomy:px-5 roomy:py-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)] roomy:hidden">
@@ -2628,6 +2644,18 @@ export default function Home() {
             </span>
             {/* 도움말 — 지금 보는 메뉴에 맞는 안내가 열린다 */}
             <HelpButton tab={tab} playing={!!result} />
+            {/* TV로 보기 — 전체화면 아이콘 왼쪽의 「TV」(강사님). TV 화면은 연습실
+                짜임이라, 다른 메뉴에서 누르면 연습실로 가서 편다 */}
+            <TvCast
+              label="TV"
+              className="shrink-0 rounded border border-[color-mix(in_srgb,var(--accent)_60%,transparent)] px-1.5 py-0.5 text-[11px] font-bold leading-none text-[var(--accent)]"
+              onTvMode={() => {
+                if (tab !== "player" && tab !== "karaoke") void goTab("player");
+                openTvMode();
+              }}
+              tvOn={tvMode}
+              onTvOff={closeTvMode}
+            />
             <FullscreenButton />
           </div>
           {/* 강조색 헤어라인 */}
@@ -3515,7 +3543,7 @@ export default function Home() {
           {/* 연습실 탭은 항상 붙여 둔다. 다른 탭으로 옮겨도 재생이 끊기지 않게. */}
           <div
             className={
-              tab === "player"
+              tab === "player" || tab === "karaoke"
                 ? "flex h-full flex-col overflow-y-auto md:overflow-hidden"
                 : "hidden"
             }
@@ -3883,7 +3911,17 @@ export default function Home() {
                   tvOn={tvMode}
                   onTvOff={closeTvMode}
                   karaokeOn={karaoke}
-                  onKaraoke={setKaraoke}
+                  /* 노래방은 아래 메뉴다 — 닫으면(✕) 홈으로 */
+                  onKaraoke={(on) => void goTab(on ? "karaoke" : "home")}
+                  onAddSong={
+                    settings.adminMode
+                      ? () => {
+                          // 음원등록의 유튜브 창을 「노래방 곡으로 등록」으로 연다
+                          setImportCard("karaoke-youtube");
+                          void goTab("import");
+                        }
+                      : undefined
+                  }
                   karaoke={
                     karaoke ? (
                       <KaraokeBand
@@ -4505,8 +4543,9 @@ export default function Home() {
               separate={settings.separate}
               adminMode={settings.adminMode}
               autoOpen={importCard}
-              onAnalyzeUrl={(u, score, staff) => {
+              onAnalyzeUrl={(u, score, staff, karaoke) => {
                 pendingScore.current = score ? { file: score, staff: staff ?? 0 } : null;
+                pendingKaraoke.current = !!karaoke;
                 void run(() => analyzeUrl(u, settings.separate));
               }}
               onAnalyzeWithAi={aiAnalyze}
@@ -4743,7 +4782,7 @@ export default function Home() {
           tab={showSheet ? "player" : tab}
           onChange={goTab}
           adminMode={settings.adminMode}
-          hideWhenShort={tab === "player" || showSheet}
+          hideWhenShort={tab === "player" || tab === "karaoke" || showSheet}
         />
       </div>
     </div>

@@ -21,7 +21,11 @@ import {
   listSharedDirect,
 } from "@/lib/driveDirect";
 import { bundleAdds, isBundle, openBundle } from "@/lib/bundle";
-import { CLASSES } from "@/lib/classes";
+import { KARAOKE_SHARE, SONG_SHARES } from "@/lib/classes";
+import { KARAOKE_FOLDER, assignFolder } from "@/lib/folders";
+
+/** 노래방 목록의 「+ 노래방 곡 등록」으로 들어올 때의 카드 — 유튜브 창을 노래방 곡으로 연다 */
+const KARAOKE_YT = "karaoke-youtube";
 import {
   localIds,
   parseResultsText,
@@ -69,7 +73,8 @@ interface Props {
    */
   autoOpen?: CardKind;
   /** 악보 파일을 함께 주면 분석이 끝나는 자리에서 붙이고 코드가 악보를 따르게 한다 */
-  onAnalyzeUrl: (url: string, score?: File, staff?: number) => void;
+  /** karaoke면 노래방 곡 — 악보 없이 분석해 음원목록 「노래방」 폴더에 넣는다 */
+  onAnalyzeUrl: (url: string, score?: File, staff?: number, karaoke?: boolean) => void;
   onAnalyzeFile: (file: File) => void;
   /** 서버 없이 AI로 코드를 만든다. 서버가 없을 때만 쓴다 */
   onAnalyzeWithAi: (url: string) => void;
@@ -145,9 +150,13 @@ export function ImportTab({
   // 반주·보컬 트랙도 저장할지. 기기 공간을 아끼려는 사람은 끈다
   const [wantInst, setWantInst] = useState(true);
   const [wantVocals, setWantVocals] = useState(false);
-  const [open, setOpen] = useState<CardKind | null>(autoOpen ?? null);
-  // 지금 열어 둔 반. 카드마다 폴더가 다르다
-  const klass = CLASSES.find((c) => c.id === open) ?? null;
+  const [open, setOpen] = useState<CardKind | null>(
+    autoOpen === KARAOKE_YT ? "youtube" : (autoOpen ?? null),
+  );
+  /** 노래방 곡으로 등록 — 악보 없이 분석해 음원목록 「노래방」 폴더에 넣는다 */
+  const [forKaraoke, setForKaraoke] = useState(autoOpen === KARAOKE_YT);
+  // 지금 열어 둔 반(또는 노래방). 카드마다 드라이브 폴더가 다르다
+  const klass = SONG_SHARES.find((c) => c.id === open) ?? null;
 
   // 기타반 공유 음원목록 (구글드라이브, 서버가 프록시)
   const [shared, setShared] = useState<{
@@ -266,6 +275,9 @@ export function ImportTab({
       results.map((r) => r.id),
       file.modified,
     );
+    // 노래방 폴더에서 받은 곡은 음원목록의 「노래방」 폴더에 담는다
+    if (klass?.id === KARAOKE_SHARE.id)
+      for (const r of results) assignFolder(r.id, KARAOKE_FOLDER);
 
     // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
     // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다. 반주(.inst)가 있으면
@@ -488,7 +500,7 @@ export function ImportTab({
           있어야 하는 강사님 몫이라, 여기 두면 눌러도 되지 않는 카드가
           늘어설 뿐이다. */}
       {!adminMode &&
-        CLASSES.map((c) => (
+        SONG_SHARES.map((c) => (
           <Card
             key={c.id}
             icon={
@@ -507,7 +519,11 @@ export function ImportTab({
               </svg>
             }
             title={c.name.replace("강상주민센터 ", "") + " 받기"}
-            description="강사님이 올린 곡을 내려받습니다"
+            description={
+              c.id === KARAOKE_SHARE.id
+                ? "강사님이 올린 노래방 곡(가사·코드로 따라 부르는 곡)을 내려받습니다"
+                : "강사님이 올린 곡을 내려받습니다"
+            }
             onClick={() => setOpen(c.id)}
           />
         ))}
@@ -744,24 +760,39 @@ export function ImportTab({
           </div>
           {/* 악보를 함께 넣으면 코드가 악보를 따른다. 음원만 듣고 딴 코드는
               틀리는 데가 많고, 등록한 뒤 따로 붙이자면 세 단계다 */}
-          <ScorePick
-            score={score}
-            staff={staff}
-            onPick={(f, st) => {
-              setScore(f);
-              setStaff(st);
-            }}
-          />
+          {/* 노래방 곡 — 악보 없이 음원만 분석해 음원목록 「노래방」 폴더에(강사님) */}
+          <label className="mt-3 flex items-start gap-2 text-[13px] leading-snug">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0"
+              checked={forKaraoke}
+              onChange={(e) => setForKaraoke(e.target.checked)}
+            />
+            <span>
+              <b>노래방 곡으로 등록</b> — 악보 없이 음원만 분석해 음원목록 「노래방」
+              폴더에 넣습니다
+            </span>
+          </label>
+          {!forKaraoke && (
+            <ScorePick
+              score={score}
+              staff={staff}
+              onPick={(f, st) => {
+                setScore(f);
+                setStaff(st);
+              }}
+            />
+          )}
           <button
             className="mt-3 w-full rounded bg-[var(--pick)] py-3 text-[var(--pick-ink)] disabled:opacity-40"
             disabled={!url || busy}
             onClick={() => {
               setOpen(null);
-              onAnalyzeUrl(url, score ?? undefined, staff);
+              onAnalyzeUrl(url, forKaraoke ? undefined : (score ?? undefined), staff, forKaraoke);
               setScore(null);
             }}
           >
-            {score ? "악보에 맞춰 분석" : "분석"}
+            {forKaraoke ? "노래방 곡으로 분석" : score ? "악보에 맞춰 분석" : "분석"}
           </button>
         </Popup>
       )}

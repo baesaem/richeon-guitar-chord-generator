@@ -35,9 +35,27 @@ export const CLASSES: GuitarClass[] = [
   },
 ];
 
+/**
+ * 노래방 공유 폴더(강사님) — 악보 없이 유튜브 음원을 분석한 곡을 모은다.
+ *
+ * 반이 아니라 강의실은 없다. 음원목록의 「노래방」 폴더와 짝이다 — 올리면
+ * 이 드라이브 폴더로 가고, 받으면 음원목록의 「노래방」 폴더에 담긴다.
+ * 반 폴더처럼 「링크가 있는 모든 사용자 · 뷰어」로 공개했다.
+ */
+export const KARAOKE_SHARE: GuitarClass = {
+  id: "karaoke",
+  name: "노래방",
+  folderId: "1Pem8c5zjTL-N9F6apmMNWKC26ZBLonQZ",
+  lessonFolderId: "",
+};
+
+/** 곡을 올리고 받는 드라이브 폴더 전부 — 반 폴더와 노래방 */
+export const SONG_SHARES: GuitarClass[] = [...CLASSES, KARAOKE_SHARE];
+
 export const folderUrl = (folderId: string) =>
   `https://drive.google.com/drive/folders/${folderId}`;
 
 /** 알고 있는 반의 폴더인가. 서버에 넘길 값을 걸러 내는 데 쓴다. */
 export const knownFolder = (folderId: string) =>
+  folderId === KARAOKE_SHARE.folderId ||
   CLASSES.some((c) => c.folderId === folderId || c.lessonFolderId === folderId);

@@ -53,6 +53,7 @@ class Settings(BaseSettings):
         "14DkfLqbYBapOD3rlrTxpqpLNEmX90CzL",  # 중급 곡
         "1EWHUax-B5WGnAr7y3gYEFpaE9v5Q7Ouj",  # 초급 강의실
         "1xjOfkBsy7_XOiuZ90w_jikBwtIgbZjUJ",  # 중급 강의실
+        "1Pem8c5zjTL-N9F6apmMNWKC26ZBLonQZ",  # 노래방 곡
     )
 
     # --- LLM (선택) ---
