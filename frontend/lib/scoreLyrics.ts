@@ -284,6 +284,41 @@ export function scoreLyricLines(
   barOffset: number,
   spacing?: LyricLine[] | null,
 ): LyricLine[] | null {
+  const placed = placeSyllables(abc, bars, barOffset, spacing);
+  if (!placed) return null;
+  const { syls, wordStart } = placed;
+  const index = new Map(syls.map((s, i) => [s, i]));
+  const count = (p: Syl[]) => p.reduce((n, s) => n + s.text.length, 0);
+  return buildLines(syls, wordStart, index, count);
+}
+
+/**
+ * 노래방 띠에 놓을 음절 — 악보 가사를 음표 시각에(간격이 곧 음 길이). 가사 줄과
+ * 같은 셈이라 절·후렴 차례가 가사 탭과 똑같다. space는 「뒤에 띄어 쓴다」.
+ */
+export function scoreKaraokeSyllables(
+  abc: string,
+  bars: Bar[],
+  barOffset: number,
+  spacing?: LyricLine[] | null,
+): { t: number; text: string; space: boolean }[] | null {
+  const placed = placeSyllables(abc, bars, barOffset, spacing);
+  if (!placed) return null;
+  const { syls, wordStart } = placed;
+  return syls.map((s, i) => ({
+    t: +s.t.toFixed(3),
+    text: s.text,
+    space: wordStart[i + 1] ?? true,
+  }));
+}
+
+/** 악보 가사 음절을 부르는 차례대로 음원 시각에 놓고, 낱말 머리를 표시한다 */
+function placeSyllables(
+  abc: string,
+  bars: Bar[],
+  barOffset: number,
+  spacing?: LyricLine[] | null,
+): { syls: Syl[]; wordStart: boolean[] } | null {
   const sb = scoreBars(abc);
   if (!sb || !sb.some((b) => b.verses.some((v) => has(v)))) return null;
   const orders = abcOrders(abc);
@@ -368,9 +403,16 @@ export function scoreLyricLines(
   const wordStart = syls.map((s, i) =>
     i === 0 ? true : gaps ? gaps[firstChar[i]] : s.pos - syls[i - 1].pos >= 1.5,
   );
-  const index = new Map(syls.map((s, i) => [s, i]));
-  const count = (p: Syl[]) => p.reduce((n, s) => n + s.text.length, 0);
+  return { syls, wordStart };
+}
 
+/** 놓인 음절을 숨 쉬는 자리로 줄로 묶는다 */
+function buildLines(
+  syls: Syl[],
+  wordStart: boolean[],
+  index: Map<Syl, number>,
+  count: (p: Syl[]) => number,
+): LyricLine[] {
   // 숨 쉬는 자리로 소절을 나눈다
   const phrases: Syl[][] = [];
   for (const s of syls) {

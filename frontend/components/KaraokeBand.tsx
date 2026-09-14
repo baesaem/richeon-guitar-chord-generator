@@ -71,7 +71,22 @@ export function KaraokeBand({
   const font = Math.round(Math.min(Math.max(Math.min(size.h * 0.18, size.w * 0.065), 16), 35));
   // 가사는 코드보다 조금만 크게(강사님) — 코드가 가사의 0.62배라 너무 작았다
   const chordFont = Math.round(font * 0.83);
-  const pps = font * 3.0;
+  /* 흐르는 빠르기(초당 픽셀). 기본은 글자 3개 폭. 음절 시각이 있으면 곡의 촘촘한
+     간격(8분음표 따위)이 글자 한 개 폭은 되도록 올린다(강사님: 「글자 간격을 음
+     길이에 맞출 수 있나」) — 느리면 짧은 음표들이 겹치지 않게 밀려 균등해지고,
+     긴 음표 뒤에만 틈이 벌어졌다. 한도를 두어 앞쪽이 2초는 보이게 한다 */
+  const pps = useMemo(() => {
+    const base = font * 3.0;
+    if (!syllables?.length) return base;
+    const gaps = syllables
+      .map((s, k) => (k > 0 ? s.t - syllables[k - 1].t : 0))
+      .filter((g) => g > 0.05)
+      .sort((a, b) => a - b);
+    if (gaps.length < 8) return base;
+    const tight = gaps[Math.floor(gaps.length * 0.15)]; // 촘촘한 쪽 15%
+    const want = (font * 1.1) / tight;
+    return Math.min(Math.max(want, base), font * 5.5);
+  }, [font, syllables]);
   const playX = Math.round(size.w * 0.5); // 진행 막대는 가운데
   const chordRow = Math.round(chordFont * 1.35);
   const lyricRow = Math.round(font * 1.3);

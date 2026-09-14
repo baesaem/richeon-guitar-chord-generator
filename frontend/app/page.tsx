@@ -33,7 +33,7 @@ import type { TabScore } from "@/lib/msczToAbc";
 
 import { chordAt, unifyChords } from "@/lib/abcChords";
 import { abcBarLyrics } from "@/lib/abcLyrics";
-import { scoreLyricLines } from "@/lib/scoreLyrics";
+import { scoreKaraokeSyllables, scoreLyricLines } from "@/lib/scoreLyrics";
 import { abcMeasures, abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { PracticeRoom } from "@/components/PracticeRoom";
@@ -2221,7 +2221,18 @@ export default function Home() {
       }
     };
     if (karaoke && karaokeAbc && bars.length) {
-      syllablesFromAbc(karaokeAbc, bars, scoreBarNumbers, karaokeBarOffset)
+      /* 가사 탭과 같은 셈(scoreLyrics)으로 음절을 음표 시각에 놓는다 — 절·후렴
+         차례가 같고, 되돌이 뒤 후렴도 빠지지 않는다. 못 세는 악보면 옛 셈으로 */
+      let own: KaraokeSyl[] | null = null;
+      try {
+        own = scoreKaraokeSyllables(karaokeAbc, bars, karaokeBarOffset, karaokeLyrics);
+      } catch {
+        own = null;
+      }
+      (own?.length
+        ? Promise.resolve(own)
+        : syllablesFromAbc(karaokeAbc, bars, scoreBarNumbers, karaokeBarOffset)
+      )
         .then(fit)
         .then(done)
         .catch(() => done(null));
