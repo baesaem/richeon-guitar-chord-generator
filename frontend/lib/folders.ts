@@ -15,6 +15,17 @@ const KEY = "chordgen.folders";
  */
 export const KARAOKE_FOLDER = "노래방";
 
+/**
+ * 늘 두는 폴더 — 반(초급·중급)과 노래방(강사님: 「초급/중급 폴더 자동 생성」).
+ * 비슷한 이름이 이미 있으면(「초급반」·「초급」) 그것을 쓰고 새로 만들지 않는다.
+ * 드라이브의 같은 이름 공유 폴더(반 id)와 짝이다.
+ */
+const BUILT_IN: { share: string; name: string; like: RegExp }[] = [
+  { share: "beginner", name: "초급반", like: /초급/ },
+  { share: "intermediate", name: "중급반", like: /중급/ },
+  { share: "karaoke", name: KARAOKE_FOLDER, like: /^노래방$/ },
+];
+
 interface FolderData {
   folders: string[];
   /** songId → 폴더 이름 */
@@ -32,8 +43,18 @@ function read(): FolderData {
   } catch {
     // 깨진 저장값은 초기화로 간다
   }
-  if (!data.folders.includes(KARAOKE_FOLDER)) data.folders.push(KARAOKE_FOLDER);
+  for (const b of BUILT_IN)
+    if (!data.folders.some((f) => b.like.test(f))) data.folders.push(b.name);
   return data;
+}
+
+/**
+ * 드라이브 공유 폴더(반 id·"karaoke")에 짝인 음원목록 폴더 이름. 받은 곡을
+ * 여기에 담는다. 모르는 폴더면 null.
+ */
+export function shareFolder(shareId: string): string | null {
+  const b = BUILT_IN.find((x) => x.share === shareId);
+  return b ? (read().folders.find((f) => b.like.test(f)) ?? null) : null;
 }
 
 function write(data: FolderData): void {
