@@ -19,8 +19,9 @@ import { KARAOKE_SHARE } from "./classes";
 import { downloadDirectText } from "./driveDirect";
 import { remoteKaraoke, saveRemoteKaraoke, teacherKaraokeSongs } from "./folders";
 
-/** 드라이브 노래방 폴더에 두는 목록 파일 이름 */
-export const KARAOKE_LIST_FILE = "리천 노래방 목록.json";
+// 목록 파일 이름은 곡 파일 규칙과 한 자리에 둔다 — 곡으로 세지 않게(sharedFiles)
+import { KARAOKE_LIST_FILE } from "./sharedFiles";
+export { KARAOKE_LIST_FILE };
 /** 마지막으로 올린 목록 — 같으면 다시 올리지 않는다 */
 const PUBLISHED_KEY = "chordgen.karaokePublished";
 

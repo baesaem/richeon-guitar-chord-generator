@@ -42,9 +42,16 @@ export function audioBaseOf(name: string): string | null {
   return m ? name.slice(0, m.index) : null;
 }
 
-/** 코드 목록 파일인가. 옛 .json 내보내기도 받아 준다. */
+/**
+ * 드라이브 노래방 폴더에 두는 노래방 목록(🎤) 파일 이름. 곡이 아니다 — 옛 곡
+ * 파일처럼 .json이라, 곡으로 세면 「새 곡 1」 알림과 받기 목록에 「노래방 목록」이
+ * 곡처럼 떴다(강사님: 「이게 뜨는 이유는?」).
+ */
+export const KARAOKE_LIST_FILE = "리천 노래방 목록.json";
+
+/** 코드 목록 파일인가. 옛 .json 내보내기도 받아 준다(노래방 목록 파일은 빼고). */
 export function isRmlName(name: string): boolean {
-  return /\.(rml|json)$/i.test(name);
+  return name !== KARAOKE_LIST_FILE && /\.(rml|json)$/i.test(name);
 }
 
 /** 곡 파일명에서 확장자와 "리천 " 접두어를 떼 화면에 보일 제목을 만든다. */
