@@ -67,14 +67,15 @@ export function KaraokeBand({
   /* 글자 크기와 흐르는 빠르기(초당 픽셀). 코드·가사·파형 세 줄이 띠에 들어가야
      하고(높이의 25%), 좁은 세로 화면에서도 가운데 막대 앞쪽이 2초쯤은 보이게
      폭으로도 묶는다 */
-  const font = Math.round(Math.min(Math.max(Math.min(size.h * 0.21, size.w * 0.075), 16), 40));
+  // 21%·7.5%·40px에서 한 단계 줄였다(강사님: 「조금 작게」)
+  const font = Math.round(Math.min(Math.max(Math.min(size.h * 0.18, size.w * 0.065), 16), 35));
   // 가사는 코드보다 조금만 크게(강사님) — 코드가 가사의 0.62배라 너무 작았다
   const chordFont = Math.round(font * 0.83);
   const pps = font * 3.0;
   const playX = Math.round(size.w * 0.5); // 진행 막대는 가운데
   const chordRow = Math.round(chordFont * 1.35);
   const lyricRow = Math.round(font * 1.3);
-  // 파형은 글자의 1.8배 높이로(강사님: 조금 크게) — 셋이 띠에 들도록 글자는 21%로
+  // 파형은 글자의 1.8배 높이로(강사님: 조금 크게) — 셋이 띠에 들도록 글자는 18%로
   const waveH = Math.max(Math.round(font * 1.8), 28);
   const blockH = chordRow + lyricRow + 6 + waveH;
   const top = Math.max(size.h - blockH - 8, 0); // 띠 아래쪽에 붙인다
