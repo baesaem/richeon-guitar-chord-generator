@@ -11,7 +11,7 @@
  * 세지 않는다 — 지운 것을 다시 받으라고 조르면 성가시다.
  */
 
-import { CLASSES, type GuitarClass } from "./classes";
+import { SONG_SHARES, type GuitarClass } from "./classes";
 import { listShared } from "./api";
 import { hasDriveKey, listSharedDirect } from "./driveDirect";
 import { attemptedDriveIds, fetchedVersion } from "./sharedFetched";
@@ -61,7 +61,8 @@ export async function findNewSongs(online: boolean): Promise<NewSongs[]> {
   const mine = attemptedDriveIds();
   const out: NewSongs[] = [];
 
-  for (const klass of CLASSES) {
+  // 반 폴더와 노래방 폴더 — 노래방에 새 곡이 올라와도 같이 알린다(강사님)
+  for (const klass of SONG_SHARES) {
     const list = await (online
       ? listShared(klass.folderId)
       : listSharedDirect(klass.folderId)
