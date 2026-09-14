@@ -470,6 +470,43 @@ async def get_my_sheet(result_id: str) -> Response:
     return FileResponse(path, content_disposition_type="inline")
 
 
+@app.get("/api/omr")
+async def omr_state() -> dict:
+    """종이 악보 인식(OMR, Audiveris)이 갖춰져 있는가 — 프론트가 PDF 길을 열지 정한다."""
+    from . import omr
+
+    return {"available": omr.available()}
+
+
+@app.post("/api/omr")
+async def omr_recognize(file: UploadFile = File(...)) -> dict:
+    """종이 악보(PDF·그림)를 Audiveris로 읽어 MusicXML을 준다.
+
+    음표·마디만 믿는다 — 코드·가사·되돌이는 AI 그림 읽기가 맡는다(omr.py 참고).
+    1~2분 걸리므로 곡과 무관하게 파일만 받아 돌려준다. 결과를 곡에 붙이는 것은
+    프론트가 MusicXML → ABC로 옮겨서 한다.
+    """
+    from . import omr
+
+    if not omr.available():
+        raise HTTPException(503, "악보 인식(Audiveris)이 설치되어 있지 않습니다")
+    suffix = _SHEET_TYPES.get(file.content_type or "") or Path(file.filename or "").suffix.lower()
+    if suffix not in (".pdf", ".png", ".jpg", ".jpeg", ".webp"):
+        raise HTTPException(400, "PDF나 그림(PNG·JPG·WEBP)만 읽을 수 있습니다")
+    data = await file.read(_SHEET_MAX_BYTES + 1)
+    if len(data) > _SHEET_MAX_BYTES:
+        raise HTTPException(413, "파일이 너무 큽니다 (20MB까지)")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(data)
+        path = Path(tmp.name)
+    try:
+        return await omr.recognize(path)
+    except RuntimeError as exc:
+        raise HTTPException(500, str(exc)) from exc
+    finally:
+        path.unlink(missing_ok=True)
+
+
 @app.post("/api/sheets/{result_id}/mine")
 async def put_my_sheet(result_id: str, file: UploadFile = File(...)) -> dict:
     """악보 파일을 곡에 붙인다. 한 곡에 하나만 둔다."""

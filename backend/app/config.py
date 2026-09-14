@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # 분석 파라미터
     sample_rate: int = 22050
     device: str = "auto"  # auto | cuda | cpu
+    # 종이 악보 인식(OMR). 비우면 C:\Program Files\Audiveris\Audiveris.exe를 찾는다
+    audiveris_exe: str = ""
 
     # 멜로디 채보기. basic_pitch | pyin | auto
     #

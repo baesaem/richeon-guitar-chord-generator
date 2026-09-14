@@ -181,6 +181,32 @@ export const putTabImage = (id: string, file: File, barOffset = 0) => {
  * 우리가 그린 음표보다 인쇄된 악보가 낫다. 그림은 그대로 두고 서버가
  * 마디선만 찾아, 그 위로 커서를 지나가게 한다.
  */
+/**
+ * 종이 악보(PDF·그림)를 서버의 OMR(Audiveris)로 읽어 MusicXML을 받는다.
+ *
+ * 음표·마디만 믿을 만하다(코드·가사·되돌이는 앱의 AI 그림 읽기가 맡는다).
+ * 인식에 1~2분이 걸리므로 넉넉히 기다린다.
+ */
+export const omrScore = async (
+  file: File,
+): Promise<{ xml: string; measures: number; parts: { id: string; notes: number; relaid: number }[] }> => {
+  const form = new FormData();
+  form.append("file", file);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 12 * 60 * 1000);
+  try {
+    return await fetch(`${apiBase()}/api/omr`, { method: "POST", body: form, signal: ctl.signal }).then(
+      json<{ xml: string; measures: number; parts: { id: string; notes: number; relaid: number }[] }>,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+/** 서버에 악보 인식(OMR)이 갖춰져 있는가 */
+export const omrAvailable = () =>
+  fetch(`${apiBase()}/api/omr`).then(json<{ available: boolean }>).then((r) => r.available).catch(() => false);
+
 export const putSheetImage = (id: string, file: File) => {
   const form = new FormData();
   form.append("file", file);

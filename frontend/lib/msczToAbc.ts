@@ -100,7 +100,7 @@ function chordName(h: { root?: string; name?: string; base?: string }): string {
 
 // ---- 마디 파싱 ----
 
-interface NoteEv {
+export interface NoteEv {
   type: "note" | "rest";
   units: number;
   notes: { midi: number; tpc: number; tie: boolean; fret: number | null; string: number | null }[];
@@ -122,7 +122,7 @@ interface NoteEv {
   harmony: { root?: string; name?: string; base?: string } | null;
 }
 
-interface Measure {
+export interface Measure {
   events: NoteEv[];
   keysig: number | null;
   startRepeat: boolean;
@@ -517,6 +517,29 @@ export function msczToAbc(data: Uint8Array, fileName: string, staff = 0): string
       }
     });
   }
+  return measuresToAbc(staff1, { title, bpm, sigN: +sigN, sigD: +sigD, firstKey, up, tab });
+}
+
+/**
+ * 마디 모델(Measure[])을 ABC 글로. 뮤즈스코어와 MusicXML(OMR) 변환이 함께 쓴다 —
+ * 파일 형식만 다르고 악보를 적는 셈은 같아야 두 화면이 같은 악보를 그린다.
+ */
+export function measuresToAbc(
+  staff1: Measure[],
+  o: {
+    title: string;
+    bpm: number;
+    sigN: number;
+    sigD: number;
+    /** 조표(♯ 수, ♭은 음수) */
+    firstKey: number;
+    /** 적는 음높이를 올릴 반음 수 */
+    up: number;
+    /** 타브 보표(조표를 하나로 묶는다) */
+    tab: boolean;
+  },
+): string {
+  const { title, bpm, sigN, sigD, firstKey, up, tab } = o;
   const st = { sig: firstKey, keyChange: null as string | null };
   // 곡 전체에서 가장 많은 절 수 — 절마다 가사 줄(w:)을 하나씩
   const nVerses = Math.max(

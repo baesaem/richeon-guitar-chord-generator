@@ -2,7 +2,10 @@
 
 import { abcOrders } from "./abcOrder";
 import { getAbc, saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
-import { fixBeats, putScore, putSheetImage, readSheetChords } from "./api";
+import { fixBeats, omrScore, putScore, putSheetImage, readSheetChords } from "./api";
+import { abcMeasures } from "./abcOrder";
+import { applyBarChords } from "./abcChordSwap";
+import { musicxmlToAbc } from "./musicxmlToAbc";
 import { msczParts, msczToAbc, msczToTab } from "./msczToAbc";
 import type { AnalysisResult } from "./types";
 
@@ -43,7 +46,33 @@ async function toAbc(file: File, staff = 0): Promise<string | null> {
     const bytes = new Uint8Array(await file.arrayBuffer());
     return msczToAbc(bytes, name, staff);
   }
+  if (XML_KINDS.test(name)) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    return musicxmlToAbc(bytes, name, staff);
+  }
   return null;
+}
+
+/**
+ * 그림에서 읽은 코드(코드만 적힌 ABC)를 OMR 악보(음표는 있고 코드는 없는 ABC)에
+ * 마디 번호대로 얹는다. 두 셈의 마디 수가 다르면 앞에서부터 맞는 데까지만.
+ */
+function chordsInto(omrAbc: string, chordAbc: string): { abc: string; put: number } {
+  const byBar: Record<number, string[]> = {};
+  let put = 0;
+  try {
+    abcMeasures(chordAbc).forEach((m, i) => {
+      const names = [...m.text.matchAll(/"([^"^_<>@][^"]*)"/g)].map((x) => x[1].trim());
+      if (names.length) {
+        byBar[i] = names;
+        put++;
+      }
+    });
+  } catch {
+    return { abc: omrAbc, put: 0 };
+  }
+  if (!put) return { abc: omrAbc, put: 0 };
+  return { abc: applyBarChords(omrAbc, byBar), put };
 }
 
 /** 음원의 마디 수. 첫 박마다 마디가 하나다 */
@@ -122,6 +151,31 @@ export async function attachScoreAfterAnalysis(
     } catch (e) {
       notes.push(`종이 악보 읽기 실패: ${(e as Error).message}`);
       return { result: cur, notes };
+    }
+    /*
+     * 음표는 OMR(Audiveris)로 읽는다 — 디지털 악보 없이 종이 악보만으로 멜로디
+     * 악보를 얻는 길(강사님: 「디지털 악보를 구하기 어렵다」). 음표·마디는 믿을
+     * 만하고(95%) 코드는 그림 읽기 것을 얹는다. 서버에 인식기가 없거나 실패하면
+     * 코드만 적힌 악보로 간다 — 예전과 같다.
+     */
+    try {
+      const omr = await omrScore(file);
+      const omrAbc = musicxmlToAbc(omr.xml, "omr.musicxml", staff);
+      const merged = chordsInto(omrAbc, abc);
+      abc = merged.abc;
+      notes.push(
+        `악보의 음표를 읽었습니다 — ${omr.measures}마디` +
+          (merged.put ? ` (그림의 코드 ${merged.put}마디를 얹음)` : ""),
+      );
+      // 서버에도 붙인다 — 멜로디 화면과 가사 정렬이 그쪽 마디를 쓴다
+      try {
+        const xmlFile = new File([omr.xml], "omr.musicxml", { type: "application/xml" });
+        cur = await putScore(cur.id, xmlFile, staff);
+      } catch {
+        // 서버 쪽은 없어도 ABC 길은 간다
+      }
+    } catch (e) {
+      notes.push(`음표 읽기는 건너뜀 (${(e as Error).message}) — 코드만 악보에 적습니다`);
     }
   } else {
     try {
