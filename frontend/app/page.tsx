@@ -33,6 +33,7 @@ import type { TabScore } from "@/lib/msczToAbc";
 
 import { chordAt, unifyChords } from "@/lib/abcChords";
 import { abcBarLyrics } from "@/lib/abcLyrics";
+import { scoreLyricLines } from "@/lib/scoreLyrics";
 import { abcMeasures, abcOrders } from "@/lib/abcOrder";
 import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
 import { PracticeRoom } from "@/components/PracticeRoom";
@@ -1226,6 +1227,57 @@ export default function Home() {
       .then(() => clearDirty(next.id))
       .catch(() => markDirty(next.id));
   };
+
+  /**
+   * 악보 가사로 지은 가사 줄 — **악보에 가사가 있으면 가사도 악보를 따른다**
+   * (강사님: 「악보에 가사가 있을 경우 악보 우선」).
+   *
+   * 받아 적은 가사는 글자가 틀리고 없는 말을 지어내며 소절 한가운데서 줄을
+   * 끊는다(「잊혀지는 것」). 악보 가사를 부르는 차례대로 펴서 박에 얹는다 —
+   * 박을 고치면 시각도 따라 다시 짓는다.
+   */
+  const scoreLyrics = useMemo(() => {
+    if (!abcEntry?.abc || !bars.length) return null;
+    try {
+      return scoreLyricLines(
+        abcEntry.abc,
+        bars,
+        abcEntry.barOffset ?? 0,
+        result?.lyrics,
+      );
+    } catch {
+      return null;
+    }
+  }, [abcEntry?.abc, abcEntry?.barOffset, bars, result?.lyrics]);
+
+  // 지은 가사를 곡의 가사로 삼는다. 노래방·그리드·가사 탭이 모두 이것을 본다
+  useEffect(() => {
+    if (!result || !scoreLyrics?.length) return;
+    // 곡을 막 바꾼 순간에는 악보가 앞 곡의 것일 수 있다 — 이 곡의 악보인지 본다
+    if (getAbc(result.id)?.abc !== abcEntry?.abc) return;
+    const cur = result.lyrics ?? [];
+    const same =
+      cur.length === scoreLyrics.length &&
+      cur.every(
+        (l, i) =>
+          l.text === scoreLyrics[i].text &&
+          Math.abs(l.t - scoreLyrics[i].t) < 0.05 &&
+          Math.abs(l.end - scoreLyrics[i].end) < 0.05,
+      );
+    if (same) return;
+    const next = {
+      ...result,
+      lyrics: scoreLyrics,
+      lyrics_manual: true,
+      lyrics_approx: false,
+    };
+    setResult(next);
+    // 기기·서버에 적는 것은 강사님 기기만 — 수강생 기기는 화면에서만 따른다
+    if (settings.adminMode) {
+      saveLocal(next).catch(() => {});
+      pushToServer(next);
+    }
+  }, [scoreLyrics]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * 서버가 돌려준 결과를 받아들인다 — 화면과 **기기 저장을 함께** 고친다.
@@ -3441,9 +3493,18 @@ export default function Home() {
 
                   {sheetTab === "lyrics" && (
                     <div className="pt-2 text-[13px] leading-relaxed">
+                      {/* 악보 가사를 쓰는 곡 — 찾기·바꾸기·다듬기는 곧바로
+                          악보 가사로 되돌아가므로 걷고, 고칠 자리를 알린다 */}
+                      {scoreLyrics && (
+                        <p className="mb-2 rounded bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--accent)]">
+                          악보에 가사가 있어 악보 가사를 부르는 차례대로 씁니다.
+                          {editMode &&
+                            " 글자를 고치려면 멜로디 탭의 「ABC 수정」에서 고치세요."}
+                        </p>
+                      )}
                       {/* 가사를 찾고·바꾸고·지우는 손은 여기 한 곳에 둔다.
                           연습실은 노래를 따라 보는 자리라 가사만 띄운다 */}
-                      {editMode && settings.adminMode && (
+                      {editMode && settings.adminMode && !scoreLyrics && (
                         <LyricsPane
                           toolsOnly
                           result={result}
@@ -3465,7 +3526,7 @@ export default function Home() {
                         />
                       )}
                       {/* 자동 자막에서 온 가사를 다듬는다. 서버가 있어야 한다 */}
-                      {health && (result.lyrics ?? []).length > 1 && (
+                      {health && !scoreLyrics && (result.lyrics ?? []).length > 1 && (
                         <button
                           className="mb-2 w-full rounded bg-[var(--accent)] py-2 text-xs text-white disabled:opacity-40"
                           disabled={lyricBusy}
@@ -3474,7 +3535,7 @@ export default function Home() {
                           {lyricBusy ? "다듬는 중…" : "AI로 가사 다듬기"}
                         </button>
                       )}
-                      {editMode && (
+                      {editMode && !scoreLyrics && (
                         <div className="mb-2 flex gap-1.5">
                           <button
                             className="min-w-0 flex-1 rounded bg-[var(--panel)] py-2 text-xs"
