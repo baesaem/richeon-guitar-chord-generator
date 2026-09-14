@@ -165,35 +165,21 @@ export function TvCast({
               켤 수 없나」). 웹은 미러링을 스스로 켜지 못한다 — 대신 안드로이드의 공식
               설정 화면(CAST_SETTINGS)으로 곧장 보내, 빠른 설정을 내려 찾는 걸음을 뺀다.
               거기서 TV만 누르면 된다. 크롬만 intent: 주소를 연다 */}
-          {/* 어느 설정 화면이 Smart View인지는 폰마다 다르다 — 삼성 폰에서 CAST_SETTINGS는
-              「Google Cast」(삼성 TV가 안 뜸)로 갔다(강사님 화면). 후보를 셋 두고 되는
-              것을 쓰게 한다: 무선 디스플레이(미라캐스트=Smart View 계열) · Smart View
-              앱 직접 · Google Cast(크롬캐스트 TV) */}
+          {/* 삼성 폰에서 시험한 결과(강사님): 안드로이드 설정의 「캐스트」 화면(CAST_SETTINGS —
+              갤럭시에는 「Google Cast」로 뜬다)에 삼성 TV가 「무선 디스플레이」로 잡혀
+              연결됐다. TV가 꺼져 있으면 「근처 기기 없음」이 뜬다. 삼성 Smart View 앱을
+              패키지로 여는 것은 플레이스토어 「항목 없음」으로 빠져 걷었다 */}
           {kind === "android" && (
-            <div className="mb-2 space-y-1.5">
+            <div className="mb-2 space-y-1">
               <a
                 className="block w-full rounded bg-[var(--accent)] py-2.5 text-center text-sm font-semibold text-white"
-                href="intent:#Intent;action=android.settings.WIFI_DISPLAY_SETTINGS;end"
+                href="intent:#Intent;action=android.settings.CAST_SETTINGS;end"
               >
-                Smart View · 무선 디스플레이 열기
+                화면 전송 목록 열기 (TV 고르기)
               </a>
-              <div className="grid grid-cols-2 gap-1.5">
-                <a
-                  className="block rounded bg-[var(--chip)] py-2 text-center text-[12px] font-semibold text-[var(--foreground)]"
-                  href="intent:#Intent;package=com.samsung.android.smartmirroring;end"
-                >
-                  Smart View 앱(삼성)
-                </a>
-                <a
-                  className="block rounded bg-[var(--chip)] py-2 text-center text-[12px] font-semibold text-[var(--foreground)]"
-                  href="intent:#Intent;action=android.settings.CAST_SETTINGS;end"
-                >
-                  Google Cast(크롬캐스트)
-                </a>
-              </div>
               <p className={`text-[11px] leading-snug ${DIM}`}>
-                삼성·LG TV는 위 단추(Smart View)로, 크롬캐스트·구글 TV는 Google Cast로.
-                단추가 아무 반응이 없으면 아래 순서대로 빠른 설정에서 여세요.
+                갤럭시에서는 「Google Cast」 화면으로 열립니다 — 거기서 TV를 누르세요.
+                TV가 켜져 있고 같은 와이파이여야 목록에 뜹니다. 안 열리면 아래 순서대로.
               </p>
             </div>
           )}
