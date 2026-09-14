@@ -479,7 +479,7 @@ async def omr_state() -> dict:
 
 
 @app.post("/api/omr")
-async def omr_recognize(file: UploadFile = File(...)) -> dict:
+async def omr_recognize(file: UploadFile = File(...), result_id: str = Form("")) -> dict:
     """종이 악보(PDF·그림)를 Audiveris로 읽어 MusicXML을 준다.
 
     음표·마디만 믿는다 — 코드·가사·되돌이는 AI 그림 읽기가 맡는다(omr.py 참고).
@@ -499,8 +499,16 @@ async def omr_recognize(file: UploadFile = File(...)) -> dict:
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(data)
         path = Path(tmp.name)
+    # 곡에 막 붙인 그림 악보(같은 파일)의 마디 자리 — 있으면 마디를 그 자리로 나누고
+    # PDF 글자의 코드·가사를 넣는다(omr.py)
+    sheet = None
+    if result_id:
+        _guard_id(result_id)
+        res = load_result(result_id)
+        if res is not None and res.sheet:
+            sheet = dict(res.sheet)
     try:
-        return await omr.recognize(path)
+        return await omr.recognize(path, sheet)
     except RuntimeError as exc:
         raise HTTPException(500, str(exc)) from exc
     finally:

@@ -187,16 +187,33 @@ export const putTabImage = (id: string, file: File, barOffset = 0) => {
  * 음표·마디만 믿을 만하다(코드·가사·되돌이는 앱의 AI 그림 읽기가 맡는다).
  * 인식에 1~2분이 걸리므로 넉넉히 기다린다.
  */
-export const omrScore = async (
-  file: File,
-): Promise<{ xml: string; measures: number; parts: { id: string; notes: number; relaid: number }[] }> => {
+export interface OmrResult {
+  xml: string;
+  measures: number;
+  parts: { id: string; notes: number; relaid: number }[];
+  /** 그림 악보 마디 자리로 마디를 다시 나눴는가 */
+  aligned?: boolean;
+  /** 글자가 든 PDF에서 꺼낸 코드·가사·빠르기. 글자가 없으면 null */
+  text?: {
+    chord_bars?: number;
+    lyric_bars?: number;
+    syllables?: number;
+    tempo?: number | null;
+    title?: string | null;
+    error?: string;
+  } | null;
+}
+
+export const omrScore = async (file: File, resultId?: string): Promise<OmrResult> => {
   const form = new FormData();
   form.append("file", file);
+  // 곡에 붙인 그림 악보의 마디 자리를 쓴다(마디 다시 나누기·PDF 글자 넣기)
+  if (resultId) form.append("result_id", resultId);
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 12 * 60 * 1000);
   try {
     return await fetch(`${apiBase()}/api/omr`, { method: "POST", body: form, signal: ctl.signal }).then(
-      json<{ xml: string; measures: number; parts: { id: string; notes: number; relaid: number }[] }>,
+      json<OmrResult>,
     );
   } finally {
     clearTimeout(timer);

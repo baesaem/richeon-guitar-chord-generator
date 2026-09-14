@@ -264,6 +264,12 @@ export function musicxmlToAbc(data: Uint8Array | string, fileName: string, staff
     });
   }
   if (!own.measures.some((mm) => mm.events.length)) throw new Error("악보에서 마디를 찾지 못했습니다");
+  /* 도돌이표가 하나도 없는데 1·2번 괄호가 있으면 인식이 지어낸 것이다 — 되돌아갈 곳이
+     없는 괄호는 뜻이 없다. 「동해의꿈」 PDF(도돌이 없이 117마디를 풀어 적음)를 OMR이
+     읽자 괄호가 13곳 생겼고, 그중 「2번 괄호」 둘 때문에 27마디를 안 치는 마디로 건너뛰어
+     86마디로 펴졌다. 음원 마디 수와 우연히 같아 박 맞추기까지 건너뛰었다 */
+  if (!own.measures.some((mm) => mm.endRepeat))
+    for (const mm of own.measures) mm.volta = null;
   /* MusicXML은 적힌 음높이를 그대로 담는다(옥타브 음자리표 포함) — 뮤즈스코어와 달리
      올릴 것이 없다. 8vb 음자리표면 이미 종이 자리다 */
   return measuresToAbc(own.measures, {

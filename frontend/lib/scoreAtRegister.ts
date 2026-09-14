@@ -140,42 +140,63 @@ export async function attachScoreAfterAnalysis(
   // ② 코드는 ABC로 따른다
   let abc: string | null = null;
   if (IMAGE_KINDS.test(file.name) || file.type.startsWith("image/")) {
-    // 종이 악보: 그림을 붙이고, AI에게 마디마다의 코드 글자를 읽힌다
+    // 종이 악보: 그림을 붙인다 — 그 마디 자리를 아래 음표 읽기가 쓴다
     try {
       cur = await putSheetImage(cur.id, file);
       notes.push("악보 그림을 붙였습니다");
-      const got = await readSheetChords(cur.id);
-      cur = got.result;
-      abc = got.abc;
-      notes.push(`코드를 읽었습니다 (${got.bars}마디 중 ${got.chordBars}마디에 코드)`);
     } catch (e) {
-      notes.push(`종이 악보 읽기 실패: ${(e as Error).message}`);
+      notes.push(`종이 악보 붙이기 실패: ${(e as Error).message}`);
       return { result: cur, notes };
     }
     /*
      * 음표는 OMR(Audiveris)로 읽는다 — 디지털 악보 없이 종이 악보만으로 멜로디
-     * 악보를 얻는 길(강사님: 「디지털 악보를 구하기 어렵다」). 음표·마디는 믿을
-     * 만하고(95%) 코드는 그림 읽기 것을 얹는다. 서버에 인식기가 없거나 실패하면
-     * 코드만 적힌 악보로 간다 — 예전과 같다.
+     * 악보를 얻는 길(강사님: 「디지털 악보를 구하기 어렵다」). 서버가 마디를 그림
+     * 마디 자리로 다시 나누고, 글자가 든 PDF면 코드·가사·빠르기도 글자 그대로 넣는다
+     * (「동해의꿈」). 서버에 인식기가 없거나 실패하면 코드만 적힌 악보로 간다.
      */
+    let omrAbc: string | null = null;
+    let textChords = false;
     try {
-      const omr = await omrScore(file);
-      const omrAbc = musicxmlToAbc(omr.xml, "omr.musicxml", staff);
-      const merged = chordsInto(omrAbc, abc);
-      abc = merged.abc;
+      const omr = await omrScore(file, cur.id);
+      omrAbc = musicxmlToAbc(omr.xml, "omr.musicxml", 0);
+      textChords = (omr.text?.chord_bars ?? 0) > 0;
+      const t = omr.text;
       notes.push(
         `악보의 음표를 읽었습니다 — ${omr.measures}마디` +
-          (merged.put ? ` (그림의 코드 ${merged.put}마디를 얹음)` : ""),
+          (omr.aligned ? " (그림 마디 자리에 맞춤)" : "") +
+          (t?.chord_bars ? ` · PDF 글자에서 코드 ${t.chord_bars}마디` : "") +
+          (t?.lyric_bars ? ` · 가사 ${t.lyric_bars}마디` : "") +
+          (t?.tempo ? ` · ♩=${t.tempo}` : ""),
       );
       // 서버에도 붙인다 — 멜로디 화면과 가사 정렬이 그쪽 마디를 쓴다
       try {
         const xmlFile = new File([omr.xml], "omr.musicxml", { type: "application/xml" });
-        cur = await putScore(cur.id, xmlFile, staff);
+        cur = await putScore(cur.id, xmlFile, 0);
       } catch {
         // 서버 쪽은 없어도 ABC 길은 간다
       }
     } catch (e) {
-      notes.push(`음표 읽기는 건너뜀 (${(e as Error).message}) — 코드만 악보에 적습니다`);
+      notes.push(`음표 읽기는 건너뜀 (${(e as Error).message})`);
+    }
+    // 코드 — PDF 글자로 얻었으면 그대로, 아니면 AI가 그림에서 읽는다(1분쯤)
+    let chordAbc: string | null = null;
+    if (!textChords) {
+      try {
+        const got = await readSheetChords(cur.id);
+        cur = got.result;
+        chordAbc = got.abc;
+        notes.push(`코드를 읽었습니다 (${got.bars}마디 중 ${got.chordBars}마디에 코드)`);
+      } catch (e) {
+        notes.push(`코드 읽기 실패: ${(e as Error).message}`);
+        if (!omrAbc) return { result: cur, notes };
+      }
+    }
+    if (omrAbc && chordAbc) {
+      const merged = chordsInto(omrAbc, chordAbc);
+      abc = merged.abc;
+      if (merged.put) notes.push(`그림의 코드 ${merged.put}마디를 얹었습니다`);
+    } else {
+      abc = omrAbc ?? chordAbc;
     }
   } else {
     try {
