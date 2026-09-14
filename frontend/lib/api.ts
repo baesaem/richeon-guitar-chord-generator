@@ -611,6 +611,15 @@ export const getWords = (id: string) =>
   );
 
 /**
+ * 보컬이 부르는 구간과 음마다의 시작. 노래방이 가사 글자를 간주가 아닌 부르는
+ * 자리에 맞추는 데 쓴다. 보컬 트랙이 있는 곡만(없으면 404).
+ */
+export const getVocal = (id: string) =>
+  fetch(`${apiBase()}/api/results/${id}/vocal`).then(
+    json<{ onsets: number[]; segments: [number, number][] }>,
+  );
+
+/**
  * 붙어 있는 가사를 AI로 다듬는다.
  *
  * 자동 자막에서 온 가사는 토막나 있고 글자가 틀린다. 없는 가사를

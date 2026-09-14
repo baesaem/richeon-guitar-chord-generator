@@ -10,6 +10,8 @@ export interface KaraokeChord {
   end: number;
   /** 화면에 적을 이름(음높이·표기까지 맞춘 것) */
   label: string;
+  /** 같은 코드가 이어지는 마디마다 다시 적은 것 — 흐리게 */
+  repeat?: boolean;
 }
 
 /**
@@ -122,12 +124,12 @@ export function KaraokeBand({
     const marks: React.ReactNode[] = [];
     let last = "";
     chords.forEach((c, i) => {
-      if (c.label === last) return;
+      if (c.label === last && !c.repeat) return;
       last = c.label;
       marks.push(
         <span
           key={`c${i}`}
-          className="absolute whitespace-nowrap"
+          className={c.repeat ? "absolute whitespace-nowrap opacity-45" : "absolute whitespace-nowrap"}
           style={{ left: (c.start + shift) * pps }}
         >
           {c.label}

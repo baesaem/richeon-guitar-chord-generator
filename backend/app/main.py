@@ -787,6 +787,23 @@ async def song_words(result_id: str) -> dict:
     return {"words": words}
 
 
+@app.get("/api/results/{result_id}/vocal")
+async def song_vocal(result_id: str) -> dict:
+    """보컬이 부르는 구간과 음마다의 시작 — 노래방 가사를 부르는 자리에 놓는다.
+
+    악보와 음원이 어긋난 대목에서 간주 중에 가사가 흐르지 않게 한다. 처음
+    한 번 재고(곡당 몇 초) 캐시한다.
+    """
+    _guard_id(result_id)
+
+    from .vocal_map import vocal_map
+
+    data = await asyncio.to_thread(vocal_map, result_id)
+    if not data:
+        raise HTTPException(404, "보컬 트랙이 없습니다")
+    return data
+
+
 @app.post("/api/results/{result_id}/lyrics/align")
 async def align_pasted_lyrics(result_id: str, texts: list[str]) -> AnalysisResult:
     """붙여넣은 가사에 시각을 붙인다.

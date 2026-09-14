@@ -57,13 +57,44 @@ export function shareFolder(shareId: string): string | null {
   return b ? (read().folders.find((f) => b.like.test(f)) ?? null) : null;
 }
 
+const EXTRA_KEY = "chordgen.karaokeExtra";
+
+/**
+ * 제 폴더(초급반·중급반…)에 둔 채 노래방 목록에도 보이는 곡(강사님: 「노래방에는
+ * 없는 음원에 노래방 목록에도 표시 가능을 추가」). 곡은 폴더 하나에만 들어가서,
+ * 반 곡을 노래방에도 두려면 따로 적어 둔다.
+ */
+export function karaokeExtras(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(EXTRA_KEY) || "[]") as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 노래방 목록에도 보이게(on) · 빼기 */
+export function setKaraokeExtra(id: string, on: boolean): string[] {
+  const set = new Set(karaokeExtras());
+  if (on) set.add(id);
+  else set.delete(id);
+  const list = [...set];
+  try {
+    localStorage.setItem(EXTRA_KEY, JSON.stringify(list));
+  } catch {
+    // 저장이 막혀도 이번 세션 동작에는 지장 없다
+  }
+  return list;
+}
+
 /**
  * 드라이브 공유 폴더(반·노래방)에서 받은 곡을 그 짝 폴더에 담는다.
  *
  * sync(수강생 기기)면 늘 강사님이 올린 폴더를 따른다 — 강사님 음원등록과
  * 같아진다(강사님: 「수강생에도 초급/중급/노래방 폴더는 관리자 음원등록에
  * 동기화」). 강사님 기기는 아직 폴더가 없는 곡만 담는다 — 손으로 나눠 둔 것은
- * 그대로. 노래방은 어느 기기든 늘 담는다. 바꾼 것이 있으면 true.
+ * 그대로. 노래방 폴더에서 받은 곡은, 이미 제 폴더(반)가 있으면 옮기지 않고
+ * 「노래방에도」로 적는다 — 반 곡을 노래방에도 올린 것이다. 바꾼 것이 있으면 true.
  */
 export function fileToShareFolder(
   shareId: string,
@@ -77,7 +108,16 @@ export function fileToShareFolder(
   for (const id of resultIds) {
     const cur = data.assignment[id];
     if (cur === target) continue;
-    if (sync || shareId === "karaoke" || !cur) {
+    if (shareId === "karaoke") {
+      if (cur) {
+        if (!karaokeExtras().includes(id)) setKaraokeExtra(id, true);
+        continue;
+      }
+      data.assignment[id] = target;
+      changed = true;
+      continue;
+    }
+    if (sync || !cur) {
       data.assignment[id] = target;
       changed = true;
     }

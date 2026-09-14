@@ -15,11 +15,12 @@ import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { AbcScore } from "@/components/AbcScore";
 import { TabSheet } from "@/components/TabSheet";
-import { KaraokeBand } from "@/components/KaraokeBand";
+import { KaraokeBand, type KaraokeChord } from "@/components/KaraokeBand";
 import { TvCast } from "@/components/TvCast";
 import { KARAOKE_FOLDER, assignFolder } from "@/lib/folders";
 import { syllablesFromAbc, type KaraokeSyl } from "@/lib/karaokeSyllables";
 import { syllablesFromWords } from "@/lib/karaokeWords";
+import { fitToVocal } from "@/lib/karaokeVocal";
 import { applyBarChords } from "@/lib/abcChordSwap";
 import {
   getTabEdits,
@@ -94,6 +95,7 @@ import {
   readPictureChords,
   readSheetChords,
   getWords,
+  getVocal,
 } from "@/lib/api";
 import { barIndexAt, buildBars, chordIndexAt } from "@/lib/bars";
 import { getLocal, getLocalAudio, listLocal, saveLocal } from "@/lib/library";
@@ -2115,19 +2117,27 @@ export default function Home() {
   /* 노래방 띠에 얹을 코드 — 다른 화면과 같은 것(악보를 따르면 악보 코드)을
      음높이·표기까지 맞춰. 띠는 글자를 한 번 깔아 두므로 곡·음높이가 바뀔
      때만 새로 만든다(재생 중 매번 만들면 띠가 버벅인다) */
-  const karaokeChords = useMemo(
-    () =>
-      result
-        ? (shown ?? result).chords
-            .map((c) => ({
-              start: c.start,
-              end: c.end,
-              label: c.root ? chordText(c, noteShift, flats, exactLabels) : "",
-            }))
-            .filter((c) => c.label)
-        : [],
-    [result, shown, noteShift, flats, exactLabels],
-  );
+  const karaokeChords = useMemo((): KaraokeChord[] => {
+    if (!result) return [];
+    const rows = (shown ?? result).chords
+      .map((c) => ({
+        start: c.start,
+        end: c.end,
+        label: c.root ? chordText(c, noteShift, flats, exactLabels) : "",
+      }))
+      .filter((c) => c.label);
+    /* 한 코드가 여러 마디 이어지면 마디마다 다시 적는다(흐리게). 바뀔 때만 적었더니
+       전주처럼 한 코드로 오래 가는 대목(「사람이 꽃보다 아름다워」 전주는 E로 25초)에서
+       코드 줄이 비어 코드가 빠진 것처럼 보였다(강사님) — 악보도 마디마다 적는다 */
+    const out: KaraokeChord[] = [];
+    for (const c of rows) {
+      out.push(c);
+      for (const b of bars)
+        if (b.start > c.start + 0.5 && b.start < c.end - 0.5)
+          out.push({ ...c, start: b.start, repeat: true });
+    }
+    return out.sort((a, b) => a.start - b.start);
+  }, [result, shown, noteShift, flats, exactLabels, bars]);
 
   /* 노래방 가사를 음원에 맞춘 음절(강사님: 「가사는 음원을 따르게」). 멜로디 악보가
      붙은 곡만 — 음표마다 붙은 음절을 음원 마디 시각에 옮긴다. 없으면 줄 시각대로 */
@@ -2142,15 +2152,28 @@ export default function Home() {
     const done = (s: KaraokeSyl[] | null) => {
       if (alive) setKaraokeSyls(s && s.length ? s : null);
     };
+    /* 놓은 글자를 보컬이 실제로 부르는 구간에 소절째 맞춘다(강사님: 「음원의 보컬을
+       참고해 가사를 표시」) — 악보와 음원이 어긋난 대목에서 간주 중에 가사가 흐르지
+       않게. 서버가 없거나 보컬 트랙이 없으면 놓은 그대로 */
+    const fit = async (s: KaraokeSyl[] | null) => {
+      if (!s?.length || !karaokeId || !karaokeOnline) return s;
+      try {
+        return fitToVocal(s, await getVocal(karaokeId));
+      } catch {
+        return s;
+      }
+    };
     if (karaoke && karaokeAbc && bars.length) {
       syllablesFromAbc(karaokeAbc, bars, scoreBarNumbers, karaokeBarOffset)
+        .then(fit)
         .then(done)
         .catch(() => done(null));
     } else if (karaoke && karaokeId && karaokeOnline && karaokeLyrics?.length) {
       /* 악보가 없는 곡(「사람이 꽃보다 아름다워」) — 서버가 보컬을 받아 적은
          단어 시각에 가사 글자를 짝지어 놓는다. 받아 적은 것이 없으면 줄 시각대로 */
       getWords(karaokeId)
-        .then((r) => done(syllablesFromWords(karaokeLyrics, r.words)))
+        .then((r) => fit(syllablesFromWords(karaokeLyrics, r.words)))
+        .then(done)
         .catch(() => done(null));
     } else {
       // 곧바로 상태를 바꾸지 않는다(이펙트 규칙) — 한 박자 뒤에 비운다
