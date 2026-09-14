@@ -2117,27 +2117,21 @@ export default function Home() {
   /* 노래방 띠에 얹을 코드 — 다른 화면과 같은 것(악보를 따르면 악보 코드)을
      음높이·표기까지 맞춰. 띠는 글자를 한 번 깔아 두므로 곡·음높이가 바뀔
      때만 새로 만든다(재생 중 매번 만들면 띠가 버벅인다) */
-  const karaokeChords = useMemo((): KaraokeChord[] => {
-    if (!result) return [];
-    const rows = (shown ?? result).chords
-      .map((c) => ({
-        start: c.start,
-        end: c.end,
-        label: c.root ? chordText(c, noteShift, flats, exactLabels) : "",
-      }))
-      .filter((c) => c.label);
-    /* 한 코드가 여러 마디 이어지면 마디마다 다시 적는다(흐리게). 바뀔 때만 적었더니
-       전주처럼 한 코드로 오래 가는 대목(「사람이 꽃보다 아름다워」 전주는 E로 25초)에서
-       코드 줄이 비어 코드가 빠진 것처럼 보였다(강사님) — 악보도 마디마다 적는다 */
-    const out: KaraokeChord[] = [];
-    for (const c of rows) {
-      out.push(c);
-      for (const b of bars)
-        if (b.start > c.start + 0.5 && b.start < c.end - 0.5)
-          out.push({ ...c, start: b.start, repeat: true });
-    }
-    return out.sort((a, b) => a.start - b.start);
-  }, [result, shown, noteShift, flats, exactLabels, bars]);
+  /* 코드는 바뀔 때만 적는다. 이어지는 마디마다 흐리게 다시 적어 보았으나 코드가
+     두 겹으로 보여 걷었다(강사님) */
+  const karaokeChords = useMemo(
+    (): KaraokeChord[] =>
+      result
+        ? (shown ?? result).chords
+            .map((c) => ({
+              start: c.start,
+              end: c.end,
+              label: c.root ? chordText(c, noteShift, flats, exactLabels) : "",
+            }))
+            .filter((c) => c.label)
+        : [],
+    [result, shown, noteShift, flats, exactLabels],
+  );
 
   /* 노래방 가사를 음원에 맞춘 음절(강사님: 「가사는 음원을 따르게」). 멜로디 악보가
      붙은 곡만 — 음표마다 붙은 음절을 음원 마디 시각에 옮긴다. 없으면 줄 시각대로 */
@@ -2354,7 +2348,11 @@ export default function Home() {
   const goTab = async (next: Tab) => {
     // 노래방은 늘 가로 — 누른 이 순간에 전체화면·가로 고정을 청한다(기다리기 전에)
     if (next === "karaoke" && tab !== "karaoke") enterKaraokeLandscape();
-    else if (next !== "karaoke" && tab === "karaoke") leaveKaraokeLandscape();
+    else if (next !== "karaoke" && tab === "karaoke") {
+      leaveKaraokeLandscape();
+      // 노래방을 닫으면 부르던 곡도 멈춘다(강사님) — 홈에서 소리만 이어지면 당황한다
+      playback?.pause();
+    }
     // 전체보기 창이 본문을 덮고 있으면 먼저 닫는다 — 탭만 바꾸면
     // 뒤에서 바뀔 뿐이라 눌러도 아무 일이 없는 것처럼 보인다.
     setShowSheet(false);
