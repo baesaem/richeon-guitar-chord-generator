@@ -297,6 +297,54 @@ export default function Home() {
     }
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   };
+  /* 노래방은 늘 가로(강사님). 폰·태블릿에서 노래방을 누르면 화면을 가득 채우고
+     가로로 돌려 고정한다 — 누른 그 순간이어야 브라우저가 들어준다. 고정이 안
+     되는 기기(아이폰 사파리)는 세로로 들고 있으면 앱을 돌려 그린다(아래 이펙트).
+     나갈 때는 노래방이 켠 것만 푼다 — 원래 전체화면이던 것은 그대로 */
+  const karaokeFs = useRef(false);
+  const enterKaraokeLandscape = () => {
+    if (!window.matchMedia("(pointer: coarse)").matches) return; // PC는 원래 가로
+    const lock = () => {
+      const o = screen.orientation as ScreenOrientation & {
+        lock?: (to: string) => Promise<void>;
+      };
+      o.lock?.("landscape").catch(() => {});
+    };
+    const root = document.documentElement;
+    if (document.fullscreenElement) return lock();
+    if (!root.requestFullscreen) return;
+    karaokeFs.current = true;
+    root
+      .requestFullscreen()
+      .then(lock)
+      .catch(() => {
+        karaokeFs.current = false;
+      });
+  };
+  const leaveKaraokeLandscape = () => {
+    if (!karaokeFs.current || tvMode) return;
+    karaokeFs.current = false;
+    const o = screen.orientation as ScreenOrientation & { unlock?: () => void };
+    try {
+      o.unlock?.();
+    } catch {
+      // 가로 고정이 없던 기기
+    }
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  };
+  // 세로로 든 폰·태블릿의 노래방 — 앱을 90° 돌려 가로로 그린다(globals.css)
+  useEffect(() => {
+    if (!karaoke) return;
+    const mq = window.matchMedia("(orientation: portrait) and (pointer: coarse)");
+    const root = document.documentElement;
+    const apply = () => root.classList.toggle("karaoke-rotate", mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      root.classList.remove("karaoke-rotate");
+    };
+  }, [karaoke]);
   // 보컬 끄기(반주만). 서버가 만든 반주 트랙이 있어야 한다.
   // 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만
   const [stem, setStem] = useState<StemChoice>("off");
@@ -2281,6 +2329,9 @@ export default function Home() {
    * 안쪽의 작은 「전체보기」를 찾아야 했다. 아래 메뉴에서 바로 연다.
    */
   const goTab = async (next: Tab) => {
+    // 노래방은 늘 가로 — 누른 이 순간에 전체화면·가로 고정을 청한다(기다리기 전에)
+    if (next === "karaoke" && tab !== "karaoke") enterKaraokeLandscape();
+    else if (next !== "karaoke" && tab === "karaoke") leaveKaraokeLandscape();
     // 전체보기 창이 본문을 덮고 있으면 먼저 닫는다 — 탭만 바꾸면
     // 뒤에서 바뀔 뿐이라 눌러도 아무 일이 없는 것처럼 보인다.
     setShowSheet(false);

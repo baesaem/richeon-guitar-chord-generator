@@ -155,6 +155,22 @@ body {
   .app-scale { --app-zoom: 1.28; }
 }
 
+/* 노래방은 늘 가로(강사님: 「스마트폰 포함 항상 가로모드」).
+   가로 고정이 되는 기기는 노래방을 누를 때 전체화면·가로로 돌려 고정한다.
+   아이폰 사파리처럼 고정이 안 되는 기기를 세로로 들고 있으면, 앱을 통째로
+   90° 돌려 가로로 그린다 — 폰을 왼쪽으로 눕히면 바로 선다. 돌린 틀은 fixed
+   자식의 기준이 되므로 노래방 단추 줄·영상·가사 띠·목록 창이 함께 돈다.
+   zoom만큼 나누는 것은 위 .app-scale과 같은 셈이다. */
+html.karaoke-rotate .app-scale {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: calc(100dvh / var(--app-zoom));
+  height: calc(100dvw / var(--app-zoom));
+  transform-origin: top left;
+  transform: translateX(calc(100dvw / var(--app-zoom))) rotate(90deg);
+}
+
 /* 스크롤바는 감추고 스크롤은 그대로.
    손가락으로 밀어 보는 앱이라 막대가 자리를 먹을 이유가 없다. 기본
    스크롤바는 어느 테마에서나 회색 띠라 세피아·아쿠아처럼 물든 화면에
