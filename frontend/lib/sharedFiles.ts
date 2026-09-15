@@ -4,7 +4,7 @@
  * 강상기타반 공유 폴더 파일명 규칙.
  *
  * 관리자가 음원목록에서 내보내는 파일은 세 가지다:
- *   코드: "리천 노래명(출처).rml"
+ *   코드: "리천 노래명(출처).{결과id}.rml"  (옛 파일은 id 없이 "리천 노래명(출처).rml")
  *   음원: "리천 노래명(출처).{결과id}.mp3"  (id = YouTube 11자 또는 업로드 해시 16자 hex)
  *   반주: "리천 노래명(반주).{결과id}.inst.mp3"  (보컬을 걷어낸 트랙)
  *
@@ -58,9 +58,27 @@ export function audioBaseOf(name: string): string | null {
  */
 export const KARAOKE_LIST_FILE = "리천 노래방 목록.json";
 
-/** 코드 목록 파일인가. 옛 .json 내보내기도 받아 준다(노래방 목록 파일은 빼고). */
+/**
+ * 반 폴더에 두는 「이 반에도 보일 곡」 목록 파일 이름(classMarks — 강사님 「초」
+ * 「중」 표시). 곡이 아니다 — 곡으로 세지 않는다.
+ */
+export const CLASS_LIST_FILE = "리천 반 함께 보는 곡.json";
+
+/** 코드 목록 파일인가. 옛 .json 내보내기도 받아 준다(노래방·반 목록 파일은 빼고). */
 export function isRmlName(name: string): boolean {
-  return name !== KARAOKE_LIST_FILE && /\.(rml|json)$/i.test(name);
+  return (
+    name !== KARAOKE_LIST_FILE &&
+    name !== CLASS_LIST_FILE &&
+    /\.(rml|json)$/i.test(name)
+  );
+}
+
+const RML_RE = /\.([A-Za-z0-9_-]{11}|[0-9a-f]{16})\.rml$/i;
+
+/** 곡 파일명(「리천 노래명(출처).{결과id}.rml」)에서 결과 id를 뽑는다. 옛 이름이면 null */
+export function rmlIdFromName(name: string): string | null {
+  const m = name.match(RML_RE);
+  return m ? m[1] : null;
 }
 
 /** 곡 파일명에서 확장자와 "리천 " 접두어를 떼 화면에 보일 제목을 만든다. */

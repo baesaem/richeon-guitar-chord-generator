@@ -20,6 +20,7 @@ import { setTabEdits } from "./tabEdits";
 import { removeSheets } from "./sheetCache";
 import { removeVocalTiming } from "./vocalStore";
 import { assignFolder, setKaraokeExtra } from "./folders";
+import { clearClassMarks } from "./classMarks";
 import { listFavorites, saveOrder, savedOrder, toggleFavorite } from "./songOrder";
 import { removeRecent } from "./recent";
 
@@ -37,6 +38,7 @@ export async function purgeSongLocal(id: string): Promise<void> {
   removeVocalTiming(id);
   assignFolder(id, null);
   setKaraokeExtra(id, false);
+  clearClassMarks(id);
   if (listFavorites().includes(id)) toggleFavorite(id);
   const order = savedOrder();
   if (order.includes(id)) saveOrder(order.filter((x) => x !== id));

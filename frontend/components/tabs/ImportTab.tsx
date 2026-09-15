@@ -21,7 +21,8 @@ import {
   listSharedDirect,
 } from "@/lib/driveDirect";
 import { applyBundleMarks, bundleAdds, isBundle, openBundle } from "@/lib/bundle";
-import { KARAOKE_SHARE, SONG_SHARES } from "@/lib/classes";
+import { CLASSES, KARAOKE_SHARE, SONG_SHARES } from "@/lib/classes";
+import { borrowedFiles, pullClassList } from "@/lib/classMarks";
 import { fileToShareFolder } from "@/lib/folders";
 
 /** 노래방 목록의 「+ 노래방 곡 등록」으로 들어올 때의 카드 — 유튜브 창을 노래방 곡으로 연다 */
@@ -165,6 +166,8 @@ export function ImportTab({
   const [shared, setShared] = useState<{
     folderId: string;
     files: SharedFile[];
+    /** 다른 폴더에서 빌려 온 파일(반 표시) — 드라이브 파일 id → 그 파일이 있는 폴더(반 id) */
+    from?: Map<string, string>;
   } | null>(null);
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [fetching, setFetching] = useState<string | null>(null);
@@ -199,9 +202,25 @@ export function ImportTab({
     // 기준으로 담아 두고, 지금 반의 것만 골라 쓴다.
     let alive = true;
     (health ? listShared(klass.folderId) : listSharedDirect(klass.folderId))
-      .then((files) => {
+      .then(async (files) => {
+        /* 반 표시(classMarks): 이 반 목록 파일에 적힌 곡을 다른 폴더(다른 반·
+           노래방)에서 찾아 함께 보인다 — 곡 파일은 드라이브 한 곳에만 있다 */
+        let all = files;
+        let from = new Map<string, string>();
+        if (CLASSES.some((c) => c.id === klass.id)) {
+          const ids = await pullClassList(klass.id, files, !!health).catch(
+            () => [] as string[],
+          );
+          const got = await borrowedFiles(klass.id, files, ids, !!health).catch(
+            () => null,
+          );
+          if (got) {
+            all = [...files, ...got.files];
+            from = got.from;
+          }
+        }
         if (!alive) return;
-        setShared({ folderId: klass.folderId, files });
+        setShared({ folderId: klass.folderId, files: all, from });
         setSharedError(null);
       })
       .catch((e) => {
@@ -220,6 +239,10 @@ export function ImportTab({
   const files =
     shared && klass && shared.folderId === klass.folderId ? shared.files : null;
   const sharedSongs = files?.filter((f) => isRmlName(f.name)) ?? null;
+  /* 받은 곡을 담을 폴더의 짝(반 id). 다른 폴더에서 빌려 온 곡(반 표시)은 원래
+     폴더 짝에 담는다 — 받을 때마다 반이 바뀌어 폴더가 오락가락하지 않게.
+     음원목록에서는 반 목록으로 이 반 칸에도 보인다 */
+  const shareOf = (f: SharedFile) => shared?.from?.get(f.id) ?? klass?.id ?? "";
   // 같은 이름의 음원이 올라와 있는 곡 (목록에 "음원 포함" 표시용)
   const audioBases = new Set(
     (files ?? []).map((f) => audioBaseOf(f.name)).filter(Boolean),
@@ -280,7 +303,7 @@ export function ImportTab({
     );
     /* 받은 드라이브 폴더에 짝인 음원목록 폴더에 담는다(초급반·중급반·노래방).
        수강생은 늘 강사님이 올린 폴더를 따르고, 강사님 기기는 폴더 없는 곡만 */
-    if (klass) fileToShareFolder(klass.id, results.map((r) => r.id), !adminMode);
+    if (klass) fileToShareFolder(shareOf(file), results.map((r) => r.id), !adminMode);
 
     // 짝이 되는 음원(파일명에 결과 id가 든 오디오)이 폴더에 있으면 같이 받는다.
     // 업로드 곡도 서버 없이 소리가 나게 하기 위해서다. 반주(.inst)가 있으면
@@ -367,7 +390,7 @@ export function ImportTab({
           results.map((r) => r.id),
           file.modified,
         );
-        if (klass) fileToShareFolder(klass.id, results.map((r) => r.id), !adminMode);
+        if (klass) fileToShareFolder(shareOf(file), results.map((r) => r.id), !adminMode);
         // 곡은 같아도 강사님 🎤만 바뀌어 다시 올린 곡일 수 있다
         if (isBundle(data)) applyBundleMarks(data);
         await refreshFetched();
@@ -422,7 +445,7 @@ export function ImportTab({
             file.id,
             results.map((r) => r.id),
           );
-          if (klass) fileToShareFolder(klass.id, results.map((r) => r.id), !adminMode);
+          if (klass) fileToShareFolder(shareOf(file), results.map((r) => r.id), !adminMode);
           if (isBundle(data)) applyBundleMarks(data);
           same += 1;
           continue;

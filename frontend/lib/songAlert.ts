@@ -20,6 +20,7 @@ import { fileToShareFolder } from "./folders";
 import { getSettings } from "./settings";
 import { KARAOKE_SHARE } from "./classes";
 import { pullKaraokeList } from "./karaokeRemote";
+import { pullClassList } from "./classMarks";
 
 const SEEN_KEY = "chordgen.songAlertSeen";
 
@@ -87,6 +88,10 @@ export async function findNewSongs(online: boolean): Promise<NewSongs[]> {
        1KB 남짓이라 금방이고, 못 받으면 전에 받은 목록을 그대로 쓴다 */
     if (sync && klass.id === KARAOKE_SHARE.id)
       await pullKaraokeList(list, online).catch(() => false);
+    /* 수강생 기기: 반 폴더의 반 목록(강사님 「초」「중」 표시)도 바뀌었을 때만 받아
+       둔다 — 다른 반 폴더에 한 번만 올라간 곡을 이 반 칸에도 보이게 */
+    if (sync && klass.id !== KARAOKE_SHARE.id)
+      await pullClassList(klass.id, list, online).catch(() => []);
     const ids = songs
       .filter((f) => !mine.has(f.id) && !(f.id in seen))
       .map((f) => f.id);
