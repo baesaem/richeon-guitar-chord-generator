@@ -6,6 +6,7 @@ import { fixBeats, omrScore, putScore, putSheetImage, readSheetChords } from "./
 import { abcMeasures } from "./abcOrder";
 import { applyBarChords } from "./abcChordSwap";
 import { musicxmlToAbc } from "./musicxmlToAbc";
+import { addBarLyrics } from "./abcLyrics";
 import { msczParts, msczToAbc, msczToTab } from "./msczToAbc";
 import type { AnalysisResult } from "./types";
 
@@ -178,14 +179,23 @@ export async function attachScoreAfterAnalysis(
     } catch (e) {
       notes.push(`음표 읽기는 건너뜀 (${(e as Error).message})`);
     }
-    // 코드 — PDF 글자로 얻었으면 그대로, 아니면 AI가 그림에서 읽는다(1분쯤)
+    // 코드 — PDF 글자로 얻었으면 그대로, 아니면 AI가 그림에서 읽는다(1분쯤).
+    // 글자가 없는 그림 PDF(「백일몽」)는 가사·제목도 이때 함께 읽는다
     let chordAbc: string | null = null;
+    let sheetLyrics: Record<string, string[]> = {};
+    let sheetTitle = "";
     if (!textChords) {
       try {
         const got = await readSheetChords(cur.id);
         cur = got.result;
         chordAbc = got.abc;
-        notes.push(`코드를 읽었습니다 (${got.bars}마디 중 ${got.chordBars}마디에 코드)`);
+        sheetLyrics = got.lyrics ?? {};
+        sheetTitle = got.title ?? "";
+        const ly = Object.keys(sheetLyrics).length;
+        notes.push(
+          `코드를 읽었습니다 (${got.bars}마디 중 ${got.chordBars}마디에 코드)` +
+            (ly ? ` · 가사 ${ly}마디` : ""),
+        );
       } catch (e) {
         notes.push(`코드 읽기 실패: ${(e as Error).message}`);
         if (!omrAbc) return { result: cur, notes };
@@ -198,6 +208,14 @@ export async function attachScoreAfterAnalysis(
     } else {
       abc = omrAbc ?? chordAbc;
     }
+    // 그림에서 읽은 가사 — 음표가 있는 악보(OMR)에만 넣는다. 마디 번호는 1부터
+    if (omrAbc && abc && Object.keys(sheetLyrics).length) {
+      const byBar: Record<number, string[]> = {};
+      for (const [k, v] of Object.entries(sheetLyrics)) byBar[+k - 1] = v;
+      abc = addBarLyrics(abc, byBar);
+    }
+    if (abc && sheetTitle && /^T:제목 없음$/m.test(abc))
+      abc = abc.replace(/^T:제목 없음$/m, `T:${sheetTitle}`);
   } else {
     try {
       abc = await toAbc(file, staff);

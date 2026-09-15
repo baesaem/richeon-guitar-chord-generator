@@ -1468,6 +1468,9 @@ async def _run_chord_read(result_id: str) -> None:
             "abc": got["abc"],
             "bars": got["bars"],
             "chord_bars": got["chord_bars"],
+            # 마디마다 가사(그림에서 읽음)와 곡 제목 — 앱이 음표 악보에 넣는다
+            "lyrics": got.get("lyrics") or {},
+            "title": got.get("title") or "",
         }
     except Exception as exc:
         _chord_reads[result_id] = {"state": "failed", "detail": str(exc)}

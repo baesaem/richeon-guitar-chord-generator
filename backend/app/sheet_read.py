@@ -139,9 +139,17 @@ _CHORD_ADDON = """
 없는 마디는 적지 마세요(앞 코드가 이어집니다). 적힌 그대로 옮기고 바꾸지 마세요.
 조표를 보고 조도 적어 주세요(예: "G", "Em", "Bb").
 
-위 JSON에 다음 두 항목을 더하세요:
+**가사도 함께 읽어 주세요.** 오선 아래에 음표마다 한 글자씩 적힌 말입니다.
+그 마디 아래에 적힌 것만, 왼쪽에서 오른쪽 차례로 **띄어 쓴 그대로** 담으세요.
+가사가 위아래 두 줄이면 윗줄이 1절("lyric"), 아랫줄이 2절("lyric2")입니다.
+한 줄뿐이면 2절은 빈 문자열로 두세요. **없는 말을 지어내지 마세요** — 안 보이면
+비웁니다. 코드가 없고 가사만 있는 마디도 적으세요.
+악보 맨 위의 **곡 제목**도 적어 주세요(없으면 빈 문자열).
+
+위 JSON에 다음 항목을 더하세요:
  "key": "조",
- "chords": [{"bar": 마디번호, "chords": ["C", "G7"]}...]
+ "title": "곡 제목",
+ "chords": [{"bar": 마디번호, "chords": ["C", "G7"], "lyric": "모 두 들", "lyric2": ""}...]
 """
 
 
@@ -457,13 +465,27 @@ def read_chords(pages, images: list[bytes], title: str = "") -> dict:
     order = expand(bars)
     if not order:
         raise ValueError("부르는 차례를 만들지 못했습니다.")
-    read_n = len([r for r in (found.get("chords") or []) if isinstance(r, dict)])
+    rows = [r for r in (found.get("chords") or []) if isinstance(r, dict)]
+    read_n = len([r for r in rows if r.get("chords")])
+    # 마디마다 가사(1절·2절) — 글자가 없는 그림 PDF도 가사가 붙게(「백일몽」)
+    lyrics: dict[str, list[str]] = {}
+    for r in rows:
+        try:
+            i = int(r.get("bar"))
+        except (TypeError, ValueError):
+            continue
+        one = str(r.get("lyric") or "").strip()[:60]
+        two = str(r.get("lyric2") or "").strip()[:60]
+        if 1 <= i <= count and (one or two):
+            lyrics[str(i)] = [one, two]
     return {
         "order": order,
         "found": found,
         "bars": count,
         "abc": to_abc(found, count, title),
         "chord_bars": read_n,
+        "lyrics": lyrics,
+        "title": str(found.get("title") or "").strip()[:60],
     }
 
 

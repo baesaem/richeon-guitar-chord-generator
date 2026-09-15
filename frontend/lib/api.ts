@@ -368,7 +368,16 @@ export async function readPictureChords(
  */
 export async function readSheetChords(
   id: string,
-): Promise<{ abc: string; bars: number; chordBars: number; result: AnalysisResult }> {
+): Promise<{
+  abc: string;
+  bars: number;
+  chordBars: number;
+  /** 마디 번호(1부터) → [1절, 2절] 가사. 그림에서 읽은 것 */
+  lyrics?: Record<string, string[]>;
+  /** 악보 맨 위의 곡 제목 */
+  title?: string;
+  result: AnalysisResult;
+}> {
   await fetch(`${apiBase()}/api/results/${id}/sheet/chords`, {
     method: "POST",
   }).then(json<{ state: string }>);
@@ -384,6 +393,8 @@ export async function readSheetChords(
         abc?: string;
         bars?: number;
         chord_bars?: number;
+        lyrics?: Record<string, string[]>;
+        title?: string;
       }>,
     );
     if (state.state === "done" && state.abc)
@@ -391,6 +402,8 @@ export async function readSheetChords(
         abc: state.abc,
         bars: state.bars ?? 0,
         chordBars: state.chord_bars ?? 0,
+        lyrics: state.lyrics ?? {},
+        title: state.title ?? "",
         result: await getResult(id),
       };
     if (state.state === "failed") throw new Error(state.detail || "읽지 못했습니다");

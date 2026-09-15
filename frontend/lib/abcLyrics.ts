@@ -145,3 +145,124 @@ export function abcBarLyrics(abc: string): BarLyric[] {
   for (let j = 0; j < at; j++) out[j] ??= { lyric: "", lyric2: "" };
   return out;
 }
+
+/** 가사 글을 음절로 — 한글은 한 글자가 한 음절, 그 밖은 띄어 쓴 낱말 하나 */
+function splitSyllables(text: string): string[] {
+  const out: string[] = [];
+  for (const w of text.trim().split(/\s+/)) {
+    if (!w) continue;
+    if (/[가-힣]/.test(w)) {
+      for (const ch of w) if (/[가-힣]/.test(ch)) out.push(ch);
+    } else {
+      out.push(w.replace(/[*_\-|~]/g, ""));
+    }
+  }
+  return out.filter(Boolean);
+}
+
+/** 마디 글에서 가사를 받는 음표마다 「붙임줄로 이어진 음인가」. 화음 [CEG]는 한 음 */
+function tieFlags(text: string, tiedIn: boolean): { cont: boolean[]; tiedOut: boolean } {
+  const cont: boolean[] = [];
+  let prevTie = tiedIn;
+  for (let i = 0; i < text.length; ) {
+    const c = text[i];
+    const rest = text.slice(i);
+    if (c === '"' || c === "!") {
+      const e = text.indexOf(c, i + 1);
+      i = e < 0 ? text.length : e + 1;
+      continue;
+    }
+    if (c === "{") {
+      const e = text.indexOf("}", i);
+      i = e < 0 ? text.length : e + 1;
+      continue;
+    }
+    if (c === "[" && /^\[[A-Za-z]:/.test(rest)) {
+      const e = text.indexOf("]", i);
+      i = e < 0 ? text.length : e + 1;
+      continue;
+    }
+    const volta = /^\[\d[\d,.-]*/.exec(rest);
+    if (volta) {
+      i += volta[0].length;
+      continue;
+    }
+    const m =
+      /^(\[[^\]]*\]|[_^=]*[A-Ga-g][,']*)([\d/]*)(-?)/.exec(rest) ??
+      /^([zxZ])([\d/]*)/.exec(rest);
+    if (m) {
+      if (/^[zxZ]$/.test(m[1])) {
+        prevTie = false; // 쉼표는 붙임줄을 끊는다
+      } else {
+        cont.push(prevTie);
+        prevTie = m[3] === "-";
+      }
+      i += m[0].length;
+      continue;
+    }
+    i += 1;
+  }
+  return { cont, tiedOut: prevTie };
+}
+
+/**
+ * 마디마다의 가사를 ABC에 가사 줄(w:)로 적어 넣는다. 이미 있던 가사 줄은 버린다.
+ *
+ * 글자가 없는 그림 PDF는 가사를 AI가 마디마다 읽는다(「백일몽」) — 어느 음표
+ * 아래인지까지는 모르므로, 붙임줄로 이어진 음·쉼표를 뺀 음표에 차례로 붙인다.
+ * 음절이 음표보다 적으면 앞에서부터 채우되, 앞 마디에 가사가 없던 마디(전주 뒤
+ * 못갖춘마디 「이」)는 뒤에서부터 채운다. 음절이 더 많으면 가까운 음표에 묶는다 —
+ * 음표는 틀려도 가사 글자는 잃지 않는다.
+ *
+ * byBar의 열쇠는 **적힌 마디 번호**(0부터), 값은 [1절, 2절].
+ */
+export function addBarLyrics(abc: string, byBar: Record<number, string[]>): string {
+  const lines = abc.split("\n");
+  const k = lines.findIndex((l) => /^K:/.test(l));
+  if (k < 0) return abc;
+  const verses = Math.max(1, ...Object.values(byBar).map((v) => (v[1]?.trim() ? 2 : 1)));
+  const out = lines.slice(0, k + 1);
+  let bar = 0;
+  let tiedIn = false;
+  let prevHad = false;
+  for (const line of lines.slice(k + 1)) {
+    if (/^w:/.test(line)) continue; // 옛 가사 줄은 버린다
+    out.push(line);
+    if (!line.trim() || /^(%|[A-Za-z]:)/.test(line)) continue;
+    const segs = barsOfLine(line);
+    const rows: string[][] = Array.from({ length: verses }, () => []);
+    for (const seg of segs) {
+      const { cont, tiedOut } = tieFlags(seg.text, tiedIn);
+      tiedIn = tiedOut;
+      const n = seg.notes;
+      const cand = cont.slice(0, n).map((c, i) => (c ? -1 : i)).filter((i) => i >= 0);
+      const words = byBar[bar] ?? [];
+      let had = false;
+      for (let v = 0; v < verses; v++) {
+        const toks: string[] = Array(n).fill("*");
+        const syls = splitSyllables(words[v] ?? "");
+        if (syls.length && cand.length) {
+          had = true;
+          if (syls.length <= cand.length) {
+            const use = !prevHad && syls.length < cand.length ? cand.slice(-syls.length) : cand.slice(0, syls.length);
+            use.forEach((q, s) => (toks[q] = syls[s]));
+          } else {
+            // 음표가 모자라면 음절을 고르게 나눠 묶는다
+            cand.forEach((q, s) => {
+              const a = Math.floor((s * syls.length) / cand.length);
+              const b = Math.floor(((s + 1) * syls.length) / cand.length);
+              toks[q] = syls.slice(a, b).join("");
+            });
+          }
+        }
+        rows[v].push(...toks);
+      }
+      prevHad = had;
+      bar++;
+    }
+    rows.forEach((toks, v) => {
+      if (toks.some((t) => t !== "*") || v === 0) out.push("w: " + toks.join(" "));
+    });
+  }
+  return out.join("\n");
+}
