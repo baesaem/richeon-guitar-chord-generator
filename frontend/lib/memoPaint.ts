@@ -93,8 +93,10 @@ function visibleBox(text: SVGGraphicsElement): Box | null {
 /** 화살표·물결 — 굵고 짙게, 영문 대문자보다 크게(강사님) */
 const SYMBOL = /[↓↑←→↕↗↘↙↖~〜∼]/;
 const ARROW = /[↓↑←→↕↗↘↙↖]/;
-/** 화살표 덩이와 물결 덩이를 따로 뗀다 — 굵기를 달리 칠한다 */
-const SYMBOL_RUNS = /([↓↑←→↕↗↘↙↖]+|[~〜∼]+)/;
+/** 영문 소문자 덩이 — 작게, 아래첨자로(강사님: 「영문자 소문자는 작게」) */
+const LOWER_RUN = /^[a-z]+$/;
+/** 화살표·물결·영문 소문자 덩이를 따로 뗀다 — 저마다 달리 칠한다 */
+const SYMBOL_RUNS = /([↓↑←→↕↗↘↙↖]+|[~〜∼]+|[a-z]+)/;
 
 /**
  * 메모 글을 적는다. 화살표·물결은 따로 떼어 1.25배·가장 굵게·짙게 칠한다 —
@@ -106,11 +108,24 @@ const SYMBOL_RUNS = /([↓↑←→↕↗↘↙↖]+|[~〜∼]+)/;
 function setMemoText(el: SVGElement, s: string): void {
   const holder =
     [...el.children].find(
-      (c) => c.tagName.toLowerCase() === "tspan" && !c.classList.contains("memo-sym"),
+      (c) =>
+        c.tagName.toLowerCase() === "tspan" &&
+        !c.classList.contains("memo-sym") &&
+        !c.classList.contains("memo-sub"),
     ) ?? el;
   holder.textContent = "";
   for (const part of s.split(SYMBOL_RUNS)) {
     if (!part) continue;
+    if (LOWER_RUN.test(part)) {
+      // 영문 소문자는 작게, 아래첨자로 — 코드 이름의 sus·m처럼
+      const sub = document.createElementNS(SVG_NS, "tspan");
+      sub.setAttribute("class", "memo-sub");
+      sub.style.fontSize = "0.7em";
+      sub.setAttribute("baseline-shift", "sub");
+      sub.textContent = part;
+      holder.appendChild(sub);
+      continue;
+    }
     if (!SYMBOL.test(part)) {
       holder.appendChild(document.createTextNode(part));
       continue;
