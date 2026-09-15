@@ -98,6 +98,38 @@ const LOWER_RUN = /^[a-z]+$/;
 /** 화살표·물결·영문 소문자 덩이를 따로 뗀다 — 저마다 달리 칠한다 */
 const SYMBOL_RUNS = /([↓↑←→↕↗↘↙↖]+|[~〜∼]+|[a-z]+)/;
 
+/** 화살표 글꼴 — 명조 계열의 가는 화살표 */
+const ARROW_FONT = '"Times New Roman", serif';
+/** 화살표·소문자 크기(메모 글자 크기의 몇 배) */
+const ARROW_SCALE = 1.25;
+const LOWER_SCALE = 0.7;
+/** 소문자를 바닥선에서 내리는 깊이(소문자 글자 크기의 몇 배) */
+const LOWER_DROP = 0.3;
+
+let arrowDropEm: number | null = null;
+/**
+ * 화살표를 내리는 깊이(화살표 글자 크기의 몇 배).
+ *
+ * 화살표 아래 끝이 소문자 아래끝선과 맞아야 한다(강사님: 「↓x」). 소문자는
+ * 메모 크기의 0.7×0.3만큼 내려가 있다. 화살표 글꼴에서 끝이 바닥선 아래로
+ * 얼마나 내려오는지를 캔버스로 한 번 재어 그만큼 덜 내린다 — 글꼴마다 다르다.
+ */
+function arrowDrop(): number {
+  if (arrowDropEm !== null) return arrowDropEm;
+  let below = 0;
+  try {
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (ctx) {
+      ctx.font = `normal 100px ${ARROW_FONT}`;
+      below = ctx.measureText("↓").actualBoundingBoxDescent / 100;
+    }
+  } catch {
+    // 잴 수 없으면 끝이 바닥선에 닿는 글꼴로 친다
+  }
+  arrowDropEm = (LOWER_SCALE * LOWER_DROP - ARROW_SCALE * below) / ARROW_SCALE;
+  return arrowDropEm;
+}
+
 /**
  * 메모 글을 적는다. 화살표·물결은 따로 떼어 1.25배·가장 굵게·짙게 칠한다 —
  * 가는 기호가 굵은 글자 사이에서 흐려 보였다.
@@ -120,8 +152,8 @@ function setMemoText(el: SVGElement, s: string): void {
       // 영문 소문자는 작게, 아래첨자로 — 코드 이름의 sus·m처럼
       const sub = document.createElementNS(SVG_NS, "tspan");
       sub.setAttribute("class", "memo-sub");
-      sub.style.fontSize = "0.7em";
-      sub.setAttribute("baseline-shift", "sub");
+      sub.style.fontSize = `${LOWER_SCALE}em`;
+      sub.setAttribute("baseline-shift", `-${LOWER_DROP}em`);
       sub.textContent = part;
       holder.appendChild(sub);
       continue;
@@ -132,13 +164,16 @@ function setMemoText(el: SVGElement, s: string): void {
     }
     const t = document.createElementNS(SVG_NS, "tspan");
     t.setAttribute("class", "memo-sym");
-    t.style.fontSize = "1.25em";
+    t.style.fontSize = `${ARROW_SCALE}em`;
     t.setAttribute("fill", SYMBOL_COLOR);
     if (ARROW.test(part)) {
       /* 화살표는 크고 가늘게 — 명조 계열의 가는 화살표에 굵기·테두리 없이
-         (강사님: 「↓x 이런 형식으로, 화살표 가늘게」) */
+         (강사님: 「↓x 이런 형식으로, 화살표 가늘게」). 아래 끝은 소문자
+         아래끝선에 맞춘다 */
       t.style.fontWeight = "normal";
-      t.style.fontFamily = '"Times New Roman", serif';
+      t.style.fontFamily = ARROW_FONT;
+      const drop = arrowDrop();
+      if (drop) t.setAttribute("baseline-shift", `${(-drop).toFixed(3)}em`);
     } else {
       // 물결은 가는 획을 같은 색 테두리로 두껍게
       t.style.fontWeight = "900";
