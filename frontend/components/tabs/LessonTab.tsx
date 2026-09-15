@@ -21,6 +21,7 @@ import {
   driveUpload,
 } from "@/lib/api";
 import { openLink } from "@/lib/openLink";
+import { browserDriveUpload, hasBrowserDrive, preloadGoogleLogin } from "@/lib/googleDrive";
 
 /**
  * 강의실 — 밖에서 보며 배우는 것들.
@@ -65,6 +66,13 @@ export function LessonTab({
       .then((s) => setDriveReady(s.connected))
       .catch(() => setDriveReady(false));
   }, [adminMode, online]);
+  /* 서버 없는 기기(폰·태블릿)의 강사님 — 구글 로그인으로 곧장 올린다(강사님:
+     「스마트폰/태블릿에서 관리자모드로 강좌 드라이브에 올릴 수 있게」).
+     로그인 창은 누른 순간 떠야 폰이 막지 않으므로 스크립트를 미리 불러 둔다 */
+  const browserDrive = adminMode && !online && hasBrowserDrive();
+  useEffect(() => {
+    if (browserDrive) preloadGoogleLogin().catch(() => {});
+  }, [browserDrive]);
 
   const klass = CLASSES.find((c) => c.id === page) ?? null;
 
@@ -114,19 +122,32 @@ export function LessonTab({
     }
     setError(null);
     try {
-      if (!driveReady) {
-        setWorking("구글 계정 연결 중");
-        const { url } = await driveConnect();
-        openLink(url);
-        await driveConnectWait();
-        setDriveReady(true);
+      let res: { replaced: boolean };
+      if (!online) {
+        /* 서버 없는 기기: 구글 로그인으로 곧장. 기다리기 전에 불러야 로그인
+           창이 이 누름에 붙어 뜬다(폰 브라우저가 막지 않는다) */
+        const pending = browserDriveUpload(
+          target.lessonFolderId,
+          lessonFileName(target.name),
+          blob,
+        );
+        setWorking("구글 로그인 · 드라이브에 올리는 중");
+        res = await pending;
+      } else {
+        if (!driveReady) {
+          setWorking("구글 계정 연결 중");
+          const { url } = await driveConnect();
+          openLink(url);
+          await driveConnectWait();
+          setDriveReady(true);
+        }
+        setWorking("드라이브에 올리는 중");
+        res = await driveUpload(
+          target.lessonFolderId,
+          lessonFileName(target.name),
+          blob,
+        );
       }
-      setWorking("드라이브에 올리는 중");
-      const res = await driveUpload(
-        target.lessonFolderId,
-        lessonFileName(target.name),
-        blob,
-      );
       flash(
         `${count}개를 ${shortName(target.name)} 강의실에 올렸습니다` +
           `${res.replaced ? " (기존 파일 교체)" : ""}.`,
@@ -207,19 +228,21 @@ export function LessonTab({
                 파일로 저장
               </button>
             )}
-            {/* 강의실에 올리기는 서버가 있어야 한다(구글 동의를 서버가 받는다).
-                서버가 없다고 단추째 감추면, 왜 올릴 길이 없는지 알 수가
-                없어 「파일로 저장」만 되풀이하게 된다 — 흐리게 두고 까닭을
-                적어 둔다. */}
+            {/* 강의실에 올리기 — 서버가 있으면 서버가 받아 둔 구글 동의로, 없으면
+                (폰·태블릿) 이 기기의 구글 로그인으로 올린다. 둘 다 안 되는 빌드면
+                단추째 감추지 않고 흐리게 두고 까닭을 적어 둔다 — 감추면 왜 올릴
+                길이 없는지 알 수 없어 「파일로 저장」만 되풀이하게 된다. */}
             {adminMode && (
               <button
                 className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
-                disabled={!online}
+                disabled={!online && !browserDrive}
                 onClick={() => setAskFolder("upload")}
                 title={
                   online
                     ? "이 반 강의실을 반 공유 폴더에 곧장 올립니다. 수강생이 「새 강좌 가져오기」로 받아 갑니다"
-                    : "분석 서버에 연결되어야 올릴 수 있습니다. 설정에서 서버 주소를 확인해 주세요"
+                    : browserDrive
+                      ? "구글 로그인으로 이 반 강의실을 반 공유 폴더에 곧장 올립니다(처음 한 번 강사님 계정 동의). 수강생이 「새 강좌 가져오기」로 받아 갑니다"
+                      : "이 기기에서 올리려면 구글 웹 로그인 설정이 필요합니다. 분석 서버가 켜진 PC에서는 지금도 올릴 수 있습니다"
                 }
               >
                 {picked.length > 0

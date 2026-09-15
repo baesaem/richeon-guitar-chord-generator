@@ -46,6 +46,9 @@ jobs:
           NEXT_PUBLIC_API_BASE: ${{ vars.NEXT_PUBLIC_API_BASE }}
           # 있으면 서버 없이도 강상기타반 목록을 드라이브에서 직접 읽는다
           NEXT_PUBLIC_DRIVE_API_KEY: ${{ vars.NEXT_PUBLIC_DRIVE_API_KEY }}
+          # 있으면 폰·태블릿(서버 없이)에서도 강사님이 구글 로그인으로 드라이브에
+          # 강좌를 올린다 — 웹 OAuth 클라이언트 id(비밀이 아니다)
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Jekyll 처리 방지
