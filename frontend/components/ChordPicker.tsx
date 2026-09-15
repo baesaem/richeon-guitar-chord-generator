@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
@@ -81,6 +81,18 @@ export function ChordPicker({
   const [quality, setQuality] = useState(current?.quality ?? "maj");
   const [confirmClear, setConfirmClear] = useState(false);
   const [memoText, setMemoText] = useState(memo ?? "");
+  const memoRef = useRef<HTMLTextAreaElement>(null);
+  /** 누른 기호를 글자 커서 자리에 넣는다(폰 자판에서 찾기 어려운 ↓ ↑ ~) */
+  const insertMark = (mark: string) => {
+    const el = memoRef.current;
+    const a = el?.selectionStart ?? memoText.length;
+    const b = el?.selectionEnd ?? a;
+    setMemoText((memoText.slice(0, a) + mark + memoText.slice(b)).slice(0, 200));
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(a + mark.length, a + mark.length);
+    });
+  };
   const label = labelFor(root, quality, flats);
 
   return (
@@ -88,10 +100,27 @@ export function ChordPicker({
       {/* 마디 위 메모. 오른쪽 클릭(길게 누르기)으로 열면 맨 먼저 보이게 위에 둔다 */}
       {onMemo && (
         <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-2 text-black">
-          <div className="mb-1 text-[11px] font-semibold text-amber-800">
-            마디 위 메모
+          <div className="mb-1 flex items-center gap-1">
+            <span className="mr-auto text-[11px] font-semibold text-amber-800">
+              마디 위 메모
+            </span>
+            {/* 특수 기호 — 음표를 가리키는 화살표와 떨림(비브라토) 물결 */}
+            {["↓", "↑", "~"].map((mark) => (
+              <button
+                key={mark}
+                type="button"
+                title={`${mark} 넣기`}
+                // 눌러도 글자 칸의 커서 자리를 잃지 않게
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => insertMark(mark)}
+                className="h-7 w-9 rounded border border-amber-300 bg-white text-base font-bold leading-none text-amber-900 active:bg-amber-100"
+              >
+                {mark}
+              </button>
+            ))}
           </div>
           <textarea
+            ref={memoRef}
             value={memoText}
             onChange={(e) => setMemoText(e.target.value)}
             rows={2}
