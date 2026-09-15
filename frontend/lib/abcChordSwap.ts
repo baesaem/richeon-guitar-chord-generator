@@ -177,20 +177,24 @@ export function addBarMemos(
         bar += 1;
         const raw = byBar[String(bar)] ?? "";
         if (!raw.trim()) return piece;
-        const { notes } = scan(piece);
+        const { chords, notes } = scan(piece);
         if (!notes.length) return piece;
-        /* 앞쪽 빈칸은 글자로 친다(강사님: 빈칸으로 메모를 오른쪽으로 민다).
-           그냥 빈칸은 abcjs·SVG가 걷어 내므로 줄바꿈 없는 빈칸으로 바꾼다 —
-           머리표(폭 없는 글자)가 맨 앞에 있어 걷히지 않는다 */
-        const lead = Math.min(raw.length - raw.trimStart().length, 40);
-        const memo = raw.trim().replace(/["\s]+/g, " ");
+        /* 빈칸은 앞·사이·뒤 모두 글자로 친다(강사님: 「스페이스바 공백은 모두
+           인정」) — 앞 빈칸으로 오른쪽으로 밀고, 사이 빈칸으로 띄운다. 그냥
+           빈칸은 abcjs·SVG가 걷어 내거나 하나로 줄이므로 줄바꿈 없는 빈칸으로
+           바꾼다 — 머리표(폭 없는 글자)가 맨 앞에 있어 걷히지 않는다.
+           따옴표는 덧말을 끝내 버리므로 홑따옴표로 */
+        const lead = raw.length - raw.trimStart().length;
+        const memo = raw.trimStart().replace(/"/g, "'").replace(/\s/g, " ");
         // 긴 메모는 줄여 적는다 — 덧말이 길면 마디가 벌어진다. 다 읽으려면 마디를 연다
-        const shown = " ".repeat(lead) + (memo.length > 16 ? `${memo.slice(0, 15)}…` : memo);
-        /* 코드 이름 **뒤**, 첫 음표 바로 앞에 둔다. 코드 앞에 두면 abcjs가
-           그 마디 코드만 메모 위로 한 칸 밀어 올려 코드 줄이 들쭉날쭉했다
-           (강사님: 「메모 위 코드 — 다른 코드와 같은 줄로」). 메모는 abcjs가
-           코드 위에 그리지만, 그린 뒤 paintMemos가 오선 바로 위로 내린다 */
-        const at = notes[0];
+        const shown =
+          " ".repeat(Math.min(lead, 40)) +
+          (memo.length > 16 ? `${memo.slice(0, 15)}…` : memo);
+        /* 코드 이름 **앞**에 둔다 — abcjs가 먼저 적힌 덧말을 오선 가까이, 코드를
+           그 위에 쌓아 자리를 비워 둔다(강사님: 「메모는 코드 아래로」). 그 마디
+           코드만 올라간 것은 그린 뒤 paintMemos가 줄의 다른 코드도 같은 높이로
+           올려 맞춘다(「메모 위 코드 — 다른 코드와 같은 줄로」) */
+        const at = Math.min(notes[0], chords[0]?.[0] ?? Infinity);
         return `${piece.slice(0, at)}"^${MEMO_MARK}${shown}"${piece.slice(at)}`;
       })
       .join("");

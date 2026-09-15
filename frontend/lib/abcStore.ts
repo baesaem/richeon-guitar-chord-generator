@@ -135,7 +135,8 @@ export function setAbcMemo(
   const cur = store[songId];
   if (!cur) return;
   const memos = { ...(cur.memos ?? {}) };
-  const t = (text ?? "").replace(/[\r\n]+/g, " ").trimEnd();
+  // 빈칸은 앞·사이·뒤 모두 글자로 둔다(강사님: 「스페이스바 공백은 모두 인정」)
+  const t = (text ?? "").replace(/[\r\n]+/g, " ");
   if (t.trim()) memos[String(bar)] = t.slice(0, 200);
   else delete memos[String(bar)];
   store[songId] = { ...cur, memos };

@@ -73,7 +73,8 @@ export function MemoField({
       <div className="mt-1 flex gap-1">
         <button
           className="flex-1 rounded bg-amber-500 py-2 text-sm font-semibold text-white disabled:opacity-40"
-          disabled={!text.trim() || text.trimEnd() === (memo ?? "")}
+          // 빈칸도 글자다 — 빈칸만 바꿔도 고칠 수 있다
+          disabled={!text.trim() || text.replace(/[\r\n]+/g, " ") === (memo ?? "")}
           onClick={() => {
             onMemo(text);
             onDone?.();

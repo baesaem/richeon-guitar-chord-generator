@@ -1,24 +1,28 @@
 /**
  * 마디 위 메모를 칠하고 자리를 잡는다 — AbcScore가 악보를 그린 뒤에 부른다.
  *
- * 메모는 그릴 때만 덧말("^…")로 끼운다(addBarMemos). abcjs는 그 덧말을
- * 코드 이름 위에 그린다. 여기서 굵은 글씨·노란 바탕을 입히고, 자리가 나면
- * 오선 바로 위로 끌어내린다(강사님: 「메모는 악보 위에 바로 붙임」).
+ * 메모는 그릴 때만 덧말("^…")로 코드 이름 앞에 끼운다(addBarMemos). abcjs는
+ * 메모를 오선 가까이, 그 마디 코드를 메모 위에 쌓아 자리를 비워 둔다
+ * (강사님: 「메모는 코드 아래로」). 여기서:
  *
- * 코드 이름 줄은 건드리지 않는다(강사님: 「메모 위 코드 — 다른 코드와 같은
- * 줄로」). 코드 줄과 음표 사이가 좁으면 글자를 조금씩 줄여 보고, 그래도
- * 안 들어가면 abcjs가 코드 위에 비워 둔 자리에 그대로 둔다.
+ * - 빨간 굵은 글씨·노란 바탕을 입히고 화살표·물결을 굵고 크게 칠한다
+ * - 메모를 오선(또는 그 밑을 지나는 가장 높은 음표) 바로 위로 내린다
+ * - 메모가 있는 줄의 코드 이름을 모두 같은 높이로 올려 맞춘다 — abcjs는
+ *   메모 마디의 코드만 올려, 코드 줄이 들쭉날쭉했다(「다른 코드와 같은 줄로」)
  */
 
 import { MEMO_MARK } from "./abcChordSwap";
 
 /**
  * 메모 글자 크기(악보 그림 단위). abcjs는 서식 값에 4/3을 곱해 적는다 —
- * 코드 이름(서식 16)은 21, 덧말 기본(12)은 16. 강사님: 「메모 글자 크게」
+ * 코드 이름(서식 16)은 21. 강사님: 「크게」 뒤 「약간만 작게」
  */
-export const MEMO_FONT = 20;
-/** 오선 위가 좁은 마디에서 줄여 볼 수 있는 가장 작은 크기 */
-const MEMO_FONT_MIN = 16;
+export const MEMO_FONT = 18;
+/** 제목줄 메모가 제목과 닿을 때 줄여 볼 수 있는 가장 작은 크기 */
+const MEMO_FONT_MIN = 14;
+/** 메모 글자색(강사님: 「빨간색」)과, 그보다 짙은 기호 색 */
+const MEMO_COLOR = "#dc2626";
+const SYMBOL_COLOR = "#991b1b";
 
 /**
  * 제목줄 메모의 열쇠(강사님: 「상단 제목줄에도 왼쪽 오른쪽 메모」).
@@ -26,6 +30,8 @@ const MEMO_FONT_MIN = 16;
  */
 export const HEAD_LEFT = "head-left";
 export const HEAD_RIGHT = "head-right";
+
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 interface Box {
   x: number;
@@ -48,24 +54,99 @@ function lineOf(el: Element | null): string | undefined {
   return /\babcjs-l(\d+)\b/.exec(el?.getAttribute("class") ?? "")?.[1];
 }
 
+/** 이어 붙이는 옮김 — abcjs가 먼저 단 transform이 있으면 뒤에 붙인다 */
+function translateY(el: Element, dy: number): void {
+  if (!dy) return;
+  el.setAttribute(
+    "transform",
+    `${el.getAttribute("transform") ?? ""} translate(0 ${dy})`.trim(),
+  );
+}
+
 /**
- * 보이는 글자가 차지한 자리. 앞쪽 빈칸(강사님이 메모를 오른쪽으로 민 자리)은
- * 빼고 잰다 — 빈칸 밑의 코드·음표와는 부딪히지 않는다.
+ * 보이는 글자가 차지한 자리. 앞·뒤 빈칸(강사님이 메모를 밀어 둔 자리)은
+ * 빼고 잰다 — 빈칸 밑의 코드·음표와는 부딪히지 않고, 바탕도 칠하지 않는다.
  */
 function visibleBox(text: SVGGraphicsElement): Box | null {
   const b = bbox(text);
   if (!b || !b.width) return null;
-  const first = (text.textContent ?? "").search(/[^\s​ ]/);
-  if (first <= 0) return b;
+  const s = text.textContent ?? "";
+  const blank = /[\s​]/;
+  let first = 0;
+  while (first < s.length && blank.test(s[first])) first++;
+  let last = s.length - 1;
+  while (last > first && blank.test(s[last])) last--;
+  if (first >= s.length || (first === 0 && last === s.length - 1)) return b;
   try {
-    const x0 = Math.max(
-      b.x,
-      (text as SVGTextContentElement).getStartPositionOfChar(first).x,
-    );
-    return { ...b, x: x0, width: b.x + b.width - x0 };
+    const t = text as SVGTextContentElement;
+    const x0 = first > 0 ? Math.max(b.x, t.getStartPositionOfChar(first).x) : b.x;
+    const x1 =
+      last < s.length - 1
+        ? Math.min(b.x + b.width, t.getEndPositionOfChar(last).x)
+        : b.x + b.width;
+    return { ...b, x: x0, width: Math.max(x1 - x0, 1) };
   } catch {
     return b;
   }
+}
+
+/** 화살표·물결 — 굵고 짙게, 영문 대문자보다 크게(강사님) */
+const SYMBOL = /[↓↑←→↕↗↘↙↖~〜∼]/;
+const SYMBOL_RUNS = /([↓↑←→↕↗↘↙↖~〜∼]+)/;
+
+/**
+ * 메모 글을 적는다. 화살표·물결은 따로 떼어 1.25배·가장 굵게·짙게 칠한다 —
+ * 가는 기호가 굵은 글자 사이에서 흐려 보였다.
+ *
+ * abcjs는 글을 tspan 하나에 담아 x 자리를 거기 둔다. 그 tspan이 있으면
+ * 그 안을 채운다(자리를 지키려고).
+ */
+function setMemoText(el: SVGElement, s: string): void {
+  const holder =
+    [...el.children].find(
+      (c) => c.tagName.toLowerCase() === "tspan" && !c.classList.contains("memo-sym"),
+    ) ?? el;
+  holder.textContent = "";
+  for (const part of s.split(SYMBOL_RUNS)) {
+    if (!part) continue;
+    if (!SYMBOL.test(part)) {
+      holder.appendChild(document.createTextNode(part));
+      continue;
+    }
+    const t = document.createElementNS(SVG_NS, "tspan");
+    t.setAttribute("class", "memo-sym");
+    t.style.fontSize = "1.25em";
+    t.style.fontWeight = "900";
+    t.setAttribute("fill", SYMBOL_COLOR);
+    // 가는 획을 같은 색 테두리로 두껍게
+    t.setAttribute("stroke", SYMBOL_COLOR);
+    t.setAttribute("stroke-width", "0.8");
+    t.textContent = part;
+    holder.appendChild(t);
+  }
+}
+
+/** 메모 글자를 빨간 굵은 글씨로 */
+function styleMemo(text: SVGGraphicsElement, size: number): void {
+  text.setAttribute("fill", MEMO_COLOR);
+  text.setAttribute("font-weight", "bold");
+  text.setAttribute("stroke", "none");
+  text.style.fontWeight = "bold";
+  text.style.fontSize = `${size}px`;
+}
+
+/** 노란 바탕을 글자 뒤에 깐다 */
+function underlay(text: SVGGraphicsElement, box: Box, dy = 0): void {
+  const bg = document.createElementNS(SVG_NS, "rect");
+  bg.setAttribute("x", String(box.x - 2));
+  bg.setAttribute("y", String(box.y - 1));
+  bg.setAttribute("width", String(box.width + 4));
+  bg.setAttribute("height", String(box.height + 2));
+  bg.setAttribute("rx", "2");
+  bg.setAttribute("fill", "#fde68a");
+  bg.setAttribute("stroke", "none");
+  translateY(bg, dy);
+  text.parentNode?.insertBefore(bg, text);
 }
 
 export function paintMemos(host: HTMLElement): void {
@@ -83,7 +164,7 @@ export function paintMemos(host: HTMLElement): void {
     );
   if (!memos.length) return;
 
-  // 줄마다 오선 윗줄 높이와 코드 이름 자리
+  // 줄마다 오선 윗줄 높이
   const staffTop = new Map<string, number>();
   for (const el of svg.querySelectorAll<SVGGraphicsElement>("g.abcjs-staff")) {
     const line = lineOf(el);
@@ -92,80 +173,54 @@ export function paintMemos(host: HTMLElement): void {
     const had = staffTop.get(line);
     if (had === undefined || b.y < had) staffTop.set(line, b.y);
   }
-  const chordBoxes = new Map<string, Box[]>();
-  for (const el of svg.querySelectorAll<SVGGraphicsElement>(".abcjs-chord")) {
-    const line = lineOf(el);
-    const b = bbox(el);
-    if (line === undefined || !b) continue;
-    chordBoxes.set(line, [...(chordBoxes.get(line) ?? []), b]);
-  }
 
+  // 1) 칠하고, 오선(또는 밑을 지나는 가장 높은 음표) 바로 위로 내린다
+  const placed: { text: SVGGraphicsElement; line?: string; box: Box; dy: number }[] = [];
   for (const text of memos) {
     const line = lineOf(text) ?? lineOf(text.parentElement);
-    text.setAttribute("fill", "#7c2d12");
-    text.setAttribute("font-weight", "bold");
-    text.style.fontWeight = "bold";
-
-    /** 메모 밑으로 지나가는 것 중 가장 높은 곳 — 오선 윗줄이나 솟은 음표 */
-    const floorUnder = (b: Box): number | undefined => {
-      if (line === undefined) return undefined;
-      let floor = staffTop.get(line);
+    styleMemo(text, MEMO_FONT);
+    setMemoText(text, text.textContent ?? "");
+    const box = visibleBox(text);
+    if (!box) continue;
+    let floor = line === undefined ? undefined : staffTop.get(line);
+    if (line !== undefined)
       for (const p of svg.querySelectorAll<SVGGraphicsElement>(
         `g.abcjs-note.abcjs-l${line} path`,
       )) {
         const q = bbox(p);
-        if (q && q.height && q.x < b.x + b.width && q.x + q.width > b.x)
+        if (q && q.height && q.x < box.x + box.width && q.x + q.width > box.x)
           floor = Math.min(floor ?? q.y, q.y);
       }
-      return floor;
-    };
-    const hitsChord = (b: Box, dy: number): boolean =>
-      (line === undefined ? [] : (chordBoxes.get(line) ?? [])).some(
-        (c) =>
-          c.x < b.x + b.width &&
-          c.x + c.width > b.x &&
-          c.y < b.y + dy + b.height &&
-          c.y + c.height > b.y + dy,
-      );
-
-    // 큰 글자부터 — 코드 이름을 건드리지 않고 오선 위에 들어가는 크기를 찾는다
-    let shift = 0;
-    let box: Box | null = null;
-    for (let size = MEMO_FONT; size >= MEMO_FONT_MIN; size -= 2) {
-      text.style.fontSize = `${size}px`;
-      const b = visibleBox(text);
-      if (!b) break;
-      const floor = floorUnder(b);
-      const dy = floor === undefined ? 0 : floor - 2 - (b.y + b.height);
-      if (dy <= 0 || !hitsChord(b, dy)) {
-        shift = Math.max(dy, 0);
-        box = b;
-        break;
-      }
-    }
-    if (!box) {
-      // 오선 위가 좁은 마디 — 코드 줄 위(abcjs가 비워 둔 자리)에 그대로
-      text.style.fontSize = `${MEMO_FONT}px`;
-      box = visibleBox(text);
-      shift = 0;
-    }
-    if (!box) continue;
-
-    const move = shift
-      ? `${text.getAttribute("transform") ?? ""} translate(0 ${shift})`.trim()
-      : null;
-    if (move) text.setAttribute("transform", move);
-    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    if (move) bg.setAttribute("transform", move);
-    bg.setAttribute("x", String(box.x - 2));
-    bg.setAttribute("y", String(box.y - 1));
-    bg.setAttribute("width", String(box.width + 4));
-    bg.setAttribute("height", String(box.height + 2));
-    bg.setAttribute("rx", "2");
-    bg.setAttribute("fill", "#fde68a");
-    bg.setAttribute("stroke", "none");
-    text.parentNode?.insertBefore(bg, text);
+    const dy = floor === undefined ? 0 : Math.max(0, floor - 2 - (box.y + box.height));
+    translateY(text, dy);
+    placed.push({ text, line, box, dy });
   }
+
+  // 2) 메모가 있는 줄의 코드 이름을 한 높이로 — 메모 위에 닿으면 조금 더 올린다
+  const lines = new Set(placed.map((p) => p.line).filter((l) => l !== undefined));
+  for (const line of lines) {
+    const top = staffTop.get(line as string);
+    const chords = [...svg.querySelectorAll<SVGGraphicsElement>(".abcjs-chord")]
+      .filter((c) => lineOf(c) === line)
+      .map((el) => ({ el, b: bbox(el) }))
+      // 오선 위의 코드만(아래에 적는 코드 "_…"는 두지 않는다)
+      .filter((c): c is { el: SVGGraphicsElement; b: Box } =>
+        !!c.b && (top === undefined || c.b.y + c.b.height <= top + 2),
+      );
+    if (!chords.length) continue;
+    const rowTop = Math.min(...chords.map((c) => c.b.y));
+    let extra = 0;
+    for (const m of placed.filter((p) => p.line === line)) {
+      const memoTop = m.box.y + m.dy;
+      for (const c of chords)
+        if (c.b.x < m.box.x + m.box.width && c.b.x + c.b.width > m.box.x)
+          extra = Math.max(extra, rowTop + c.b.height + 1 - memoTop);
+    }
+    for (const c of chords) translateY(c.el, rowTop - extra - c.b.y);
+  }
+
+  // 3) 노란 바탕
+  for (const m of placed) underlay(m.text, m.box, m.dy);
 }
 
 /** 오선이 차지한 가로 범위 — 제목줄 메모의 왼끝·오른끝 */
@@ -213,26 +268,22 @@ export function paintHeadMemos(
   const tb = title ? bbox(title) : null;
   const span = staffSpan(svg);
   if (!tb || !span) return;
-  const NS = "http://www.w3.org/2000/svg";
 
   const put = (raw: string | undefined, side: "left" | "right") => {
     if (!raw?.trim()) return;
-    // 앞쪽 빈칸은 글자로 — 줄바꿈 없는 빈칸으로 바꿔야 걷히지 않는다
-    const lead = Math.min(raw.length - raw.trimStart().length, 40);
-    const full = " ".repeat(lead) + raw.trim().replace(/\s+/g, " ");
-    const g = document.createElementNS(NS, "g");
+    // 빈칸은 앞·사이·뒤 모두 글자로 — 줄바꿈 없는 빈칸으로 바꿔야 걷히거나 줄지 않는다
+    const lead = raw.length - raw.trimStart().length;
+    const full = raw.replace(/\s/g, " ");
+    const g = document.createElementNS(SVG_NS, "g");
     g.setAttribute("class", "memo-head");
     g.setAttribute("pointer-events", "none");
-    const text = document.createElementNS(NS, "text");
+    const text = document.createElementNS(SVG_NS, "text");
     text.setAttribute("x", String(side === "left" ? span[0] : span[1]));
     text.setAttribute("y", String(tb.y + tb.height / 2));
     text.setAttribute("text-anchor", side === "left" ? "start" : "end");
     text.setAttribute("dominant-baseline", "central");
     text.setAttribute("font-family", "sans-serif");
-    text.setAttribute("font-weight", "bold");
-    text.setAttribute("fill", "#7c2d12");
-    text.setAttribute("stroke", "none");
-    text.textContent = full;
+    setMemoText(text, full);
     g.append(text);
     svg.appendChild(g);
 
@@ -240,29 +291,20 @@ export function paintHeadMemos(
     const clear = (b: Box | null) =>
       !b || (side === "left" ? b.x + b.width <= tb.x - 8 : b.x >= tb.x + tb.width + 8);
     let size = MEMO_FONT;
-    text.style.fontSize = `${size}px`;
+    styleMemo(text, size);
     let b = bbox(text);
     while (!clear(b) && size > MEMO_FONT_MIN) {
       size -= 2;
-      text.style.fontSize = `${size}px`;
+      styleMemo(text, size);
       b = bbox(text);
     }
     for (let n = full.length - 1; !clear(b) && n > lead; n--) {
-      text.textContent = `${full.slice(0, n).trimEnd()}…`;
+      setMemoText(text, `${full.slice(0, n).trimEnd()}…`);
       b = bbox(text);
     }
 
     const v = visibleBox(text);
-    if (!v) return;
-    const bg = document.createElementNS(NS, "rect");
-    bg.setAttribute("x", String(v.x - 2));
-    bg.setAttribute("y", String(v.y - 1));
-    bg.setAttribute("width", String(v.width + 4));
-    bg.setAttribute("height", String(v.height + 2));
-    bg.setAttribute("rx", "2");
-    bg.setAttribute("fill", "#fde68a");
-    bg.setAttribute("stroke", "none");
-    g.insertBefore(bg, text);
+    if (v) underlay(text, v);
   };
   put(left, "left");
   put(right, "right");

@@ -257,6 +257,9 @@ export function AbcScore({
           // 읽기 어려웠다
           gchordfont: "sans-serif 16 bold",
           measurefont: "sans-serif 9",
+          /* 덧말(마디 메모) 글자 크기를 알려 abcjs가 그만큼 자리를 비우게
+             한다 — 크게 칠한 화살표·물결까지 들어가는 높이(memoPaint) */
+          annotationfont: "sans-serif 17 bold",
         },
       } as Parameters<typeof ABCJS.renderAbc>[2] & { barNumbers?: number };
       /* 마디 번호는 %%barnumbers 지시로 켠다.
