@@ -133,11 +133,18 @@ function setMemoText(el: SVGElement, s: string): void {
     const t = document.createElementNS(SVG_NS, "tspan");
     t.setAttribute("class", "memo-sym");
     t.style.fontSize = "1.25em";
-    t.style.fontWeight = "900";
     t.setAttribute("fill", SYMBOL_COLOR);
-    // 가는 획을 같은 색 테두리로 두껍게 — 화살표는 약간 가늘게(강사님)
-    t.setAttribute("stroke", SYMBOL_COLOR);
-    t.setAttribute("stroke-width", ARROW.test(part) ? "0.3" : "0.8");
+    if (ARROW.test(part)) {
+      /* 화살표는 크고 가늘게 — 명조 계열의 가는 화살표에 굵기·테두리 없이
+         (강사님: 「↓x 이런 형식으로, 화살표 가늘게」) */
+      t.style.fontWeight = "normal";
+      t.style.fontFamily = '"Times New Roman", serif';
+    } else {
+      // 물결은 가는 획을 같은 색 테두리로 두껍게
+      t.style.fontWeight = "900";
+      t.setAttribute("stroke", SYMBOL_COLOR);
+      t.setAttribute("stroke-width", "0.8");
+    }
     t.textContent = part;
     holder.appendChild(t);
   }
