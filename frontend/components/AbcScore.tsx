@@ -28,7 +28,7 @@ import {
   titleRowBox,
 } from "@/lib/memoPaint";
 import { abcOrders } from "@/lib/abcOrder";
-import { reflowAbc } from "@/lib/abcReflow";
+import { addSystemGaps, reflowAbc } from "@/lib/abcReflow";
 import { transposeAbcChords } from "@/lib/abcTranspose";
 import type { SongChordResult } from "@/lib/abcChords";
 import type { Bar } from "@/lib/bars";
@@ -277,8 +277,12 @@ export function AbcScore({
               line.replace(/\s+(?:name|nm|subname|sname|snm)=(?:"[^"]*"|\S+)/g, ""),
             )
           : body;
-      const drawn = /^%%barnumbers/m.test(src) ? src : `%%barnumbers 1
-${src}`;
+      /* 윗줄 가사와 아랫줄 코드 사이를 조금 띄운다(강사님). abcjs가 줄을
+         스스로 나누는 wrap 모드에서는 적힌 줄이 그려진 줄이 아니라 두지 않는다 */
+      const spaced =
+        voices.size <= 1 && !(perLine > 0 && !flowed) ? addSystemGaps(src, 8) : src;
+      const drawn = /^%%barnumbers/m.test(spaced) ? spaced : `%%barnumbers 1
+${spaced}`;
       const [obj] = ABCJS.renderAbc(hostRef.current, drawn, params);
       if (!obj) return;
       obj.setTiming();

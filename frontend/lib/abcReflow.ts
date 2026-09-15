@@ -95,6 +95,35 @@ export function barsOfLine(line: string): AbcBarText[] {
   return out;
 }
 
+/**
+ * 줄(시스템) 사이를 조금 더 띄운다 — 윗줄 가사와 아랫줄 코드가 붙어 보였다
+ * (강사님: 「위줄 가사와 아래 코드 간격 약간 넓게」). 둘째 음악 줄부터 그
+ * 앞에 %%vskip을 끼운다. 그릴 때만 쓴다(저장하지 않는다).
+ *
+ * 성부가 하나인 악보에만 쓴다 — 여러 성부는 줄 여럿이 한 시스템이다.
+ * 「\」로 끝나 다음 줄로 이어지는 줄 뒤에는 끼우지 않는다.
+ */
+export function addSystemGaps(abc: string, gap: number): string {
+  if (!(gap > 0)) return abc;
+  const lines = abc.split("\n");
+  const head = lines.findIndex((l) => /^K:/.test(l));
+  if (head < 0) return abc;
+  const out = lines.slice(0, head + 1);
+  let seen = false;
+  let cont = false;
+  for (let i = head + 1; i < lines.length; i++) {
+    const line = lines[i];
+    const music = !!line.trim() && !/^(w:|W:|%|[A-Za-z]:)/.test(line);
+    if (music) {
+      if (seen && !cont) out.push(`%%vskip ${gap}`);
+      seen = true;
+      cont = /\\\s*$/.test(line);
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
 export function reflowAbc(abc: string, perLine: number): string | null {
   if (!(perLine >= 1)) return null;
   const lines = abc.split("\n");

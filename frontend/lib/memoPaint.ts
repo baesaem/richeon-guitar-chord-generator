@@ -196,7 +196,9 @@ export function paintMemos(host: HTMLElement): void {
     placed.push({ text, line, box, dy });
   }
 
-  // 2) 메모가 있는 줄의 코드 이름을 한 높이로 — 메모 위에 닿으면 조금 더 올린다
+  /* 2) 메모가 있는 줄의 코드 이름을 한 높이로, 메모 바로 위에 붙여 둔다
+        (강사님: 「코드와 메모 간격 축소」). 코드 제자리(abcjs가 둔 가장
+        낮은 코드 줄)보다 내려가지는 않는다 — 솟은 음표와 부딪힌다 */
   const lines = new Set(placed.map((p) => p.line).filter((l) => l !== undefined));
   for (const line of lines) {
     const top = staffTop.get(line as string);
@@ -208,15 +210,12 @@ export function paintMemos(host: HTMLElement): void {
         !!c.b && (top === undefined || c.b.y + c.b.height <= top + 2),
       );
     if (!chords.length) continue;
-    const rowTop = Math.min(...chords.map((c) => c.b.y));
-    let extra = 0;
-    for (const m of placed.filter((p) => p.line === line)) {
-      const memoTop = m.box.y + m.dy;
-      for (const c of chords)
-        if (c.b.x < m.box.x + m.box.width && c.b.x + c.b.width > m.box.x)
-          extra = Math.max(extra, rowTop + c.b.height + 1 - memoTop);
-    }
-    for (const c of chords) translateY(c.el, rowTop - extra - c.b.y);
+    const memoTop = Math.min(
+      ...placed.filter((p) => p.line === line).map((p) => p.box.y + p.dy),
+    );
+    const natural = Math.max(...chords.map((c) => c.b.y + c.b.height));
+    const bottom = Math.min(memoTop - 3, natural);
+    for (const c of chords) translateY(c.el, bottom - c.b.height - c.b.y);
   }
 
   // 3) 노란 바탕
