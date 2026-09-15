@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
 import { AskConfirm } from "@/components/Ask";
+import { MemoField } from "@/components/MemoField";
 import { Popup } from "@/components/Popup";
 import { labelFor } from "@/lib/notation";
 import { voicingFor } from "@/lib/voicings";
@@ -80,78 +81,13 @@ export function ChordPicker({
   const [root, setRoot] = useState(current?.root ?? "C");
   const [quality, setQuality] = useState(current?.quality ?? "maj");
   const [confirmClear, setConfirmClear] = useState(false);
-  const [memoText, setMemoText] = useState(memo ?? "");
-  const memoRef = useRef<HTMLTextAreaElement>(null);
-  /** 누른 기호를 글자 커서 자리에 넣는다(폰 자판에서 찾기 어려운 ↓ ↑ ~) */
-  const insertMark = (mark: string) => {
-    const el = memoRef.current;
-    const a = el?.selectionStart ?? memoText.length;
-    const b = el?.selectionEnd ?? a;
-    setMemoText((memoText.slice(0, a) + mark + memoText.slice(b)).slice(0, 200));
-    requestAnimationFrame(() => {
-      el?.focus();
-      el?.setSelectionRange(a + mark.length, a + mark.length);
-    });
-  };
   const label = labelFor(root, quality, flats);
 
   return (
     <Popup title={`${barNumber}마디 코드·메모`} onClose={onClose}>
       {/* 마디 위 메모. 오른쪽 클릭(길게 누르기)으로 열면 맨 먼저 보이게 위에 둔다 */}
       {onMemo && (
-        <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-2 text-black">
-          <div className="mb-1 flex items-center gap-1">
-            <span className="mr-auto text-[11px] font-semibold text-amber-800">
-              마디 위 메모
-            </span>
-            {/* 특수 기호 — 음표를 가리키는 화살표와 떨림(비브라토) 물결 */}
-            {["↓", "↑", "~"].map((mark) => (
-              <button
-                key={mark}
-                type="button"
-                title={`${mark} 넣기`}
-                // 눌러도 글자 칸의 커서 자리를 잃지 않게
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => insertMark(mark)}
-                className="h-7 w-9 rounded border border-amber-300 bg-white text-base font-bold leading-none text-amber-900 active:bg-amber-100"
-              >
-                {mark}
-              </button>
-            ))}
-          </div>
-          <textarea
-            ref={memoRef}
-            value={memoText}
-            onChange={(e) => setMemoText(e.target.value)}
-            rows={2}
-            maxLength={200}
-            placeholder="예) 여기서 빠르게 / 2절은 쉼 / 하이코드"
-            className="w-full resize-none rounded border border-amber-200 bg-white px-2 py-1 text-sm"
-          />
-          <div className="mt-1 flex gap-1">
-            <button
-              className="flex-1 rounded bg-amber-500 py-2 text-sm font-semibold text-white disabled:opacity-40"
-              disabled={!memoText.trim() || memoText.trimEnd() === (memo ?? "")}
-              onClick={() => {
-                onMemo(memoText);
-                onClose();
-              }}
-            >
-              {memo ? "메모 고치기" : "메모 추가"}
-            </button>
-            {memo && (
-              <button
-                className="flex-1 rounded bg-white py-2 text-sm text-red-600 ring-1 ring-red-200"
-                onClick={() => {
-                  onMemo(null);
-                  onClose();
-                }}
-              >
-                메모 삭제
-              </button>
-            )}
-          </div>
-        </div>
+        <MemoField label="마디 위 메모" memo={memo} onMemo={onMemo} onDone={onClose} />
       )}
 
       {/* 이 마디에 놓인 코드들. 어느 자리를 고치는지 눌러서 고른다 */}

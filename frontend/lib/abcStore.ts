@@ -125,7 +125,12 @@ export function setAbcOwnFrets(songId: string, on: boolean): void {
  * 한 마디의 메모를 적는다. 빈 글이나 null이면 지운다.
  * 앞쪽 빈칸은 글자로 둔다 — 강사님이 빈칸으로 메모를 오른쪽으로 민다.
  */
-export function setAbcMemo(songId: string, bar: number, text: string | null): void {
+export function setAbcMemo(
+  songId: string,
+  /** 마디 번호, 또는 제목줄 메모 열쇠("head-left"·"head-right") */
+  bar: number | string,
+  text: string | null,
+): void {
   const store = read();
   const cur = store[songId];
   if (!cur) return;

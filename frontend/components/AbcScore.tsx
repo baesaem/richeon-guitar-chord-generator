@@ -20,7 +20,13 @@ import { BeatBpm } from "@/components/BeatBpm";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
 import { addBarMemos } from "@/lib/abcChordSwap";
-import { paintMemos } from "@/lib/memoPaint";
+import {
+  HEAD_LEFT,
+  HEAD_RIGHT,
+  paintHeadMemos,
+  paintMemos,
+  titleRowBox,
+} from "@/lib/memoPaint";
 import { abcOrders } from "@/lib/abcOrder";
 import { reflowAbc } from "@/lib/abcReflow";
 import { transposeAbcChords } from "@/lib/abcTranspose";
@@ -135,6 +141,8 @@ interface Props {
   onPerLine?: (n: number) => void;
   /** 마디 위 메모(악보에 적힌 마디 번호 → 글). 그 마디 위에 노란 쪽지로 적는다 */
   memos?: Record<string, string>;
+  /** 제목줄을 오른쪽 클릭(3초 길게 누르기)하면 제목줄 메모를 연다(강사님) */
+  onEditHead?: () => void;
 }
 
 export function AbcScore({
@@ -171,6 +179,7 @@ export function AbcScore({
   perLine = 0,
   onPerLine,
   memos,
+  onEditHead,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<SVGLineElement | null>(null);
@@ -190,6 +199,10 @@ export function AbcScore({
   const memosRef = useRef(memos);
   memosRef.current = memos;
   const memoKey = JSON.stringify(memos ?? {});
+  const onHeadRef = useRef(onEditHead);
+  onHeadRef.current = onEditHead;
+  /** 제목줄 메모를 달 수 있는가 — 제목 없는 악보에 빈 제목줄을 둘지 가른다 */
+  const headEditable = !!onEditHead;
 
   // ---- 악보 그리기 ----
   useEffect(() => {
@@ -209,7 +222,11 @@ export function AbcScore({
       const moved = extra ? transposeAbcChords(abc, extra) : abc;
       /* 마디 위 메모는 그릴 때만 덧말("^…")로 끼운다 — abcjs가 줄 사이에
          자리를 비워 두어 윗줄 가사와 겹치지 않는다 */
-      const base = addBarMemos(moved, memosRef.current);
+      const m = memosRef.current;
+      const base = withHeadRow(
+        addBarMemos(moved, m),
+        headEditable || !!(m?.[HEAD_LEFT]?.trim() || m?.[HEAD_RIGHT]?.trim()),
+      );
       const flowed = perLine > 0 ? reflowAbc(base, perLine) : null;
       // barNumbers는 abcjs가 받는 값인데 타입 정의에 빠져 있다
       const params = {
@@ -282,6 +299,8 @@ ${src}`;
       shrinkChordDigits(hostRef.current);
       if (onEditRef.current) markMeasures(hostRef.current, onEditRef.current);
       paintMemos(hostRef.current);
+      paintHeadMemos(hostRef.current, m?.[HEAD_LEFT], m?.[HEAD_RIGHT]);
+      if (onHeadRef.current) markHead(hostRef.current, onHeadRef.current);
       setTimings(list);
       // 다시 그렸으니 커서와 음표 표시도 새로 잡는다 (옛 노드는 사라졌다)
       cursorRef.current = null;
@@ -292,7 +311,7 @@ ${src}`;
     return () => {
       cancelled = true;
     };
-  }, [abc, transpose, chordShift, perLine, memoKey]);
+  }, [abc, transpose, chordShift, perLine, memoKey, headEditable]);
 
   /**
    * 음원 마디 차례 → abcjs가 세는 마디 번호.
@@ -688,6 +707,53 @@ function markMeasures(host: HTMLElement, onEdit: (m: number) => void): void {
     });
     svg.appendChild(hit);
   }
+}
+
+/**
+ * 제목(T:)이 없는 악보에 보이지 않는 제목을 둔다 — 제목줄 메모를 달 자리.
+ * 그릴 때만 쓴다(저장하지 않는다).
+ */
+function withHeadRow(abc: string, want: boolean): string {
+  if (!want || /^T:\s*\S/m.test(abc)) return abc;
+  return abc.replace(/^(X:.*\n)?/, (x) => `${x}T:\u200b\n`);
+}
+
+/**
+ * 제목줄을 눌러서 제목줄 메모를 여는 판. 마디 판과 같이 3초 길게 누르거나
+ * 오른쪽 클릭한다.
+ */
+function markHead(host: HTMLElement, onEdit: () => void): void {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  const box = titleRowBox(svg);
+  if (!box) return;
+  const hit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  hit.setAttribute("x", String(box.x));
+  hit.setAttribute("y", String(box.y - 4));
+  hit.setAttribute("width", String(box.width));
+  hit.setAttribute("height", String(box.height + 8));
+  hit.setAttribute("fill", "transparent");
+  hit.setAttribute("stroke", "none");
+  hit.setAttribute("pointer-events", "all");
+  hit.style.cursor = "context-menu";
+  let hold: number | null = null;
+  const stop = () => {
+    if (hold) window.clearTimeout(hold);
+    hold = null;
+  };
+  hit.addEventListener("pointerdown", () => {
+    stop();
+    hold = window.setTimeout(onEdit, EDIT_HOLD_MS);
+  });
+  hit.addEventListener("pointerup", stop);
+  hit.addEventListener("pointerleave", stop);
+  hit.addEventListener("pointercancel", stop);
+  hit.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    stop();
+    onEdit();
+  });
+  svg.appendChild(hit);
 }
 
 /** 음표를 누른 자리의 시각을 셈할 때 쓰는 값 */

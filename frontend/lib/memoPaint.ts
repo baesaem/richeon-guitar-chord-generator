@@ -20,6 +20,13 @@ export const MEMO_FONT = 20;
 /** 오선 위가 좁은 마디에서 줄여 볼 수 있는 가장 작은 크기 */
 const MEMO_FONT_MIN = 16;
 
+/**
+ * 제목줄 메모의 열쇠(강사님: 「상단 제목줄에도 왼쪽 오른쪽 메모」).
+ * 마디 메모(숫자 열쇠)와 같은 칸(AbcEntry.memos)에 두어 곡 파일로 함께 간다.
+ */
+export const HEAD_LEFT = "head-left";
+export const HEAD_RIGHT = "head-right";
+
 interface Box {
   x: number;
   y: number;
@@ -159,4 +166,104 @@ export function paintMemos(host: HTMLElement): void {
     bg.setAttribute("stroke", "none");
     text.parentNode?.insertBefore(bg, text);
   }
+}
+
+/** 오선이 차지한 가로 범위 — 제목줄 메모의 왼끝·오른끝 */
+function staffSpan(svg: SVGSVGElement): [number, number] | null {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  for (const s of svg.querySelectorAll<SVGGraphicsElement>("g.abcjs-staff")) {
+    const b = bbox(s);
+    if (!b) continue;
+    x0 = Math.min(x0, b.x);
+    x1 = Math.max(x1, b.x + b.width);
+  }
+  return Number.isFinite(x0) ? [x0, x1] : null;
+}
+
+/**
+ * 제목줄(제목·부제·지은이)이 차지한 자리를 오선 폭으로 넓힌 것.
+ * 여기를 오른쪽 클릭하면 제목줄 메모를 연다.
+ */
+export function titleRowBox(svg: SVGSVGElement): Box | null {
+  const top = svg.querySelector<SVGGraphicsElement>(".abcjs-meta-top");
+  const b = top ? bbox(top) : null;
+  const span = staffSpan(svg);
+  if (!b || !b.height || !span) return null;
+  return { x: span[0], y: b.y, width: span[1] - span[0], height: b.height };
+}
+
+/**
+ * 제목줄 왼쪽·오른쪽 메모를 그린다.
+ *
+ * 제목과 같은 높이에, 왼쪽 메모는 오선 왼끝부터, 오른쪽 메모는 오선
+ * 오른끝까지. 제목과 겹치면 글자를 줄여 보고, 그래도 겹치면 끝을 「…」로
+ * 자른다 — 다 읽으려면 제목줄을 연다.
+ */
+export function paintHeadMemos(
+  host: HTMLElement,
+  left: string | undefined,
+  right: string | undefined,
+): void {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  svg.querySelectorAll(".memo-head").forEach((n) => n.remove());
+  if (!left?.trim() && !right?.trim()) return;
+  const title = svg.querySelector<SVGGraphicsElement>(".abcjs-title");
+  const tb = title ? bbox(title) : null;
+  const span = staffSpan(svg);
+  if (!tb || !span) return;
+  const NS = "http://www.w3.org/2000/svg";
+
+  const put = (raw: string | undefined, side: "left" | "right") => {
+    if (!raw?.trim()) return;
+    // 앞쪽 빈칸은 글자로 — 줄바꿈 없는 빈칸으로 바꿔야 걷히지 않는다
+    const lead = Math.min(raw.length - raw.trimStart().length, 40);
+    const full = " ".repeat(lead) + raw.trim().replace(/\s+/g, " ");
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "memo-head");
+    g.setAttribute("pointer-events", "none");
+    const text = document.createElementNS(NS, "text");
+    text.setAttribute("x", String(side === "left" ? span[0] : span[1]));
+    text.setAttribute("y", String(tb.y + tb.height / 2));
+    text.setAttribute("text-anchor", side === "left" ? "start" : "end");
+    text.setAttribute("dominant-baseline", "central");
+    text.setAttribute("font-family", "sans-serif");
+    text.setAttribute("font-weight", "bold");
+    text.setAttribute("fill", "#7c2d12");
+    text.setAttribute("stroke", "none");
+    text.textContent = full;
+    g.append(text);
+    svg.appendChild(g);
+
+    // 제목과 사이를 띄운다
+    const clear = (b: Box | null) =>
+      !b || (side === "left" ? b.x + b.width <= tb.x - 8 : b.x >= tb.x + tb.width + 8);
+    let size = MEMO_FONT;
+    text.style.fontSize = `${size}px`;
+    let b = bbox(text);
+    while (!clear(b) && size > MEMO_FONT_MIN) {
+      size -= 2;
+      text.style.fontSize = `${size}px`;
+      b = bbox(text);
+    }
+    for (let n = full.length - 1; !clear(b) && n > lead; n--) {
+      text.textContent = `${full.slice(0, n).trimEnd()}…`;
+      b = bbox(text);
+    }
+
+    const v = visibleBox(text);
+    if (!v) return;
+    const bg = document.createElementNS(NS, "rect");
+    bg.setAttribute("x", String(v.x - 2));
+    bg.setAttribute("y", String(v.y - 1));
+    bg.setAttribute("width", String(v.width + 4));
+    bg.setAttribute("height", String(v.height + 2));
+    bg.setAttribute("rx", "2");
+    bg.setAttribute("fill", "#fde68a");
+    bg.setAttribute("stroke", "none");
+    g.insertBefore(bg, text);
+  };
+  put(left, "left");
+  put(right, "right");
 }

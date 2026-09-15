@@ -14,6 +14,8 @@ import { ChordDiagram } from "@/components/ChordDiagram";
 import { ChordLabel } from "@/components/ChordLabel";
 import { ChordStrip, type ChordStripHandle } from "@/components/ChordStrip";
 import { AbcScore } from "@/components/AbcScore";
+import { HeadMemoPicker } from "@/components/MemoField";
+import { HEAD_LEFT, HEAD_RIGHT } from "@/lib/memoPaint";
 import { TabSheet } from "@/components/TabSheet";
 import { KaraokeBand, type KaraokeChord } from "@/components/KaraokeBand";
 import { TvCast } from "@/components/TvCast";
@@ -204,6 +206,8 @@ export default function Home() {
   const [showStrums, setShowStrums] = useState(false);
   // 코드 고치기: 지금 고르고 있는 마디 번호(없으면 null)
   const [editBar, setEditBar] = useState<number | null>(null);
+  /** 제목줄 메모 창 */
+  const [editHead, setEditHead] = useState(false);
   /* 마디 안의 몇 번째 코드를 고치는가. 한 마디에 코드가 둘 이상인 곡이
      흔하다 — 「Am … B7」처럼 가운데서 바뀐다 */
   const [editSlot, setEditSlot] = useState(0);
@@ -3315,6 +3319,7 @@ export default function Home() {
                             }
                           : undefined
                       }
+                      onEditHead={canFix ? () => setEditHead(true) : undefined}
                       musicKey={result.key}
                       sourceKey={melodyFollow ? sourceKey : undefined}
                       timeSignature={result.time_signature}
@@ -4888,6 +4893,19 @@ export default function Home() {
               setAbcEntry(getAbc(result.id));
             }}
             onClose={() => setEditBar(null)}
+          />
+        )}
+
+        {/* 제목줄 메모(제목 왼쪽·오른쪽) */}
+        {editHead && result && abcEntry?.abc && (
+          <HeadMemoPicker
+            left={abcEntry.memos?.[HEAD_LEFT]}
+            right={abcEntry.memos?.[HEAD_RIGHT]}
+            onMemo={(key, text) => {
+              setAbcMemo(result.id, key, text);
+              setAbcEntry(getAbc(result.id));
+            }}
+            onClose={() => setEditHead(false)}
           />
         )}
 
