@@ -19,7 +19,8 @@ import type { StrumChoice } from "@/lib/strumLibrary";
 import { BeatBpm } from "@/components/BeatBpm";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
-import { MEMO_MARK, addBarMemos } from "@/lib/abcChordSwap";
+import { addBarMemos } from "@/lib/abcChordSwap";
+import { paintMemos } from "@/lib/memoPaint";
 import { abcOrders } from "@/lib/abcOrder";
 import { reflowAbc } from "@/lib/abcReflow";
 import { transposeAbcChords } from "@/lib/abcTranspose";
@@ -644,95 +645,6 @@ function measureBoxes(svg: SVGSVGElement): Map<number, MeasureBox> {
     );
   }
   return boxes;
-}
-
-/**
- * 마디 위 메모(덧말 "^…", 머리에 보이지 않는 표)를 굵은 글씨·노란 바탕으로 칠한다.
- *
- * 글자는 abcjs가 자리를 비워 두고 그렸다 — 여기서는 색과 바탕만 입힌다.
- */
-function paintMemos(host: HTMLElement): void {
-  const svg = host.querySelector("svg");
-  if (!svg) return;
-  const annos = [...svg.querySelectorAll<SVGGraphicsElement>(".abcjs-annotation")];
-  if (!annos.length) return;
-  // 줄마다 오선 윗줄 높이 — 메모를 여기 바로 위로 끌어내린다
-  const staffTop = new Map<number, number>();
-  for (const el of svg.querySelectorAll<SVGGraphicsElement>("g.abcjs-staff")) {
-    const m = /\babcjs-l(\d+)\b/.exec(el.getAttribute("class") ?? "");
-    if (!m) continue;
-    try {
-      const y = el.getBBox().y;
-      const had = staffTop.get(Number(m[1]));
-      if (had === undefined || y < had) staffTop.set(Number(m[1]), y);
-    } catch {
-      // 잴 수 없으면 그 줄은 abcjs가 둔 자리 그대로
-    }
-  }
-  for (const el of annos) {
-    const text =
-      el.tagName.toLowerCase() === "text"
-        ? el
-        : el.querySelector<SVGGraphicsElement>("text");
-    if (!text || !(text.textContent ?? "").includes(MEMO_MARK)) continue;
-    text.setAttribute("fill", "#7c2d12");
-    text.setAttribute("font-weight", "bold");
-    text.style.fontWeight = "bold";
-    let box;
-    try {
-      box = text.getBBox();
-    } catch {
-      continue;
-    }
-    if (!box.width) continue;
-    /* 오선 바로 위에 붙인다(강사님이 화살표로 짚은 자리). abcjs는 덧말을
-       코드 줄 높이에 두어 오선과 틈이 벌어졌다. 그 마디에 오선 위로 솟은
-       음표가 있으면 그 음표 바로 위까지만 내린다 */
-    const cls = `${text.getAttribute("class") ?? ""} ${el.getAttribute("class") ?? ""}`;
-    const line = /\babcjs-l(\d+)\b/.exec(cls);
-    let floor = line ? staffTop.get(Number(line[1])) : undefined;
-    // 메모 밑으로 지나가는 음표를 모두 본다 — 긴 메모는 다음 마디까지 걸친다
-    const left = box.x;
-    const right = box.x + box.width;
-    if (line)
-      for (const p of svg.querySelectorAll<SVGGraphicsElement>(
-        `g.abcjs-note.abcjs-l${line[1]} path`,
-      )) {
-        try {
-          const q = p.getBBox();
-          if (q.height && q.x < right && q.x + q.width > left)
-            floor = Math.min(floor ?? q.y, q.y);
-        } catch {
-          // 잴 수 없는 조각은 건너뛴다
-        }
-      }
-    const dy = floor === undefined ? 0 : floor - 2 - (box.y + box.height);
-    const shift =
-      dy > 0
-        ? `${text.getAttribute("transform") ?? ""} translate(0 ${dy})`.trim()
-        : null;
-    if (shift) text.setAttribute("transform", shift);
-    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    if (shift) bg.setAttribute("transform", shift);
-    /* 바탕은 보이는 글자부터 — 앞쪽 빈칸(메모를 오른쪽으로 민 자리)은
-       칠하지 않는다 */
-    let x0 = box.x;
-    const first = (text.textContent ?? "").search(/[^\s​ ]/);
-    if (first > 0)
-      try {
-        x0 = Math.max(box.x, (text as SVGTextContentElement).getStartPositionOfChar(first).x);
-      } catch {
-        // 글자 자리를 못 재면 글 전체를 칠한다
-      }
-    bg.setAttribute("x", String(x0 - 2));
-    bg.setAttribute("y", String(box.y - 1));
-    bg.setAttribute("width", String(box.x + box.width - x0 + 4));
-    bg.setAttribute("height", String(box.height + 2));
-    bg.setAttribute("rx", "2");
-    bg.setAttribute("fill", "#fde68a");
-    bg.setAttribute("stroke", "none");
-    text.parentNode?.insertBefore(bg, text);
-  }
 }
 
 /**
