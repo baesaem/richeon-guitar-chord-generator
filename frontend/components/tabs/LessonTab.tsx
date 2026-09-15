@@ -233,10 +233,20 @@ export function LessonTab({
                 단추째 감추지 않고 흐리게 두고 까닭을 적어 둔다 — 감추면 왜 올릴
                 길이 없는지 알 수 없어 「파일로 저장」만 되풀이하게 된다. */}
             {adminMode && (
+              /* 막힌 때도 disabled로 두지 않는다 — 폰은 흐린 단추를 눌러도 아무 일이
+                 없고 까닭(title)도 보이지 않는다. 흐리게만 두고, 누르면 까닭을 적는다 */
               <button
-                className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
-                disabled={!online && !browserDrive}
-                onClick={() => setAskFolder("upload")}
+                className={[
+                  "rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white",
+                  !online && !browserDrive ? "opacity-40" : "",
+                ].join(" ")}
+                onClick={() =>
+                  !online && !browserDrive
+                    ? setError(
+                        "이 기기(분석 서버가 없는 폰·태블릿)에서 올리려면 구글 웹 로그인 설정이 먼저 필요합니다 — 구글 클라우드에서 웹 클라이언트 ID를 만들어 앱 설정에 넣어야 켜집니다. 분석 서버가 켜진 PC에서는 지금도 올릴 수 있고, 「파일로 저장」한 뒤 드라이브 앱으로 올려도 됩니다.",
+                      )
+                    : setAskFolder("upload")
+                }
                 title={
                   online
                     ? "이 반 강의실을 반 공유 폴더에 곧장 올립니다. 수강생이 「새 강좌 가져오기」로 받아 갑니다"
