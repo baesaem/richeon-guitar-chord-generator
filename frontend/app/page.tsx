@@ -2437,8 +2437,10 @@ export default function Home() {
     if (next === "karaoke" && tab !== "karaoke") enterKaraokeLandscape();
     else if (next !== "karaoke" && tab === "karaoke") {
       leaveKaraokeLandscape();
-      // 노래방을 닫으면 부르던 곡도 멈춘다(강사님) — 홈에서 소리만 이어지면 당황한다
-      playback?.pause();
+      /* 노래방을 닫고 연습실로 가면 부르던 곡을 그대로 잇는다(강사님: 「노래방을
+         닫으면 플레이를 멈추지 말고 연습실 모드로 전환」). 다른 메뉴(홈 따위)로
+         가면 멈춘다 — 홈에서 소리만 이어지면 당황한다 */
+      if (next !== "player") playback?.pause();
     }
     // 전체보기 창이 본문을 덮고 있으면 먼저 닫는다 — 탭만 바꾸면
     // 뒤에서 바뀔 뿐이라 눌러도 아무 일이 없는 것처럼 보인다.
@@ -4091,8 +4093,8 @@ export default function Home() {
                   tvOn={tvMode}
                   onTvOff={closeTvMode}
                   karaokeOn={karaoke}
-                  /* 노래방은 아래 메뉴다 — 닫으면(✕) 홈으로 */
-                  onKaraoke={(on) => void goTab(on ? "karaoke" : "home")}
+                  /* 노래방은 아래 메뉴다 — 닫으면(✕) 연습실로, 곡은 멈추지 않고 이어서 */
+                  onKaraoke={(on) => void goTab(on ? "karaoke" : "player")}
                   onAddSong={
                     settings.adminMode
                       ? () => {
