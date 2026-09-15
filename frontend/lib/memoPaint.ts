@@ -92,7 +92,9 @@ function visibleBox(text: SVGGraphicsElement): Box | null {
 
 /** 화살표·물결 — 굵고 짙게, 영문 대문자보다 크게(강사님) */
 const SYMBOL = /[↓↑←→↕↗↘↙↖~〜∼]/;
-const SYMBOL_RUNS = /([↓↑←→↕↗↘↙↖~〜∼]+)/;
+const ARROW = /[↓↑←→↕↗↘↙↖]/;
+/** 화살표 덩이와 물결 덩이를 따로 뗀다 — 굵기를 달리 칠한다 */
+const SYMBOL_RUNS = /([↓↑←→↕↗↘↙↖]+|[~〜∼]+)/;
 
 /**
  * 메모 글을 적는다. 화살표·물결은 따로 떼어 1.25배·가장 굵게·짙게 칠한다 —
@@ -118,9 +120,9 @@ function setMemoText(el: SVGElement, s: string): void {
     t.style.fontSize = "1.25em";
     t.style.fontWeight = "900";
     t.setAttribute("fill", SYMBOL_COLOR);
-    // 가는 획을 같은 색 테두리로 두껍게
+    // 가는 획을 같은 색 테두리로 두껍게 — 화살표는 약간 가늘게(강사님)
     t.setAttribute("stroke", SYMBOL_COLOR);
-    t.setAttribute("stroke-width", "0.8");
+    t.setAttribute("stroke-width", ARROW.test(part) ? "0.3" : "0.8");
     t.textContent = part;
     holder.appendChild(t);
   }
