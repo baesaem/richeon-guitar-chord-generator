@@ -39,6 +39,11 @@ export interface AbcEntry {
    * 보표가 들어 있으면 짚는 줄과 프렛을 적힌 그대로 담아 둔다.
    */
   tabScore?: TabScore;
+  /**
+   * 마디 위 메모(강사님: 「멜로디 악보 마디 위에 메모 — 오른쪽 단추로 추가·삭제」).
+   * 열쇠는 **악보에 적힌 마디 번호**(0부터, 문자열). 곡 파일에 실려 수강생에게도 간다.
+   */
+  memos?: Record<string, string>;
 }
 
 
@@ -113,6 +118,28 @@ export function setAbcOwnFrets(songId: string, on: boolean): void {
   const cur = store[songId];
   if (!cur?.tabScore) return;
   store[songId] = { ...cur, tabScore: { ...cur.tabScore, ownFrets: on } };
+  write(store);
+}
+
+/** 한 마디의 메모를 적는다. 빈 글이나 null이면 지운다 */
+export function setAbcMemo(songId: string, bar: number, text: string | null): void {
+  const store = read();
+  const cur = store[songId];
+  if (!cur) return;
+  const memos = { ...(cur.memos ?? {}) };
+  const t = (text ?? "").trim();
+  if (t) memos[String(bar)] = t.slice(0, 200);
+  else delete memos[String(bar)];
+  store[songId] = { ...cur, memos };
+  write(store);
+}
+
+/** 메모를 통째로 갈아 끼운다(곡 파일로 받을 때) */
+export function setAbcMemos(songId: string, memos: Record<string, string> | undefined): void {
+  const store = read();
+  const cur = store[songId];
+  if (!cur) return;
+  store[songId] = { ...cur, memos: memos && Object.keys(memos).length ? memos : undefined };
   write(store);
 }
 

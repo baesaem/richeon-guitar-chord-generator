@@ -44,6 +44,7 @@ import {
   removeAbc,
   saveAbc,
   setAbcFollow,
+  setAbcMemo,
   setAbcOffset,
   setAbcOwnFrets,
   type AbcEntry,
@@ -3293,6 +3294,7 @@ export default function Home() {
                       sync={sync}
                       onSync={canFix ? setSync : undefined}
                       barOffset={abcEntry.barOffset}
+                      memos={abcEntry.memos}
                                     onFitBars={canFix && health ? fitBarsToScore : undefined}
                       onSetBpm={canFix && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
@@ -3898,6 +3900,7 @@ export default function Home() {
                         chordShift={abcTranspose}
                         sync={sync}
                         barOffset={abcEntry.barOffset}
+                        memos={abcEntry.memos}
                       onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
                       onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
@@ -4464,6 +4467,7 @@ export default function Home() {
                                 sync={sync}
                                 onSync={setSync}
                                 barOffset={abcEntry.barOffset}
+                                memos={abcEntry.memos}
                           onFitBars={settings.adminMode && health ? fitBarsToScore : undefined}
                       onSetBpm={settings.adminMode && health ? setBeatBpm : undefined}
                       audioBpm={shown?.bpm ?? 0}
@@ -4878,6 +4882,11 @@ export default function Home() {
               applyChordEdit(editBar, { root, quality }, editSlot)
             }
             onClear={() => applyChordEdit(editBar, null, editSlot)}
+            memo={abcEntry.memos?.[String(editBar)]}
+            onMemo={(text) => {
+              setAbcMemo(result.id, editBar, text);
+              setAbcEntry(getAbc(result.id));
+            }}
             onClose={() => setEditBar(null)}
           />
         )}

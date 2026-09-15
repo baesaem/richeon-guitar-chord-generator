@@ -19,6 +19,7 @@ import type { StrumChoice } from "@/lib/strumLibrary";
 import { BeatBpm } from "@/components/BeatBpm";
 import { SongInfoLine } from "@/components/SongInfoLine";
 import { ViewSteppers } from "@/components/ViewSteppers";
+import { MEMO_MARK, addBarMemos } from "@/lib/abcChordSwap";
 import { abcOrders } from "@/lib/abcOrder";
 import { reflowAbc } from "@/lib/abcReflow";
 import { transposeAbcChords } from "@/lib/abcTranspose";
@@ -131,6 +132,8 @@ interface Props {
    */
   perLine?: number;
   onPerLine?: (n: number) => void;
+  /** 마디 위 메모(악보에 적힌 마디 번호 → 글). 그 마디 위에 노란 쪽지로 적는다 */
+  memos?: Record<string, string>;
 }
 
 export function AbcScore({
@@ -166,6 +169,7 @@ export function AbcScore({
   audioBars = 0,
   perLine = 0,
   onPerLine,
+  memos,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<SVGLineElement | null>(null);
@@ -180,6 +184,11 @@ export function AbcScore({
      커서가 튀고 스크롤이 처음으로 돌아간다 */
   const onEditRef = useRef(onEditBar);
   onEditRef.current = onEditBar;
+  /* 메모는 글이 바뀔 때만 다시 그린다 — 부모가 같은 메모를 새 객체로
+     넘길 때마다 그리면 커서가 튀고 스크롤이 처음으로 돌아간다 */
+  const memosRef = useRef(memos);
+  memosRef.current = memos;
+  const memoKey = JSON.stringify(memos ?? {});
 
   // ---- 악보 그리기 ----
   useEffect(() => {
@@ -196,7 +205,10 @@ export function AbcScore({
       /* 코드만 따로 옮길 때는 코드 이름을 먼저 옮겨 두고, 음표는 abcjs가
          transpose만큼 옮긴다(abcjs는 코드도 함께 옮기므로 그 차이만) */
       const extra = chordShift === undefined ? 0 : chordShift - transpose;
-      const base = extra ? transposeAbcChords(abc, extra) : abc;
+      const moved = extra ? transposeAbcChords(abc, extra) : abc;
+      /* 마디 위 메모는 그릴 때만 덧말("^…")로 끼운다 — abcjs가 줄 사이에
+         자리를 비워 두어 윗줄 가사와 겹치지 않는다 */
+      const base = addBarMemos(moved, memosRef.current);
       const flowed = perLine > 0 ? reflowAbc(base, perLine) : null;
       // barNumbers는 abcjs가 받는 값인데 타입 정의에 빠져 있다
       const params = {
@@ -268,6 +280,7 @@ ${src}`;
       // 코드 이름의 숫자는 작게 — 다른 화면과 같은 규칙
       shrinkChordDigits(hostRef.current);
       if (onEditRef.current) markMeasures(hostRef.current, onEditRef.current);
+      paintMemos(hostRef.current);
       setTimings(list);
       // 다시 그렸으니 커서와 음표 표시도 새로 잡는다 (옛 노드는 사라졌다)
       cursorRef.current = null;
@@ -278,7 +291,7 @@ ${src}`;
     return () => {
       cancelled = true;
     };
-  }, [abc, transpose, chordShift, perLine]);
+  }, [abc, transpose, chordShift, perLine, memoKey]);
 
   /**
    * 음원 마디 차례 → abcjs가 세는 마디 번호.
@@ -589,18 +602,19 @@ ${src}`;
   );
 }
 
+interface MeasureBox {
+  x: number;
+  y: number;
+  r: number;
+  b: number;
+}
+
 /**
- * 마디마다 눌러서 고칠 판을 깐다.
- *
- * abcjs는 음표마다 abcjs-mm{번호} 딱지를 붙인다 — 악보에 적힌 마디
- * 번호(0부터)다. 같은 번호끼리 묶어 그 넓이를 재면 마디 하나가 차지한
- * 자리가 나온다. 그 위에 보이지 않는 판을 얹고, 3초 길게 누르거나
- * 오른쪽 클릭하면 그 마디를 연다.
+ * 마디마다 차지한 자리. abcjs는 음표마다 abcjs-mm{번호} 딱지를 붙인다 —
+ * 악보에 적힌 마디 번호(0부터)다. 같은 번호끼리 묶어 넓이를 잰다.
  */
-function markMeasures(host: HTMLElement, onEdit: (m: number) => void): void {
-  const svg = host.querySelector("svg");
-  if (!svg) return;
-  const boxes = new Map<number, { x: number; y: number; r: number; b: number }>();
+function measureBoxes(svg: SVGSVGElement): Map<number, MeasureBox> {
+  const boxes = new Map<number, MeasureBox>();
   for (const g of svg.querySelectorAll<SVGGraphicsElement>("g.abcjs-note")) {
     let mm: number | null = null;
     for (const c of (g.getAttribute("class") ?? "").split(" "))
@@ -629,6 +643,55 @@ function markMeasures(host: HTMLElement, onEdit: (m: number) => void): void {
         : { x: box.x, y: box.y, r: box.x + box.width, b: box.y + box.height },
     );
   }
+  return boxes;
+}
+
+/**
+ * 마디 위 메모(덧말 "^…", 머리에 보이지 않는 표)를 굵은 글씨·노란 바탕으로 칠한다.
+ *
+ * 글자는 abcjs가 자리를 비워 두고 그렸다 — 여기서는 색과 바탕만 입힌다.
+ */
+function paintMemos(host: HTMLElement): void {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  for (const el of svg.querySelectorAll<SVGGraphicsElement>(".abcjs-annotation")) {
+    const text =
+      el.tagName.toLowerCase() === "text"
+        ? el
+        : el.querySelector<SVGGraphicsElement>("text");
+    if (!text || !(text.textContent ?? "").includes(MEMO_MARK)) continue;
+    text.setAttribute("fill", "#7c2d12");
+    text.setAttribute("font-weight", "bold");
+    text.style.fontWeight = "bold";
+    let box;
+    try {
+      box = text.getBBox();
+    } catch {
+      continue;
+    }
+    if (!box.width) continue;
+    const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    bg.setAttribute("x", String(box.x - 2));
+    bg.setAttribute("y", String(box.y - 1));
+    bg.setAttribute("width", String(box.width + 4));
+    bg.setAttribute("height", String(box.height + 2));
+    bg.setAttribute("rx", "2");
+    bg.setAttribute("fill", "#fde68a");
+    bg.setAttribute("stroke", "none");
+    text.parentNode?.insertBefore(bg, text);
+  }
+}
+
+/**
+ * 마디마다 눌러서 고칠 판을 깐다.
+ *
+ * 마디 자리(measureBoxes) 위에 보이지 않는 판을 얹고, 3초 길게 누르거나
+ * 오른쪽 클릭하면 그 마디를 연다.
+ */
+function markMeasures(host: HTMLElement, onEdit: (m: number) => void): void {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  const boxes = measureBoxes(svg);
   let hold: number | null = null;
   for (const [mm, box] of boxes) {
     const hit = document.createElementNS("http://www.w3.org/2000/svg", "rect");

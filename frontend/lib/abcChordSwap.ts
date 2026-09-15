@@ -143,3 +143,51 @@ export function applyBarChords(
   }
   return lines.join("\n");
 }
+
+/**
+ * 마디 위 메모 덧말의 머리표. 그린 뒤 이것으로 메모를 알아본다.
+ * 보이지 않는 글자(폭 없는 빈칸)다 — 강사님: 「📝 표시 삭제」.
+ */
+export const MEMO_MARK = "​";
+
+/**
+ * 마디 위 메모를 덧말("^…")로 끼운다 — **그릴 때만** 쓴다(저장하지 않는다).
+ *
+ * 그린 뒤 쪽지를 얹으면 윗줄 가사·제목과 겹쳤다. 덧말로 넣으면 abcjs가
+ * 줄 사이에 그만큼 자리를 비워 둔다. 마디를 세는 법은 applyBarChords와
+ * 같다 — 코드를 고치는 마디 번호와 메모의 마디 번호가 같아야 한다.
+ */
+export function addBarMemos(
+  abc: string,
+  byBar: Record<string, string> | undefined,
+): string {
+  if (!byBar || !Object.keys(byBar).length) return abc;
+  const lines = abc.split("\n");
+  let head = 0;
+  for (; head < lines.length; head++) if (/^K:/.test(lines[head])) break;
+  if (head >= lines.length) return abc;
+
+  let bar = -1;
+  for (let li = head + 1; li < lines.length; li++) {
+    const line = lines[li];
+    if (!line.trim() || /^(w:|W:|%|[A-Za-z]:)/.test(line)) continue;
+    lines[li] = splitBars(line)
+      .map((piece) => {
+        if (!/[A-Ga-gz]/.test(piece.replace(/"[^"]*"/g, ""))) return piece;
+        bar += 1;
+        const memo = byBar[String(bar)]?.replace(/["\s]+/g, " ").trim();
+        if (!memo) return piece;
+        const { chords, notes } = scan(piece);
+        if (!notes.length) return piece;
+        // 긴 메모는 줄여 적는다 — 덧말이 길면 마디가 벌어진다. 다 읽으려면 마디를 연다
+        const shown = memo.length > 16 ? `${memo.slice(0, 15)}…` : memo;
+        /* 코드 이름 **앞**에 둔다 — abcjs가 먼저 적힌 덧말을 오선 가까이
+           놓는다. 강사님: 「메모는 악보 위에 바로 붙임」(↓ 같은 표시가 음표를
+           가리키게). 그 마디 코드는 메모 위로 한 칸 올라간다 */
+        const at = Math.min(notes[0], chords[0]?.[0] ?? Infinity);
+        return `${piece.slice(0, at)}"^${MEMO_MARK}${shown}"${piece.slice(at)}`;
+      })
+      .join("");
+  }
+  return lines.join("\n");
+}
