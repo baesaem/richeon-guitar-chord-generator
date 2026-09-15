@@ -121,14 +121,17 @@ export function setAbcOwnFrets(songId: string, on: boolean): void {
   write(store);
 }
 
-/** 한 마디의 메모를 적는다. 빈 글이나 null이면 지운다 */
+/**
+ * 한 마디의 메모를 적는다. 빈 글이나 null이면 지운다.
+ * 앞쪽 빈칸은 글자로 둔다 — 강사님이 빈칸으로 메모를 오른쪽으로 민다.
+ */
 export function setAbcMemo(songId: string, bar: number, text: string | null): void {
   const store = read();
   const cur = store[songId];
   if (!cur) return;
   const memos = { ...(cur.memos ?? {}) };
-  const t = (text ?? "").trim();
-  if (t) memos[String(bar)] = t.slice(0, 200);
+  const t = (text ?? "").replace(/[\r\n]+/g, " ").trimEnd();
+  if (t.trim()) memos[String(bar)] = t.slice(0, 200);
   else delete memos[String(bar)];
   store[songId] = { ...cur, memos };
   write(store);

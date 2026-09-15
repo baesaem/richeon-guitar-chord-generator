@@ -175,12 +175,17 @@ export function addBarMemos(
       .map((piece) => {
         if (!/[A-Ga-gz]/.test(piece.replace(/"[^"]*"/g, ""))) return piece;
         bar += 1;
-        const memo = byBar[String(bar)]?.replace(/["\s]+/g, " ").trim();
-        if (!memo) return piece;
+        const raw = byBar[String(bar)] ?? "";
+        if (!raw.trim()) return piece;
         const { chords, notes } = scan(piece);
         if (!notes.length) return piece;
+        /* 앞쪽 빈칸은 글자로 친다(강사님: 빈칸으로 메모를 오른쪽으로 민다).
+           그냥 빈칸은 abcjs·SVG가 걷어 내므로 줄바꿈 없는 빈칸으로 바꾼다 —
+           머리표(폭 없는 글자)가 맨 앞에 있어 걷히지 않는다 */
+        const lead = Math.min(raw.length - raw.trimStart().length, 40);
+        const memo = raw.trim().replace(/["\s]+/g, " ");
         // 긴 메모는 줄여 적는다 — 덧말이 길면 마디가 벌어진다. 다 읽으려면 마디를 연다
-        const shown = memo.length > 16 ? `${memo.slice(0, 15)}…` : memo;
+        const shown = " ".repeat(lead) + (memo.length > 16 ? `${memo.slice(0, 15)}…` : memo);
         /* 코드 이름 **앞**에 둔다 — abcjs가 먼저 적힌 덧말을 오선 가까이
            놓는다. 강사님: 「메모는 악보 위에 바로 붙임」(↓ 같은 표시가 음표를
            가리키게). 그 마디 코드는 메모 위로 한 칸 올라간다 */

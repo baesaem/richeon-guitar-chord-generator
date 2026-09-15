@@ -102,7 +102,7 @@ export function ChordPicker({
           <div className="mt-1 flex gap-1">
             <button
               className="flex-1 rounded bg-amber-500 py-2 text-sm font-semibold text-white disabled:opacity-40"
-              disabled={!memoText.trim() || memoText.trim() === (memo ?? "")}
+              disabled={!memoText.trim() || memoText.trimEnd() === (memo ?? "")}
               onClick={() => {
                 onMemo(memoText);
                 onClose();
