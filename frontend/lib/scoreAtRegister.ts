@@ -112,6 +112,23 @@ function pickScale(
   return best.mode;
 }
 
+/**
+ * 악보 붙이기 진행 — 기다리는 동안 작업 중 화면(Working)에 단계·진행 막대로
+ * 보인다(강사님: 「서버 작업 중 기다릴 경우 진행 과정 인디케이터 화면」).
+ */
+export interface AttachProgress {
+  steps: string[];
+  /** 지금 단계(0부터) */
+  index: number;
+  /** 지금 하는 일 한 줄 */
+  note?: string;
+  /** 이 단계가 보통 몇 초 걸리나 — 막대를 시간으로 조금씩 밀 때 쓴다 */
+  expectSec: number;
+  /** AI 읽기: 끝난 수 / 전체 수(검증에서 다시 읽으면 전체가 는다) */
+  done?: number;
+  total?: number;
+}
+
 export interface ScoreAtRegisterResult {
   result: AnalysisResult;
   /** 무슨 일이 있었나. 알림창에 그대로 띄운다 */
@@ -123,9 +140,18 @@ export async function attachScoreAfterAnalysis(
   file: File,
   /** 혼성 악보에서 쓸 보표(0부터). 노래·기타·타브 중 어느 것이 멜로디인지는 사람이 고른다 */
   staff = 0,
+  /** 단계마다 진행을 알린다 — 작업 중 화면이 단계·진행 막대로 보인다 */
+  onProgress?: (p: AttachProgress) => void,
 ): Promise<ScoreAtRegisterResult> {
   const notes: string[] = [];
   let cur = result;
+  const isImage = IMAGE_KINDS.test(file.name) || file.type.startsWith("image/");
+  const STEPS = isImage
+    ? ["악보 그림 붙이기", "음표 읽기(종이 악보 인식)", "AI가 코드·가사 읽기", "마디 맞추고 악보 싣기"]
+    : ["악보 읽어 붙이기", "마디 맞추고 악보 싣기"];
+  const step = (index: number, expectSec: number, more: Partial<AttachProgress> = {}) =>
+    onProgress?.({ steps: STEPS, index, expectSec, ...more });
+  if (!isImage) step(0, 6, { note: "악보 파일을 읽는 중" });
 
   // ① 뮤즈스코어·MusicXML은 서버에도 붙인다 — 멜로디 화면과 가사 정렬이
   //    그쪽을 쓴다. 서버가 거절해도 아래 ABC 길은 그대로 간다.
@@ -142,6 +168,7 @@ export async function attachScoreAfterAnalysis(
   let abc: string | null = null;
   if (IMAGE_KINDS.test(file.name) || file.type.startsWith("image/")) {
     // 종이 악보: 그림을 붙인다 — 그 마디 자리를 아래 음표 읽기가 쓴다
+    step(0, 10, { note: "악보 그림에서 마디선을 찾는 중" });
     try {
       cur = await putSheetImage(cur.id, file);
       notes.push("악보 그림을 붙였습니다");
@@ -157,6 +184,7 @@ export async function attachScoreAfterAnalysis(
      */
     let omrAbc: string | null = null;
     let textChords = false;
+    step(1, 90, { note: "음표를 읽는 중 — 보통 1~2분 걸립니다" });
     try {
       const omr = await omrScore(file, cur.id);
       omrAbc = musicxmlToAbc(omr.xml, "omr.musicxml", 0);
@@ -185,8 +213,17 @@ export async function attachScoreAfterAnalysis(
     let sheetLyrics: Record<string, string[]> = {};
     let sheetTitle = "";
     if (!textChords) {
+      step(2, 70, { note: "두 쪽씩 두 번 읽어 맞춰 봅니다" });
       try {
-        const got = await readSheetChords(cur.id);
+        const got = await readSheetChords(cur.id, (p) =>
+          step(2, 35, {
+            note:
+              (p.note || "두 쪽씩 두 번 읽어 맞춰 봅니다") +
+              (p.total ? ` · ${p.done}/${p.total}` : ""),
+            done: p.done,
+            total: p.total,
+          }),
+        );
         cur = got.result;
         chordAbc = got.abc;
         sheetLyrics = got.lyrics ?? {};
@@ -233,6 +270,7 @@ export async function attachScoreAfterAnalysis(
   }
 
   // ③ 마디 수를 맞춘다. 악보의 연주 차례(도돌이 펼친 것)와 견준다
+  step(STEPS.length - 1, 8, { note: "음원의 마디·박을 악보에 맞추는 중" });
   const orders = abcOrders(abc);
   const played = orders?.withJump.length ?? 0;
   const mode = pickScale(audioBars(cur), played);

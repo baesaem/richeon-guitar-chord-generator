@@ -368,6 +368,8 @@ export async function readPictureChords(
  */
 export async function readSheetChords(
   id: string,
+  /** 서버가 알려 주는 진행 — AI 읽기 몇 번째까지 끝났나, 지금 무엇을 하나 */
+  onProgress?: (p: { done: number; total: number; note?: string }) => void,
 ): Promise<{
   abc: string;
   bars: number;
@@ -400,8 +402,13 @@ export async function readSheetChords(
         lyrics?: Record<string, string[]>;
         title?: string;
         check?: string[];
+        done?: number;
+        total?: number;
+        note?: string;
       }>,
     );
+    if (state.state === "running")
+      onProgress?.({ done: state.done ?? 0, total: state.total ?? 0, note: state.note });
     if (state.state === "done" && state.abc)
       return {
         abc: state.abc,

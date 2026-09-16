@@ -1451,13 +1451,23 @@ async def _run_chord_read(result_id: str) -> None:
             raise ValueError("붙여 둔 악보가 없습니다")
 
         data = src.read_bytes()
+        _chord_reads[result_id] = {"state": "running", "note": "악보 그림을 펴는 중"}
         if src.suffix.lower() == ".pdf":
             pages, images = await asyncio.to_thread(sheet_layout.from_pdf, data)
         else:
             pages, images = await asyncio.to_thread(sheet_layout.from_image, data)
 
+        # 읽기가 하나 끝날 때마다 몇 번째인지 적는다 — 앱이 기다리는 동안 진행 막대로 보인다
+        def progress(done: int, total: int, note: str) -> None:
+            _chord_reads[result_id] = {
+                "state": "running",
+                "done": done,
+                "total": total,
+                "note": note,
+            }
+
         got = await asyncio.to_thread(
-            sheet_read.read_chords, pages, images, result.title
+            sheet_read.read_chords, pages, images, result.title, progress
         )
 
         # 되돌이 차례는 그림 커서에도 그대로 쓴다 — 한 번 읽은 것을 두 번 묻지 않는다

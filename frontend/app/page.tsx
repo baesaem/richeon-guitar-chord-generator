@@ -37,7 +37,7 @@ import { chordAt, unifyChords } from "@/lib/abcChords";
 import { abcBarLyrics } from "@/lib/abcLyrics";
 import { scoreKaraokeSyllables, scoreLyricLines } from "@/lib/scoreLyrics";
 import { abcMeasures, abcOrders } from "@/lib/abcOrder";
-import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
+import { attachScoreAfterAnalysis, type AttachProgress } from "@/lib/scoreAtRegister";
 import { PracticeRoom } from "@/components/PracticeRoom";
 import { MelodyScore } from "@/components/MelodyScore";
 import {
@@ -373,6 +373,8 @@ export default function Home() {
   const [lessonClass, setLessonClass] = useState<string | undefined>(undefined);
   /** 강의실을 열자마자 초급·중급 강좌를 한 번에 받는다(홈 「초급·중급 한번에 받기」) */
   const [lessonFetchAll, setLessonFetchAll] = useState(false);
+  /** 등록하면서 함께 넣은 악보를 붙이는 진행 — 작업 중 화면에 단계·진행 막대로 보인다 */
+  const [attachProgress, setAttachProgress] = useState<AttachProgress | null>(null);
   useEffect(() => {
     // 서버 확인이 끝난 뒤에 조용히 살핀다. 실패하면 그냥 넘어간다.
     let alive = true;
@@ -1156,11 +1158,13 @@ export default function Home() {
               const pending = pendingScore.current;
               if (pending) {
                 pendingScore.current = null;
-                void attachScoreAfterAnalysis(r, pending.file, pending.staff).then(({ result: r2, notes }) => {
-                  adoptResult(r2);
-                  setAbcEntry(getAbc(r2.id));
-                  setToast(`${r2.title || r2.id} — ${notes.join(" · ")}`);
-                });
+                void attachScoreAfterAnalysis(r, pending.file, pending.staff, setAttachProgress)
+                  .then(({ result: r2, notes }) => {
+                    adoptResult(r2);
+                    setAbcEntry(getAbc(r2.id));
+                    setToast(`${r2.title || r2.id} — ${notes.join(" · ")}`);
+                  })
+                  .finally(() => setAttachProgress(null));
               }
             })
             .catch((e) => setError(e.message));
@@ -4941,6 +4945,17 @@ export default function Home() {
         )}
         {vocalBusy && (
           <Working label="반주 만드는 중" note="보컬을 걷어내고 있습니다" />
+        )}
+        {attachProgress && (
+          <Working
+            label="등록한 곡에 악보를 붙이는 중"
+            note={attachProgress.note}
+            steps={attachProgress.steps}
+            stepIndex={attachProgress.index}
+            stepDone={attachProgress.done}
+            stepTotal={attachProgress.total}
+            expectSec={attachProgress.expectSec}
+          />
         )}
         {lyricBusy && (
           <Working

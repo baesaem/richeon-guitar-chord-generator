@@ -18,8 +18,9 @@ import {
 import type { ScoreAlign, ScoreData } from "@/lib/scoreStaff";
 import type { AnalysisResult } from "@/lib/types";
 import { msczParts, type MsczPart } from "@/lib/msczToAbc";
-import { attachScoreAfterAnalysis } from "@/lib/scoreAtRegister";
+import { attachScoreAfterAnalysis, type AttachProgress } from "@/lib/scoreAtRegister";
 import { Popup } from "@/components/Popup";
+import { Working } from "@/components/Working";
 import { AskConfirm } from "@/components/Ask";
 import { melodyIndex } from "@/components/ScorePick";
 
@@ -228,6 +229,8 @@ export function ScoreAttach({
    * 그대로여서, 코드를 악보에 맞추려면 음원을 다시 등록하는 수밖에
    * 없었다. 악보를 붙이는 일과 코드가 그 악보를 따르는 일은 하나다.
    */
+  /** 악보 붙이기 진행 — 기다리는 동안 작업 중 화면에 단계·진행 막대로 보인다 */
+  const [attaching, setAttaching] = useState<AttachProgress | null>(null);
   const attach = async (file: File, staff = 0) => {
     setBusy(true);
     setError(null);
@@ -236,6 +239,7 @@ export function ScoreAttach({
         result,
         file,
         staff,
+        setAttaching,
       );
       onResult(next);
       onScoreAttached?.();
@@ -244,6 +248,7 @@ export function ScoreAttach({
       setError(e instanceof Error ? e.message : "악보를 붙이지 못했습니다");
     } finally {
       setBusy(false);
+      setAttaching(null);
     }
   };
 
@@ -308,6 +313,17 @@ export function ScoreAttach({
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] roomy:text-[13px]">
+      {attaching && (
+        <Working
+          label="악보를 붙이는 중"
+          note={attaching.note}
+          steps={attaching.steps}
+          stepIndex={attaching.index}
+          stepDone={attaching.done}
+          stepTotal={attaching.total}
+          expectSec={attaching.expectSec}
+        />
+      )}
       {asking && (
         <AskConfirm
           title={asking === "image" ? "배경악보 제거" : "악보전체 제거"}

@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import threading
 import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -229,6 +230,41 @@ _MIN_AGREE = 0.8
 _BATCH_TIMEOUT = 240
 
 
+class _Progress:
+    """AI 읽기가 몇 번 끝났는지 알린다 — 앱이 기다리는 동안 진행 막대를 그린다
+    (강사님: 「서버 작업 중 기다릴 경우 진행 과정 인디케이터 화면」).
+
+    읽기는 묶음마다 두 번씩 함께 돌고, 검증에서 모자라거나 다르면 늘어난다.
+    그래서 전체 수(total)도 도중에 늘 수 있다.
+    """
+
+    def __init__(self, total: int, report) -> None:
+        self.done = 0
+        self.total = total
+        self.note = ""
+        self.report = report
+        self.lock = threading.Lock()
+
+    def one(self) -> None:
+        with self.lock:
+            self.done += 1
+            self._send()
+
+    def more(self, note: str) -> None:
+        with self.lock:
+            self.total += 1
+            self.note = note
+            self._send()
+
+    def _send(self) -> None:
+        if not self.report:
+            return
+        try:
+            self.report(self.done, self.total, self.note)
+        except Exception:
+            pass  # 알림이 막혀도 읽기는 계속한다
+
+
 def _rows(found: dict) -> dict[int, dict]:
     """마디 번호 → 그 마디에서 읽은 코드·가사 한 줄"""
     out: dict[int, dict] = {}
@@ -319,7 +355,13 @@ def _merge(parts: list[dict]) -> dict:
 
 
 def _ask_checked(
-    shots: list[bytes], lo: int, hi: int, hint: str, prompt: str, notes: list[str]
+    shots: list[bytes],
+    lo: int,
+    hi: int,
+    hint: str,
+    prompt: str,
+    notes: list[str],
+    prog: _Progress | None = None,
 ) -> dict:
     """한 묶음(lo~hi마디)을 두 번 함께 읽어 맞춰 보고, 모자라거나 다르면 다시 읽는다."""
     where = f"{lo}~{hi}마디"
@@ -329,6 +371,14 @@ def _ask_checked(
             return _ask(shots, hint, prompt=prompt, timeout=_BATCH_TIMEOUT)
         except Exception as exc:  # 한 번 실패는 다음 읽기로 넘긴다
             return exc
+        finally:
+            if prog:
+                prog.one()
+
+    def again(note: str) -> None:
+        notes.append(note)
+        if prog:
+            prog.more(note.replace("다시 읽음", "다시 읽는 중").replace("다수결", "다수결로 정하는 중"))
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         got = list(pool.map(lambda _: once(), range(2)))
@@ -337,7 +387,7 @@ def _ask_checked(
     cover = lambda f: _cover(f, lo, hi)  # noqa: E731
 
     if not reads or max(cover(f) for f in reads) < _MIN_COVER:
-        notes.append(
+        again(
             f"{where}: " + ("읽기 실패로 다시 읽음" if not reads else "코드·가사가 모자라 다시 읽음")
         )
         g = once()
@@ -353,7 +403,7 @@ def _ask_checked(
     same = _agree(reads[0], reads[1], lo, hi)
     if same >= _MIN_AGREE:
         return max(reads, key=cover)
-    notes.append(f"{where}: 두 번 읽은 코드가 {round(same * 100)}%만 같아 한 번 더 읽고 마디마다 다수결")
+    again(f"{where}: 두 번 읽은 코드가 {round(same * 100)}%만 같아 한 번 더 읽고 마디마다 다수결")
     if len(reads) < 3:
         g = once()
         if isinstance(g, dict):
@@ -611,7 +661,7 @@ def to_abc(found: dict, count: int, title: str = "") -> str:
     return chr(10).join(head + out) + chr(10)
 
 
-def read_chords(pages, images: list[bytes], title: str = "") -> dict:
+def read_chords(pages, images: list[bytes], title: str = "", progress=None) -> dict:
     """되돌이표·코드·가사를 읽어, 부르는 차례와 코드 ABC를 낸다.
 
     두 쪽씩 나눠 함께 묻고, 묶음마다 두 번 읽어 맞춰 본다(위 「나눠 읽기와
@@ -636,9 +686,14 @@ def read_chords(pages, images: list[bytes], title: str = "") -> dict:
         hi = firsts[nxt] - 1 if nxt < len(firsts) else count
         groups.append((shots[k:nxt], firsts[k], hi))
     notes: list[str] = []
+    # 묶음마다 두 번씩 읽는다 — 검증에서 다시 읽으면 늘어난다
+    prog = _Progress(len(groups) * 2, progress)
+    prog._send()
     with ThreadPoolExecutor(max_workers=len(groups)) as pool:
         parts = list(
-            pool.map(lambda g: _ask_checked(g[0], g[1], g[2], hint, prompt, notes), groups)
+            pool.map(
+                lambda g: _ask_checked(g[0], g[1], g[2], hint, prompt, notes, prog), groups
+            )
         )
     found = _merge(parts)
     found["check"] = notes
