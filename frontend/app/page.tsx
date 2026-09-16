@@ -790,13 +790,22 @@ export default function Home() {
       }
     }
     /*
-     * 종이 악보를 AI가 읽어 둔 차례가 있으면 **큰 쪽**을 쓴다.
+     * 악보(ABC)에 되돌이 표시가 적혀 있으면 **악보 쪽**을 믿는다.
      *
-     * 한쪽이 세뇨·코다를 놓치면 작게 나오는데, 작은 쪽을 믿으면 「어긋난
-     * 마디 없음」으로 조용히 넘어가 버린다. 되풀이를 덜 편 것이 더 편
-     * 것보다 옳을 일은 없다.
+     * 예전에는 종이 악보를 AI가 읽어 둔 차례와 견줘 큰 쪽을 썼다 — 한쪽이
+     * 세뇨·코다를 놓치면 작게 나오기 때문이다. 그런데 AI가 그림 마디를 잘못
+     * 나눠 읽으면(「가슴 속에 사는 사람아」 106상자/실제 94) 차례가 136마디로
+     * 부풀고, 큰 쪽을 믿는 규칙이 그것을 골라 박을 그 수에 맞춰 깔았다 —
+     * 빠르기가 어긋났다(강사님: 「빠르기 오류가 발생」). 이제 AI가 읽은 되돌이는
+     * 등록 때 악보에 옮겨 적으므로(applyBarMarks), 악보에 도돌이·괄호·세뇨·
+     * 코다·D.S.가 하나라도 있으면 악보 차례가 곧 정답이다. 악보에 되돌이가
+     * 하나도 없을 때만(옮기기 전 옛 곡) 전처럼 큰 쪽을 쓴다.
      */
     const order = (shown?.sheet as { order?: number[] } | null | undefined)?.order;
+    const abcHasRepeats =
+      !!abcEntry?.abc &&
+      /\|:|:\||\[[12]|!segno!|!coda!|!D\.[SC]\.|"To Coda"|D\.\s*[SC]\./.test(abcEntry.abc);
+    if (n && abcHasRepeats) return n;
     return Math.max(n, order?.length ?? 0);
   }, [abcEntry?.abc, shown?.sheet]);
   const audioBarCount = shown?.beats.filter((b) => b.beat === 1).length ?? 0;
