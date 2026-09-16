@@ -376,13 +376,17 @@ export async function readSheetChords(
   lyrics?: Record<string, string[]>;
   /** 악보 맨 위의 곡 제목 */
   title?: string;
+  /** 검증에서 다시 읽은 것(서버 sheet_read 「나눠 읽기와 검증」). 비었으면 두 번 읽은 답이 맞았다 */
+  check?: string[];
   result: AnalysisResult;
 }> {
   await fetch(`${apiBase()}/api/results/${id}/sheet/chords`, {
     method: "POST",
   }).then(json<{ state: string }>);
 
-  for (let i = 0; i < 120; i++) {
+  /* 7분 반까지 기다린다. 두 쪽씩 나눠 두 번씩 읽고, 다르면 한 번 더 읽으므로
+     3분으로는 모자랄 수 있다(예전에는 3분에서 끊었다) */
+  for (let i = 0; i < 300; i++) {
     await new Promise((r) => setTimeout(r, 1500));
     const state = await fetch(
       `${apiBase()}/api/results/${id}/sheet/chords`,
@@ -395,6 +399,7 @@ export async function readSheetChords(
         chord_bars?: number;
         lyrics?: Record<string, string[]>;
         title?: string;
+        check?: string[];
       }>,
     );
     if (state.state === "done" && state.abc)
@@ -404,6 +409,7 @@ export async function readSheetChords(
         chordBars: state.chord_bars ?? 0,
         lyrics: state.lyrics ?? {},
         title: state.title ?? "",
+        check: state.check ?? [],
         result: await getResult(id),
       };
     if (state.state === "failed") throw new Error(state.detail || "읽지 못했습니다");

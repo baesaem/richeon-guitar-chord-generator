@@ -21,6 +21,8 @@ import base64
 import io
 import json
 import urllib.request
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image, ImageDraw
 
@@ -153,7 +155,12 @@ _CHORD_ADDON = """
 """
 
 
-def _ask(images: list[bytes], hint: str = "", prompt: str | None = None) -> dict:
+def _ask(
+    images: list[bytes],
+    hint: str = "",
+    prompt: str | None = None,
+    timeout: float | None = None,
+) -> dict:
     """그림들을 한 번에 보여 주고 JSON을 받는다."""
     cfg = llm_config()
     if not cfg.get("api_key"):
@@ -178,7 +185,7 @@ def _ask(images: list[bytes], hint: str = "", prompt: str | None = None) -> dict
         },
     )
     # 그림 여러 장을 보는 일이라 글자만 다룰 때보다 오래 걸린다
-    with urllib.request.urlopen(req, timeout=max(settings.llm_timeout, 120)) as res:
+    with urllib.request.urlopen(req, timeout=timeout or max(settings.llm_timeout, 120)) as res:
         data = json.load(res)
     return _json(data["choices"][0]["message"]["content"])
 
@@ -197,6 +204,161 @@ def _json(raw: str) -> dict:
     if not isinstance(out, dict):
         raise ValueError("AI 답의 모양이 다릅니다.")
     return out
+
+
+# ── 나눠 읽기와 검증 ───────────────────────────────────────────────
+#
+# 여섯 쪽을 한 번에 보였더니 답이 2분을 넘겨 끊겨, 코드·가사·제목을 하나도
+# 못 읽은 채 등록됐다(「가슴 속에 사는 사람아」). 같은 일이 되풀이돼 강사님이
+# 「검증 과정을 추가해 다를 경우 다시 읽게」 했다.
+#
+#   - 두 쪽씩 나눠 묻는다(묶음끼리는 함께)
+#   - 묶음마다 **두 번 함께 읽어 맞춰 본다**
+#   - 둘 다 못 읽었거나 코드·가사가 절반도 안 읽혔으면 다시 읽는다
+#   - 두 판의 코드가 마디마다 80% 넘게 같지 않으면 한 번 더 읽고 마디마다 다수결
+#
+# 무엇을 다시 읽었는지는 check로 남겨 등록 알림에 보인다.
+
+#: 한 번에 AI에게 보이는 쪽 수
+_PAGES_PER_ASK = 2
+#: 묶음의 마디 가운데 코드나 가사를 읽은 마디가 이보다 적으면 다시 읽는다
+_MIN_COVER = 0.5
+#: 두 번 읽은 코드가 마디마다 이만큼 같지 않으면 한 번 더 읽는다
+_MIN_AGREE = 0.8
+#: 묶음 하나(두 쪽)를 읽는 데 기다리는 시간(초)
+_BATCH_TIMEOUT = 240
+
+
+def _rows(found: dict) -> dict[int, dict]:
+    """마디 번호 → 그 마디에서 읽은 코드·가사 한 줄"""
+    out: dict[int, dict] = {}
+    for r in found.get("chords") or []:
+        if not isinstance(r, dict):
+            continue
+        try:
+            out[int(r.get("bar"))] = r
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _chord_key(row: dict | None) -> tuple[str, ...]:
+    if not row:
+        return ()
+    return tuple(str(c).strip() for c in (row.get("chords") or []) if str(c).strip())
+
+
+def _lyric(row: dict | None, key: str = "lyric") -> str:
+    return str((row or {}).get(key) or "").strip()
+
+
+def _cover(found: dict, lo: int, hi: int) -> float:
+    """묶음의 마디(lo..hi) 가운데 코드나 가사를 읽은 마디의 몫"""
+    rows = _rows(found)
+    n = hi - lo + 1
+    if n <= 0:
+        return 0.0
+    got = sum(1 for i in range(lo, hi + 1) if _chord_key(rows.get(i)) or _lyric(rows.get(i)))
+    return got / n
+
+
+def _agree(a: dict, b: dict, lo: int, hi: int) -> float:
+    """두 번 읽은 코드가 마디마다 얼마나 같은가. 어느 한쪽이라도 코드를 읽은 마디만 센다"""
+    ra, rb = _rows(a), _rows(b)
+    seen = [i for i in range(lo, hi + 1) if _chord_key(ra.get(i)) or _chord_key(rb.get(i))]
+    if not seen:
+        return 1.0
+    return sum(1 for i in seen if _chord_key(ra.get(i)) == _chord_key(rb.get(i))) / len(seen)
+
+
+def _vote(reads: list[dict], lo: int, hi: int) -> dict:
+    """마디마다 가장 여러 번 나온 코드·가사를 고른다. 비기면 가장 잘 읽힌 판의 것"""
+    best = max(reads, key=lambda f: _cover(f, lo, hi))
+    best_rows = _rows(best)
+    tables = [_rows(f) for f in reads]
+    rows: list[dict] = []
+    for i in range(lo, hi + 1):
+        cands = [t[i] for t in tables if i in t]
+        if not cands:
+            continue
+
+        def pick(key):
+            top, n = Counter(key(c) for c in cands).most_common(1)[0]
+            if n > 1 or i not in best_rows:
+                return top
+            return key(best_rows[i])
+
+        rows.append({
+            "bar": i,
+            "chords": list(pick(_chord_key)),
+            "lyric": pick(_lyric),
+            "lyric2": pick(lambda c: _lyric(c, "lyric2")),
+        })
+    out = dict(best)
+    out["chords"] = rows
+    return out
+
+
+def _merge(parts: list[dict]) -> dict:
+    """쪽 묶음마다 읽은 것을 하나로. 목록은 잇고, 절 수는 큰 것, 조·제목은 먼저 읽힌 것"""
+    out: dict = {}
+    for part in parts:
+        for key, value in part.items():
+            if isinstance(value, list):
+                if not isinstance(out.get(key), list):
+                    out[key] = []
+                out[key].extend(value)
+            elif key == "verses":
+                try:
+                    out[key] = max(int(out.get(key) or 0), int(value or 0))
+                except (TypeError, ValueError):
+                    pass
+            elif not out.get(key) and value:
+                out[key] = value
+    return out
+
+
+def _ask_checked(
+    shots: list[bytes], lo: int, hi: int, hint: str, prompt: str, notes: list[str]
+) -> dict:
+    """한 묶음(lo~hi마디)을 두 번 함께 읽어 맞춰 보고, 모자라거나 다르면 다시 읽는다."""
+    where = f"{lo}~{hi}마디"
+
+    def once() -> dict | Exception:
+        try:
+            return _ask(shots, hint, prompt=prompt, timeout=_BATCH_TIMEOUT)
+        except Exception as exc:  # 한 번 실패는 다음 읽기로 넘긴다
+            return exc
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        got = list(pool.map(lambda _: once(), range(2)))
+    reads = [g for g in got if isinstance(g, dict)]
+    errors = [str(g) for g in got if isinstance(g, Exception)]
+    cover = lambda f: _cover(f, lo, hi)  # noqa: E731
+
+    if not reads or max(cover(f) for f in reads) < _MIN_COVER:
+        notes.append(
+            f"{where}: " + ("읽기 실패로 다시 읽음" if not reads else "코드·가사가 모자라 다시 읽음")
+        )
+        g = once()
+        if isinstance(g, dict):
+            reads.append(g)
+        else:
+            errors.append(str(g))
+    if not reads:
+        raise RuntimeError(f"{where}를 읽지 못했습니다 — {errors[-1] if errors else '알 수 없음'}")
+    if len(reads) == 1:
+        return reads[0]
+
+    same = _agree(reads[0], reads[1], lo, hi)
+    if same >= _MIN_AGREE:
+        return max(reads, key=cover)
+    notes.append(f"{where}: 두 번 읽은 코드가 {round(same * 100)}%만 같아 한 번 더 읽고 마디마다 다수결")
+    if len(reads) < 3:
+        g = once()
+        if isinstance(g, dict):
+            reads.append(g)
+    return _vote(reads, lo, hi) if len(reads) >= 3 else max(reads, key=cover)
 
 
 def to_bars(found: dict, count: int) -> list[ScoreBar]:
@@ -450,17 +612,36 @@ def to_abc(found: dict, count: int, title: str = "") -> str:
 
 
 def read_chords(pages, images: list[bytes], title: str = "") -> dict:
-    """되돌이표와 코드를 한 번에 읽어, 부르는 차례와 코드 ABC를 낸다."""
+    """되돌이표·코드·가사를 읽어, 부르는 차례와 코드 ABC를 낸다.
+
+    두 쪽씩 나눠 함께 묻고, 묶음마다 두 번 읽어 맞춰 본다(위 「나눠 읽기와
+    검증」). 마디 번호는 쪽을 넘어 이어 붙이므로 묶음의 답을 그대로 잇는다.
+    """
     shots: list[bytes] = []
+    firsts: list[int] = []
     first = 1
     for page, raw in zip(pages, images):
+        firsts.append(first)
         png, first = _numbered(page, Image.open(io.BytesIO(raw)), first)
         shots.append(png)
     count = first - 1
     if count < 2:
         raise ValueError("마디를 찾지 못한 악보입니다.")
 
-    found = _ask(shots, _hint(pages), prompt=_PROMPT + _CHORD_ADDON)
+    hint = _hint(pages)
+    prompt = _PROMPT + _CHORD_ADDON
+    groups: list[tuple[list[bytes], int, int]] = []
+    for k in range(0, len(shots), _PAGES_PER_ASK):
+        nxt = k + _PAGES_PER_ASK
+        hi = firsts[nxt] - 1 if nxt < len(firsts) else count
+        groups.append((shots[k:nxt], firsts[k], hi))
+    notes: list[str] = []
+    with ThreadPoolExecutor(max_workers=len(groups)) as pool:
+        parts = list(
+            pool.map(lambda g: _ask_checked(g[0], g[1], g[2], hint, prompt, notes), groups)
+        )
+    found = _merge(parts)
+    found["check"] = notes
     bars = to_bars(found, count)
     order = expand(bars)
     if not order:
@@ -486,6 +667,9 @@ def read_chords(pages, images: list[bytes], title: str = "") -> dict:
         "chord_bars": read_n,
         "lyrics": lyrics,
         "title": str(found.get("title") or "").strip()[:60],
+        # 검증에서 다시 읽은 것 — 없으면 두 번 읽은 답이 맞았다
+        "check": notes,
+        "batches": len(groups),
     }
 
 

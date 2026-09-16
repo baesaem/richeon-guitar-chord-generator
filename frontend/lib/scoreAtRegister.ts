@@ -196,6 +196,9 @@ export async function attachScoreAfterAnalysis(
           `코드를 읽었습니다 (${got.bars}마디 중 ${got.chordBars}마디에 코드)` +
             (ly ? ` · 가사 ${ly}마디` : ""),
         );
+        // 검증 — 두 번 읽어 맞춰 보고 다시 읽은 곳이 있으면 알린다
+        if (got.check?.length) notes.push(`검증: ${got.check.join(" · ")}`);
+        else notes.push("검증: 두 번 읽은 코드·가사가 서로 맞았습니다");
       } catch (e) {
         notes.push(`코드 읽기 실패: ${(e as Error).message}`);
         if (!omrAbc) return { result: cur, notes };

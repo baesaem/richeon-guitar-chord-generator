@@ -496,6 +496,13 @@ async def omr_recognize(file: UploadFile = File(...), result_id: str = Form(""))
     data = await file.read(_SHEET_MAX_BYTES + 1)
     if len(data) > _SHEET_MAX_BYTES:
         raise HTTPException(413, "파일이 너무 큽니다 (20MB까지)")
+    # 같은 곡을 두 번 인쇄한 PDF — 두 번째 벌은 빼고 읽는다(마디가 두 배로 잡히지 않게).
+    # 그림 붙이기(put_sheet)도 같은 쪽을 빼므로 마디 자리가 서로 맞는다
+    if suffix == ".pdf":
+        try:
+            data, _ = await asyncio.to_thread(sheet_layout.dedupe_pdf, data)
+        except Exception:
+            pass  # 못 살피면 받은 그대로 읽는다
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(data)
         path = Path(tmp.name)
@@ -1119,6 +1126,9 @@ async def put_sheet(
 
     try:
         if suffix == ".pdf":
+            # 같은 곡을 두 번 인쇄한 PDF는 두 번째 벌을 뺀다 — 저장하는 원본도 뺀 것이라
+            # 뒤의 AI 읽기·음표 인식이 모두 한 벌만 본다(「가슴 속에 사는 사람아」)
+            data, _ = sheet_layout.dedupe_pdf(data)
             pages, images = sheet_layout.from_pdf(data)
         else:
             pages, images = sheet_layout.from_image(data)
@@ -1471,6 +1481,9 @@ async def _run_chord_read(result_id: str) -> None:
             # 마디마다 가사(그림에서 읽음)와 곡 제목 — 앱이 음표 악보에 넣는다
             "lyrics": got.get("lyrics") or {},
             "title": got.get("title") or "",
+            # 나눠 읽기·검증 기록(다시 읽은 묶음) — 등록 알림에 보인다
+            "check": got.get("check") or [],
+            "batches": got.get("batches") or 1,
         }
     except Exception as exc:
         _chord_reads[result_id] = {"state": "failed", "detail": str(exc)}

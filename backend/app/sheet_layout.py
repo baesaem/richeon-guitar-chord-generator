@@ -703,6 +703,36 @@ def from_pdf(data: bytes, dpi: int = 200, max_pages: int = 20) -> tuple[list[Pag
     return pages, images
 
 
+def dedupe_pdf(data: bytes) -> tuple[bytes, int]:
+    """똑같은 쪽이 다시 나오면 한 번만 남긴 PDF. (PDF 바이트, 뺀 쪽 수)
+
+    같은 곡을 두 번 인쇄한 PDF가 있다(「가슴 속에 사는 사람아」 — 1~3쪽이
+    4~6쪽에 그대로 다시 실림). 그대로 쓰면 음표 인식은 곡을 두 번 읽어
+    마디가 두 배가 되고, AI 읽기는 그림이 두 배라 시간이 넘쳐 코드·가사를
+    하나도 못 읽었다. 낮은 해상도로 편 쪽 그림이 한 점도 다르지 않을 때만
+    같은 쪽으로 본다 — 비슷한 쪽(후렴 반복 따위)은 건드리지 않는다.
+    """
+    import hashlib
+
+    import pymupdf
+
+    doc = pymupdf.open(stream=data, filetype="pdf")
+    seen: set[str] = set()
+    keep: list[int] = []
+    for i, page in enumerate(doc):
+        pix = page.get_pixmap(dpi=40)
+        digest = hashlib.sha1(pix.samples).hexdigest()
+        if digest in seen:
+            continue
+        seen.add(digest)
+        keep.append(i)
+    dropped = doc.page_count - len(keep)
+    if not dropped:
+        return data, 0
+    doc.select(keep)
+    return doc.tobytes(garbage=3, deflate=True), dropped
+
+
 def from_image(data: bytes) -> tuple[list[Page], list[bytes]]:
     img = Image.open(io.BytesIO(data))
     return [layout(img, 0)], [data]
