@@ -39,9 +39,15 @@ export function LessonTab({
   adminMode,
   online,
   openClass,
+  autoFetchAll = false,
+  onAutoFetchAll,
 }: {
   /** 열자마자 펼칠 반. 새 강좌 알림이 넘겨준다 */
   openClass?: string;
+  /** 열자마자 초급·중급 강좌를 한 번에 받는다(홈 「초급·중급 한번에 받기」) */
+  autoFetchAll?: boolean;
+  /** 자동 받기를 시작했음을 알린다 — 다음에 강의실을 열 때 또 받지 않게 */
+  onAutoFetchAll?: () => void;
   /** 관리자만 강의실을 파일로 내보낸다 */
   adminMode: boolean;
   /** 분석 서버가 붙어 있는가. 없으면 드라이브에서 직접 받는다 */
@@ -105,6 +111,53 @@ export function LessonTab({
       setWorking(null);
     }
   };
+
+  /**
+   * 초급·중급 강의실을 한 번에 받는다(강사님: 「강좌받기에서 두 가지(중급·초급)를
+   * 한번에 받기」). 한 반을 못 읽어도 다른 반은 받고, 끝에 합쳐서 알린다.
+   */
+  const importAll = async () => {
+    setWorking("초급·중급 새 강좌 찾는 중");
+    setError(null);
+    let added = 0;
+    let changed = 0;
+    let files = 0;
+    const failed: string[] = [];
+    for (const c of CLASSES) {
+      try {
+        const r = await importLessonsFromDrive(c, online);
+        added += r.added;
+        changed += r.changed;
+        files += r.files;
+      } catch (e) {
+        failed.push(`${shortName(c.name)} — ${(e as Error).message}`);
+      }
+    }
+    setWorking(null);
+    if (failed.length) setError(`받지 못한 반이 있습니다 · ${failed.join(" · ")}`);
+    if (added + changed > 0) {
+      const parts = [];
+      if (added) parts.push(`새 강좌 ${added}개`);
+      if (changed) parts.push(`고쳐진 것 ${changed}개`);
+      flash(`초급·중급에서 ${parts.join(" · ")}를 반영했습니다.`);
+      setReloadKey((k) => k + 1);
+    } else if (!failed.length) {
+      flash(
+        files === 0
+          ? "초급·중급 강의실에 올라온 자료가 아직 없습니다."
+          : "초급·중급 모두 이미 받은 것과 같습니다. 그대로 두었습니다.",
+      );
+    }
+  };
+
+  // 홈 「초급·중급 한번에 받기」로 들어왔으면 열자마자 받는다(한 번만)
+  useEffect(() => {
+    if (!autoFetchAll) return;
+    onAutoFetchAll?.();
+    Promise.resolve().then(importAll);
+    // 여는 순간 한 번만 — 받기 함수가 바뀔 때마다 다시 받지 않는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * 드라이브에 곧장 올린다. 처음 한 번은 구글 동의를 받는다 —
@@ -275,6 +328,16 @@ export function LessonTab({
           />
         </>
       ) : page === "all" ? (
+        <>
+        {/* 초급·중급을 한 번에 받는다 — 반마다 탭을 바꿔 가며 받지 않아도 된다 */}
+        <div className="mb-2 flex justify-end">
+          <button
+            className="rounded bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white"
+            onClick={importAll}
+          >
+            새 강좌 가져오기(초급·중급)
+          </button>
+        </div>
         <LinkShelf
           key={`all-${reloadKey}`}
           shelf={classroomShelf(CLASSES[0].id)}
@@ -284,6 +347,7 @@ export function LessonTab({
           }))}
           blurb="초급·중급 강의실을 한 목록으로 봅니다. 어느 반 자료인지 아래에 적혀 있습니다."
         />
+        </>
       ) : (
         <LinkShelf
           shelf="mine"

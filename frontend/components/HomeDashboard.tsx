@@ -16,8 +16,11 @@ interface Props {
   onOpen: (id: string) => void;
   onImport: () => void;
   onLibrary: () => void;
-  /** 강의실 열기. 반 id나 "mine"(내 강좌)을 넘긴다 */
-  onLesson: (classId?: string) => void;
+  /**
+   * 강의실 열기. 반 id나 "all"(초급·중급 함께)·"mine"(내 강좌)을 넘긴다.
+   * fetchAll이면 열자마자 초급·중급 강좌를 한 번에 받는다
+   */
+  onLesson: (classId?: string, fetchAll?: boolean) => void;
   onChords: () => void;
   /** 반별 공유 폴더에서 곡 받기. 수강생이 곡을 얻는 유일한 길이다 */
   onClassSongs: (classId: string) => void;
@@ -210,6 +213,20 @@ export function HomeDashboard({
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
+            {/* 초급·중급을 한 번에(강사님: 「강좌받기에서 두 가지(중급·초급)를 한번에
+                받기」) — 반마다 강의실을 열어 따로 받지 않아도 된다 */}
+            {quick(
+              // 한 줄에 들어가게 짧게 — 「…한번에 받기」는 폰에서 「받/기」로 꺾였다
+              "초급·중급 받기",
+              icon(
+                <>
+                  <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <path d="M12 11v6M9 14l3 3 3-3" />
+                </>,
+              ),
+              () => onLesson("all", true),
+              "lesson-all",
+            )}
             {CLASSES.map((c) =>
               quick(
                 c.name.replace("강상주민센터 ", "") + " 강의실",

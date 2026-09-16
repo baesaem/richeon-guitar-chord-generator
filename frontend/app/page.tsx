@@ -371,6 +371,8 @@ export default function Home() {
   const [newSongs, setNewSongs] = useState<NewSongs[]>([]);
   // 공부방을 열 때 펼칠 반(알림에서 건너온 경우)
   const [lessonClass, setLessonClass] = useState<string | undefined>(undefined);
+  /** 강의실을 열자마자 초급·중급 강좌를 한 번에 받는다(홈 「초급·중급 한번에 받기」) */
+  const [lessonFetchAll, setLessonFetchAll] = useState(false);
   useEffect(() => {
     // 서버 확인이 끝난 뒤에 조용히 살핀다. 실패하면 그냥 넘어간다.
     let alive = true;
@@ -2775,9 +2777,17 @@ export default function Home() {
                 priority
               />
             </span>
-            <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight roomy:hidden">
-              <span className="text-[var(--accent)]">조영민</span> 기타교실
-            </h1>
+            <div className="min-w-0 flex-1 roomy:hidden">
+              <h1 className="truncate text-lg font-bold leading-tight tracking-tight">
+                <span className="text-[var(--accent)]">조영민</span> 기타교실
+              </h1>
+              {/* 이 앱을 누가 쓰는지. 수강생이 여러 앱을 오갈 때 여기서 알아본다.
+                  이름 아래 한 줄로 둔다 — 이름 옆에 두 줄로 세웠더니 폰 폭에서
+                  「조영민 기타교실」이 「조영민 …」으로 잘렸다 */}
+              <p className="truncate text-[10px] font-medium leading-tight text-[var(--accent)] opacity-80">
+                강상주민센터 기타반 · 조영민 선생님
+              </p>
+            </div>
             {/* 넓은 화면: 앱 이름은 사이드바에 있으니 여기는 메뉴 이름.
               앞에 그 메뉴의 아이콘을 세워 어디에 있는지 한눈에 보인다 */}
             <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] roomy:flex">
@@ -2797,13 +2807,6 @@ export default function Home() {
             <h1 className="hidden min-w-0 flex-1 truncate text-[22px] font-bold tracking-tight roomy:block">
               {TAB_TITLE[tab]}
             </h1>
-            {/* 이 앱을 누가 쓰는지. 수강생이 여러 앱을 오갈 때 여기서 알아본다.
-              폭이 좁으면 앱 이름이 먼저 줄고 이 표시는 남는다 */}
-            <span className="shrink-0 whitespace-nowrap text-[11px] font-medium leading-tight text-[var(--accent)] opacity-80 roomy:hidden">
-              강상주민센터 기타반
-              <br />
-              조영민 선생님
-            </span>
             {/* 도움말 — 지금 보는 메뉴에 맞는 안내가 열린다 */}
             <HelpButton tab={tab} playing={!!result} />
             {/* TV로 보기 — 전체화면 아이콘 왼쪽의 「TV」(강사님). TV 화면은 연습실
@@ -3699,8 +3702,9 @@ export default function Home() {
                   setTab("import");
                 }}
                 adminMode={settings.adminMode}
-                onLesson={(classId) => {
+                onLesson={(classId, fetchAll) => {
                   setLessonClass(classId);
+                  setLessonFetchAll(!!fetchAll);
                   setTab("lesson");
                 }}
                 onChords={() => setTab("chords")}
@@ -4831,6 +4835,8 @@ export default function Home() {
               adminMode={settings.adminMode}
               online={!!health}
               openClass={lessonClass}
+              autoFetchAll={lessonFetchAll}
+              onAutoFetchAll={() => setLessonFetchAll(false)}
             />
           )}
 
