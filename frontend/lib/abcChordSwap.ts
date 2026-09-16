@@ -144,6 +144,75 @@ export function applyBarChords(
   return lines.join("\n");
 }
 
+/** 마디마다 옮길 되돌이 표시 */
+export interface BarMarks {
+  /** 이 마디 앞이 도돌이 시작(|:)인가 */
+  start?: boolean;
+  /** 이 마디 뒤가 도돌이 끝(:|)인가 */
+  end?: boolean;
+  /** 1·2번 괄호 번호 */
+  volta?: number;
+  /** 세뇨·코다·To Coda·D.S. 같은 표시(!segno! · "To Coda" · !D.S.alcoda! …) */
+  marks?: string[];
+}
+
+/**
+ * AI가 그림에서 읽은 되돌이(도돌이·괄호·세뇨·코다·D.S.)를 음표 악보에 옮겨 적는다.
+ *
+ * 음표 인식(OMR)은 도돌이표를 놓치고 2번 괄호를 1번으로 적기도 한다(「가슴 속에
+ * 사는 사람아」). 그러면 펼친 마디 수가 틀려 음원 박을 잘못 깔고 빠르기가 어긋난다.
+ * 코드를 얹을 때처럼 마디 번호대로, **없는 표시만** 보탠다 — 이미 있는 것은 그대로.
+ */
+export function applyBarMarks(abc: string, byBar: Record<number, BarMarks>): string {
+  const lines = abc.split("\n");
+  let head = 0;
+  for (; head < lines.length; head++) if (/^K:/.test(lines[head])) break;
+  if (head >= lines.length) return abc;
+
+  let bar = -1;
+  // 마디 앞 도돌이 시작은 **앞 마디 조각의 끝 세로줄**을 고친다
+  let prev: { li: number; idx: number } | null = null;
+  const parts: string[][] = [];
+  for (let li = head + 1; li < lines.length; li++) {
+    const line = lines[li];
+    if (!line.trim() || /^(w:|W:|%|[A-Za-z]:)/.test(line)) {
+      parts.push([line]);
+      continue;
+    }
+    const pieces = splitBars(line);
+    parts.push(pieces);
+    pieces.forEach((piece, idx) => {
+      if (!/[A-Ga-gz]/.test(piece.replace(/"[^"]*"|![^!]*!/g, ""))) return;
+      bar += 1;
+      const m = byBar[bar];
+      if (m) {
+        let p = piece;
+        if (m.start && prev) {
+          const row = parts[prev.li - head - 1];
+          if (!/\|:\s*$/.test(row[prev.idx]))
+            row[prev.idx] = row[prev.idx].replace(/(\|\||\|)\s*$/, "|:");
+        }
+        if (m.end && !/:\|[\]|]*\s*$/.test(p)) p = p.replace(/(\|\||\|)\s*$/, ":|");
+        const lead = p.match(/^(\s*(?:\[[A-Za-z]:[^\]]*\]\s*)*)/)?.[1] ?? "";
+        let body = p.slice(lead.length);
+        if (m.volta) {
+          const v = body.match(/^\[(\d+)[-,.\d]*\s*/);
+          body = `[${m.volta} ` + (v ? body.slice(v[0].length) : body);
+        }
+        const add = (m.marks ?? []).filter((x) => !body.includes(x)).join("");
+        if (add) {
+          // 괄호 번호 뒤, 코드·음표 앞에
+          const v = body.match(/^\[\d+[-,.\d]*\s*/)?.[0] ?? "";
+          body = v + add + body.slice(v.length);
+        }
+        pieces[idx] = lead + body;
+      }
+      prev = { li, idx };
+    });
+  }
+  return [...lines.slice(0, head + 1), ...parts.map((p) => p.join(""))].join("\n");
+}
+
 /**
  * 마디 위 메모 덧말의 머리표. 그린 뒤 이것으로 메모를 알아본다.
  * 보이지 않는 글자(폭 없는 빈칸)다 — 강사님: 「📝 표시 삭제」.

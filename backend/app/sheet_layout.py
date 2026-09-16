@@ -151,8 +151,46 @@ def find_systems(ink: np.ndarray) -> list[System]:
         # 줄이 넷 미만이면 오선이 아니다(표 테두리·밑줄 따위)
         if len(g) < 4:
             continue
+        g = _trim_staff(g, rows)
         out.append(System(top=g[0][0], bottom=g[-1][1], lines=len(g)))
     return out
+
+
+def _trim_staff(g: list[tuple[int, int]], rows: np.ndarray) -> list[tuple[int, int]]:
+    """오선에 붙어 묶인 다른 가로줄(1·2번 괄호 선, 「D.S. al Coda」 밑줄)을 떼어 낸다.
+
+    「가슴 속에 사는 사람아」 3쪽의 2번 괄호 줄은 괄호 선이 오선 바로 위에
+    있어 한 묶음으로 묶였다(줄 수 7). 그러면 마디선이 「맨 윗줄에 닿지
+    않는다」고 재어져 그 줄이 통째로 버려지고, 그 마디들이 앞뒤 줄로 밀려
+    마디 수가 두 배로 잡혔다. 오선은 줄 간격이 같다 — 줄이 5개보다 많으면
+    간격이 고른 5줄(간격이 고른 6줄이면 타브)만 남긴다.
+
+    간격만으로는 모자랐다. 그 악보의 괄호 선은 오선 간격만큼 위에 있어
+    「괄호 선 + 오선 네 줄」도 간격이 고르다. 진짜 오선은 쪽 폭을 끝까지
+    긋고 괄호 선은 한두 마디뿐이니, 고른 후보 가운데 **줄이 가장 길게
+    채워진** 것을 고른다(rows는 행마다의 가로 잉크 비율).
+    """
+    if len(g) <= 5:
+        return g
+    mids = [(a + b) / 2 for a, b in g]
+    fills = [float(rows[a : b + 1].mean()) for a, b in g]
+
+    def spread(win: list[float]) -> float:
+        gaps = [b - a for a, b in zip(win, win[1:])]
+        mid = sorted(gaps)[len(gaps) // 2] or 1.0
+        return max(abs(x - mid) for x in gaps) / mid
+
+    # 6줄이 고르고 다 길면 타브다(줄 간격이 모두 같다)
+    if len(g) == 6 and spread(mids) < 0.12 and min(fills) > _LINE_FILL * 1.4:
+        return g
+    cands = []
+    for i in range(len(g) - 4):
+        cands.append((spread(mids[i : i + 5]), -min(fills[i : i + 5]), i))
+    best = min(cands)
+    # 간격이 고른 후보(가장 고른 것의 0.08 안)끼리는 줄이 긴 쪽을 고른다
+    even = [c for c in cands if c[0] <= best[0] + 0.08]
+    i = min(even, key=lambda c: c[1])[2]
+    return g[i : i + 5]
 
 
 def find_bars(ink: np.ndarray, system: System, solo: bool = False) -> list[int]:
@@ -667,6 +705,7 @@ def layout(image: Image.Image, index: int = 0) -> Page:
             continue
         system.repeats = find_repeats(ink, system)
         page.systems.append(system)
+    _recount_outliers(ink, page.systems, solo)
     page.systems = _fold_tab_groups(page.systems)
     page.systems = _fold_pairs(ink, page.systems)
     _view_bands(ink, page.systems)
@@ -684,6 +723,41 @@ def layout(image: Image.Image, index: int = 0) -> Page:
     else:
         page.crop_right = image.width - 1
     return page
+
+
+def _recount_outliers(ink: np.ndarray, systems: list[System], solo: bool) -> None:
+    """마디 수가 다른 줄들보다 훨씬 많은 줄은 기둥을 걷어 내고 다시 센다(검증).
+
+    한 쪽 안에서 한 줄에 드는 마디 수는 대개 비슷하다(4마디). 어떤 줄만
+    12·13마디로 잡혔다면 8분음표 기둥을 마디선으로 센 것이다 — 「가슴 속에
+    사는 사람아」 3쪽의 반주 줄이 그랬다(강사님: 「이런 일이 반복되는데 검증
+    과정을 추가해 다를 경우 다시 읽게」). 다른 줄 중앙값의 두 배를 넘는 줄만
+    solo(기둥 걷기)로 다시 나누고, 그래도 줄지 않으면 그대로 둔다.
+    """
+    if solo or len(systems) < 3:
+        return
+    counts = sorted(len(s.measures) for s in systems)
+    median = counts[len(counts) // 2]
+    if median < 2:
+        return
+    for s in systems:
+        if len(s.measures) <= median * 2:
+            continue
+        bars = find_bars(ink, s, solo=True)
+        if len(bars) < 2:
+            continue
+        start = _open_start(ink, s)
+        if start is not None and bars[0] - start > (s.bottom - s.top):
+            bars.insert(0, start)
+        bars = _drop_head(_drop_slivers(bars))
+        end = _close_end(ink, s, bars)
+        if end is not None:
+            bars.append(end)
+        if 2 <= len(bars) - 1 < len(s.measures):
+            s.bars = bars
+            s.made_start = start is not None and bars[0] == start
+            s.made_end = end is not None and bars[-1] == end
+            s.repeats = find_repeats(ink, s)
 
 
 def from_pdf(data: bytes, dpi: int = 200, max_pages: int = 20) -> tuple[list[Page], list[bytes]]:

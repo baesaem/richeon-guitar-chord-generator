@@ -4,7 +4,7 @@ import { abcOrders } from "./abcOrder";
 import { getAbc, saveAbc, setAbcFollow, setAbcTabScore } from "./abcStore";
 import { fixBeats, omrScore, putScore, putSheetImage, readSheetChords } from "./api";
 import { abcMeasures } from "./abcOrder";
-import { applyBarChords } from "./abcChordSwap";
+import { applyBarChords, applyBarMarks, type BarMarks } from "./abcChordSwap";
 import { musicxmlToAbc } from "./musicxmlToAbc";
 import { addBarLyrics } from "./abcLyrics";
 import { msczParts, msczToAbc, msczToTab } from "./msczToAbc";
@@ -74,6 +74,32 @@ function chordsInto(omrAbc: string, chordAbc: string): { abc: string; put: numbe
   }
   if (!put) return { abc: omrAbc, put: 0 };
   return { abc: applyBarChords(omrAbc, byBar), put };
+}
+
+/**
+ * 코드용 ABC(AI가 읽은 것)에서 마디마다의 되돌이 표시를 뽑는다 — 음표 악보에 옮기려고.
+ * 도돌이 시작·끝, 괄호 번호, 세뇨·코다·To Coda·D.S. 같은 글자.
+ */
+function marksOf(chordAbc: string): { byBar: Record<number, BarMarks>; count: number } {
+  const byBar: Record<number, BarMarks> = {};
+  let count = 0;
+  try {
+    abcMeasures(chordAbc).forEach((m, i) => {
+      const marks = [...m.text.matchAll(/![^!]+!|"To Coda"/g)].map((x) => x[0]);
+      const one: BarMarks = {};
+      if (m.startRepeat) one.start = true;
+      if (m.endRepeat) one.end = true;
+      if (m.volta) one.volta = m.volta;
+      if (marks.length) one.marks = marks;
+      if (Object.keys(one).length) {
+        byBar[i] = one;
+        count++;
+      }
+    });
+  } catch {
+    return { byBar: {}, count: 0 };
+  }
+  return { byBar, count };
 }
 
 /** 음원의 마디 수. 첫 박마다 마디가 하나다 */
@@ -190,6 +216,15 @@ export async function attachScoreAfterAnalysis(
       omrAbc = musicxmlToAbc(omr.xml, "omr.musicxml", 0);
       textChords = (omr.text?.chord_bars ?? 0) > 0;
       const t = omr.text;
+      /* 검증(강사님: 「이런 일이 반복되는데 검증 과정을 추가해」) — 음표 인식이 센
+         마디 수와 그림에서 찾은 마디 상자 수가 다르면 어느 한쪽이 틀린 것이다.
+         「가슴 속에 사는 사람아」는 상자가 106, 음표는 94였다. 조용히 넘기지 않고 적는다 */
+      const boxes = ((cur.sheet as { bars?: unknown[] } | null)?.bars ?? []).length;
+      if (boxes && omr.measures && boxes !== omr.measures)
+        notes.push(
+          `⚠ 검증: 그림 마디 ${boxes} ≠ 음표 마디 ${omr.measures} — 코드·가사 자리가 어긋날 수 있습니다. ` +
+            "배경악보 커서가 틀리면 「다시 읽기」로 그림을 다시 나눠 주세요",
+        );
       notes.push(
         `악보의 음표를 읽었습니다 — ${omr.measures}마디` +
           (omr.aligned ? " (그림 마디 자리에 맞춤)" : "") +
@@ -245,6 +280,14 @@ export async function attachScoreAfterAnalysis(
       const merged = chordsInto(omrAbc, chordAbc);
       abc = merged.abc;
       if (merged.put) notes.push(`그림의 코드 ${merged.put}마디를 얹었습니다`);
+      /* 되돌이도 그림 것을 따른다 — 음표 인식은 도돌이표를 놓치고 2번 괄호를
+         1번으로 적기도 한다(「가슴 속에 사는 사람아」). 그러면 펼친 마디 수가
+         틀려 박이 잘못 깔린다. 없는 표시만 보탠다 */
+      const marks = marksOf(chordAbc);
+      if (marks.count) {
+        abc = applyBarMarks(abc, marks.byBar);
+        notes.push(`그림의 되돌이 표시 ${marks.count}마디를 옮겼습니다`);
+      }
     } else {
       abc = omrAbc ?? chordAbc;
     }
