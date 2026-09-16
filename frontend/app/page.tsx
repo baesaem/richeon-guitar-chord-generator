@@ -2776,7 +2776,7 @@ export default function Home() {
               />
             </span>
             <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight roomy:hidden">
-              <span className="text-[var(--accent)]">리천</span> 기타교실
+              <span className="text-[var(--accent)]">조영민</span> 기타교실
             </h1>
             {/* 넓은 화면: 앱 이름은 사이드바에 있으니 여기는 메뉴 이름.
               앞에 그 메뉴의 아이콘을 세워 어디에 있는지 한눈에 보인다 */}
@@ -2802,7 +2802,7 @@ export default function Home() {
             <span className="shrink-0 whitespace-nowrap text-[11px] font-medium leading-tight text-[var(--accent)] opacity-80 roomy:hidden">
               강상주민센터 기타반
               <br />
-              조영민 강사님
+              조영민 선생님
             </span>
             {/* 도움말 — 지금 보는 메뉴에 맞는 안내가 열린다 */}
             <HelpButton tab={tab} playing={!!result} />

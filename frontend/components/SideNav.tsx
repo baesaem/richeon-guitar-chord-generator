@@ -39,10 +39,10 @@ export function SideNav({
         </span>
         <span className="min-w-0">
           <span className="block truncate text-[20px] font-bold leading-tight tracking-tight">
-            <span className="text-[var(--accent)]">리천</span> 기타교실
+            <span className="text-[var(--accent)]">조영민</span> 기타교실
           </span>
           <span className="block text-[12px] leading-tight text-[var(--accent)] opacity-75">
-            강상주민센터 기타반 · 조영민 강사님
+            강상주민센터 기타반 · 조영민 선생님
           </span>
         </span>
       </div>
