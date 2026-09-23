@@ -8,7 +8,13 @@ from ..config import settings
 from ..schemas import JobStage, SourceKind
 from .base import AudioSource, FetchedAudio, ProgressFn, save_sidecar
 
-ALLOWED_SUFFIXES = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac", ".webm"}
+# 소리 파일과 **동영상**(강사님: 「동영상으로 음원 등록 — 다른 포맷도」). 디코딩은 ffmpeg가
+# 영상 스트림을 버리고(-vn) 소리만 뽑으므로 컨테이너는 가리지 않는다
+ALLOWED_SUFFIXES = {
+    ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac", ".opus", ".wma", ".webm",
+    ".mp4", ".m4v", ".mov", ".mkv", ".avi", ".wmv", ".flv", ".3gp", ".ts", ".mts",
+    ".mpg", ".mpeg",
+}
 
 
 class UploadSource(AudioSource):
