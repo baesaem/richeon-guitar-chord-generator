@@ -3348,23 +3348,27 @@ export default function Home() {
                       playStyle={playStyle}
                       headerRight={
                         canFix ? (
-                          <span className="flex shrink-0 items-center gap-1">
+                          /* 글은 짧게 — 「ABC 수정」「ABC 내보내기」로 두었더니 폰 폭에서
+                             안내줄 오른쪽이 잘렸다(강사님: 「레이블 잘림」). 「ABC」는 앞의
+                             단추 하나에만 */
+                          <span className="flex shrink-0 flex-col items-stretch gap-0.5 whitespace-nowrap md:flex-row md:items-center md:gap-1">
                             <button
-                              className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                              className="shrink-0 rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                              title="ABC 악보 원문을 고칩니다"
                               onClick={() => openAbcStudio()}
                             >
                               ABC 수정
                             </button>
                             {/* 악보 원문을 .abc 파일로 — 다른 프로그램에서 고치거나 다른 곡에 붙일 때 */}
                             <button
-                              className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                              className="shrink-0 rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                               title="이 곡의 ABC 악보를 .abc 파일로 내려받습니다"
                               onClick={() => {
                                 downloadAbc(abcEntry.abc, result.title || result.id);
                                 setToast("ABC 악보를 파일로 내보냈습니다");
                               }}
                             >
-                              ABC 내보내기
+                              내보내기
                             </button>
                           </span>
                         ) : undefined

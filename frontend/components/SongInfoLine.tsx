@@ -50,7 +50,9 @@ export function SongInfoLine({
     /* 스크롤 밖에 붙여 둔다 — 싱크·마디 조절이 이 줄에 있는데, 악보를
        내리다 보면 줄이 위로 사라져 조절할 수가 없었다. 스크롤이 없는
        화면(재생 화면)에서는 sticky가 아무 일도 하지 않는다. */
-    <div className="sticky top-0 z-10 flex items-center gap-x-1.5 bg-[var(--background)] py-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] roomy:gap-x-2.5 roomy:text-[14px]">
+    /* 오른쪽 단추가 화면 폭을 넘치면 잘리지 않고 옆으로 밀어 볼 수 있게(폰 폭의 편집
+       화면에서 「ABC 수정·내보내기」가 잘렸다 — 강사님: 「레이블 잘림」) */
+    <div className="sticky top-0 z-10 flex items-center gap-x-1.5 overflow-x-auto bg-[var(--background)] py-1 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] roomy:gap-x-2.5 roomy:text-[14px] [&::-webkit-scrollbar]:hidden">
       <div
         className="flex min-w-0 flex-1 items-center gap-x-2 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none" }}
