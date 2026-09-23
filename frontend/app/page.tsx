@@ -1074,6 +1074,24 @@ export default function Home() {
     if (rate !== 1) pb.setRate(rate);
   };
 
+  /* 앱을 닫거나 화면에서 사라지면(다른 앱으로 전환·화면 끔) 재생을 멈춘다(강사님:
+     「앱이 종료되면 플레이 중인 음악도 정지하게」). 「종료」 자체는 브라우저가
+     알려 주지 않는다 — 닫히기 전에 반드시 지나는 「가려짐(hidden)」과
+     「페이지 닫힘(pagehide)」에서 멈춘다 */
+  useEffect(() => {
+    if (!playback) return;
+    const stop = () => {
+      if (document.visibilityState === "hidden") playback.pause();
+    };
+    const gone = () => playback.pause();
+    document.addEventListener("visibilitychange", stop);
+    window.addEventListener("pagehide", gone);
+    return () => {
+      document.removeEventListener("visibilitychange", stop);
+      window.removeEventListener("pagehide", gone);
+    };
+  }, [playback]);
+
   const resetPlayback = () => {
     setResult(null);
     setStatus(null);
