@@ -93,6 +93,7 @@ import {
   putResult,
   tidyLyrics,
   respaceLyrics,
+  putSongSetup,
   reanalyze,
   getHealth,
   getResult,
@@ -1706,6 +1707,30 @@ export default function Home() {
    * 이미 있는 글을 고쳐 쓰는 일이라 AI가 잘한다 — 실측에서 52줄 토막이
    * 25줄 소절로 정리되고 잘못 인식된 낱말들이 바로잡혔다.
    */
+  /**
+   * 지금 맞춘 연주설정을 이 곡의 기준값으로 적어 둔다(편집 탭 줄의 「기준값 저장」).
+   *
+   * 싱크는 기기 사정이 아니라 악보와 음원이 어긋난 정도다 — 강사님이 한 번 맞추면
+   * 수강생 모두에게 같은 값이 옳다. 곡에 적어 두면 곡 파일에 실려 함께 가고, 기기를
+   * 바꾸거나 재분석해도 남는다.
+   */
+  const [setupSaving, setSetupSaving] = useState(false);
+  const [setupKept, setSetupKept] = useState(false);
+  const keepSongSetup = async () => {
+    if (!result) return;
+    setSetupSaving(true);
+    setError(null);
+    try {
+      adoptResult(await putSongSetup(result.id, loadSetup(result.id)));
+      setSetupKept(true);
+      setTimeout(() => setSetupKept(false), 2500);
+    } catch (e) {
+      setError(`기준값을 적어 두지 못했습니다: ${(e as Error).message}`);
+    } finally {
+      setSetupSaving(false);
+    }
+  };
+
   /** 악보 가사 줄의 띄어쓰기만 AI로 바로잡는다(글자·시각은 그대로) */
   const [spaceBusy, setSpaceBusy] = useState(false);
   const respaceScoreLyrics = async () => {
@@ -3296,6 +3321,19 @@ export default function Home() {
                         </button>
                       );
                     })}
+                  {/* 기준값 저장 — 멜로디 탭 안쪽에 있던 것을 탭 줄로 옮겼다(강사님).
+                      싱크·카포·주법은 어느 탭에서 맞추든 곡 하나의 값이라, 어느 탭에서나
+                      적어 둘 수 있어야 한다. 곡 파일에 실려 수강생도 같은 값으로 시작한다 */}
+                  {editMode && canFix && (
+                    <button
+                      className="shrink-0 rounded-md bg-[var(--accent)] px-2 py-1 text-[12px] font-semibold text-white disabled:opacity-40"
+                      disabled={!health || setupSaving}
+                      title="지금 싱크·카포·주법을 이 곡의 기준으로 적어 둡니다. 수강생도 같은 값으로 시작합니다"
+                      onClick={() => void keepSongSetup()}
+                    >
+                      {setupKept ? "저장됨" : "기준값 저장"}
+                    </button>
+                  )}
                 </div>
 
                 {/* 고치는 법은 탭 바로 아래에 둔다. 길게 눌러야 열린다는 것을
@@ -3398,7 +3436,7 @@ export default function Home() {
                           /* 글은 짧게 — 「ABC 수정」「ABC 내보내기」로 두었더니 폰 폭에서
                              안내줄 오른쪽이 잘렸다(강사님: 「레이블 잘림」). 「ABC」는 앞의
                              단추 하나에만 */
-                          <span className="flex shrink-0 flex-col items-stretch gap-0.5 whitespace-nowrap md:flex-row md:items-center md:gap-1">
+                          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                             <button
                               className="shrink-0 rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                               title="ABC 악보 원문을 고칩니다"
