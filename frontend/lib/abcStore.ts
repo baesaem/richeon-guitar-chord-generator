@@ -44,6 +44,12 @@ export interface AbcEntry {
    * 열쇠는 **악보에 적힌 마디 번호**(0부터, 문자열). 곡 파일에 실려 수강생에게도 간다.
    */
   memos?: Record<string, string>;
+  /**
+   * 악보 가사 대신 **받아쓴·AI로 정리한 가사**를 쓴다(강사님: 「편집 가사에 자동 정리
+   * 기능이 없음」). 평소엔 악보 가사가 우선이라 찾기·바꾸기·AI 다듬기가 감춰지는데,
+   * 이 곡에서 그 도구를 쓰고 싶으면 켠다. 곡 파일에 실려 수강생에게도 간다.
+   */
+  ownLyrics?: boolean;
 }
 
 
@@ -140,6 +146,15 @@ export function setAbcMemo(
   if (t.trim()) memos[String(bar)] = t.slice(0, 200);
   else delete memos[String(bar)];
   store[songId] = { ...cur, memos };
+  write(store);
+}
+
+/** 이 곡은 악보 가사 대신 받아쓴·정리한 가사를 쓸 것인지 */
+export function setAbcOwnLyrics(songId: string, on: boolean): void {
+  const store = read();
+  const cur = store[songId];
+  if (!cur) return;
+  store[songId] = { ...cur, ownLyrics: on || undefined };
   write(store);
 }
 

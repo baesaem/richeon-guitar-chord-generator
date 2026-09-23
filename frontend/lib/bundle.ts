@@ -18,7 +18,7 @@ import {
 } from "./library";
 import { DEFAULT_SETUP, loadSetup, saveSetup, type SongSetup } from "./perSong";
 import { instKey, stemKey } from "./sharedFiles";
-import { getAbc, saveAbc, setAbcFollow, setAbcMemos, setAbcTabScore } from "./abcStore";
+import { getAbc, saveAbc, setAbcFollow, setAbcMemos, setAbcOwnLyrics, setAbcTabScore } from "./abcStore";
 import { fitAbcToAudioKey } from "./abcKeyFix";
 import { getTabEdits, setTabEdits, type TabBarEdit } from "./tabEdits";
 import type { TabScore } from "./msczToAbc";
@@ -107,6 +107,8 @@ export interface SongBundle {
     tabEdits?: Record<number, TabBarEdit>;
     /** 마디 위 메모(적힌 마디 번호 → 글). 곡과 함께 간다 */
     memos?: Record<string, string>;
+    /** 악보 가사 대신 받아쓴·정리한 가사를 쓰는 곡인가 */
+    ownLyrics?: boolean;
   };
 }
 
@@ -366,6 +368,7 @@ export async function makeBundle(
       follow: abc.follow,
       tabEdits: getTabEdits(result.id),
       memos: abc.memos,
+      ownLyrics: abc.ownLyrics,
     };
 
   /*
@@ -547,6 +550,7 @@ export async function openBundle(
         setTabEdits(bundle.result.id, bundle.abc.tabEdits);
       // 메모는 강사님 것을 그대로 따른다(지운 메모도 따라 지워진다)
       setAbcMemos(bundle.result.id, bundle.abc.memos);
+      setAbcOwnLyrics(bundle.result.id, !!bundle.abc.ownLyrics);
     } catch {
       /* 자리가 모자라도 코드·가사는 들어간다 */
     }

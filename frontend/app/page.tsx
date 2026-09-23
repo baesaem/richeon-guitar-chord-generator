@@ -48,6 +48,7 @@ import {
   setAbcFollow,
   setAbcMemo,
   setAbcOffset,
+  setAbcOwnLyrics,
   setAbcOwnFrets,
   type AbcEntry,
 } from "@/lib/abcStore";
@@ -1279,6 +1280,8 @@ export default function Home() {
    */
   const scoreLyrics = useMemo(() => {
     if (!abcEntry?.abc || !bars.length) return null;
+    // 이 곡은 받아쓴·정리한 가사를 쓰기로 했다 — 악보 가사를 지어 얹지 않는다
+    if (abcEntry.ownLyrics) return null;
     try {
       return scoreLyricLines(
         abcEntry.abc,
@@ -3576,6 +3579,32 @@ export default function Home() {
                           악보에 가사가 있어 악보 가사를 부르는 차례대로 씁니다.
                           {editMode &&
                             " 글자를 고치려면 멜로디 탭의 「ABC 수정」에서 고치세요."}
+                          {/* 악보 가사 대신 받아쓴 가사를 쓰고 AI 정리·찾기·바꾸기를 쓰려면 */}
+                          {editMode && settings.adminMode && (
+                            <button
+                              className="ml-2 rounded bg-[var(--accent)] px-2 py-0.5 text-[11px] font-semibold text-white"
+                              onClick={() => {
+                                setAbcOwnLyrics(result.id, true);
+                                setAbcEntry(getAbc(result.id));
+                              }}
+                            >
+                              받아쓴 가사·AI 정리 쓰기
+                            </button>
+                          )}
+                        </p>
+                      )}
+                      {!scoreLyrics && abcEntry?.ownLyrics && editMode && settings.adminMode && (
+                        <p className="mb-2 rounded bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2 py-1.5 text-[11px] leading-snug text-[var(--accent)]">
+                          이 곡은 악보 가사 대신 받아쓴·정리한 가사를 씁니다.
+                          <button
+                            className="ml-2 rounded bg-[var(--panel)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                            onClick={() => {
+                              setAbcOwnLyrics(result.id, false);
+                              setAbcEntry(getAbc(result.id));
+                            }}
+                          >
+                            악보 가사로 되돌리기
+                          </button>
                         </p>
                       )}
                       {/* 가사를 찾고·바꾸고·지우는 손은 여기 한 곳에 둔다.
