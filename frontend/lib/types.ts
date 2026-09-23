@@ -173,6 +173,11 @@ export interface AnalysisResult {
    * 수강생이 스스로 손댄 값이 있으면 그쪽이 이긴다.
    */
   setup?: Partial<import("./perSong").SongSetup>;
+  /**
+   * 함께 볼 영상 링크(유튜브). 동영상 파일로 등록한 곡은 영상을 수강생에게 못
+   * 보내므로 링크를 붙여 두고, 재생 화면이 음소거 영상을 음원 시각에 맞춰 돌린다.
+   */
+  video_url?: string | null;
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;

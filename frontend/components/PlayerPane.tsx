@@ -7,6 +7,7 @@ import { apiBase } from "@/lib/api";
 import { getLocalAudio } from "@/lib/library";
 import { stemKey, type StemChoice } from "@/lib/sharedFiles";
 import type { AnalysisResult } from "@/lib/types";
+import { youtubeIdOf } from "@/lib/videoLink";
 
 /** 재생 제어. YouTube든 업로드 오디오든 화면 쪽은 이 인터페이스만 안다. */
 export interface Playback {
@@ -31,6 +32,14 @@ interface Props {
   /** 보컬을 뺀 반주로 듣는다 */
   /** 어떤 트랙을 들을지. off=전체(원곡), inst=반주만, vocals=보컬만 */
   stem?: StemChoice;
+  /**
+   * 함께 볼 영상 링크(유튜브) — 업로드(동영상 파일) 곡에 붙인 것.
+   *
+   * 소리는 등록한 음원(서버·기기 mp3)이 내고, 유튜브는 **음소거로 화면만**
+   * 보이며 음원 시각을 따라간다(강사님: 「영상을 올릴 수 없으니 링크한 유튜브를
+   * 음소거로 음원에 맞춰 플레이」). 유튜브 곡(source=youtube)에는 쓰지 않는다.
+   */
+  videoUrl?: string | null;
 }
 
 /**
@@ -55,8 +64,19 @@ const SYNC_MAX_NUDGE = 0.04;
  */
 const HEADROOM = 0.8;
 
-export function PlayerPane({ result, onReady, compact = false, stem = "off" }: Props) {
+export function PlayerPane({
+  result,
+  onReady,
+  compact = false,
+  stem = "off",
+  videoUrl = null,
+}: Props) {
   const ytRef = useRef<YouTubePlayer | null>(null);
+  /* 링크 영상(음소거) — 업로드 곡의 그림만 맡는다. 시각의 주인은 아래 <audio>다.
+     유튜브 재생기 참조는 따로 둔다(ytRef는 「유튜브가 시각의 주인」인 길이 쓴다) */
+  const linkRef = useRef<YouTubePlayer | null>(null);
+  const linkedId = result.source === "youtube" ? null : youtubeIdOf(videoUrl);
+  const [linkPlaying, setLinkPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // YouTube 곡에서 영상 대신 소리를 내는 반주 트랙
   const instRef = useRef<HTMLAudioElement | null>(null);
@@ -280,6 +300,26 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
     };
   }, [dual, useYouTube]);
 
+  /* 링크 영상을 음원에 맞춘다 — 반주 맞추기(위)와 반대로 **음원이 주인**이다.
+     영상은 화면만 쓰므로 조금 어긋나도 소리에는 탈이 없다. 1초 넘게 벌어졌을
+     때만 자리를 옮기고, 멈춤·재생·빠르기를 음원에 맞춘다 */
+  useEffect(() => {
+    if (!linkedId) return;
+    const timer = setInterval(() => {
+      const yt = linkRef.current;
+      const a = audioRef.current;
+      if (!yt || !a || !yt.getCurrentTime) return;
+      const t = yt.getCurrentTime();
+      if (typeof t !== "number") return;
+      if (Math.abs(t - a.currentTime) > SYNC_JUMP) yt.seekTo?.(a.currentTime, true);
+      const state = yt.getPlayerState?.();
+      if (playingRef.current && state !== 1 && state !== 3) yt.playVideo?.();
+      if (!playingRef.current && state === 1) yt.pauseVideo?.();
+      if (yt.isMuted && !yt.isMuted()) yt.mute?.();
+    }, 700);
+    return () => clearInterval(timer);
+  }, [linkedId]);
+
   if (useYouTube) {
     return (
       <>
@@ -385,10 +425,90 @@ export function PlayerPane({ result, onReady, compact = false, stem = "off" }: P
       onPlay={() => {
         playingRef.current = true;
         wantPlayRef.current = true;
+        // 링크 영상도 함께 — 자리는 아래 맞추기가 곧 잡아 준다
+        linkRef.current?.playVideo?.();
       }}
-      onPause={() => (playingRef.current = false)}
+      onPause={() => {
+        playingRef.current = false;
+        linkRef.current?.pauseVideo?.();
+      }}
+      onSeeked={(e) => {
+        linkRef.current?.seekTo?.(e.currentTarget.currentTime, true);
+      }}
+      onRateChange={(e) => {
+        linkRef.current?.setPlaybackRate?.(e.currentTarget.playbackRate);
+      }}
     />
   );
+  if (linkedId) {
+    /* 업로드 곡 + 링크 영상: 유튜브 창을 음소거로 띄우고 <audio>를 따라가게 한다.
+       유튜브 곡 화면과 같은 짜임(장면 사진 덮개·손가락 조작)이되 시각의 주인은 음원이다 */
+    return (
+      <>
+        <div
+          className={[
+            "relative shrink-0 overflow-hidden bg-black",
+            compact ? "h-14 w-full" : "mx-auto aspect-video w-[85%] md:w-full",
+          ].join(" ")}
+        >
+          <YouTube
+            videoId={linkedId}
+            className="h-full w-full"
+            iframeClassName="h-full w-full"
+            opts={{
+              playerVars: {
+                playsinline: 1,
+                rel: 0,
+                controls: 0,
+                iv_load_policy: 3,
+                disablekb: 1,
+                fs: 0,
+                mute: 1,
+              },
+            }}
+            onReady={(e) => {
+              linkRef.current = e.target;
+              e.target.mute?.();
+              noCaptions(e.target);
+            }}
+            onStateChange={(e) => {
+              if (e.data === 1) noCaptions(e.target);
+              setLinkPlaying(e.data === 1 || e.data === 3);
+              /* 유튜브는 자리를 옮기면 스스로 켜지기도 한다 — 음원이 멈춰 있으면
+                 도로 멈춘다. 음원이 도는데 유튜브가 멈췄으면(버퍼링 뒤) 다시 켠다 */
+              if (e.data === 1 && !playingRef.current) e.target.pauseVideo?.();
+              if ((e.data === 2 || e.data === 0) && playingRef.current) e.target.playVideo?.();
+            }}
+          />
+          {!linkPlaying && (
+            <button
+              className="absolute inset-0 h-full w-full cursor-pointer"
+              title="재생"
+              onClick={() => pbRef.current?.play()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://i.ytimg.com/vi/${linkedId}/hqdefault.jpg`}
+                alt=""
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+              <span className="absolute inset-0 flex items-center justify-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60 text-xl text-white">
+                  ▶
+                </span>
+              </span>
+            </button>
+          )}
+          <VideoTouch pb={getPb} duration={result.duration} />
+          <span className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+            영상 음소거 · 소리는 등록한 음원
+          </span>
+        </div>
+        {audio}
+      </>
+    );
+  }
   if (!isYouTube) return audio;
   // 유튜브에서 막힌 곡: 영상 자리에 장면 사진과 까닭을 적고 소리만 낸다
   return (

@@ -79,7 +79,11 @@ interface Props {
   /** 악보 파일을 함께 주면 분석이 끝나는 자리에서 붙이고 코드가 악보를 따르게 한다 */
   /** karaoke면 노래방 곡 — 악보 없이 분석해 음원목록 「노래방」 폴더에 넣는다 */
   onAnalyzeUrl: (url: string, score?: File, staff?: number, karaoke?: boolean) => void;
-  onAnalyzeFile: (file: File) => void;
+  /**
+   * 파일(오디오·동영상·녹음)로 등록. 동영상 등록 창은 악보(선택)와 함께 볼 유튜브
+   * 링크(선택)도 넘긴다 — 영상 파일은 수강생에게 못 보내니 링크로 대신 본다
+   */
+  onAnalyzeFile: (file: File, score?: File, staff?: number, videoUrl?: string) => void;
   /** 서버 없이 AI로 코드를 만든다. 서버가 없을 때만 쓴다 */
   onAnalyzeWithAi: (url: string) => void;
 }
@@ -153,6 +157,9 @@ export function ImportTab({
   const audioInputRef = useRef<HTMLInputElement>(null);
   /** 동영상으로 음원 등록 — 서버가 ffmpeg로 소리만 뽑는다(영상은 버린다) */
   const videoInputRef = useRef<HTMLInputElement>(null);
+  /** 동영상 등록 창에서 고른 파일과, 함께 볼 유튜브 링크(선택) */
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
   // 반주·보컬 트랙도 저장할지. 기기 공간을 아끼려는 사람은 끈다
   const [wantInst, setWantInst] = useState(true);
   const [wantVocals, setWantVocals] = useState(false);
@@ -678,8 +685,8 @@ export function ImportTab({
               </svg>
             }
             title="동영상으로 음원 등록"
-            description="mp4 · mov · webm · mkv · avi 등 동영상에서 소리만 뽑아 등록합니다"
-            onClick={() => videoInputRef.current?.click()}
+            description="mp4 · mov · webm · mkv · avi 등 동영상에서 소리만 뽑아 등록합니다. 악보와 함께 볼 유튜브 링크도 넣을 수 있습니다"
+            onClick={() => setOpen("video")}
           />
           <input
             ref={videoInputRef}
@@ -690,7 +697,7 @@ export function ImportTab({
             onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = "";
-              if (f) onAnalyzeFile(f);
+              if (f) setVideoFile(f);
             }}
           />
 
@@ -798,6 +805,66 @@ export function ImportTab({
               onAnalyzeFile(file);
             }}
           />
+        </Popup>
+      )}
+
+      {/* ---- 동영상 등록 모달 ----
+           유튜브 등록과 같은 짜임: 악보를 함께 넣으면 코드·멜로디·타브가 악보를
+           따른다. 영상 파일은 드라이브에 못 올리니(수십 MB) 수강생은 소리만 받는다 —
+           그 곡의 유튜브 링크를 적어 두면 재생 화면이 음소거 영상을 음원에 맞춰 돌린다 */}
+      {open === "video" && (
+        <Popup title="동영상으로 음원 등록" onClose={() => setOpen(null)}>
+          <button
+            className="flex w-full items-center gap-2 rounded border border-[var(--panel-line)] px-3 py-3 text-left text-sm"
+            onClick={() => videoInputRef.current?.click()}
+          >
+            <span className="shrink-0 rounded bg-[var(--pick)] px-2 py-1 text-[12px] font-semibold text-[var(--pick-ink)]">
+              동영상 고르기
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {videoFile
+                ? `${videoFile.name} (${(videoFile.size / 1024 / 1024).toFixed(1)}MB)`
+                : "mp4 · mov · webm · mkv · avi …"}
+            </span>
+          </button>
+          <p className="mt-1 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+            영상에서 소리만 뽑아 분석합니다. 영상은 서버·앱에 남지 않습니다.
+          </p>
+          <ScorePick
+            score={score}
+            staff={staff}
+            onPick={(f, st) => {
+              setScore(f);
+              setStaff(st);
+            }}
+          />
+          <label className="mt-3 block text-[13px]">
+            <b>함께 볼 유튜브 링크</b>{" "}
+            <span className="text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+              (선택) — 소리는 등록한 음원, 화면은 이 영상(음소거)으로
+            </span>
+            <input
+              className="mt-1 w-full rounded border px-3 py-2 text-base"
+              placeholder="https://www.youtube.com/watch?v=..."
+              inputMode="url"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+            />
+          </label>
+          <button
+            className="mt-3 w-full rounded bg-[var(--pick)] py-3 text-[var(--pick-ink)] disabled:opacity-40"
+            disabled={!videoFile || busy}
+            onClick={() => {
+              if (!videoFile) return;
+              setOpen(null);
+              onAnalyzeFile(videoFile, score ?? undefined, staff, videoUrl.trim() || undefined);
+              setVideoFile(null);
+              setVideoUrl("");
+              setScore(null);
+            }}
+          >
+            {score ? "악보에 맞춰 분석" : "분석"}
+          </button>
         </Popup>
       )}
 

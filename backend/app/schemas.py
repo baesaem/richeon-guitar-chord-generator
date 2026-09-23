@@ -152,6 +152,9 @@ class AnalysisResult(BaseModel):
     #
     # 수강생이 스스로 손댄 값이 있으면 그쪽이 이긴다 — 이것은 시작값이다.
     setup: dict | None = None
+    #: 함께 볼 영상 링크(유튜브). 동영상 파일로 등록한 곡은 영상을 수강생에게 못 보내므로
+    #: 링크를 붙여 두고, 재생 화면이 그 영상을 음소거로 음원 시각에 맞춰 돌린다(강사님)
+    video_url: str | None = None
 
     # 타임라인에 그릴 파형 포락선. 0~1로 정규화된 값이 초당 peaks_per_second개.
     peaks: list[float] = []

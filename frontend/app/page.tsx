@@ -1163,6 +1163,15 @@ export default function Home() {
                   `음원목록에 등록하고 악보를 붙였습니다 — ${r.title || r.id}`,
                 );
               }
+              /* 동영상 등록 때 적은 「함께 볼 유튜브 링크」 — 곡에 적어 둔다. 서버에도
+                 보내 곡 파일에 실리게(수강생 화면도 그 영상을 음소거로 본다) */
+              const video = pendingVideo.current;
+              if (video) {
+                pendingVideo.current = null;
+                const r2 = { ...r, video_url: video };
+                adoptResult(r2);
+                void putResult(r2).catch(() => {});
+              }
               // 등록하면서 함께 넣은 악보 — 붙이고, 마디 수를 맞추고,
               // 코드가 악보를 따르게 한다. 분석이 끝난 지금이 그 자리다.
               const pending = pendingScore.current;
@@ -2519,6 +2528,8 @@ export default function Home() {
   const pendingAbc = useRef<string | null>(null);
   /** 등록하면서 함께 넣은 악보 파일. 분석이 끝나면 그 곡에 싣는다 */
   const pendingScore = useRef<{ file: File; staff: number } | null>(null);
+  /** 동영상 등록 때 적은 「함께 볼 유튜브 링크」 — 분석이 끝나면 곡에 적는다 */
+  const pendingVideo = useRef<string | null>(null);
   /** 저장 결과를 알리는 짧은 안내 */
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
@@ -3776,6 +3787,7 @@ export default function Home() {
                       result={result}
                       onReady={attachPlayback}
                       stem={stem}
+                      videoUrl={result.video_url}
                     />
                   }
                   score={
@@ -4269,6 +4281,7 @@ export default function Home() {
                           onReady={attachPlayback}
                           compact={settings.videoCompact}
                           stem={stem}
+                          videoUrl={result.video_url}
                         />
                       </section>
 
@@ -4767,9 +4780,12 @@ export default function Home() {
                 void run(() => analyzeUrl(u, settings.separate));
               }}
               onAnalyzeWithAi={aiAnalyze}
-              onAnalyzeFile={(f) =>
-                run(() => analyzeUpload(f, settings.separate))
-              }
+              onAnalyzeFile={(f, score, staff, videoUrl) => {
+                // 동영상 등록: 악보(선택)는 유튜브 등록과 같은 길로, 영상 링크는 곡에 적는다
+                pendingScore.current = score ? { file: score, staff: staff ?? 0 } : null;
+                pendingVideo.current = videoUrl ?? null;
+                void run(() => analyzeUpload(f, settings.separate));
+              }}
               abcSong={result?.title || result?.id}
               onAbc={settings.adminMode ? openAbcStudio : undefined}
               /* 악보 만들기 창. 따로 띄우지 않고 이 뷰 안에서 카드 자리를
