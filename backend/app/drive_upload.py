@@ -221,8 +221,60 @@ def _find_existing(client: httpx.Client, folder_id: str, name: str) -> str | Non
     return files[0]["id"] if files else None
 
 
+#: 이보다 큰 파일은 한 번에 보내지 않고 이어 올리기(resumable)로 보낸다 — 구글이
+#: 큰 multipart 요청을 502로 끊는 일이 잦았다(「광화문연가-목금기타」 곡 파일·mp3)
+_RESUMABLE_OVER = 4 * 1024 * 1024
+#: 구글이 잠깐 못 받을 때(5xx·429) 쉬었다 다시 보내는 횟수와 첫 쉼(초, 매번 두 배)
+_RETRIES = 4
+_BACKOFF = 2.0
+
+
+def _reason(res: httpx.Response) -> str:
+    """사람이 읽을 실패 사유. 구글은 5xx에 HTML 쪽을 돌려준다 — 그대로 보이지 않는다."""
+    code = res.status_code
+    if code >= 500:
+        return f"구글 드라이브가 잠시 응답하지 않습니다({code}). 잠시 뒤 다시 올려 주세요."
+    if code == 429:
+        return "구글 드라이브가 너무 잦은 요청이라 막았습니다(429). 잠시 뒤 다시 올려 주세요."
+    try:
+        msg = res.json().get("error", {}).get("message", "")
+    except ValueError:
+        msg = ""
+    return f"올리지 못했습니다 ({code}) {msg[:160]}".strip()
+
+
+def _send_once(client: httpx.Client, existing: str | None, meta: dict, name: str, data: bytes, mime: str) -> httpx.Response:
+    """한 번 보낸다. 큰 파일은 이어 올리기 — 자리를 먼저 받고 본문을 PUT으로."""
+    params = {"fields": "id,name"}
+    url = f"{UPLOAD_API}/files/{existing}" if existing else f"{UPLOAD_API}/files"
+    method = client.patch if existing else client.post
+    if len(data) <= _RESUMABLE_OVER:
+        files = {
+            "metadata": ("metadata", json.dumps(meta), "application/json; charset=UTF-8"),
+            "file": (name, data, mime),
+        }
+        return method(url, params={**params, "uploadType": "multipart"}, files=files)
+    start = method(
+        url,
+        params={**params, "uploadType": "resumable"},
+        content=json.dumps(meta).encode(),
+        headers={
+            "Content-Type": "application/json; charset=UTF-8",
+            "X-Upload-Content-Type": mime,
+            "X-Upload-Content-Length": str(len(data)),
+        },
+    )
+    if start.status_code not in (200, 201) or "location" not in start.headers:
+        return start
+    return client.put(start.headers["location"], content=data, headers={"Content-Type": mime})
+
+
 def upload(folder_id: str, name: str, data: bytes, mime: str) -> dict:
-    """공유 폴더에 파일을 올린다. 같은 이름이 있으면 그 파일을 갈아 끼운다."""
+    """공유 폴더에 파일을 올린다. 같은 이름이 있으면 그 파일을 갈아 끼운다.
+
+    구글이 잠깐 못 받으면(5xx·429) 쉬었다 다시 보낸다. 같은 이름 찾기도 다시 해서,
+    앞 시도가 실은 올라갔으면 새로 만들지 않고 갈아 끼운다(사본이 쌓이지 않게).
+    """
     if folder_id not in settings.shared_folder_ids:
         raise DriveError("알 수 없는 폴더입니다")
 
@@ -230,25 +282,23 @@ def upload(folder_id: str, name: str, data: bytes, mime: str) -> dict:
     with httpx.Client(
         headers={"Authorization": f"Bearer {token}"}, timeout=300.0
     ) as client:
-        existing = _find_existing(client, folder_id, name)
-        meta = {"name": name} if existing else {"name": name, "parents": [folder_id]}
-        files = {
-            "metadata": ("metadata", json.dumps(meta), "application/json; charset=UTF-8"),
-            "file": (name, data, mime),
-        }
-        if existing:
-            res = client.patch(
-                f"{UPLOAD_API}/files/{existing}",
-                params={"uploadType": "multipart", "fields": "id,name"},
-                files=files,
-            )
-        else:
-            res = client.post(
-                f"{UPLOAD_API}/files",
-                params={"uploadType": "multipart", "fields": "id,name"},
-                files=files,
-            )
-        if res.status_code not in (200, 201):
-            raise DriveError(f"올리지 못했습니다 ({res.status_code}) {res.text[:200]}")
-        body = res.json()
-        return {"id": body.get("id"), "name": body.get("name"), "replaced": bool(existing)}
+        res: httpx.Response | None = None
+        existing: str | None = None
+        for attempt in range(_RETRIES + 1):
+            if attempt:
+                time.sleep(_BACKOFF * (2 ** (attempt - 1)))
+            try:
+                existing = _find_existing(client, folder_id, name)
+                meta = {"name": name} if existing else {"name": name, "parents": [folder_id]}
+                res = _send_once(client, existing, meta, name, data, mime)
+            except httpx.HTTPError:
+                res = None
+                continue
+            if res.status_code in (200, 201):
+                body = res.json()
+                return {"id": body.get("id"), "name": body.get("name"), "replaced": bool(existing)}
+            if res.status_code < 500 and res.status_code != 429:
+                break
+        if res is None:
+            raise DriveError("구글 드라이브에 닿지 못했습니다. 인터넷 연결을 확인하고 다시 올려 주세요.")
+        raise DriveError(_reason(res))
