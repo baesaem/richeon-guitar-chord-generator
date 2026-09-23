@@ -151,6 +151,8 @@ export function ImportTab({
   const [staff, setStaff] = useState(0);
   /** 오디오 음원 등록 — 카드를 누르면 이 입력을 대신 연다 */
   const audioInputRef = useRef<HTMLInputElement>(null);
+  /** 동영상으로 음원 등록 — 서버가 ffmpeg로 소리만 뽑는다(영상은 버린다) */
+  const videoInputRef = useRef<HTMLInputElement>(null);
   // 반주·보컬 트랙도 저장할지. 기기 공간을 아끼려는 사람은 끈다
   const [wantInst, setWantInst] = useState(true);
   const [wantVocals, setWantVocals] = useState(false);
@@ -655,6 +657,42 @@ export function ImportTab({
               onClick={() => setOpen("youtube")}
             />
           )}
+
+          {/* 동영상 파일로 등록(강사님: 「동영상(mp4 포함)으로 음원등록」, 「다른 포맷도」).
+              서버가 ffmpeg로 소리만 뽑아 쓰므로(-vn) mp4·mov·webm·mkv·avi 어느
+              것이든 된다. 영상은 서버에도 앱에도 남지 않고 소리(mp3)만 남는다 */}
+          <Card
+            icon={
+              <svg
+                viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="5" width="13" height="14" rx="2" />
+                <path d="M16 10l5-3v10l-5-3z" />
+              </svg>
+            }
+            title="동영상으로 음원 등록"
+            description="mp4 · mov · webm · mkv · avi 등 동영상에서 소리만 뽑아 등록합니다"
+            onClick={() => videoInputRef.current?.click()}
+          />
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*,.mp4,.m4v,.mov,.webm,.mkv,.avi,.wmv,.flv,.3gp,.ts,.mts,.mpg,.mpeg"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) onAnalyzeFile(f);
+            }}
+          />
 
           {/* 악보(ABC) 등록 — 음원과 짝이 되는 악보를 곡에 붙인다.
           MuseScore 파일·AI 채보·붙여넣기 모두 이 자리에서 한다. */}
