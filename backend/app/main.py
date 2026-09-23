@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import tempfile
 from pathlib import Path
@@ -604,8 +605,25 @@ async def get_audio(result_id: str) -> FileResponse:
     path = _source_audio(result_id)
     if path is None:
         raise HTTPException(404, "오디오를 찾을 수 없습니다")
+    # 동영상으로 등록한 곡은 원본이 영상(mp4 289MB 따위)이다. 그대로 내주면 PC에서는
+    # 틀리지만 드라이브에 올리다 막혀 폰·태블릿이 받을 소리가 없었다(「광화문연가-
+    # 목금기타」). 소리만 mp3로 한 번 뽑아 두고 그것을 낸다 — 이름에 점을 하나 더
+    # 넣어 원본 찾기(_source_audio)가 이것을 원본으로 보지 않게 한다
+    if path.suffix.lower() in _VIDEO_SUFFIXES:
+        mp3 = settings.audio_dir / f"{result_id}.play.mp3"
+        if not mp3.exists():
+            try:
+                await encode_mp3(path, mp3, bitrate="160k")
+            except Exception as exc:  # ffmpeg가 없으면 원본이라도 낸다
+                logging.getLogger(__name__).warning("소리 뽑기 실패 %s: %s", result_id, exc)
+        if mp3.exists():
+            return FileResponse(mp3, filename=f"{result_id}.mp3", media_type="audio/mpeg")
     # 파일명(확장자)을 헤더로 알려줘 프론트가 음원 내보내기 이름을 지을 수 있게 한다
     return FileResponse(path, filename=path.name)
+
+
+#: 동영상 컨테이너 — 재생·배포용 소리는 따로 뽑는다(sources/upload.ALLOWED_SUFFIXES와 짝)
+_VIDEO_SUFFIXES = {".mp4", ".m4v", ".mov", ".mkv", ".avi", ".wmv", ".flv", ".3gp", ".ts", ".mts", ".mpg", ".mpeg", ".webm"}
 
 
 def _source_audio(result_id: str) -> Path | None:
