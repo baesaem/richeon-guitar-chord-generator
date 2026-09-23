@@ -406,6 +406,48 @@ def tidy_lyrics(rows: list[dict]) -> list[dict]:
     return out
 
 
+# ── 악보 가사의 띄어쓰기만 바로잡기 ────────────────────────────────
+#
+# 악보(ABC)에서 온 가사는 음절마다 떨어져 있어, 가사 탭에 이을 때 띄어쓰기를
+# 받아쓴 가사에서 빌린다. 받아쓰기가 없거나 틀리면 「언덕밑정동길엔아직남아
+# 있어요」처럼 붙어 나온다(강사님: 「가사 탭은 문장을 보여 주는 것이니 띄어쓰기
+# 정도 정리」). 글자는 악보가 정답이므로 **빈칸만** 넣고 빼게 하고, 글자가 하나라도
+# 바뀐 줄은 버린다(원래 줄을 쓴다).
+
+_RESPACE_PROMPT = """다음은 노래 가사입니다. 한 줄에 한 소절입니다.
+**띄어쓰기만** 한국어 맞춤법에 맞게 고쳐 주세요.
+
+규칙:
+- 글자는 하나도 바꾸거나 더하거나 빼지 마세요. 빈칸만 넣거나 뺍니다.
+- 줄 수와 차례를 그대로 두세요. 줄을 합치거나 나누지 마세요.
+- 문장부호를 넣지 마세요.
+
+JSON 배열만 출력하세요: ["첫째 줄", "둘째 줄", ...]
+
+가사:
+{lines}"""
+
+
+def respace_lyrics(lines: list[str]) -> list[str]:
+    """띄어쓰기만 고친 줄들. 글자가 바뀐 줄·실패하면 원래 줄을 그대로 쓴다."""
+    if not enabled() or not lines:
+        return list(lines)
+    try:
+        raw = _chat(_RESPACE_PROMPT.format(lines="\n".join(lines)))
+        start, end = raw.find("["), raw.rfind("]")
+        data = json.loads(raw[start : end + 1]) if 0 <= start < end else []
+    except Exception:
+        return list(lines)
+    if not isinstance(data, list) or len(data) != len(lines):
+        return list(lines)
+    bare = lambda s: re.sub(r"\s+", "", str(s))  # noqa: E731
+    out = []
+    for old, new in zip(lines, data):
+        new = re.sub(r"\s+", " ", str(new)).strip()
+        out.append(new if new and bare(new) == bare(old) else old)
+    return out
+
+
 # ── 붙여넣은 가사에 시각 붙이기 ────────────────────────────────────
 #
 # 사람이 웹에서 가사를 긁어 붙여넣으면 글자는 맞는데 시각이 없다. 노래

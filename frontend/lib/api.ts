@@ -708,6 +708,14 @@ export const tidyLyrics = (id: string) =>
     json<AnalysisResult>,
   );
 
+/** 가사 줄들의 띄어쓰기만 고친다 — 글자·줄 수는 그대로(서버가 검사한다) */
+export const respaceLyrics = (lines: string[]) =>
+  fetch(`${apiBase()}/api/lyrics/respace`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lines }),
+  }).then(json<{ lines: string[]; changed: number }>);
+
 /** 붙어 있는 가사를 지운다. 수동 표식도 함께 걷힌다. */
 export const deleteLyrics = (id: string) =>
   fetch(`${apiBase()}/api/results/${id}/lyrics`, { method: "DELETE" }).then(

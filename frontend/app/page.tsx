@@ -92,6 +92,7 @@ import {
   analyzeUrl,
   putResult,
   tidyLyrics,
+  respaceLyrics,
   reanalyze,
   getHealth,
   getResult,
@@ -1705,6 +1706,27 @@ export default function Home() {
    * 이미 있는 글을 고쳐 쓰는 일이라 AI가 잘한다 — 실측에서 52줄 토막이
    * 25줄 소절로 정리되고 잘못 인식된 낱말들이 바로잡혔다.
    */
+  /** 악보 가사 줄의 띄어쓰기만 AI로 바로잡는다(글자·시각은 그대로) */
+  const [spaceBusy, setSpaceBusy] = useState(false);
+  const respaceScoreLyrics = async () => {
+    const cur = result?.lyrics ?? [];
+    if (!result || !cur.length || !health) return;
+    setSpaceBusy(true);
+    setError(null);
+    try {
+      const { lines, changed } = await respaceLyrics(cur.map((l) => l.text));
+      if (lines.length !== cur.length) throw new Error("줄 수가 달라졌습니다");
+      const next = { ...result, lyrics: cur.map((l, i) => ({ ...l, text: lines[i] })) };
+      adoptResult(next);
+      pushToServer(next);
+      setToast(changed ? `띄어쓰기를 ${changed}줄 고쳤습니다` : "고칠 띄어쓰기가 없습니다");
+    } catch (e) {
+      setError(`띄어쓰기를 정리하지 못했습니다: ${(e as Error).message}`);
+    } finally {
+      setSpaceBusy(false);
+    }
+  };
+
   const tidyWithAi = async () => {
     if (!result?.lyrics?.length || !health) return;
     setLyricBusy(true);
@@ -3579,6 +3601,18 @@ export default function Home() {
                           악보에 가사가 있어 악보 가사를 부르는 차례대로 씁니다.
                           {editMode &&
                             " 글자를 고치려면 멜로디 탭의 「ABC 수정」에서 고치세요."}
+                          {/* 띄어쓰기만 고친다 — 가사 탭은 문장을 보여 주는 곳이라 글자·마디는
+                              그대로 두고 빈칸만 바로잡는다(강사님). 고친 줄이 곧 다음 셈의
+                              띄어쓰기 원본이 되어 그대로 남는다(scoreLyricLines의 spacing) */}
+                          {editMode && settings.adminMode && health && (
+                            <button
+                              className="ml-2 rounded bg-[var(--accent)] px-2 py-0.5 text-[11px] font-semibold text-white disabled:opacity-40"
+                              disabled={spaceBusy}
+                              onClick={respaceScoreLyrics}
+                            >
+                              {spaceBusy ? "띄어쓰기 정리 중…" : "띄어쓰기 정리"}
+                            </button>
+                          )}
                           {/* 악보 가사 대신 받아쓴 가사를 쓰고 AI 정리·찾기·바꾸기를 쓰려면 */}
                           {editMode && settings.adminMode && (
                             <button

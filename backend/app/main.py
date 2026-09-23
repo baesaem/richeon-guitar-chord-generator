@@ -976,6 +976,23 @@ async def delete_lyrics(result_id: str) -> AnalysisResult:
     return result
 
 
+@app.post("/api/lyrics/respace")
+async def respace_lyrics_endpoint(body: dict) -> dict:
+    """가사 줄들의 **띄어쓰기만** 고친다 — 글자는 그대로(llm.respace_lyrics).
+
+    악보 가사를 쓰는 곡의 가사 탭 「띄어쓰기 정리」가 부른다. 줄 수·글자가 같게
+    돌아오므로 앱은 시각은 그대로 두고 글만 갈아 끼운다.
+    """
+    lines = [str(x) for x in (body.get("lines") or []) if isinstance(x, str)][:400]
+    if not lines:
+        raise HTTPException(400, "정리할 가사가 없습니다")
+    if not llm.enabled():
+        raise HTTPException(400, "가사 도우미(AI) 키가 없습니다")
+    fixed = await asyncio.to_thread(llm.respace_lyrics, lines)
+    changed = sum(1 for a, b in zip(lines, fixed) if a != b)
+    return {"lines": fixed, "changed": changed}
+
+
 @app.post("/api/results/{result_id}/lyrics/tidy")
 async def tidy_lyrics_endpoint(result_id: str) -> AnalysisResult:
     """붙어 있는 가사를 AI로 다듬는다.
