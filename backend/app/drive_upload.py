@@ -279,8 +279,13 @@ def upload(folder_id: str, name: str, data: bytes, mime: str) -> dict:
         raise DriveError("알 수 없는 폴더입니다")
 
     token = _access_token()
+    # 기다리는 시간은 파일 크기에 맞춘다(강사님: 「예전보다 올리는 시간이 많이 걸림」).
+    # 5분을 기다렸더니 구글이 대답 없이 붙잡은 3MB 보컬 하나에 3분이 걸렸다. 한 번 이을
+    # 때 20초, 보낼 때는 30초 + MB당 8초(느린 망에서도 넉넉한 몫) — 넘기면 끊고 다시 보낸다
+    mb = len(data) / 1024 / 1024
+    timeout = httpx.Timeout(30.0 + mb * 8.0, connect=20.0)
     with httpx.Client(
-        headers={"Authorization": f"Bearer {token}"}, timeout=300.0
+        headers={"Authorization": f"Bearer {token}"}, timeout=timeout
     ) as client:
         res: httpx.Response | None = None
         existing: str | None = None
