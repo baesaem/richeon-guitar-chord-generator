@@ -51,6 +51,7 @@ import {
   setAbcOwnFrets,
   type AbcEntry,
 } from "@/lib/abcStore";
+import { downloadAbc } from "@/lib/abcExport";
 import { fitAbcToAudioKey, type KeyFix } from "@/lib/abcKeyFix";
 import { tabKeyGap } from "@/lib/tabKey";
 import { clearDirty, listDirty, markDirty } from "@/lib/dirty";
@@ -3347,12 +3348,25 @@ export default function Home() {
                       playStyle={playStyle}
                       headerRight={
                         canFix ? (
-                          <button
-                            className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
-                            onClick={() => openAbcStudio()}
-                          >
-                            ABC 수정
-                          </button>
+                          <span className="flex shrink-0 items-center gap-1">
+                            <button
+                              className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                              onClick={() => openAbcStudio()}
+                            >
+                              ABC 수정
+                            </button>
+                            {/* 악보 원문을 .abc 파일로 — 다른 프로그램에서 고치거나 다른 곡에 붙일 때 */}
+                            <button
+                              className="shrink-0 rounded bg-[var(--chip)] px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
+                              title="이 곡의 ABC 악보를 .abc 파일로 내려받습니다"
+                              onClick={() => {
+                                downloadAbc(abcEntry.abc, result.title || result.id);
+                                setToast("ABC 악보를 파일로 내보냈습니다");
+                              }}
+                            >
+                              ABC 내보내기
+                            </button>
+                          </span>
                         ) : undefined
                       }
                     />
