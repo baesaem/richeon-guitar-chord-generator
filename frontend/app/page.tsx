@@ -1074,22 +1074,15 @@ export default function Home() {
     if (rate !== 1) pb.setRate(rate);
   };
 
-  /* 앱을 닫거나 화면에서 사라지면(다른 앱으로 전환·화면 끔) 재생을 멈춘다(강사님:
-     「앱이 종료되면 플레이 중인 음악도 정지하게」). 「종료」 자체는 브라우저가
-     알려 주지 않는다 — 닫히기 전에 반드시 지나는 「가려짐(hidden)」과
-     「페이지 닫힘(pagehide)」에서 멈춘다 */
+  /* 앱을 **완전히 닫을 때만** 재생을 멈춘다(강사님: 「앱이 종료되면 플레이 중인
+     음악도 정지하게 — 완전히 닫을 때만」). 다른 앱으로 잠시 넘어가거나 화면을
+     꺼도(가려짐) 음악은 이어진다. 브라우저·PWA는 「종료」를 pagehide로 알린다 —
+     탭을 닫거나 앱을 밀어 끌 때 온다 */
   useEffect(() => {
     if (!playback) return;
-    const stop = () => {
-      if (document.visibilityState === "hidden") playback.pause();
-    };
     const gone = () => playback.pause();
-    document.addEventListener("visibilitychange", stop);
     window.addEventListener("pagehide", gone);
-    return () => {
-      document.removeEventListener("visibilitychange", stop);
-      window.removeEventListener("pagehide", gone);
-    };
+    return () => window.removeEventListener("pagehide", gone);
   }, [playback]);
 
   const resetPlayback = () => {
