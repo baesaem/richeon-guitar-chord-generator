@@ -501,9 +501,6 @@ export function PlayerPane({
             </button>
           )}
           <VideoTouch pb={getPb} duration={result.duration} />
-          <span className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-            영상 음소거 · 소리는 등록한 음원
-          </span>
         </div>
         {audio}
       </>
