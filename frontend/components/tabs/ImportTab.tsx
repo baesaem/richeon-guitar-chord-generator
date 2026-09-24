@@ -188,12 +188,19 @@ export function ImportTab({
   } | null>(null);
   // 이미 받아서 기기에 남아 있는 드라이브 파일들
   const [fetched, setFetched] = useState<Set<string>>(new Set());
+  /** 받은 곡 기록을 한 번이라도 읽었나 — 읽기 전에 「받을 곡 있음」으로 목록이 스치지 않게 */
+  const [fetchedReady, setFetchedReady] = useState(false);
+  /** 받을 곡이 없다는 안내에서 「받은 곡 목록 보기」를 눌렀나(반을 바꾸면 되돌린다) */
+  const [showAnyway, setShowAnyway] = useState(false);
   // 목록 필터. 자동 동기화가 대부분 받아 두므로 기본은 '받지 않음'만 보여준다.
   const [filter, setFilter] = useState<SharedFilter>("unfetched");
 
   const refreshFetched = () =>
     localIds()
-      .then((ids) => setFetched(fetchedDriveIds(ids)))
+      .then((ids) => {
+        setFetched(fetchedDriveIds(ids));
+        setFetchedReady(true);
+      })
       .catch(() => {});
 
   // 공유 폴더 접근 경로: 서버가 있으면 프록시, 없으면(외부 링크 정적 배포)
@@ -203,6 +210,12 @@ export function ImportTab({
     health ? downloadShared(id) : downloadDirectText(id);
   const fileBlob = (id: string) =>
     health ? downloadSharedBlob(id) : downloadDirectBlob(id);
+
+  // 반을 바꾸면 「받은 곡 보기」·칸 선택을 처음으로 — 새 반은 받을 곡부터 보인다
+  useEffect(() => {
+    setShowAnyway(false);
+    setFilter("unfetched");
+  }, [klass?.id]);
 
   useEffect(() => {
     if (!klass) return;
@@ -258,6 +271,26 @@ export function ImportTab({
   );
   // 지금 걸러 놓은 것 기준으로 화면에 보이는 곡. 목록과 「모두 받기」가
   // 같은 것을 보게 한 곳에서 계산한다.
+  /** 새로 받거나(받지 않음) 강사님이 고쳐 다시 올린(판이 바뀜) 곡 */
+  const pendingSongs = (sharedSongs ?? []).filter((file) => {
+    const stale =
+      !!file.modified && !!fetchedVersion(file.id) &&
+      fetchedVersion(file.id) !== file.modified;
+    return !fetched.has(file.id) || stale;
+  });
+  /* 수강생: 받을 것이 하나도 없으면 목록 창 대신 안내만 띄운다(강사님: 「변경사항이
+     없으면 받을 음원 목록을 보이지 않게, 안내 메시지」). 목록을 다 읽고 받은 기록도
+     읽은 뒤에만 가린다 — 읽는 동안 가리면 받을 곡이 있는데도 「없음」이 스친다 */
+  const newCount = pendingSongs.filter((f) => !fetched.has(f.id)).length;
+  const changedCount = pendingSongs.length - newCount;
+  const nothingNew =
+    !adminMode &&
+    !showAnyway &&
+    fetchedReady &&
+    !sharedError &&
+    sharedSongs !== null &&
+    sharedSongs.length > 0 &&
+    pendingSongs.length === 0;
   const visible = (sharedSongs ?? []).filter((file) => {
     /* 받은 뒤 강사님이 고쳐 다시 올린 곡은 「받지 않음」으로 돌린다.
        받음 쪽에 숨어 있으면, 알림을 보고 온 수강생이 목록에서 그 곡을
@@ -1036,9 +1069,48 @@ export function ImportTab({
         </Popup>
       )}
 
+      {/* ---- 받을 곡이 없을 때(수강생) — 목록 대신 안내 ---- */}
+      {klass && nothingNew && (
+        <Popup title={klass.name} width="max-w-xs" onClose={() => setOpen(null)}>
+          <p className="text-sm leading-relaxed">
+            새로 받을 곡이 없습니다.
+            <br />
+            <span className="text-[12px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
+              강사님이 올린 {sharedSongs?.length ?? 0}곡을 모두 받았고, 고쳐 다시 올린 곡도
+              없습니다. 음원목록에서 바로 연습하세요.
+            </span>
+          </p>
+          <button
+            className="mt-3 w-full rounded bg-[var(--pick)] py-2.5 text-sm text-[var(--pick-ink)]"
+            onClick={() => setOpen(null)}
+          >
+            확인
+          </button>
+          <button
+            className="mt-1.5 w-full rounded py-2 text-xs text-[color-mix(in_srgb,var(--foreground)_55%,transparent)] underline"
+            onClick={() => {
+              setShowAnyway(true);
+              setFilter("fetched");
+            }}
+          >
+            받은 곡 목록 보기(다시 받기)
+          </button>
+        </Popup>
+      )}
+
       {/* ---- 반별 곡 목록 모달 ---- */}
-      {klass && (
+      {klass && !nothingNew && (
         <Popup title={klass.name} onClose={() => setOpen(null)}>
+          {/* 받을 것이 있으면 무엇이 몇 곡인지 먼저 알린다(강사님: 「새 곡 또는 변경
+              사항이 있으면 새 곡 받기 창」) — 기본 칸 「받지 않음」에 그 곡들이 보인다 */}
+          {fetchedReady && pendingSongs.length > 0 && (
+            <p className="mb-1.5 rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2 py-1.5 text-[12px] font-semibold text-[var(--accent)]">
+              {[newCount && `새 곡 ${newCount}곡`, changedCount && `고쳐진 곡 ${changedCount}곡`]
+                .filter(Boolean)
+                .join(" · ")}
+              이 있습니다. 「받기」를 누르세요.
+            </p>
+          )}
           <p className="mb-1.5 text-[11px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
             필요한 곡을 골라 「받기」를 누르세요. 음원목록(기기 저장)에
             담깁니다.
