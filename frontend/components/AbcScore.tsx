@@ -423,9 +423,7 @@ ${spaced}`;
       const inNext = onThisLine(m + 1)
         ? onLine.filter((e) => e.playMeasure === audioToPlay[m + 1])
         : [];
-      const right = inNext.length
-        ? Math.min(...inNext.map((e) => e.left))
-        : Math.max(...inThis.map((e) => e.endX ?? e.left + (e.width ?? 0)));
+      const right = barRight(onLine, inThis, inNext);
       const span = bar.end - bar.start;
       const frac =
         span > 0 ? Math.min(Math.max((t - bar.start) / span, 0), 1) : 0;
@@ -840,9 +838,7 @@ function noteTimeAt(
       if (!bar) return;
       const nextPm = k + 1 < n && seen.has(audioToPlay[k + 1]) ? audioToPlay[k + 1] : null;
       const inNext = nextPm === null ? [] : onLine.filter((o) => o.playMeasure === nextPm);
-      const right = inNext.length
-        ? Math.min(...inNext.map((o) => o.left))
-        : Math.max(...inThis.map((o) => o.endX ?? o.left + (o.width ?? 0)));
+      const right = barRight(onLine, inThis, inNext);
       const frac =
         right > left ? Math.min(Math.max((e.left - left) / (right - left), 0), 1) : 0;
       // 커서가 이 음표를 「지나온 음표」로 칠하도록 아주 조금 뒤로
@@ -851,6 +847,26 @@ function noteTimeAt(
   }
   if (!times.length) return null;
   return times.reduce((a, b) => (Math.abs(b - now) < Math.abs(a - now) ? b : a));
+}
+
+/**
+ * 커서가 이 마디를 훑을 오른쪽 끝 — 다음에 치는 마디의 첫 음표.
+ *
+ * 다음에 치는 마디가 **왼쪽**이면(도돌이표로 되돌아간다) 그 자리는 끝이 될 수
+ * 없다. 그대로 쓰면 오른쪽 끝이 마디 머리보다 앞이라 커서가 도돌이 마디 머리에
+ * 멈춰 있다가 되돌아갔다(강사님: 「도돌이표 마디 앞에서 멈췄다 돌아감 — 마디 끝까지
+ * 갔다가 도돌이 시작으로」). 그때는 적힌 차례로 바로 오른쪽 마디의 머리(없으면 이
+ * 마디 마지막 음표의 끝)까지 훑는다.
+ */
+function barRight(onLine: Timing[], inThis: Timing[], inNext: Timing[]): number {
+  const last = Math.max(...inThis.map((e) => e.left));
+  if (inNext.length) {
+    const r = Math.min(...inNext.map((e) => e.left));
+    if (r > last) return r;
+  }
+  const after = onLine.filter((e) => e.left > last + 0.5).map((e) => e.left);
+  if (after.length) return Math.min(...after);
+  return Math.max(...inThis.map((e) => e.endX ?? e.left + (e.width ?? 0)));
 }
 
 /**

@@ -93,10 +93,26 @@ export function PlayerPane({
   const mapRef = useRef({ offset: 0, scale: 1 });
   mapRef.current = { offset: videoOffset ?? 0, scale: videoScale || 1 };
   const toVideo = (t: number) => mapRef.current.offset + mapRef.current.scale * t;
+  /** 붙인 영상에 시키기 — 창이 사라졌거나 막혔어도 음원 재생은 멈추지 않게 */
+  const linkSafe = (fn: (yt: YouTubePlayer) => void) => {
+    const yt = linkRef.current;
+    if (!yt) return;
+    try {
+      fn(yt);
+    } catch {
+      // 유튜브 창이 준비되지 않았다 — 맞추기가 곧 다시 잡는다
+    }
+  };
   const [linkPlaying, setLinkPlaying] = useState(false);
   /** 붙인 영상을 유튜브가 막았다(올린 사람이 다른 사이트 재생을 꺼 둠) — 소리는 음원이 그대로 낸다 */
   const [linkBlocked, setLinkBlocked] = useState(false);
-  useEffect(() => setLinkBlocked(false), [linkedId]);
+  useEffect(() => {
+    setLinkBlocked(false);
+    // 영상을 바꾸면 옛 창은 사라진다 — 새 창이 준비되면(onReady) 다시 쥔다
+    return () => {
+      linkRef.current = null;
+    };
+  }, [linkedId]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // YouTube 곡에서 영상 대신 소리를 내는 반주 트랙
   const instRef = useRef<HTMLAudioElement | null>(null);
@@ -129,6 +145,12 @@ export function PlayerPane({
   const [ytBlocked, setYtBlocked] = useState(false);
   useEffect(() => setYtBlocked(false), [result.id]);
   const useYouTube = isYouTube && !ytBlocked;
+  /* 유튜브 창을 내렸으면(영상을 바꿨다·막혔다) 그 재생기를 놓는다. 쥐고 있으면
+     재생·멈춤·시각이 사라진 창을 불러 「Cannot read properties of null」로 멈추고,
+     음원이 재생되지 않았다(강사님: 「바꾼 영상 제어도 음원 플레이어가」) */
+  useEffect(() => {
+    if (!useYouTube) ytRef.current = null;
+  }, [useYouTube]);
   // 반주. 기기에 받아 둔 것이 있으면 그것을, 없으면 서버 것을 쓴다.
   // 공유 폴더에서 곡을 받은 수강생은 서버 없이도 보컬을 끌 수 있다.
   const [localInst, setLocalInst] = useState<string | null>(null);
@@ -326,6 +348,13 @@ export function PlayerPane({
   useEffect(() => {
     if (!linkedId) return;
     const timer = setInterval(() => {
+      try {
+        followLink();
+      } catch {
+        // 유튜브 창이 아직 없거나 사라졌다 — 다음 번에 다시 본다
+      }
+    }, 700);
+    const followLink = () => {
       const yt = linkRef.current;
       const a = audioRef.current;
       if (!yt || !a || !yt.getCurrentTime) return;
@@ -343,7 +372,7 @@ export function PlayerPane({
       if (run && state !== 1 && state !== 3) yt.playVideo?.();
       if (!run && state === 1) yt.pauseVideo?.();
       if (yt.isMuted && !yt.isMuted()) yt.mute?.();
-    }, 700);
+    };
     return () => clearInterval(timer);
   }, [linkedId]);
 
@@ -454,20 +483,23 @@ export function PlayerPane({
         wantPlayRef.current = true;
         // 링크 영상도 함께 — 자리는 아래 맞추기가 곧 잡아 준다
         const lt = toVideo(audioRef.current?.currentTime ?? 0);
-        if (lt >= 0) {
-          linkRef.current?.seekTo?.(lt, true);
-          linkRef.current?.playVideo?.();
-        }
+        if (lt >= 0)
+          linkSafe((yt) => {
+            yt.seekTo?.(lt, true);
+            yt.playVideo?.();
+          });
       }}
       onPause={() => {
         playingRef.current = false;
-        linkRef.current?.pauseVideo?.();
+        linkSafe((yt) => yt.pauseVideo?.());
       }}
       onSeeked={(e) => {
-        linkRef.current?.seekTo?.(Math.max(toVideo(e.currentTarget.currentTime), 0), true);
+        const to = Math.max(toVideo(e.currentTarget.currentTime), 0);
+        linkSafe((yt) => yt.seekTo?.(to, true));
       }}
       onRateChange={(e) => {
-        linkRef.current?.setPlaybackRate?.(e.currentTarget.playbackRate * mapRef.current.scale);
+        const r = e.currentTarget.playbackRate * mapRef.current.scale;
+        linkSafe((yt) => yt.setPlaybackRate?.(r));
       }}
     />
   );
