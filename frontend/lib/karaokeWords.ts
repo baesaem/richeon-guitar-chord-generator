@@ -41,14 +41,14 @@ export function syllablesFromWords(
     .slice()
     .sort((a, b) => a.t - b.t);
 
-  // 가사 글자 — 어느 줄인지, 뒤에 띄어 쓰는지
-  const lyr: { ch: string; line: number; space: boolean }[] = [];
+  // 가사 글자 — 어느 줄인지, 뒤에 띄어 쓰는지, 줄 안 자리(영어 낱말 묶기용)
+  const lyr: { ch: string; line: number; space: boolean; at: number }[] = [];
   sorted.forEach((l, li) => {
     const chars = [...l.text];
     chars.forEach((ch, k) => {
       if (!isChar(ch)) return;
       const next = chars.slice(k + 1).find((c) => c === " " || isChar(c));
-      lyr.push({ ch, line: li, space: next === undefined || next === " " });
+      lyr.push({ ch, line: li, space: next === undefined || next === " ", at: k });
     });
   });
 
@@ -154,10 +154,25 @@ export function syllablesFromWords(
   // 뒤 글자가 앞 글자보다 앞서지 않게
   for (let k = 1; k < n; k++) out[k] = Math.max(out[k], out[k - 1] + 0.05);
 
-  return lyr.map((c, k) => ({
-    t: +out[k].toFixed(3),
-    text: c.ch,
-    space: c.space,
-    line: c.line,
-  }));
+  /* 영어(라틴 글자)는 낱말 하나를 한 음절로 묶는다(강사님: 「영어 가사일 경우도
+     단어별로 — Tell Me If You Wanna Go Home」). 짝짓기는 글자로 해야 정확해서
+     글자별로 시각을 매긴 뒤, 같은 낱말의 글자를 첫 글자 시각으로 모은다. 글은
+     줄에서 그대로 잘라 와 따옴표·붙임표(Don't·rock-n-roll)도 살린다 */
+  const out2: KaraokeSyl[] = [];
+  for (let k = 0; k < n; k++) {
+    const c = lyr[k];
+    if (!isLatin(c.ch)) {
+      out2.push({ t: +out[k].toFixed(3), text: c.ch, space: c.space, line: c.line });
+      continue;
+    }
+    let e = k;
+    while (e + 1 < n && !lyr[e].space && lyr[e + 1].line === c.line && isLatin(lyr[e + 1].ch)) e++;
+    const text = [...sorted[c.line].text].slice(c.at, lyr[e].at + 1).join("");
+    out2.push({ t: +out[k].toFixed(3), text, space: lyr[e].space, line: c.line });
+    k = e;
+  }
+  return out2;
 }
+
+/** 라틴 글자(영어 따위)인가 — 낱말로 묶어 부른다 */
+const isLatin = (ch: string) => /\p{Script=Latin}/u.test(ch);

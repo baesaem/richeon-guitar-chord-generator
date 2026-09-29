@@ -27,6 +27,33 @@ export interface KaraokeChord {
  * 매 화면(프레임)마다 다시 그리지 않는다 — 글자·파형은 한 번 깔아 두고 띠만
  * 옮긴다(transform). 곡 하나에 글자가 수백 개라 다시 그리면 버벅인다.
  */
+/**
+ * 글이 띠에서 차지할 폭 어림(픽셀). 한글·한자는 거의 정사각, 알파벳·숫자는 그 절반
+ * 남짓 — 모두 한글 폭으로 재면 영어 낱말 사이가 크게 벌어졌다
+ */
+function textWidth(s: string, font: number): number {
+  let w = 0;
+  for (const ch of s) {
+    if (/[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(ch)) w += 1.04;
+    else if (/[A-Z]/.test(ch)) w += 0.72;
+    else if (/[\p{L}\p{N}]/u.test(ch)) w += 0.6;
+    else w += 0.35;
+  }
+  return w * font;
+}
+
+/** 줄을 부를 토막으로 — 한글은 글자 하나, 영어(라틴)는 낱말 하나. space는 뒤에 띄어 씀 */
+function tokensOf(line: string): { text: string; space: boolean }[] {
+  const out: { text: string; space: boolean }[] = [];
+  const re = /\p{Script=Latin}[\p{Script=Latin}'’\-]*|\S/gu;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line))) {
+    const end = m.index + m[0].length;
+    out.push({ text: m[0], space: end >= line.length || /\s/.test(line[end]) });
+  }
+  return out;
+}
+
 export function KaraokeBand({
   lines,
   chords,
@@ -117,26 +144,30 @@ export function KaraokeBand({
             {s.text}
           </span>,
         );
-        edge = x + font * 1.04 * [...s.text].length + (s.space ? font * 0.3 : 0);
+        edge = x + textWidth(s.text, font) + (s.space ? font * 0.3 : 0);
       });
     } else {
       sorted.forEach((line, li) => {
-        const chars = [...line.text];
-        const n = Math.max(chars.length, 1);
-        /* 한 글자에 1초까지만 준다 — 줄의 끝 시각이 다음 줄 앞까지 늘어나 간주를
-           덮는 곡이 있다(「할아버지와 수박」 한 줄이 108~132초). 그대로 펴면
+        /* 한글은 한 글자씩, 영어는 낱말 하나씩(강사님: 「영어 가사도 단어별로」) —
+           알파벳을 한 글자씩 펴면 「T·e·l·l」로 흘렀다 */
+        const toks = tokensOf(line.text);
+        const n = Math.max(toks.length, 1);
+        /* 한 마디(토막)에 1초까지만 준다 — 줄의 끝 시각이 다음 줄 앞까지 늘어나
+           간주를 덮는 곡이 있다(「할아버지와 수박」 한 줄이 108~132초). 그대로 펴면
            서버 없는 기기(수강생)에서 글자가 간주 중에 흘렀다 */
-        const letters = Math.max(chars.filter((c) => c !== " ").length, 1);
-        const span = Math.min(line.end - line.t, letters * 1.0);
-        // 글자가 겹치지 않을 만큼은 벌린다(빽빽한 줄은 제 시간보다 조금 길어진다)
-        const step = Math.max(span / n, (font * 1.04) / pps);
-        chars.forEach((ch, k) => {
-          if (ch === " ") return;
+        const span = Math.min(line.end - line.t, n * 1.0);
+        const step = span / n;
+        let edge = -Infinity;
+        toks.forEach((tk, k) => {
+          // 앞 토막과 겹치지 않을 만큼은 벌린다(빽빽한 줄은 제 시간보다 조금 길어진다)
+          let x = (line.t + k * step) * pps;
+          if (x < edge) x = edge;
           text.push(
-            <span key={`${li}.${k}`} className="absolute" style={{ left: (line.t + k * step) * pps }}>
-              {ch}
+            <span key={`${li}.${k}`} className="absolute whitespace-nowrap" style={{ left: x }}>
+              {tk.text}
             </span>,
           );
+          edge = x + textWidth(tk.text, font) + (tk.space ? font * 0.3 : 0);
         });
       });
     }
