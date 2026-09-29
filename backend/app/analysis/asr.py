@@ -56,6 +56,40 @@ def _cache_path(audio_id: str):
     return settings.audio_dir / f"{audio_id}.words.json"
 
 
+#: 알아낸 언어가 이 가운데 없으면 한국어로 받아 적는다(이 앱의 곡 대부분)
+_LANGS = ("ko", "en", "ja", "zh")
+
+
+def _detect_language(vocals: str) -> str:
+    """보컬이 가장 큰 30초로 노래의 언어를 알아낸다.
+
+    예전에는 늘 한국어(ko)로 받아 적었다. 영어 노래(「Tell Me If You Wanna Go Home」
+    「Lost Stars」)는 한글 낱말을 지어내고 곡 중간부터 받아쓰기가 끊겼다. Whisper는 앞
+    30초로 언어를 가리는데, 보컬 트랙의 앞은 전주라 비어 있다 — 가장 큰 30초를 골라 묻는다.
+    """
+    try:
+        import numpy as np
+        import whisper
+
+        model = _load()
+        audio = whisper.load_audio(vocals)
+        sr = whisper.audio.SAMPLE_RATE
+        n = 30 * sr
+        if len(audio) > n:
+            hop = 5 * sr
+            energy = [float(np.mean(audio[i : i + n] ** 2)) for i in range(0, len(audio) - n, hop)]
+            start = int(np.argmax(energy)) * hop
+            audio = audio[start : start + n]
+        mel = whisper.log_mel_spectrogram(
+            whisper.pad_or_trim(audio), n_mels=model.dims.n_mels
+        ).to(model.device)
+        _, probs = model.detect_language(mel)
+        best = max(_LANGS, key=lambda k: probs.get(k, 0.0))
+        return best if probs.get(best, 0.0) > 0.3 else "ko"
+    except Exception:
+        return "ko"
+
+
 def transcribe_words(audio_id: str) -> list[Word]:
     """보컬 트랙을 단어 단위 시각과 함께 받아 적는다.
 
@@ -75,9 +109,10 @@ def transcribe_words(audio_id: str) -> list[Word]:
     if not vocals.exists():
         return []
 
+    language = _detect_language(str(vocals))
     result = _load().transcribe(
         str(vocals),
-        language="ko",
+        language=language,
         word_timestamps=True,
         # 반주 구간에서 직전 가사를 되풀이하는 환각을 막는다. 문맥을 이어
         # 주면 정확도가 살짝 오르지만, 노래에서는 환각 쪽 손해가 훨씬 크다.
