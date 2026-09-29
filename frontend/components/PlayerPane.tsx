@@ -72,6 +72,17 @@ const SYNC_MAX_NUDGE = 0.04;
  */
 const HEADROOM = 0.8;
 
+/**
+ * 유튜브 창을 위아래로 두 배 늘려 가운데만 보인다(강사님: 「유튜브 화면에 보이는 타이틀
+ * 등 정보 표시 감추기」).
+ *
+ * 영상 제목·채널·「공유」「나중에 볼 동영상」·유튜브 표시는 유튜브 창의 **위아래 가장자리**에
+ * 붙어 나오고, 퍼가기 설정으로는 끌 수 없다. 창을 두 배 높이로 그리면 영상은 폭에 맞춰
+ * 가운데에 그대로 있고(위아래는 검은 여백), 가장자리의 알림들은 상자 밖으로 밀려
+ * 잘린다. 영상 그림은 하나도 잘리지 않는다
+ */
+const YT_CROP = "absolute inset-x-0 -top-1/2 h-[200%]";
+
 export function PlayerPane({
   result,
   onReady,
@@ -425,7 +436,7 @@ export function PlayerPane({
         >
           <YouTube
             videoId={result.id}
-            className="h-full w-full"
+            className={YT_CROP}
             iframeClassName="h-full w-full"
             /* controls 0 — 유튜브의 재생 줄을 걷는다. 재생·탐색은 아래
                우리 단추가 맡고 있어 두 벌일 까닭이 없다 */
@@ -558,7 +569,7 @@ export function PlayerPane({
         >
           <YouTube
             videoId={linkedId}
-            className="h-full w-full"
+            className={YT_CROP}
             iframeClassName="h-full w-full"
             opts={{
               playerVars: {
