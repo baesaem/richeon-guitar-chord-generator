@@ -166,6 +166,126 @@ function marksToAbc(content: string, codaJump = false): string {
   return out;
 }
 
+/**
+ * 성부 하나(또는 마디 글 전체)의 음표·쉼표. 코드 이름은 뒤따르는 음에 붙인다.
+ */
+function parseEvents(
+  content: string,
+  ratios: Map<string, number>,
+): { events: NoteEv[]; keysig: number | null } {
+  const events: NoteEv[] = [];
+  let pendingHarmony: NoteEv["harmony"] = null;
+  let keysig: number | null = null;
+  const elRe = /<(KeySig|Harmony|Chord|Rest)>([\s\S]*?)<\/\1>/g;
+  let e: RegExpExecArray | null;
+  while ((e = elRe.exec(content))) {
+    const tag = e[1];
+    const inner = e[2];
+    if (tag === "KeySig") {
+      // 뮤즈스코어 3은 <accidental>, 4는 <concertKey>에 조표(♯ 수)를 적는다 —
+      // 4 악보(「가족사진」 사장조)가 다장조로 읽혔다
+      keysig = +(inner.match(/<(?:accidental|concertKey)>(-?\d+)/) ?? [0, 0])[1];
+    } else if (tag === "Harmony") {
+      pendingHarmony = {
+        root: (inner.match(/<root>(-?\d+)/) ?? [])[1],
+        name: (inner.match(/<name>([^<]*)/) ?? [])[1] ?? "",
+        base: (inner.match(/<base>(-?\d+)/) ?? [])[1],
+      };
+    } else {
+      const dt = (inner.match(/<durationType>([^<]+)/) ?? [])[1];
+      const dots = +((inner.match(/<dots>(\d+)/) ?? [])[1] ?? 0);
+      let units: number;
+      if (dt === "measure") {
+        const frac = inner.match(/<duration>(\d+)\/(\d+)/) ?? [];
+        units = frac[1] ? (16 * +frac[1]) / +frac[2] : 16;
+      } else {
+        units = DUR[dt ?? ""] ?? 4;
+        if (dots === 1) units *= 1.5;
+        if (dots === 2) units *= 1.75;
+      }
+      const inTuplet = inner.match(/<Tuplet>(\d+)<\/Tuplet>/);
+      const tuplet = inTuplet ? ratios.get(inTuplet[1]) : undefined;
+      if (tag === "Rest") {
+        events.push({
+          type: "rest", units, notes: [], tuplet,
+          lyric: null, lyric2: null, harmony: pendingHarmony,
+        });
+      } else {
+        const notes = [...inner.matchAll(/<Note>([\s\S]*?)<\/Note>/g)].map(
+          (nm) => {
+            const ni = nm[1];
+            const fret = ni.match(/<fret>(\d+)/);
+            const string = ni.match(/<string>(\d+)/);
+            return {
+              midi: +(ni.match(/<pitch>(\d+)/) ?? [0, 0])[1],
+              tpc: +(ni.match(/<tpc>(-?\d+)/) ?? [0, 14])[1],
+              tie: /<Tie[\s>]/.test(ni),
+              // 타브 보표에만 있다. 0번 줄이 맨 윗줄(가는 1번 줄)이다
+              fret: fret ? +fret[1] : null,
+              string: string ? +string[1] : null,
+            };
+          },
+        );
+        const lyrics: Record<number, string> = {};
+        for (const lm of inner.matchAll(/<Lyrics>([\s\S]*?)<\/Lyrics>/g)) {
+          const verse = +((lm[1].match(/<no>(\d+)/) ?? [])[1] ?? 0);
+          let text = (lm[1].match(/<text>([^<]*)/) ?? [])[1] ?? "";
+          const syl = (lm[1].match(/<syllabic>([^<]*)/) ?? [])[1];
+          if (syl === "begin" || syl === "middle") text += "-";
+          lyrics[verse] = text;
+        }
+        const verses: (string | null)[] = [];
+        for (const [k, v] of Object.entries(lyrics)) verses[+k] = v;
+        events.push({
+          type: "note", units, notes, tuplet,
+          lyric: lyrics[0] ?? null, lyric2: lyrics[1] ?? null,
+          verses,
+          harmony: pendingHarmony,
+        });
+      }
+      pendingHarmony = null;
+    }
+  }
+  return { events, keysig };
+}
+
+/**
+ * 성부가 여럿인 마디에서 멜로디로 쓸 성부(마디 차례 → 성부 차례). 이어진 겹성부
+ * 마디를 한 덩어리로 보고 가사가 가장 많은 성부를 끝까지 고른다 — 마디마다
+ * 고르면 멜로디가 두 성부 사이를 오간다. 서버(score_file._melody_voices)와 같은 규칙
+ */
+function melodyVoices(contents: string[]): Map<number, number> {
+  const pick = new Map<number, number>();
+  let run: number[] = [];
+  const close = () => {
+    if (!run.length) return;
+    const score: [number, number][] = [];
+    for (const i of run) {
+      (contents[i].match(/<voice>[\s\S]*?<\/voice>/g) ?? []).forEach((v, vi) => {
+        const s = (score[vi] ??= [0, 0]);
+        s[0] += (v.match(/<Lyrics>/g) ?? []).length;
+        s[1] += (v.match(/<Chord>/g) ?? []).length;
+      });
+    }
+    let best = 0;
+    score.forEach((s, vi) => {
+      const b = score[best];
+      if (s[0] > b[0] || (s[0] === b[0] && s[1] > b[1])) best = vi;
+    });
+    for (const i of run) {
+      const n = (contents[i].match(/<voice>/g) ?? []).length;
+      pick.set(i, best < n ? best : 0);
+    }
+    run = [];
+  };
+  contents.forEach((c, i) => {
+    if ((c.match(/<voice>/g) ?? []).length > 1) run.push(i);
+    else close();
+  });
+  close();
+  return pick;
+}
+
 function parseStaff(body: string): Measure[] {
   // 코다 표가 둘 이상이면 되돌이는 코다로 건너뛰는 것이다(marksToAbc 참고)
   const codaJump = (body.match(/<label>codab?<\/label>/g) ?? []).length >= 2;
@@ -173,6 +293,9 @@ function parseStaff(body: string): Measure[] {
   const firstCodaAtStart =
     codaJump && (body.match(/<label>(codab?)<\/label>/) ?? [])[1] === "codab";
   const measures: Measure[] = [];
+  const picks = melodyVoices(
+    [...body.matchAll(/<Measure[^>]*>([\s\S]*?)<\/Measure>/g)].map((m) => m[1]),
+  );
   for (const mm of body.matchAll(/<Measure([^>]*)>([\s\S]*?)<\/Measure>/g)) {
     const content = mm[2];
     /* 셋잇단은 마디 앞에 <Tuplet id="185">로 한 번 적어 두고, 그 안의
@@ -183,78 +306,37 @@ function parseStaff(body: string): Measure[] {
       const actual = +((t[2].match(/<actualNotes>(\d+)/) ?? [])[1] ?? 0);
       if (normal > 0 && actual > 0) ratios.set(t[1], normal / actual);
     }
-    const events: NoteEv[] = [];
-    let pendingHarmony: NoteEv["harmony"] = null;
-    let keysig: number | null = null;
-    const elRe = /<(KeySig|Harmony|Chord|Rest)>([\s\S]*?)<\/\1>/g;
-    let e: RegExpExecArray | null;
-    while ((e = elRe.exec(content))) {
-      const tag = e[1];
-      const inner = e[2];
-      if (tag === "KeySig") {
-        // 뮤즈스코어 3은 <accidental>, 4는 <concertKey>에 조표(♯ 수)를 적는다 —
-        // 4 악보(「가족사진」 사장조)가 다장조로 읽혔다
-        keysig = +(inner.match(/<(?:accidental|concertKey)>(-?\d+)/) ?? [0, 0])[1];
-      } else if (tag === "Harmony") {
-        pendingHarmony = {
-          root: (inner.match(/<root>(-?\d+)/) ?? [])[1],
-          name: (inner.match(/<name>([^<]*)/) ?? [])[1] ?? "",
-          base: (inner.match(/<base>(-?\d+)/) ?? [])[1],
-        };
-      } else {
-        const dt = (inner.match(/<durationType>([^<]+)/) ?? [])[1];
-        const dots = +((inner.match(/<dots>(\d+)/) ?? [])[1] ?? 0);
-        let units: number;
-        if (dt === "measure") {
-          const frac = inner.match(/<duration>(\d+)\/(\d+)/) ?? [];
-          units = frac[1] ? (16 * +frac[1]) / +frac[2] : 16;
-        } else {
-          units = DUR[dt ?? ""] ?? 4;
-          if (dots === 1) units *= 1.5;
-          if (dots === 2) units *= 1.75;
-        }
-        const inTuplet = inner.match(/<Tuplet>(\d+)<\/Tuplet>/);
-        const tuplet = inTuplet ? ratios.get(inTuplet[1]) : undefined;
-        if (tag === "Rest") {
-          events.push({
-            type: "rest", units, notes: [], tuplet,
-            lyric: null, lyric2: null, harmony: pendingHarmony,
-          });
-        } else {
-          const notes = [...inner.matchAll(/<Note>([\s\S]*?)<\/Note>/g)].map(
-            (nm) => {
-              const ni = nm[1];
-              const fret = ni.match(/<fret>(\d+)/);
-              const string = ni.match(/<string>(\d+)/);
-              return {
-                midi: +(ni.match(/<pitch>(\d+)/) ?? [0, 0])[1],
-                tpc: +(ni.match(/<tpc>(-?\d+)/) ?? [0, 14])[1],
-                tie: /<Tie[\s>]/.test(ni),
-                // 타브 보표에만 있다. 0번 줄이 맨 윗줄(가는 1번 줄)이다
-                fret: fret ? +fret[1] : null,
-                string: string ? +string[1] : null,
-              };
-            },
-          );
-          const lyrics: Record<number, string> = {};
-          for (const lm of inner.matchAll(/<Lyrics>([\s\S]*?)<\/Lyrics>/g)) {
-            const verse = +((lm[1].match(/<no>(\d+)/) ?? [])[1] ?? 0);
-            let text = (lm[1].match(/<text>([^<]*)/) ?? [])[1] ?? "";
-            const syl = (lm[1].match(/<syllabic>([^<]*)/) ?? [])[1];
-            if (syl === "begin" || syl === "middle") text += "-";
-            lyrics[verse] = text;
+    /* 한 보표에 성부가 둘인 마디(듀엣·코러스)는 멜로디 성부 하나만 담는다.
+       둘 다 담았더니 음표가 두 배인 마디가 되어 그 줄만 길게 그려지고, 악보
+       전체가 좁아져 오른쪽이 비고 줄 끝이 들쭉날쭉했다(「Tell Me If You Wanna
+       Go Home」 74~81·104~109마디). 다른 성부에 적힌 코드는 같은 박 자리의
+       음으로 옮긴다 */
+    const voices = content.match(/<voice>[\s\S]*?<\/voice>/g) ?? [];
+    const pick = picks.get(measures.length) ?? 0;
+    const main = parseEvents(voices.length > 1 ? voices[pick] : content, ratios);
+    const events = main.events;
+    let keysig = main.keysig;
+    if (voices.length > 1) {
+      voices.forEach((v, vi) => {
+        if (vi === pick) return;
+        const other = parseEvents(v, ratios);
+        if (keysig === null) keysig = other.keysig;
+        let pos = 0;
+        const starts = events.map((ev) => {
+          const at = pos;
+          pos += ev.units * (ev.tuplet ?? 1);
+          return at;
+        });
+        let at = 0;
+        for (const ev of other.events) {
+          if (ev.harmony) {
+            let k = starts.length - 1;
+            while (k > 0 && starts[k] > at + 1e-6) k--;
+            if (k >= 0 && !events[k].harmony) events[k].harmony = ev.harmony;
           }
-          const verses: (string | null)[] = [];
-          for (const [k, v] of Object.entries(lyrics)) verses[+k] = v;
-          events.push({
-            type: "note", units, notes, tuplet,
-            lyric: lyrics[0] ?? null, lyric2: lyrics[1] ?? null,
-            verses,
-            harmony: pendingHarmony,
-          });
+          at += ev.units * (ev.tuplet ?? 1);
         }
-        pendingHarmony = null;
-      }
+      });
     }
     measures.push({
       events, keysig,

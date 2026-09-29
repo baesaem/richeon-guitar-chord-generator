@@ -149,6 +149,44 @@ def _chord_label(el: ET.Element) -> str | None:
     return name
 
 
+def _melody_voices(measures: list[ET.Element]) -> dict[int, int]:
+    """성부가 여럿인 마디에서 멜로디로 쓸 성부(0부터). 적지 않은 마디는 첫 성부.
+
+    듀엣·코러스 자리는 한 보표에 두 성부로 적힌다(「Tell Me If You Wanna Go
+    Home」 74~81·104~109마디). 두 성부를 한 마디에 함께 담았더니 음표가 두 배로
+    늘어난 마디가 되어, 그 줄만 길게 그려지고 악보 전체가 좁아졌다(오른쪽 여백).
+    이어진 겹성부 마디를 한 덩어리로 보고, 가사가 가장 많이 달린 성부 하나를
+    끝까지 고른다 — 마디마다 고르면 멜로디가 두 성부 사이를 오간다.
+    """
+    pick: dict[int, int] = {}
+    run: list[int] = []
+
+    def close() -> None:
+        if not run:
+            return
+        score: dict[int, tuple[int, int]] = {}
+        for i in run:
+            for vi, voice in enumerate(measures[i].findall("voice")):
+                ly, notes = score.get(vi, (0, 0))
+                score[vi] = (
+                    ly + len(voice.findall("Chord/Lyrics")),
+                    notes + len(voice.findall("Chord")),
+                )
+        # 가사 → 음표 수 → 앞 성부 차례
+        best = max(score, key=lambda v: (score[v][0], score[v][1], -v))
+        for i in run:
+            pick[i] = best if best < len(measures[i].findall("voice")) else 0
+        run.clear()
+
+    for i, m_el in enumerate(measures):
+        if len(m_el.findall("voice")) > 1:
+            run.append(i)
+        else:
+            close()
+    close()
+    return pick
+
+
 def parse(data: bytes | str, staff: int = 0) -> Score:
     """악보 파일을 읽는다. staff는 혼성 악보에서 쓸 보표(0부터)."""
     if isinstance(data, str):
@@ -187,6 +225,7 @@ def parse(data: bytes | str, staff: int = 0) -> Score:
     if not 0 <= staff < len(staves):
         raise ValueError(f"보표가 {len(staves)}개뿐입니다 (고른 것: {staff + 1}번째)")
     measures = staves[staff].findall("Measure")
+    pick = _melody_voices(measures)
 
     fifths = 0
     time_signature = "4/4"
@@ -224,7 +263,10 @@ def parse(data: bytes | str, staff: int = 0) -> Score:
                 bar.end_repeat = 2
 
         # 마디 안의 자리(박). 성부가 여럿이면 각 voice가 처음부터 다시 센다.
-        for voice in m_el.findall("voice"):
+        for vi, voice in enumerate(m_el.findall("voice")):
+            # 멜로디로 고르지 않은 성부는 음표·쉼표를 담지 않고 자리만 센다
+            # (그 성부에 적힌 코드·조표·빠르기는 그대로 읽는다)
+            keep = vi == pick.get(index - 1, 0)
             at = 0.0
             tuplet_ratio = 1.0
             pending_lyrics: list[tuple[int, str]] = []
@@ -286,13 +328,15 @@ def parse(data: bytes | str, staff: int = 0) -> Score:
                 if tag == "Rest":
                     dt = _text(el, "durationType", "quarter")
                     if dt == "measure":
-                        bar.rests.append(ScoreRest(beat=at, dur=bar.beats))
+                        if keep:
+                            bar.rests.append(ScoreRest(beat=at, dur=bar.beats))
                         at = bar.beats
                     else:
                         d = _DUR.get(dt, 1.0) * tuplet_ratio * _dot_factor(el)
-                        bar.rests.append(
-                            ScoreRest(beat=at, dur=d, tuplet=tuplet_ratio)
-                        )
+                        if keep:
+                            bar.rests.append(
+                                ScoreRest(beat=at, dur=d, tuplet=tuplet_ratio)
+                            )
                         at += d
                     continue
 
@@ -301,6 +345,9 @@ def parse(data: bytes | str, staff: int = 0) -> Score:
 
                 dt = _text(el, "durationType", "quarter")
                 dur = _DUR.get(dt, 1.0) * tuplet_ratio * _dot_factor(el)
+                if not keep:
+                    at += dur
+                    continue
 
                 # 화음이면 가장 높은 음이 멜로디다
                 pitches = [int(p) for p in

@@ -231,6 +231,11 @@ export function AbcScore({
       // barNumbers는 abcjs가 받는 값인데 타입 정의에 빠져 있다
       const params = {
         responsive: "resize",
+        /* 가사가 빽빽해 740에 안 들어가는 줄이 있으면 abcjs는 그 줄부터 뒤로만
+           넓혀 그려, 앞줄은 좁고 뒷줄은 넓어 줄 끝이 들쭉날쭉하고 오른쪽이
+           비었다(강사님: 「Tell Me If You Wanna Go Home」). 가장 넓은 줄에 모든
+           줄을 맞춰 다시 그리게 한다 */
+        expandToWidest: true,
         add_classes: true,
         visualTranspose: transpose,
         /* 한 줄 마디 수를 줄이면 그만큼 좁게 그린다 — 화면 폭에 맞춰 늘려
