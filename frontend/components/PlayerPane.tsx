@@ -113,6 +113,8 @@ export function PlayerPane({
    * 되는데 영상 플레이가 안 됨」)
    */
   const [linkWait, setLinkWait] = useState<"before" | "after" | null>(null);
+  /** 붙인 영상이 버퍼링에 걸린 채 지나간 맞추기 횟수(0.7초마다) */
+  const stuckRef = useRef(0);
   useEffect(() => {
     setLinkBlocked(false);
     // 영상을 바꾸면 옛 창은 사라진다 — 새 창이 준비되면(onReady) 다시 쥔다
@@ -373,12 +375,29 @@ export function PlayerPane({
       const dur = yt.getDuration?.() || Infinity;
       const inside = want >= 0 && want < dur - 0.3;
       const at = Math.min(Math.max(want, 0), Math.max(dur - 0.3, 0));
-      if (Math.abs(t - at) > SYNC_JUMP) yt.seekTo?.(at, true);
       const state = yt.getPlayerState?.();
       const run = playingRef.current && inside;
       setLinkWait(inside ? null : want < 0 ? "before" : "after");
+      /* 영상이 음원보다 짧아 먼저 끝났다(0 = 끝남). 끝난 영상은 시각을 0으로 알려 줘
+         예전에는 0.7초마다 끝자리로 다시 옮기고, 옮기면 유튜브가 스스로 켜서 끝→처음→
+         끝을 되풀이하다 「버퍼링」에 걸려 곡을 다시 틀어도 영상이 멈춰 있었다(강사님:
+         「바꾼 영상이 음원보다 짧으면 영상 정지」). 음원이 영상 밖이면 끝난 채로 둔다 */
+      if (!inside && want > 0 && state === 0) {
+        stuckRef.current = 0;
+        return;
+      }
+      if (Math.abs(t - at) > SYNC_JUMP || (inside && state === 0)) yt.seekTo?.(at, true);
+      // 버퍼링(3)이 3초 넘게 풀리지 않으면 한 번 더 켠다
+      if (run && state === 3) {
+        stuckRef.current += 1;
+        if (stuckRef.current > 4) {
+          stuckRef.current = 0;
+          yt.seekTo?.(at, true);
+          yt.playVideo?.();
+        }
+      } else stuckRef.current = 0;
       if (run && state !== 1 && state !== 3) yt.playVideo?.();
-      if (!run && state === 1) yt.pauseVideo?.();
+      if (!run && (state === 1 || state === 3)) yt.pauseVideo?.();
       if (yt.isMuted && !yt.isMuted()) yt.mute?.();
     };
     return () => clearInterval(timer);
@@ -493,6 +512,8 @@ export function PlayerPane({
         const lt = toVideo(audioRef.current?.currentTime ?? 0);
         if (lt >= 0)
           linkSafe((yt) => {
+            // 영상 끝을 지난 자리면 끝난 채로 둔다(켜면 처음부터 돈다)
+            if (lt >= (yt.getDuration?.() || Infinity) - 0.3) return;
             yt.seekTo?.(lt, true);
             yt.playVideo?.();
           });
@@ -555,7 +576,15 @@ export function PlayerPane({
               // 음원 전주가 영상보다 길면 영상은 제자리에서 기다린다(맞추기가 켠다)
               if (e.data === 1 && audioRef.current && toVideo(audioRef.current.currentTime) < 0)
                 e.target.pauseVideo?.();
-              if ((e.data === 2 || e.data === 0) && playingRef.current) e.target.playVideo?.();
+              /* 음원이 도는데 영상이 멈췄으면 다시 켠다 — 영상 끝(0)을 지났으면 켜지 않는다
+                 (켜면 처음부터 다시 돈다) */
+              const inVideo = () => {
+                const v = toVideo(audioRef.current?.currentTime ?? 0);
+                return v >= 0 && v < (e.target.getDuration?.() || Infinity) - 0.3;
+              };
+              if (e.data === 2 && playingRef.current && inVideo()) e.target.playVideo?.();
+              if (e.data === 0 && playingRef.current && inVideo())
+                e.target.seekTo?.(Math.max(toVideo(audioRef.current?.currentTime ?? 0), 0), true);
             }}
           />
           {!linkPlaying && (
