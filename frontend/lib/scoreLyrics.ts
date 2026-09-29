@@ -51,8 +51,31 @@ function lengthOf(s: string): number {
 /** 셋잇단 (p — p개를 몇 개 자리에 넣나 */
 const TUPLET_IN: Record<number, number> = { 2: 3, 3: 2, 4: 3, 5: 2, 6: 2, 7: 2, 8: 3, 9: 2 };
 
+/** 마디 글의 음표·쉼표 하나 — 글 안 자리(char)와 박 자리(at·len, 4분음표 수) */
+export interface BarToken {
+  at: number;
+  len: number;
+  /** 마디 글에서 이 음표가 시작하는 글자 자리 */
+  char: number;
+  /** 부르는 음(쉼표가 아니다) */
+  sung: boolean;
+  /** 뒤 음과 붙임줄(-)로 이어진다 */
+  tieOut: boolean;
+}
+
+/** 마디 글의 음표·쉼표를 차례로(코드 이름을 적을 자리·가사를 붙일 음표를 찾는 데) */
+export function barTokens(text: string, unit: number): { tokens: BarToken[]; total: number } {
+  const tokens: BarToken[] = [];
+  const { total } = slotsOfBar(text, unit, tokens);
+  return { tokens, total };
+}
+
 /** 마디 글에서 가사를 받는 음표마다 자리와 길이. unit = L 한 칸의 4분음표 수 */
-function slotsOfBar(text: string, unit: number): { slots: Slot[]; total: number } {
+function slotsOfBar(
+  text: string,
+  unit: number,
+  tokens?: BarToken[],
+): { slots: Slot[]; total: number } {
   const slots: Slot[] = [];
   let t = 0;
   let tuplet = 0;
@@ -124,6 +147,13 @@ function slotsOfBar(text: string, unit: number): { slots: Slot[]; total: number 
       tuplet -= 1;
     }
     if (sung) slots.push({ at: t * unit, len: len * unit });
+    tokens?.push({
+      at: t * unit,
+      len: len * unit,
+      char: i,
+      sung,
+      tieOut: text[i + used] === "-",
+    });
     t += len;
     i += used;
   }
@@ -160,7 +190,7 @@ function syllablesOf(
 }
 
 /** 머리글의 L:(음표 한 칸). 없으면 ABC 약속대로 1/8 */
-function unitOf(abc: string): number {
+export function unitOf(abc: string): number {
   const m = /^L:\s*(\d+)\s*\/\s*(\d+)/m.exec(abc);
   return m ? (4 * +m[1]) / +m[2] : 0.5;
 }
@@ -203,7 +233,7 @@ function scoreBars(abc: string): ScoreBar[] | null {
 const has = (v: string[] | undefined) => !!v?.some((s) => s.trim());
 
 /** 마디 안의 자리(0~1)를 음원 시각으로. 박 시각을 따라가 늘어난 마디도 맞춘다 */
-function timeIn(bar: Bar, f: number): number {
+export function timeIn(bar: Bar, f: number): number {
   const pts = [...bar.beatTimes, bar.end];
   const n = pts.length - 1;
   if (n <= 0) return bar.start;

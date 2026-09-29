@@ -22,6 +22,7 @@ import { TvCast } from "@/components/TvCast";
 import { KARAOKE_FOLDER, assignFolder } from "@/lib/folders";
 import { syllablesFromAbc, type KaraokeSyl } from "@/lib/karaokeSyllables";
 import { syllablesFromWords } from "@/lib/karaokeWords";
+import { abcFromAudio } from "@/lib/abcFromAudio";
 import { fitToVocal } from "@/lib/karaokeVocal";
 import { getVocalTiming } from "@/lib/vocalStore";
 import { unmarkRemoved } from "@/lib/removed";
@@ -2401,6 +2402,60 @@ export default function Home() {
   const [askExit, setAskExit] = useState(false);
   // 「영상 바꾸기」 창 — 강사 전용(관리자 모드에서만 단추가 보인다)
   const [videoSwap, setVideoSwap] = useState(false);
+  const [fillBusy, setFillBusy] = useState(false);
+
+  /**
+   * 음원의 가사·코드를 멜로디 악보에 적어 넣는다(강사님: 「Lost Stars — 악보에도 가사를
+   * 넣어 줘, 코드도 붙여」). 보컬에서 뽑은 악보에는 둘 다 없다. 가사는 받아쓴 낱말 시각에
+   * 맞춘 음절(노래방과 같은 셈)을, 코드는 분석한 코드를 음표 시각에 맞춰 놓는다
+   */
+  const fillScoreFromAudio = async () => {
+    const entry = result ? getAbc(result.id) : null;
+    if (!result || !entry?.abc || !bars.length) return;
+    const hadLyrics = /\nw:/.test(entry.abc);
+    const hadChords = /"(?![\^_<>@])[^"]+"/.test(entry.abc);
+    if (
+      (hadLyrics || hadChords) &&
+      !window.confirm(
+        "악보에 있던 가사·코드를 걷고 음원의 가사·코드로 다시 적습니다. 이어 할까요?\n(지금 악보는 기기에 백업해 둡니다)",
+      )
+    )
+      return;
+    setFillBusy(true);
+    try {
+      let syllables = null;
+      if (result.lyrics?.length) {
+        const timing = getVocalTiming(result.id);
+        const words = timing?.words?.length
+          ? timing.words
+          : await getWords(result.id).then((r) => r.words).catch(() => []);
+        if (words.length) syllables = syllablesFromWords(result.lyrics, words);
+      }
+      // 한 박이 안 되게 튀는 코드는 빼고, 음원 조 그대로(화면에서 음높이만큼 옮겨 보인다)
+      const chords = (shown ?? result).chords
+        .filter((c) => c.root && c.end - c.start >= 0.6)
+        .map((c) => ({ start: c.start, label: chordText(c, 0, flats, exactLabels) }));
+      const out = abcFromAudio(entry.abc, bars, entry.barOffset ?? 0, { syllables, chords });
+      if (!out) {
+        setToast("악보를 읽지 못해 넣지 못했습니다");
+        return;
+      }
+      try {
+        localStorage.setItem(`chordgen.abc.backup.${result.id}.beforeFill`, JSON.stringify(entry));
+      } catch {
+        // 백업을 못 적어도 넣기는 한다
+      }
+      saveAbc(result.id, out.abc, entry.barOffset ?? 0);
+      setAbcFollow(result.id, true);
+      setAbcEntry(getAbc(result.id));
+      setToast(
+        `악보에 가사 ${out.words}곳 · 코드 ${out.chords}곳을 넣었습니다` +
+          (syllables ? "" : " (받아쓴 낱말 시각이 없어 가사는 넣지 못했습니다 — 서버를 켜 주세요)"),
+      );
+    } finally {
+      setFillBusy(false);
+    }
+  };
   // popstate는 한 번만 붙인다. 지금 상태는 ref로 들여다본다.
   const backState = useRef({ showSheet, showStrums, editBar, tab });
   backState.current = { showSheet, showStrums, editBar, tab };
@@ -3480,6 +3535,14 @@ export default function Home() {
                              안내줄 오른쪽이 잘렸다(강사님: 「레이블 잘림」). 「ABC」는 앞의
                              단추 하나에만 */
                           <span className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                            <button
+                              className="shrink-0 rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--foreground)] disabled:opacity-50"
+                              title="음원의 가사(받아쓴 낱말 시각)와 분석한 코드를 악보 음표 시각에 맞춰 적어 넣습니다"
+                              disabled={fillBusy}
+                              onClick={() => void fillScoreFromAudio()}
+                            >
+                              {fillBusy ? "넣는 중…" : "가사·코드 넣기"}
+                            </button>
                             <button
                               className="shrink-0 rounded bg-[var(--chip)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--foreground)]"
                               title="ABC 악보 원문을 고칩니다"
