@@ -219,7 +219,9 @@ export function AbcScore({
       /* 코드만 따로 옮길 때는 코드 이름을 먼저 옮겨 두고, 음표는 abcjs가
          transpose만큼 옮긴다(abcjs는 코드도 함께 옮기므로 그 차이만) */
       const extra = chordShift === undefined ? 0 : chordShift - transpose;
-      const moved = extra ? transposeAbcChords(abc, extra) : abc;
+      const shifted = extra ? transposeAbcChords(abc, extra) : abc;
+      // 코드 없음(N.C.)은 악보에 적지 않는다(강사님) — 저장된 악보는 그대로 두고 그릴 때만
+      const moved = shifted.replace(/"\s*[Nn]\.?\s*[Cc]\.?\s*"/g, "");
       /* 마디 위 메모는 그릴 때만 덧말("^…")로 끼운다 — abcjs가 줄 사이에
          자리를 비워 두어 윗줄 가사와 겹치지 않는다 */
       const m = memosRef.current;

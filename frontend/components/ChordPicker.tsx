@@ -135,7 +135,12 @@ export function ChordPicker({
           </div>
           {current && (
             <div className="mt-0.5 text-[11px] text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">
-              지금: <ChordLabel label={labelFor(current.root, current.quality, flats)} />
+              지금:{" "}
+              {current.root && current.quality !== "N" ? (
+                <ChordLabel label={labelFor(current.root, current.quality, flats)} />
+              ) : (
+                "없음"
+              )}
             </div>
           )}
           <p className="mt-1 text-[10px] leading-snug text-[color-mix(in_srgb,var(--foreground)_55%,transparent)]">

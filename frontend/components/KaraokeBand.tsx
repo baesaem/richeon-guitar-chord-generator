@@ -1,5 +1,6 @@
 "use client";
 
+import { isNoChord } from "@/components/ChordLabel";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { KaraokeSyl } from "@/lib/karaokeSyllables";
@@ -176,6 +177,8 @@ export function KaraokeBand({
     chords.forEach((c, i) => {
       if (c.label === last) return;
       last = c.label;
+      // 코드 없음(N.C.)은 적지 않는다
+      if (isNoChord(c.label)) return;
       marks.push(
         <span
           key={`c${i}`}

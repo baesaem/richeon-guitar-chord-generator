@@ -1,12 +1,20 @@
 import type { ReactNode } from "react";
 
 /**
+ * 「N.C.」(코드 없음)인가 — 어느 화면에도 적지 않는다(강사님: 「코드의 N.C. 표시 삭제」).
+ * 잡을 코드처럼 읽히고, 전주·간주 자리만 어지럽혔다. 「N.C」「NC」「n.c.」도 같다
+ */
+export const isNoChord = (label: string | null | undefined): boolean =>
+  /^\s*n\.?\s*c\.?\s*$/i.test(label ?? "");
+
+/**
  * 코드 라벨 표시.
  *
  * ♭·♯ 임시표를 위첨자로 올려 실제 악보처럼 보이게 한다.
  * 문자열 자체는 notation.spell()이 이미 기호로 바꿔 준 상태다.
  */
 export function ChordLabel({ label }: { label: string }) {
+  if (isNoChord(label)) return null;
   /* 숫자(7·9·5·add9의 9)는 작게 적는다. 뿌리음과 같은 크기면 E7이 「E」와
      「7」 두 코드처럼 읽히고, 칸이 좁은 그리드에서는 뿌리음이 밀려 잘린다.
      ♭·♯은 조금 올려 작게 — 악보에 적는 방식 그대로다 */
@@ -38,6 +46,7 @@ export function ChordLabel({ label }: { label: string }) {
  * 악보·타브처럼 SVG로 그리는 화면도 그리드와 같은 모양이어야 한다.
  */
 export function chordLabelSvg(label: string): ReactNode {
+  if (isNoChord(label)) return null;
   return label
     .split(/([♭♯]|\d+)/)
     .filter(Boolean)
