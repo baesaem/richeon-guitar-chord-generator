@@ -106,6 +106,13 @@ export function PlayerPane({
   const [linkPlaying, setLinkPlaying] = useState(false);
   /** 붙인 영상을 유튜브가 막았다(올린 사람이 다른 사이트 재생을 꺼 둠) — 소리는 음원이 그대로 낸다 */
   const [linkBlocked, setLinkBlocked] = useState(false);
+  /**
+   * 음원의 지금 자리가 붙인 영상에 없다 — 영상이 곡 앞부분을 빼고 시작하거나(영화
+   * 장면: 「Tell Me If You Wanna Go Home」 클립은 음원 1:02부터) 먼저 끝났다.
+   * 그동안 영상은 첫(끝) 장면에 멈춰 기다린다 — 까닭을 적어 둔다(강사님: 「음원은
+   * 되는데 영상 플레이가 안 됨」)
+   */
+  const [linkWait, setLinkWait] = useState<"before" | "after" | null>(null);
   useEffect(() => {
     setLinkBlocked(false);
     // 영상을 바꾸면 옛 창은 사라진다 — 새 창이 준비되면(onReady) 다시 쥔다
@@ -369,6 +376,7 @@ export function PlayerPane({
       if (Math.abs(t - at) > SYNC_JUMP) yt.seekTo?.(at, true);
       const state = yt.getPlayerState?.();
       const run = playingRef.current && inside;
+      setLinkWait(inside ? null : want < 0 ? "before" : "after");
       if (run && state !== 1 && state !== 3) yt.playVideo?.();
       if (!run && state === 1) yt.pauseVideo?.();
       if (yt.isMuted && !yt.isMuted()) yt.mute?.();
@@ -569,6 +577,13 @@ export function PlayerPane({
                 </span>
               </span>
             </button>
+          )}
+          {!linkBlocked && linkWait && (
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-black/65 px-2 py-1 text-center text-[11px] leading-snug text-white">
+              {linkWait === "before"
+                ? `영상은 음원 ${clock(-(videoOffset ?? 0) / (videoScale || 1))}부터 나옵니다 — 이 영상에는 곡 앞부분이 없습니다`
+                : "영상이 먼저 끝났습니다 — 소리는 음원이 이어 냅니다"}
+            </div>
           )}
           {linkBlocked && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1.5 text-center text-[11px] leading-snug text-white">

@@ -54,16 +54,21 @@ export function VideoSwap({ result, onSave, onClose }: Props) {
         Math.abs(r.offset) < 0.05
           ? "영상과 음원이 같은 자리에서 시작합니다"
           : r.offset > 0
-            ? `영상이 음원보다 ${r.offset.toFixed(1)}초 늦게 시작합니다(앞 장면)`
-            : `영상이 음원보다 ${(-r.offset).toFixed(1)}초 먼저 시작합니다`;
+            ? `영상에 앞 장면이 ${r.offset.toFixed(1)}초 더 있어 그만큼 건너뛰고 맞춥니다`
+            : "맞는 자리를 찾았습니다";
       const speed =
         Math.abs((r.scale || 1) - 1) > 0.001
           ? ` · 영상이 ${Math.abs((r.scale - 1) * 100).toFixed(1)}% ${r.scale > 1 ? "빠릅니다" : "느립니다"}`
           : "";
+      // 영상이 곡 몇 초부터 나오는가(영상 0초 = 음원 이 자리)
+      const from = -r.offset / (r.scale || 1);
+      const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
       const part =
-        r.share < 0.8
-          ? ` · 곡의 ${Math.round(r.share * 100)}%만 영상과 맞습니다(편집된 영상) — 맞지 않는 곳에서는 영상이 기다리거나 어긋납니다`
-          : "";
+        from > 1
+          ? ` · 영상은 음원 ${mmss(from)}부터 나옵니다 — 그 앞부분은 이 영상에 없어 그동안 영상이 첫 장면에서 기다립니다`
+          : r.share < 0.8
+            ? ` · 곡의 ${Math.round(r.share * 100)}%만 영상과 맞습니다(편집된 영상) — 맞지 않는 곳에서는 영상이 어긋납니다`
+            : "";
       setNote(
         r.confidence < 0.3
           ? `소리가 잘 겹치지 않습니다(다른 녹음·라이브일 수 있음) — 찾은 값: ${fmt(r.offset)}. 재생해 보며 ± 로 맞춰 주세요`
