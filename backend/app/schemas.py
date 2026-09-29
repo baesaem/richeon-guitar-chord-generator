@@ -159,6 +159,8 @@ class AnalysisResult(BaseModel):
     #: 뮤직비디오는 앞에 장면이 몇 초 더 있거나 다른 판이라 조금 빠르다(「영상만 교체」)
     video_offset: float | None = None
     video_scale: float | None = None
+    #: 「음악 시간 자동 맞추기」를 켰는가 — 끄면 영상 0초가 음원 0초(offset·scale을 쓰지 않는다)
+    video_auto: bool | None = None
 
     # 타임라인에 그릴 파형 포락선. 0~1로 정규화된 값이 초당 peaks_per_second개.
     peaks: list[float] = []

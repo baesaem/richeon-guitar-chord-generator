@@ -184,6 +184,8 @@ export interface AnalysisResult {
    */
   video_offset?: number | null;
   video_scale?: number | null;
+  /** 「음악 시간 자동 맞추기」를 켰는가 — 끄면 영상 0초 = 음원 0초(맞춘 값은 남겨 둔다) */
+  video_auto?: boolean | null;
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;

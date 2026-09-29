@@ -2988,12 +2988,25 @@ export default function Home() {
             <VideoSwap
               result={result}
               onClose={() => setVideoSwap(false)}
-              onSave={({ url, offset, scale }) => {
+              onReset={() => {
+                // 곡에 적힌 바꾸기 값을 모두 지운다 — 창은 열어 두고 새 링크를 받는다
+                const next: AnalysisResult = {
+                  ...result,
+                  video_url: null,
+                  video_offset: null,
+                  video_scale: null,
+                  video_auto: null,
+                };
+                adoptResult(next);
+                pushToServer(next);
+              }}
+              onSave={({ url, offset, scale, auto }) => {
                 const next: AnalysisResult = {
                   ...result,
                   video_url: url,
                   video_offset: url ? offset : null,
                   video_scale: url && Math.abs(scale - 1) > 0.001 ? scale : null,
+                  video_auto: url ? auto : null,
                 };
                 adoptResult(next);
                 pushToServer(next);
