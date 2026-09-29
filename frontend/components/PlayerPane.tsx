@@ -91,7 +91,13 @@ export function PlayerPane({
      곡 자신의 영상을 붙인 것은 바꾼 것이 아니다 */
   const ownId = result.source === "youtube" ? result.id : null;
   const pickedId = youtubeIdOf(videoUrl);
-  const linkedId = pickedId && pickedId !== ownId ? pickedId : null;
+  /* 영상을 바꾼 유튜브 곡은 소리를 곡의 음원(서버·기기 파일)이 낸다. 그 파일을 못
+     받으면(서버 꺼짐·곡을 지웠다 다시 받음) 소리가 안 났다(강사님: 「영상바꿈 음원
+     플레이 안 됨」) — 그때는 원래 유튜브 영상으로 돌아가 소리와 그림을 함께 낸다 */
+  const [ownAudioFailed, setOwnAudioFailed] = useState(false);
+  useEffect(() => setOwnAudioFailed(false), [result.id, videoUrl]);
+  const linkedId =
+    pickedId && pickedId !== ownId && !(ownId && ownAudioFailed) ? pickedId : null;
   /** 음원 시각 → 붙인 영상의 시각 */
   const mapRef = useRef({ offset: 0, scale: 1 });
   mapRef.current = { offset: videoOffset ?? 0, scale: videoScale || 1 };
@@ -502,6 +508,10 @@ export function PlayerPane({
       ref={audioRef}
       className="w-full"
       src={audioSrc}
+      onError={() => {
+        // 유튜브 곡인데 음원 파일을 못 받았다 — 원래 영상(소리 포함)으로 돌아간다
+        if (ownId && linkedId) setOwnAudioFailed(true);
+      }}
       onLoadedMetadata={(e) => {
         e.currentTarget.volume = HEADROOM;
         publish();

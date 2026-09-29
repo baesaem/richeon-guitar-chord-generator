@@ -625,6 +625,18 @@ async def get_audio(result_id: str) -> FileResponse:
     _guard_id(result_id)
 
     path = _source_audio(result_id)
+    # 유튜브 곡의 원본이 없으면(곡을 지웠다 다시 받았다·캐시를 비웠다) 그 자리에서 다시
+    # 받는다. 영상을 바꾼 유튜브 곡은 소리를 이 원본이 내므로, 없으면 소리가 안 났다
+    # (강사님: 「영상바꿈 음원 플레이 안 됨」)
+    if path is None and re.fullmatch(r"[A-Za-z0-9_-]{11}", result_id) and settings.enable_youtube:
+        async def _quiet(*_args) -> None:
+            return None
+
+        try:
+            fetched = await YouTubeSource(f"https://www.youtube.com/watch?v={result_id}").fetch(_quiet)
+            path = fetched.path
+        except Exception as exc:
+            logging.getLogger(__name__).warning("유튜브 원본 다시 받기 실패 %s: %s", result_id, exc)
     if path is None:
         raise HTTPException(404, "오디오를 찾을 수 없습니다")
     # 동영상으로 등록한 곡은 원본이 영상(mp4 289MB 따위)이다. 그대로 내주면 PC에서는
