@@ -46,6 +46,8 @@ interface Props {
    */
   videoOffset?: number | null;
   videoScale?: number | null;
+  /** 강사(관리자 모드)인가 — 「영상 바꾸기」 안내는 강사에게만(수강생은 못 바꾼다) */
+  admin?: boolean;
 }
 
 /**
@@ -78,6 +80,7 @@ export function PlayerPane({
   videoUrl = null,
   videoOffset = null,
   videoScale = null,
+  admin = false,
 }: Props) {
   const ytRef = useRef<YouTubePlayer | null>(null);
   /* 링크 영상(음소거) — 업로드 곡의 그림만 맡는다. 시각의 주인은 아래 <audio>다.
@@ -616,8 +619,9 @@ export function PlayerPane({
           )}
           {linkBlocked && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1.5 text-center text-[11px] leading-snug text-white">
-              붙인 영상은 올린 사람이 다른 사이트 재생을 막아 볼 수 없습니다 — 소리는 그대로
-              나옵니다. 「영상 바꾸기」에서 다른 영상을 골라 주세요
+              {admin
+                ? "붙인 영상은 올린 사람이 다른 사이트 재생을 막아 볼 수 없습니다 — 소리는 그대로 나옵니다. 「영상 바꾸기」에서 다른 영상을 골라 주세요"
+                : "영상을 볼 수 없습니다 — 소리는 그대로 나옵니다"}
             </div>
           )}
           {/* 영상 위 손가락 조작도 음원을 몬다(강사님: 「바꾼 영상 제어도 음원 플레이어가」) —

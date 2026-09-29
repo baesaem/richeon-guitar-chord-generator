@@ -3945,6 +3945,7 @@ export default function Home() {
                       videoUrl={result.video_url}
                       videoOffset={result.video_offset}
                       videoScale={result.video_scale}
+                      admin={settings.adminMode}
                     />
                   }
                   score={
@@ -4443,6 +4444,7 @@ export default function Home() {
                           videoUrl={result.video_url}
                           videoOffset={result.video_offset}
                           videoScale={result.video_scale}
+                      admin={settings.adminMode}
                         />
                       </section>
 
