@@ -34,6 +34,8 @@ interface ScoreBar {
   notes: number;
   /** 절마다 음표 하나에 한 음절(없으면 "") */
   verses: string[][];
+  /** 절마다 그 음절이 앞 음절에 붙임표(-)로 이어진 같은 낱말인가 */
+  joins: boolean[][];
 }
 
 /** 음표 길이 글(「2」「/2」「3/2」「//」)을 L 단위 배수로 */
@@ -129,19 +131,32 @@ function slotsOfBar(text: string, unit: number): { slots: Slot[]; total: number 
 }
 
 /** `w:` 줄을 음표 하나에 한 음절씩. 「사-랑」은 두 음절, 「*」「_」는 빈 자리 */
-function syllablesOf(line: string): string[] {
-  const out: string[] = [];
+/*
+ * joins는 그 음절이 앞 음절과 붙임표로 이어진 같은 낱말인가 — 빈 자리(붙임줄로
+ * 끄는 음)를 건너서도 잇는다(「wa- * nna」 = wanna). carry는 앞 가사 줄 끝의
+ * 붙임표를 다음 줄로 넘겨 받는 자리(「lone-」 ⏎ 「* * ly」)
+ */
+function syllablesOf(
+  line: string,
+  carry: { open: boolean },
+): { syls: string[]; joins: boolean[] } {
+  const syls: string[] = [];
+  const joins: boolean[] = [];
   for (const tok of line.replace(/^w:\s*/, "").split(/\s+/)) {
     if (!tok || tok === "|") continue;
     const parts = tok.split("-");
     // 끝의 「-」는 다음 음절로 이어진다는 표시일 뿐 — 빈 조각을 버린다
-    if (parts.length > 1 && parts[parts.length - 1] === "") parts.pop();
-    for (const p of parts) {
+    const open = parts.length > 1 && parts[parts.length - 1] === "";
+    if (open) parts.pop();
+    parts.forEach((p, i) => {
       const s = p.replace(/[_*]/g, "").replace(/~/g, " ").replace(/\\/g, "");
-      out.push(s);
-    }
+      syls.push(s);
+      joins.push(i > 0 || (!!s && carry.open));
+      if (s) carry.open = false;
+    });
+    if (open || parts.length > 1) carry.open = open;
   }
-  return out;
+  return { syls, joins };
 }
 
 /** 머리글의 L:(음표 한 칸). 없으면 ABC 약속대로 1/8 */
@@ -159,13 +174,16 @@ function scoreBars(abc: string): ScoreBar[] | null {
   const out: ScoreBar[] = [];
   let group: ScoreBar[] = [];
   let verse = 0;
+  // 절마다 앞 줄 끝의 붙임표를 이어 받는다
+  const carry: { open: boolean }[] = [];
   for (const line of lines.slice(k + 1)) {
     if (!line.trim()) continue;
     if (/^w:/.test(line)) {
-      const syls = syllablesOf(line);
+      const { syls, joins } = syllablesOf(line, (carry[verse] ??= { open: false }));
       let at = 0;
       for (const b of group) {
         b.verses[verse] = syls.slice(at, at + b.notes);
+        b.joins[verse] = joins.slice(at, at + b.notes);
         at += b.notes;
       }
       verse += 1;
@@ -174,7 +192,7 @@ function scoreBars(abc: string): ScoreBar[] | null {
     if (/^(%|[A-Za-z]:)/.test(line)) continue;
     group = barsOfLine(line).map((seg) => {
       const { slots, total } = slotsOfBar(seg.text, unit);
-      return { slots, total, notes: seg.notes, verses: [] };
+      return { slots, total, notes: seg.notes, verses: [], joins: [] };
     });
     out.push(...group);
     verse = 0;
@@ -262,6 +280,8 @@ interface Syl {
   end: number;
   /** 곡 머리부터 4분음표 몇 개째 */
   pos: number;
+  /** 악보에서 앞 음절과 붙임표로 이어진 같은 낱말인가 */
+  join: boolean;
 }
 
 /** 숨 쉬는 자리 — 앞 음절에서 이만큼(4분음표) 넘게 비면 줄을 끊는다 */
@@ -373,6 +393,7 @@ function placeSyllables(
       }
     }
     const words = b.verses[v] ?? [];
+    const joins = b.joins[v] ?? [];
     const even = b.slots.length !== b.notes || !(b.total > 0);
     for (let i = 0; i < b.notes; i++) {
       const s = words[i]?.trim();
@@ -386,6 +407,7 @@ function placeSyllables(
         t: timeIn(bar, slot.at / total),
         end: timeIn(bar, (slot.at + slot.len) / total),
         pos: start + slot.at,
+        join: !!joins[i],
       });
     }
   });
@@ -400,8 +422,18 @@ function placeSyllables(
   }
   const source = (spacing ?? []).map((l) => l.text).join(" ");
   const gaps = spacingFrom(chars, source);
+  /* 영어 따위(라틴 글자)는 악보 가사가 낱말을 이미 가른다 — 붙임표로 이은
+     음절만 한 낱말이고 나머지는 띄운다. 빌려 온 띄어쓰기를 쓰면 한 번 붙은
+     낱말(「maybeyou」「aheartthat'sjust」)이 다음에도 그대로 빌려 와졌다 */
+  const latin = (t: string) => /\p{Script=Latin}/u.test(t);
   const wordStart = syls.map((s, i) =>
-    i === 0 ? true : gaps ? gaps[firstChar[i]] : s.pos - syls[i - 1].pos >= 1.5,
+    i === 0
+      ? true
+      : latin(s.text) || latin(syls[i - 1].text)
+        ? !s.join
+        : gaps
+          ? gaps[firstChar[i]]
+          : s.pos - syls[i - 1].pos >= 1.5,
   );
   return { syls, wordStart };
 }
