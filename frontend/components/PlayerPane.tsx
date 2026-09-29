@@ -40,6 +40,12 @@ interface Props {
    * 음소거로 음원에 맞춰 플레이」). 유튜브 곡(source=youtube)에는 쓰지 않는다.
    */
   videoUrl?: string | null;
+  /**
+   * 붙인 영상의 시각 — 영상 시각 = videoOffset + videoScale × 음원 시각(「영상만
+   * 교체」). 뮤직비디오는 앞에 장면이 더 있거나(인트로) 다른 판이라 조금 빠르다.
+   */
+  videoOffset?: number | null;
+  videoScale?: number | null;
 }
 
 /**
@@ -70,13 +76,27 @@ export function PlayerPane({
   compact = false,
   stem = "off",
   videoUrl = null,
+  videoOffset = null,
+  videoScale = null,
 }: Props) {
   const ytRef = useRef<YouTubePlayer | null>(null);
   /* 링크 영상(음소거) — 업로드 곡의 그림만 맡는다. 시각의 주인은 아래 <audio>다.
      유튜브 재생기 참조는 따로 둔다(ytRef는 「유튜브가 시각의 주인」인 길이 쓴다) */
   const linkRef = useRef<YouTubePlayer | null>(null);
-  const linkedId = result.source === "youtube" ? null : youtubeIdOf(videoUrl);
+  /* 유튜브 곡에도 다른 영상을 붙일 수 있다(강사님: 「현재 음원에 유튜브 영상만
+     교체」) — 그때는 곡의 음원이 소리를 내고 붙인 영상은 음소거로 따라간다.
+     곡 자신의 영상을 붙인 것은 바꾼 것이 아니다 */
+  const ownId = result.source === "youtube" ? result.id : null;
+  const pickedId = youtubeIdOf(videoUrl);
+  const linkedId = pickedId && pickedId !== ownId ? pickedId : null;
+  /** 음원 시각 → 붙인 영상의 시각 */
+  const mapRef = useRef({ offset: 0, scale: 1 });
+  mapRef.current = { offset: videoOffset ?? 0, scale: videoScale || 1 };
+  const toVideo = (t: number) => mapRef.current.offset + mapRef.current.scale * t;
   const [linkPlaying, setLinkPlaying] = useState(false);
+  /** 붙인 영상을 유튜브가 막았다(올린 사람이 다른 사이트 재생을 꺼 둠) — 소리는 음원이 그대로 낸다 */
+  const [linkBlocked, setLinkBlocked] = useState(false);
+  useEffect(() => setLinkBlocked(false), [linkedId]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // YouTube 곡에서 영상 대신 소리를 내는 반주 트랙
   const instRef = useRef<HTMLAudioElement | null>(null);
@@ -92,7 +112,7 @@ export function PlayerPane({
   const wantPlayRef = useRef(false);
   const rateRef = useRef(1);
 
-  const isYouTube = result.source === "youtube";
+  const isYouTube = result.source === "youtube" && !linkedId;
   /* 유튜브의 겉치레(제목·채널·나중에 볼 것·공유)는 멈춰 있을 때 나온다.
      그 자리를 곡의 장면 사진으로 덮는다 — 재생 중에만 영상을 그대로
      보이고, 멈추면 사진이 겉치레를 가린다. 지우는 것이 아니라 가리는
@@ -311,10 +331,17 @@ export function PlayerPane({
       if (!yt || !a || !yt.getCurrentTime) return;
       const t = yt.getCurrentTime();
       if (typeof t !== "number") return;
-      if (Math.abs(t - a.currentTime) > SYNC_JUMP) yt.seekTo?.(a.currentTime, true);
+      /* 음원의 이 자리가 영상에서는 어디인가. 영상에 없는 자리(음원 전주가 영상보다
+         길다·영상이 먼저 끝났다)면 영상은 끝자리에 멈춰 둔다 */
+      const want = toVideo(a.currentTime);
+      const dur = yt.getDuration?.() || Infinity;
+      const inside = want >= 0 && want < dur - 0.3;
+      const at = Math.min(Math.max(want, 0), Math.max(dur - 0.3, 0));
+      if (Math.abs(t - at) > SYNC_JUMP) yt.seekTo?.(at, true);
       const state = yt.getPlayerState?.();
-      if (playingRef.current && state !== 1 && state !== 3) yt.playVideo?.();
-      if (!playingRef.current && state === 1) yt.pauseVideo?.();
+      const run = playingRef.current && inside;
+      if (run && state !== 1 && state !== 3) yt.playVideo?.();
+      if (!run && state === 1) yt.pauseVideo?.();
       if (yt.isMuted && !yt.isMuted()) yt.mute?.();
     }, 700);
     return () => clearInterval(timer);
@@ -426,17 +453,21 @@ export function PlayerPane({
         playingRef.current = true;
         wantPlayRef.current = true;
         // 링크 영상도 함께 — 자리는 아래 맞추기가 곧 잡아 준다
-        linkRef.current?.playVideo?.();
+        const lt = toVideo(audioRef.current?.currentTime ?? 0);
+        if (lt >= 0) {
+          linkRef.current?.seekTo?.(lt, true);
+          linkRef.current?.playVideo?.();
+        }
       }}
       onPause={() => {
         playingRef.current = false;
         linkRef.current?.pauseVideo?.();
       }}
       onSeeked={(e) => {
-        linkRef.current?.seekTo?.(e.currentTarget.currentTime, true);
+        linkRef.current?.seekTo?.(Math.max(toVideo(e.currentTarget.currentTime), 0), true);
       }}
       onRateChange={(e) => {
-        linkRef.current?.setPlaybackRate?.(e.currentTarget.playbackRate);
+        linkRef.current?.setPlaybackRate?.(e.currentTarget.playbackRate * mapRef.current.scale);
       }}
     />
   );
@@ -471,12 +502,19 @@ export function PlayerPane({
               e.target.mute?.();
               noCaptions(e.target);
             }}
+            onError={(e) => {
+              // 101·150: 퍼가기 금지, 100: 지워졌거나 비공개
+              if ([100, 101, 150].includes(e.data)) setLinkBlocked(true);
+            }}
             onStateChange={(e) => {
               if (e.data === 1) noCaptions(e.target);
               setLinkPlaying(e.data === 1 || e.data === 3);
               /* 유튜브는 자리를 옮기면 스스로 켜지기도 한다 — 음원이 멈춰 있으면
                  도로 멈춘다. 음원이 도는데 유튜브가 멈췄으면(버퍼링 뒤) 다시 켠다 */
               if (e.data === 1 && !playingRef.current) e.target.pauseVideo?.();
+              // 음원 전주가 영상보다 길면 영상은 제자리에서 기다린다(맞추기가 켠다)
+              if (e.data === 1 && audioRef.current && toVideo(audioRef.current.currentTime) < 0)
+                e.target.pauseVideo?.();
               if ((e.data === 2 || e.data === 0) && playingRef.current) e.target.playVideo?.();
             }}
           />
@@ -500,6 +538,14 @@ export function PlayerPane({
               </span>
             </button>
           )}
+          {linkBlocked && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1.5 text-center text-[11px] leading-snug text-white">
+              붙인 영상은 올린 사람이 다른 사이트 재생을 막아 볼 수 없습니다 — 소리는 그대로
+              나옵니다. 「영상 바꾸기」에서 다른 영상을 골라 주세요
+            </div>
+          )}
+          {/* 영상 위 손가락 조작도 음원을 몬다(강사님: 「바꾼 영상 제어도 음원 플레이어가」) —
+              유튜브 창에는 손이 닿지 않게 덮는다 */}
           <VideoTouch pb={getPb} duration={result.duration} />
         </div>
         {audio}

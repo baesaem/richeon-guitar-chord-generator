@@ -80,6 +80,8 @@ import { measureOutputLatency } from "@/lib/latency";
 import { stemKey, type StemChoice } from "@/lib/sharedFiles";
 import { parseLabel } from "@/lib/editChords";
 import { Popup } from "@/components/Popup";
+import { VideoSwap } from "@/components/VideoSwap";
+import { youtubeIdOf } from "@/lib/videoLink";
 import { PlaySettings, SeekBar } from "@/components/TransportBar";
 import { StrumPickModal } from "@/components/StrumPick";
 import { ChordsTab } from "@/components/tabs/ChordsTab";
@@ -2397,6 +2399,8 @@ export default function Home() {
    * 도로 채워 넣는 식으로 붙잡는다.
    */
   const [askExit, setAskExit] = useState(false);
+  // 「영상 바꾸기」 창 — 강사 전용(관리자 모드에서만 단추가 보인다)
+  const [videoSwap, setVideoSwap] = useState(false);
   // popstate는 한 번만 붙인다. 지금 상태는 ref로 들여다본다.
   const backState = useRef({ showSheet, showStrums, editBar, tab });
   backState.current = { showSheet, showStrums, editBar, tab };
@@ -2975,6 +2979,32 @@ export default function Home() {
                 나가기
               </button>
             </div>
+          </Popup>
+        )}
+
+        {/* 곡의 영상만 바꾼다 — 소리는 음원, 화면은 붙인 유튜브(음소거) */}
+        {videoSwap && result && (
+          <Popup title="영상 바꾸기" width="max-w-sm" onClose={() => setVideoSwap(false)}>
+            <VideoSwap
+              result={result}
+              onClose={() => setVideoSwap(false)}
+              onSave={({ url, offset, scale }) => {
+                const next: AnalysisResult = {
+                  ...result,
+                  video_url: url,
+                  video_offset: url ? offset : null,
+                  video_scale: url && Math.abs(scale - 1) > 0.001 ? scale : null,
+                };
+                adoptResult(next);
+                pushToServer(next);
+                setVideoSwap(false);
+                setToast(
+                  url
+                    ? "영상을 바꿨습니다 — 수강생에게는 강의실에 다시 올리면 전해집니다"
+                    : "원래 영상으로 돌렸습니다",
+                );
+              }}
+            />
           </Popup>
         )}
 
@@ -3900,6 +3930,8 @@ export default function Home() {
                       onReady={attachPlayback}
                       stem={stem}
                       videoUrl={result.video_url}
+                      videoOffset={result.video_offset}
+                      videoScale={result.video_scale}
                     />
                   }
                   score={
@@ -4282,6 +4314,8 @@ export default function Home() {
                   onVideoCompact={(v) =>
                     setSettings({ ...settings, videoCompact: v })
                   }
+                  onVideoSwap={settings.adminMode ? () => setVideoSwap(true) : undefined}
+                  videoSwapped={!!result.video_url && youtubeIdOf(result.video_url) !== (result.source === "youtube" ? result.id : null)}
                   viewTabs={
                     <span className="flex shrink-0 items-center gap-px">
                       {(
@@ -4394,6 +4428,8 @@ export default function Home() {
                           compact={settings.videoCompact}
                           stem={stem}
                           videoUrl={result.video_url}
+                          videoOffset={result.video_offset}
+                          videoScale={result.video_scale}
                         />
                       </section>
 

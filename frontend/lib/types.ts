@@ -178,6 +178,12 @@ export interface AnalysisResult {
    * 보내므로 링크를 붙여 두고, 재생 화면이 음소거 영상을 음원 시각에 맞춰 돌린다.
    */
   video_url?: string | null;
+  /**
+   * 붙인 영상의 시각 맞추기 — 영상 시각 = video_offset + video_scale × 음원 시각.
+   * 뮤직비디오는 앞에 장면이 더 있거나(인트로) 다른 판이라 조금 빠르다.
+   */
+  video_offset?: number | null;
+  video_scale?: number | null;
   /** 타임라인에 그릴 파형 포락선 (0~1) */
   peaks: number[];
   peaks_per_second: number;

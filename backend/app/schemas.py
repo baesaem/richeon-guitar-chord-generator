@@ -155,6 +155,10 @@ class AnalysisResult(BaseModel):
     #: 함께 볼 영상 링크(유튜브). 동영상 파일로 등록한 곡은 영상을 수강생에게 못 보내므로
     #: 링크를 붙여 두고, 재생 화면이 그 영상을 음소거로 음원 시각에 맞춰 돌린다(강사님)
     video_url: str | None = None
+    #: 붙인 영상의 시각 맞추기 — 영상 시각 = video_offset + video_scale × 음원 시각.
+    #: 뮤직비디오는 앞에 장면이 몇 초 더 있거나 다른 판이라 조금 빠르다(「영상만 교체」)
+    video_offset: float | None = None
+    video_scale: float | None = None
 
     # 타임라인에 그릴 파형 포락선. 0~1로 정규화된 값이 초당 peaks_per_second개.
     peaks: list[float] = []

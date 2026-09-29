@@ -40,6 +40,27 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** 바꿔 붙일 유튜브 영상이 음원보다 몇 초 늦은가 — 서버가 영상 소리를 받아 견준다 */
+export interface VideoAlign {
+  offset: number;
+  scale: number;
+  /** 겹침의 뚜렷함(0~1). 0.3 아래면 다른 녹음이라 손으로 맞춰야 한다 */
+  confidence: number;
+  /** 곡의 얼마만큼(0~1)이 이 맞춤에 맞는가 — 편집한 영상(영화 장면)이면 일부만 */
+  share: number;
+  video_duration: number;
+  video_title: string;
+  /** 다른 사이트(이 앱)에서 틀 수 있는가 — 올린 사람이 막아 두면 false */
+  embeddable: boolean;
+}
+
+export const alignVideo = (id: string, url: string) =>
+  fetch(`${apiBase()}/api/results/${encodeURIComponent(id)}/video-align`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  }).then(json<VideoAlign>);
+
 export const getHealth = () => fetch(`${apiBase()}/api/health`).then(json<Health>);
 
 export const analyzeUrl = (url: string, separate: boolean, force = false) =>

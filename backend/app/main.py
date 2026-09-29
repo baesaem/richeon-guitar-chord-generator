@@ -319,6 +319,28 @@ async def rename_result(result_id: str, body: dict) -> AnalysisResult:
     return result
 
 
+@app.post("/api/results/{result_id}/video-align")
+async def align_video(result_id: str, body: dict) -> dict:
+    """바꿔 붙일 유튜브 영상이 음원보다 몇 초 늦은가(영상 시각 = offset + scale × 음원 시각).
+
+    곡에 적지는 않는다 — 앱이 받아 보고 손으로 다듬은 뒤 곡과 함께 저장한다.
+    """
+    _guard_id(result_id)
+    url = str(body.get("url", "")).strip()
+    if not url:
+        raise HTTPException(400, "영상 주소가 비어 있습니다")
+    from . import video_align
+
+    try:
+        return await asyncio.to_thread(video_align.align, result_id, url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except YouTubeUnavailable as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
 @app.delete("/api/results/{result_id}")
 async def delete_result(result_id: str, full: bool = False) -> dict:
     """분석 결과를 지운다.
